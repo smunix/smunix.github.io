@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+
+<!-- Mirrored from www.cis.upenn.edu/~cis194/spring13/lectures/04-higher-order.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 13:54:08 GMT -->
+<head>
+  <META http-equiv="Content-Type" content="text/html; charset='UTF-8'">
+  <title>04-higher-order</title>
+
+  <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+  <link href="../css/style.html" rel="stylesheet" type="text/css"></link>
+</head>
+<body>
+
+  <div id="canvas">
+    <div id="nav"><p><strong>CIS 194</strong>: <a href="../index.html">Home</a> | <a href="../lectures.html">Lectures &amp; Assignments</a> | <a href="../policies.html">Policies</a> | <a href="../resources.html">Resources</a> | <a href="../final.html">Final Project</a></p></div>
+
+    <div id="content">
+      
+      <h1 id="higher-order-programming-and-type-inference">Higher-order programming and type inference</h1>
+<p>CIS 194 Week 4<br />4 February 2013</p>
+<p>Suggested reading:</p>
+<ul>
+<li><em>Learn You a Haskell for Great Good</em> chapter “Higher-Order Functions” (Chapter 5 in the printed book; <a href="../../../../learnyouahaskell.com/higher-order-functions.html">Chapter 6 online</a>)</li>
+</ul>
+<h2 id="anonymous-functions">Anonymous functions</h2>
+<p>Suppose we want to write a function</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">greaterThan100 ::</span> [<span class="dt">Integer</span>] <span class="ot">-&gt;</span> [<span class="dt">Integer</span>]</code></pre>
+<p>which keeps only those <code>Integers</code> from the input list which are greater than 100. For example,</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">greaterThan100 [<span class="dv">1</span>,<span class="dv">9</span>,<span class="dv">349</span>,<span class="dv">6</span>,<span class="dv">907</span>,<span class="dv">98</span>,<span class="dv">105</span>] <span class="fu">=</span> [<span class="dv">349</span>,<span class="dv">907</span>,<span class="dv">105</span>]<span class="fu">.</span></code></pre>
+<p>By now, we know a nice way to do this:</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="ot">gt100 ::</span> <span class="dt">Integer</span> <span class="ot">-&gt;</span> <span class="dt">Bool</span>
+gt100 x <span class="fu">=</span> x <span class="fu">&gt;</span> <span class="dv">100</span>
+
+<span class="ot">greaterThan100 ::</span> [<span class="dt">Integer</span>] <span class="ot">-&gt;</span> [<span class="dt">Integer</span>]
+greaterThan100 xs <span class="fu">=</span> <span class="fu">filter</span> gt100 xs</code></pre>
+<p>But it’s annoying to give <code>gt100</code> a name, since we are probably never going to use it again. Instead, we can use an <em>anonymous function</em>, also known as a <em>lambda abstraction</em>:</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="ot">greaterThan100_2 ::</span> [<span class="dt">Integer</span>] <span class="ot">-&gt;</span> [<span class="dt">Integer</span>]
+greaterThan100_2 xs <span class="fu">=</span> <span class="fu">filter</span> (\x <span class="ot">-&gt;</span> x <span class="fu">&gt;</span> <span class="dv">100</span>) xs</code></pre>
+<p><code>\x -&gt; x &gt; 100</code> (the backslash is supposed to look kind of like a lambda with the short leg missing) is the function which takes a single argument <code>x</code> and outputs whether <code>x</code> is greater than 100.</p>
+<p>Lambda abstractions can also have multiple arguments. For example:</p>
+<pre><code>Prelude&gt; (\x y z -&gt; [x,2*y,3*z]) 5 6 3
+[5,12,9]
+</code></pre>
+<p>However, in the particular case of <code>greaterThan100</code>, there’s an even better way to write it, without a lambda abstraction:</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="ot">greaterThan100_3 ::</span> [<span class="dt">Integer</span>] <span class="ot">-&gt;</span> [<span class="dt">Integer</span>]
+greaterThan100_3 xs <span class="fu">=</span> <span class="fu">filter</span> (<span class="fu">&gt;</span><span class="dv">100</span>) xs</code></pre>
+<p><code>(&gt;100)</code> is an <em>operator section</em>: if <code>?</code> is an operator, then <code>(?y)</code> is equivalent to the function <code>\x -&gt; x ? y</code>, and <code>(y?)</code> is equivalent to <code>\x -&gt; y ? x</code>. In other words, using an operator section allows us to <em>partially apply</em> an operator to one of its two arguments. What we get is a function of a single argument. Here are some examples:</p>
+<pre><code>Prelude&gt; (&gt;100) 102
+True
+Prelude&gt; (100&gt;) 102
+False
+Prelude&gt; map (*6) [1..5]
+[6,12,18,24,30]
+</code></pre>
+<h2 id="function-composition">Function composition</h2>
+<p>Before reading on, can you write down a function whose type is</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">(b <span class="ot">-&gt;</span> c) <span class="ot">-&gt;</span> (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> (a <span class="ot">-&gt;</span> c)</code></pre>
+<p>?</p>
+<p>Let’s try. It has to take two arguments, both of which are functions, and output a function.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">foo f g <span class="fu">=</span> <span class="fu">...</span></code></pre>
+<p>In the place of the <code>...</code> we need to write a function of type <code>a -&gt; c</code>. Well, we can create a function using a lambda abstraction:</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">foo f g <span class="fu">=</span> \x <span class="ot">-&gt;</span> <span class="fu">...</span></code></pre>
+<p><code>x</code> will have type <code>a</code>, and now in the <code>...</code> we need to write an expression of type <code>c</code>. Well, we have a function <code>g</code> which can turn an <code>a</code> into a <code>b</code>, and a function <code>f</code> which can turn a <code>b</code> into a <code>c</code>, so this ought to work:</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="ot">foo ::</span> (b <span class="ot">-&gt;</span> c) <span class="ot">-&gt;</span> (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> (a <span class="ot">-&gt;</span> c)
+foo f g <span class="fu">=</span> \x <span class="ot">-&gt;</span> f (g x)</code></pre>
+<p>(Quick quiz: why do we need the parentheses around <code>g x</code>?)</p>
+<p>OK, so what was the point of that? Does <code>foo</code> actually do anything useful or was that just a silly exercise in working with types?</p>
+<p>As it turns out, <code>foo</code> is really called <code>(.)</code>, and represents <em>function composition</em>. That is, if <code>f</code> and <code>g</code> are functions, then <code>f . g</code> is the function which does first <code>g</code> and then <code>f</code>.</p>
+<p>Function composition can be quite useful in writing concise, elegant code. It fits well in a “wholemeal” style where we think about composing together successive high-level transformations of a data structure.</p>
+<p>As an example, consider the following function:</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="ot">myTest ::</span> [<span class="dt">Integer</span>] <span class="ot">-&gt;</span> <span class="dt">Bool</span>
+myTest xs <span class="fu">=</span> <span class="fu">even</span> (<span class="fu">length</span> (greaterThan100 xs))</code></pre>
+<p>We can rewrite this as:</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="ot">myTest' ::</span> [<span class="dt">Integer</span>] <span class="ot">-&gt;</span> <span class="dt">Bool</span>
+myTest' <span class="fu">=</span> <span class="fu">even</span> <span class="fu">.</span> <span class="fu">length</span> <span class="fu">.</span> greaterThan100</code></pre>
+<p>This version makes much clearer what is really going on: <code>myTest'</code> is just a “pipeline” composed of three smaller functions. This example also demonstrates why function composition seems “backwards”: it’s because function application is backwards! Since we read from left to right, it would make sense to think of values as also flowing from left to right. But in that case we should write \( (x)f \) to denote giving the value \(x\) as an input to the function \(f\). But no thanks to Alexis Claude Clairaut and Euler, we have been stuck with the backwards notation since 1734.</p>
+<p>Let’s take a closer look at the type of <code>(.)</code>. If we ask <code>ghci</code> for its type, we get</p>
+<pre><code>Prelude&gt; :t (.)
+(.) :: (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</code></pre>
+<p>Wait a minute. What’s going on here? What happened to the parentheses around <code>(a -&gt; c)</code>?</p>
+<h2 id="currying-and-partial-application">Currying and partial application</h2>
+<p>Remember how the types of multi-argument functions look weird, like they have “extra” arrows in them? For example, consider the function</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="ot">f ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span>
+f x y <span class="fu">=</span> <span class="dv">2</span><span class="fu">*</span>x <span class="fu">+</span> y</code></pre>
+<p>I promised before that there is a beautiful, deep reason for this, and now it’s finally time to reveal it: <em>all functions in Haskell take only one argument</em>. Say what?! But doesn’t the function <code>f</code> shown above take two arguments? No, actually, it doesn’t: it takes one argument (an <code>Int</code>) and <em>outputs a function</em> (of type <code>Int -&gt; Int</code>); that function takes one argument and returns the final answer. In fact, we can equivalently write <code>f</code>’s type like this:</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="ot">f' ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> (<span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span>)
+f' x y <span class="fu">=</span> <span class="dv">2</span><span class="fu">*</span>x <span class="fu">+</span> y</code></pre>
+<p>In particular, note that function arrows <em>associate to the right</em>, that is, <code>W -&gt; X -&gt; Y -&gt; Z</code> is equivalent to <code>W -&gt; (X -&gt; (Y -&gt; Z))</code>. We can always add or remove parentheses around the rightmost top-level arrow in a type.</p>
+<p>Function application, in turn, is <em>left</em>-associative. That is, <code>f 3 2</code> is really shorthand for <code>(f 3) 2</code>. This makes sense given what we said previously about <code>f</code> actually taking one argument and returning a function: we apply <code>f</code> to an argument <code>3</code>, which returns a function of type <code>Int -&gt; Int</code>, namely, a function which takes an <code>Int</code> and adds 6 to it. We then apply that function to the argument <code>2</code> by writing <code>(f 3) 2</code>, which gives us an <code>Int</code>. Since function application associates to the left, however, we can abbreviate <code>(f 3) 2</code> as <code>f 3 2</code>, giving us a nice notation for <code>f</code> as a “multi-argument” function.</p>
+<p>The “multi-argument” lambda abstraction</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">\x y z <span class="ot">-&gt;</span> <span class="fu">...</span> </code></pre>
+<p>is really just syntax sugar for</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">\x <span class="ot">-&gt;</span> (\y <span class="ot">-&gt;</span> (\z <span class="ot">-&gt;</span> <span class="fu">...</span>))<span class="fu">.</span>  </code></pre>
+<p>Likewise, the function definition</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">f x y z <span class="fu">=</span> <span class="fu">...</span> </code></pre>
+<p>is syntax sugar for</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">f <span class="fu">=</span> \x <span class="ot">-&gt;</span> (\y <span class="ot">-&gt;</span> (\z <span class="ot">-&gt;</span> <span class="fu">...</span>))<span class="fu">.</span></code></pre>
+<p>Note, for example, that we can rewrite our composition function from above by moving the <code>\x -&gt; ...</code> from the right-hand side of the <code>=</code> to the left-hand side:</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="ot">comp ::</span> (b <span class="ot">-&gt;</span> c) <span class="ot">-&gt;</span> (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> c
+comp f g x <span class="fu">=</span> f (g x)</code></pre>
+<p>This idea of representing multi-argument functions as one-argument functions returning functions is known as <em>currying</em>, named for the British mathematician and logician Haskell Curry. (His first name might sound familiar; yes, it’s the same guy.) Curry lived from 1900-1982 and spent much of his life at Penn State—but he also helped work on ENIAC at UPenn. The idea of representing multi-argument functions as one-argument functions returning functions was actually first discovered by Moses Schönfinkel, so we probably ought to call it <em>schönfinkeling</em>. Curry himself attributed the idea to Schönfinkel, but others had already started calling it “currying” and it was too late.</p>
+<p>If we want to actually represent a function of two arguments we can use a single argument which is a tuple. That is, the function</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="ot">f'' ::</span> (<span class="dt">Int</span>,<span class="dt">Int</span>) <span class="ot">-&gt;</span> <span class="dt">Int</span>
+f'' (x,y) <span class="fu">=</span> <span class="dv">2</span><span class="fu">*</span>x <span class="fu">+</span> y</code></pre>
+<p>can also be thought of as taking “two arguments”, although in another sense it really only takes one argument which happens to be a pair. In order to convert between the two representations of a two-argument function, the standard library defines functions called <code>curry</code> and <code>uncurry</code>, defined like this (except with different names):</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell">schön<span class="ot">finkel ::</span> ((a,b) <span class="ot">-&gt;</span> c) <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> c
+schönfinkel f x y <span class="fu">=</span> f (x,y)
+
+unschön<span class="ot">finkel ::</span> (a <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> c) <span class="ot">-&gt;</span> (a,b) <span class="ot">-&gt;</span> c
+unschönfinkel f (x,y) <span class="fu">=</span> f x y</code></pre>
+<p><code>uncurry</code> in particular can be useful when you have a pair and want to apply a function to it. For example:</p>
+<pre><code>Prelude&gt; uncurry (+) (2,3)
+5
+</code></pre>
+<p><strong>Partial application</strong></p>
+<p>The fact that functions in Haskell are curried makes <em>partial application</em> particularly easy. The idea of partial application is that we can take a function of multiple arguments and apply it to just <em>some</em> of its arguments, and get out a function of the remaining arguments. But as we’ve just seen, in Haskell there <em>are no</em> functions of multiple arguments! Every function can be “partially applied” to its first (and only) argument, resulting in a function of the remaining arguments.</p>
+<p>Note that Haskell doesn’t make it easy to partially apply to an argument other than the first. The one exception is infix operators, which as we’ve seen, can be partially applied to either of their two arguments using an operator section. In practice this is not that big of a restriction. There is an art to deciding the order of arguments to a function to make partial applications of it as useful as possible: the arguments should be ordered from from “least to greatest variation”, that is, arguments which will often be the same should be listed first, and arguments which will often be different should come last.</p>
+<p><strong>Wholemeal programming</strong></p>
+<p>Let’s put some of the things we’ve just learned together in an example that also shows the power of a “wholemeal” style of programming. Consider the function <code>foobar</code>, defined as follows:</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="ot">foobar ::</span> [<span class="dt">Integer</span>] <span class="ot">-&gt;</span> <span class="dt">Integer</span>
+foobar []     <span class="fu">=</span> <span class="dv">0</span>
+foobar (x<span class="fu">:</span>xs)
+  <span class="fu">|</span> x <span class="fu">&gt;</span> <span class="dv">3</span>     <span class="fu">=</span> (<span class="dv">7</span><span class="fu">*</span>x <span class="fu">+</span> <span class="dv">2</span>) <span class="fu">+</span> foobar xs
+  <span class="fu">|</span> <span class="fu">otherwise</span> <span class="fu">=</span> foobar xs</code></pre>
+<p>This seems straightforward enough, but it is not good Haskell style. The problem is that it is</p>
+<ul>
+<li>doing too much at once; and</li>
+<li>working at too low of a level.</li>
+</ul>
+<p>Instead of thinking about what we want to do with each element, we can instead think about making incremental transformations to the entire input, using the existing recursion patterns that we know of. Here’s a much more idiomatic implementation of <code>foobar</code>:</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="ot">foobar' ::</span> [<span class="dt">Integer</span>] <span class="ot">-&gt;</span> <span class="dt">Integer</span>
+foobar' <span class="fu">=</span> <span class="fu">sum</span> <span class="fu">.</span> <span class="fu">map</span> (\x <span class="ot">-&gt;</span> <span class="dv">7</span><span class="fu">*</span>x <span class="fu">+</span> <span class="dv">2</span>) <span class="fu">.</span> <span class="fu">filter</span> (<span class="fu">&gt;</span><span class="dv">3</span>)</code></pre>
+<p>This defines <code>foobar'</code> as a “pipeline” of three functions: first, we throw away all elements from the list which are not greater than three; next, we apply an arithmetic operation to every element of the remaining list; finally, we sum the results.</p>
+<p>Notice that in the above example, <code>map</code> and <code>filter</code> have been partially applied. For example, the type of <code>filter</code> is</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">(a <span class="ot">-&gt;</span> <span class="dt">Bool</span>) <span class="ot">-&gt;</span> [a] <span class="ot">-&gt;</span> [a]</code></pre>
+<p>Applying it to <code>(&gt;3)</code> (which has type <code>Integer -&gt; Bool</code>) results in a function of type <code>[Integer] -&gt; [Integer]</code>, which is exactly the right sort of thing to compose with another function on <code>[Integer]</code>.</p>
+<p>This style of coding in which we define a function without reference to its arguments—in some sense saying what a function <em>is</em> rather than what it <em>does</em>—is known as “point-free” style. As we can see from the above example, it can be quite beautiful. Some people might even go so far as to say that you should always strive to use point-free style; but taken too far it can become extremely confusing. <code>lambdabot</code> in the <code>#haskell</code> IRC channel has a command <code>@pl</code> for turning functions into equivalent point-free expressions; here’s an example:</p>
+<pre><code>@pl \f g x y -&gt; f (x ++ g x) (g y)
+join . ((flip . ((.) .)) .) . (. ap (++)) . (.)
+</code></pre>
+<p>This is clearly <em>not</em> an improvement!</p>
+<h2 id="folds">Folds</h2>
+<p>We have one more recursion pattern on lists to talk about: folds. Here are a few functions on lists that follow a similar pattern: all of them somehow “combine” the elements of the list into a final answer.</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="ot">sum' ::</span> [<span class="dt">Integer</span>] <span class="ot">-&gt;</span> <span class="dt">Integer</span>
+sum' []     <span class="fu">=</span> <span class="dv">0</span>
+sum' (x<span class="fu">:</span>xs) <span class="fu">=</span> x <span class="fu">+</span> sum' xs
+
+<span class="ot">product' ::</span> [<span class="dt">Integer</span>] <span class="ot">-&gt;</span> <span class="dt">Integer</span>
+product' [] <span class="fu">=</span> <span class="dv">1</span>
+product' (x<span class="fu">:</span>xs) <span class="fu">=</span> x <span class="fu">*</span> product' xs
+
+<span class="ot">length' ::</span> [a] <span class="ot">-&gt;</span> <span class="dt">Int</span>
+length' []     <span class="fu">=</span> <span class="dv">0</span>
+length' (_<span class="fu">:</span>xs) <span class="fu">=</span> <span class="dv">1</span> <span class="fu">+</span> length' xs</code></pre>
+<p>What do these three functions have in common, and what is different? As usual, the idea will be to abstract out the parts that vary, aided by the ability to define higher-order functions.</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="ot">fold ::</span> b <span class="ot">-&gt;</span> (a <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> [a] <span class="ot">-&gt;</span> b
+fold z f []     <span class="fu">=</span> z
+fold z f (x<span class="fu">:</span>xs) <span class="fu">=</span> f x (fold z f xs)</code></pre>
+<p>Notice how <code>fold</code> essentially replaces <code>[]</code> with <code>z</code> and <code>(:)</code> with <code>f</code>, that is,</p>
+<pre><code>fold f z [a,b,c] == a `f` (b `f` (c `f` z))
+</code></pre>
+<p>(If you think about <code>fold</code> from this perspective, you may be able to figure out how to generalize <code>fold</code> to data types other than lists…)</p>
+<p>Now let’s rewrite <code>sum'</code>, <code>product'</code>, and <code>length'</code> in terms of <code>fold</code>:</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell">sum''     <span class="fu">=</span> fold <span class="dv">0</span> (<span class="fu">+</span>)
+product'' <span class="fu">=</span> fold <span class="dv">1</span> (<span class="fu">*</span>)
+length''  <span class="fu">=</span> fold <span class="dv">0</span> (\_ s <span class="ot">-&gt;</span> <span class="dv">1</span> <span class="fu">+</span> s)</code></pre>
+<p>(Instead of <code>(\_ s -&gt; 1 + s)</code> we could also write <code>(\_ -&gt; (1+))</code> or even <code>(const (1+))</code>.)</p>
+<p>Of course, <code>fold</code> is already provided in the standard Prelude, under the name <a href="http://haskell.org/ghc/docs/latest/html/libraries/base/Prelude.html#v:foldr"><code>foldr</code></a>. The arguments to <code>foldr</code> are in a slightly different order but it’s the exact same function. Here are some Prelude functions which are defined in terms of <code>foldr</code>:</p>
+<ul>
+<li><code>length</code> <code>::          [a] -&gt; Int</code></li>
+<li><code>sum</code> <code>:: Num a =&gt; [a] -&gt; a</code></li>
+<li><code>product</code> <code>:: Num a =&gt; [a] -&gt; a</code></li>
+<li><code>and</code> <code>::          [Bool] -&gt; Bool</code></li>
+<li><code>or</code> <code>::          [Bool] -&gt; Bool</code></li>
+<li><code>any</code> <code>:: (a -&gt; Bool) -&gt; [a] -&gt; Bool</code></li>
+<li><code>all</code> <code>:: (a -&gt; Bool) -&gt; [a] -&gt; Bool</code></li>
+</ul>
+<p>There is also <a href="http://haskell.org/ghc/docs/latest/html/libraries/base/Prelude.html#v:foldl"><code>foldl</code></a>, which folds “from the left”. That is,</p>
+<pre><code>foldr f z [a,b,c] == a `f` (b `f` (c `f` z))
+foldl f z [a,b,c] == ((z `f` a) `f` b) `f` c
+</code></pre>
+<p>In general, however, you should use <a href="http://haskell.org/ghc/docs/latest/html/libraries/base/Data-List.html#v:foldl"><code>foldl'</code> from <code>Data.List</code></a> instead, which does the same thing as <code>foldl</code> but is more efficient.</p>
+<hr></hr>
+<p><code>Generated 2013-03-14 14:39:59.531233</code></p>
+
+    </div>
+
+    <div id="footer"><center>
+      <font size="-2">Powered
+      by <a href="http://community.haskell.org/~ndm/shake/">shake</a>,
+      <a href="http://jaspervdj.be/hakyll/index.html">hakyll</a>,
+      and <a href="http://johnmacfarlane.net/pandoc/">pandoc</a>.
+      </center>
+    </div>
+  </div>
+</body>
+
+
+<!-- Mirrored from www.cis.upenn.edu/~cis194/spring13/lectures/04-higher-order.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 13:54:08 GMT -->
+</html>

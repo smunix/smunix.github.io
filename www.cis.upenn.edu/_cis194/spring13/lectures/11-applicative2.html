@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+
+<!-- Mirrored from www.cis.upenn.edu/~cis194/spring13/lectures/11-applicative2.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 13:54:40 GMT -->
+<head>
+  <META http-equiv="Content-Type" content="text/html; charset='UTF-8'">
+  <title>11-applicative2</title>
+
+  <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+  <link href="../css/style.html" rel="stylesheet" type="text/css"></link>
+</head>
+<body>
+
+  <div id="canvas">
+    <div id="nav"><p><strong>CIS 194</strong>: <a href="../index.html">Home</a> | <a href="../lectures.html">Lectures &amp; Assignments</a> | <a href="../policies.html">Policies</a> | <a href="../resources.html">Resources</a> | <a href="../final.html">Final Project</a></p></div>
+
+    <div id="content">
+      
+      <h1 id="applicative-functors-part-ii">Applicative functors, Part II</h1>
+<p>CIS 194 Week 11<br />1 April 2012</p>
+<p>Suggested reading:</p>
+<ul>
+<li><a href="../../../../learnyouahaskell.com/functors-applicative-functors-and-monoids.html#applicative-functors">Applicative Functors</a> from Learn You a Haskell</li>
+<li><a href="http://www.haskell.org/haskellwiki/Typeclassopedia">The Typeclassopedia</a></li>
+</ul>
+<p>We begin with a review of the <code>Functor</code> and <code>Applicative</code> type classes:</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="kw">Functor</span> f <span class="kw">where</span>
+<span class="ot">  fmap ::</span> (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> f a <span class="ot">-&gt;</span> f b
+
+<span class="kw">class</span> <span class="kw">Functor</span> f <span class="ot">=&gt;</span> <span class="kw">Applicative</span> f <span class="kw">where</span>
+<span class="ot">  pure  ::</span> a <span class="ot">-&gt;</span> f a
+<span class="ot">  (&lt;*&gt;) ::</span> f (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> f a <span class="ot">-&gt;</span> f b</code></pre>
+<p>Every <code>Applicative</code> is also a <code>Functor</code>—so can we implement <code>fmap</code> in terms of <code>pure</code> and <code>(&lt;*&gt;)</code>? Let’s try!</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="fu">fmap</span> g x <span class="fu">=</span> pure g <span class="fu">&lt;*&gt;</span> x</code></pre>
+<p>Well, that has the right type at least! However, it’s not hard to imagine making <code>Functor</code> and <code>Applicative</code> instances for some type such that this equality does not hold. Since this would be a fairly dubious situation, we stipulate as a <em>law</em> that this equality must hold—this is a formal way of stating that the <code>Functor</code> and <code>Applicative</code> instances for a given type must “play nicely together”.</p>
+<p>Now, let’s see a few more examples of <code>Applicative</code> instances.</p>
+<h2 id="more-applicative-examples">More Applicative Examples</h2>
+<p><strong>Lists</strong></p>
+<p>How about an instance of <code>Applicative</code> for lists? There are actually two possible instances: one that matches up the list of functions and list of arguments elementwise (that is, it “zips” them together), and one that combines functions and arguments in all possible ways.</p>
+<p>First, let’s write the instance that does all possible combinations. (For reasons that will become clear next week, this is the default instance.) From this point of view, lists represent nondeterminism: that is, a value of type <code>[a]</code> can be thought of as a single value with multiple possibilities. Then <code>(&lt;*&gt;)</code> corresponds to nondeterministic function application—that is, the application of a nondeterministic function to a nondeterministic argument.</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="kw">Applicative</span> [] <span class="kw">where</span>
+  pure a        <span class="fu">=</span> [a]          <span class="co">-- a &quot;deterministic&quot; value</span>
+  [] <span class="fu">&lt;*&gt;</span> _      <span class="fu">=</span> []
+  (f<span class="fu">:</span>fs) <span class="fu">&lt;*&gt;</span> as <span class="fu">=</span> (<span class="fu">map</span> f as) <span class="fu">++</span> (fs <span class="fu">&lt;*&gt;</span> as)</code></pre>
+<p>Here’s an example:</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell">names  <span class="fu">=</span> [<span class="st">&quot;Joe&quot;</span>, <span class="st">&quot;Sara&quot;</span>, <span class="st">&quot;Mae&quot;</span>]
+phones <span class="fu">=</span> [<span class="st">&quot;555-5555&quot;</span>, <span class="st">&quot;123-456-7890&quot;</span>, <span class="st">&quot;555-4321&quot;</span>]
+
+employees1 <span class="fu">=</span> <span class="dt">Employee</span> <span class="fu">&lt;$&gt;</span> names <span class="fu">&lt;*&gt;</span> phones</code></pre>
+<p>Maybe this particular example doesn’t make that much sense, but it’s not hard to imagine situations where you want to combine things in all possible ways like this. For example, we can do nondeterministic arithmetic like so:</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell">(<span class="fu">.+</span>) <span class="fu">=</span> liftA2 (<span class="fu">+</span>)    <span class="co">-- addition lifted to some Applicative context</span>
+(<span class="fu">.*</span>) <span class="fu">=</span> liftA2 (<span class="fu">*</span>)    <span class="co">-- same for multiplication</span>
+
+<span class="co">-- nondeterministic arithmetic</span>
+n <span class="fu">=</span> ([<span class="dv">4</span>,<span class="dv">5</span>] <span class="fu">.*</span> pure <span class="dv">2</span>) <span class="fu">.+</span> [<span class="dv">6</span>,<span class="dv">1</span>] <span class="co">-- (either 4 or 5) times 2, plus either 6 or 1</span>
+
+<span class="co">-- and some possibly-failing arithmetic too, just for fun</span>
+m1 <span class="fu">=</span> (<span class="kw">Just</span> <span class="dv">3</span> <span class="fu">.+</span> <span class="kw">Just</span> <span class="dv">5</span>) <span class="fu">.*</span> <span class="kw">Just</span> <span class="dv">8</span>
+m2 <span class="fu">=</span> (<span class="kw">Just</span> <span class="dv">3</span> <span class="fu">.+</span> <span class="kw">Nothing</span>) <span class="fu">.*</span> <span class="kw">Just</span> <span class="dv">8</span></code></pre>
+<p>Next, let’s write the instance that does elementwise combining. First, we must answer an important question: how should we handle lists of different lengths? Some thought reveals that the most sensible thing to do is to truncate the longer list to the length of the shorter, throwing away the extra elements. Of course there are other possible answers: we might, for instance, extend the shorter list by copying the last element (but then what do we do when one of the lists is empty?); or extend the shorter list with a “neutral” element (but then we would have to require an instance of <code>Monoid</code>, or an extra “default” argument for the application).</p>
+<p>This decision in turn dictates how we must implement <code>pure</code>, since we must obey the law</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">pure f <span class="fu">&lt;*&gt;</span> xs <span class="fu">===</span> f <span class="fu">&lt;$&gt;</span> xs</code></pre>
+<p>Notice that the right-hand side is a list with the same length as <code>xs</code>, formed by applying <code>f</code> to every element in <code>xs</code>. The only way we can make the left-hand side turn out the same… is for <code>pure</code> to create an infinite list of copies of <code>f</code>, because we don’t know in advance how long <code>xs</code> is going to be.</p>
+<p>We implement the instance using a <code>newtype</code> wrapper to distinguish it from the other list instance. The standard Prelude function <code>zipWith</code> also comes in handy.</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">newtype</span> <span class="dt">ZipList</span> a <span class="fu">=</span> <span class="dt">ZipList</span> {<span class="ot"> getZipList ::</span> [a] }
+  <span class="kw">deriving</span> (<span class="kw">Eq</span>, <span class="kw">Show</span>, <span class="kw">Functor</span>)
+
+<span class="kw">instance</span> <span class="kw">Applicative</span> <span class="dt">ZipList</span> <span class="kw">where</span>
+  pure <span class="fu">=</span> <span class="dt">ZipList</span> <span class="fu">.</span> <span class="fu">repeat</span>
+  <span class="dt">ZipList</span> fs <span class="fu">&lt;*&gt;</span> <span class="dt">ZipList</span> xs <span class="fu">=</span> <span class="dt">ZipList</span> (<span class="fu">zipWith</span> (<span class="fu">$</span>) fs xs)</code></pre>
+<p>An example:</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell">employees2 <span class="fu">=</span> getZipList <span class="fu">$</span> <span class="dt">Employee</span> <span class="fu">&lt;$&gt;</span> <span class="dt">ZipList</span> names <span class="fu">&lt;*&gt;</span> <span class="dt">ZipList</span> phones</code></pre>
+<p><strong>Reader/environment</strong></p>
+<p>Let’s do one final example instance, for <code>(-&gt;) e</code>. This is known as the <em>reader</em> or <em>environment</em> applicative, since it allows “reading” from the “environment” <code>e</code>. Implementing the instance is not too hard, we just have to use our nose and follow the types:</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="kw">Functor</span> ((<span class="ot">-&gt;</span>) e) <span class="kw">where</span>
+  <span class="fu">fmap</span> <span class="fu">=</span> (<span class="fu">.</span>)
+
+<span class="kw">instance</span> <span class="kw">Applicative</span> ((<span class="ot">-&gt;</span>) e) <span class="kw">where</span>
+  pure <span class="fu">=</span> <span class="fu">const</span>
+  f <span class="fu">&lt;*&gt;</span> x <span class="fu">=</span> \e <span class="ot">-&gt;</span> (f e) (x e)</code></pre>
+<p>An <code>Employee</code> example:</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">BigRecord</span> <span class="fu">=</span> <span class="dt">BR</span> {<span class="ot"> getName         ::</span> <span class="dt">Name</span>
+                    ,<span class="ot"> getSSN          ::</span> <span class="dt">String</span>
+                    ,<span class="ot"> getSalary       ::</span> <span class="dt">Integer</span>
+                    ,<span class="ot"> getPhone        ::</span> <span class="dt">String</span>
+                    ,<span class="ot"> getLicensePlate ::</span> <span class="dt">String</span>
+                    ,<span class="ot"> getNumSickDays  ::</span> <span class="dt">Int</span>
+                    }
+
+r <span class="fu">=</span> <span class="dt">BR</span> <span class="st">&quot;Brent&quot;</span> <span class="st">&quot;XXX-XX-XXX4&quot;</span> <span class="dv">600000000</span> <span class="st">&quot;555-1234&quot;</span> <span class="st">&quot;JGX-55T3&quot;</span> <span class="dv">2</span>
+
+<span class="ot">getEmp ::</span> <span class="dt">BigRecord</span> <span class="ot">-&gt;</span> <span class="dt">Employee</span>
+getEmp <span class="fu">=</span> <span class="dt">Employee</span> <span class="fu">&lt;$&gt;</span> getName <span class="fu">&lt;*&gt;</span> getPhone
+
+ex01 <span class="fu">=</span> getEmp r</code></pre>
+<h2 id="aside-levels-of-abstraction">Aside: Levels of Abstraction</h2>
+<p><code>Functor</code> is a nifty tool but relatively straightforward. At first glance it seems like <code>Applicative</code> doesn’t add that much beyond what <code>Functor</code> already provides, but it turns out that it’s a small addition with a huge impact. <code>Applicative</code> (and as we will see next week, <code>Monad</code>) deserves to be called a “model of computation”, while <code>Functor</code> doesn’t.</p>
+<p>When working with things like <code>Applicative</code> and <code>Monad</code>, it’s very important to keep in mind that there are <em>multiple levels of abstraction</em> involved. Roughly speaking, an <em>abstraction</em> is something which <em>hides details</em> of a lower level, providing a “high-level” interface that can be used (ideally) without thinking about the lower level—although the details of the lower level often “leak through” in certain cases. This idea of layers of abstraction is widespread. Think about user programs—OS—kernel—integrated circuits—gates—silicon, or HTTP—TCP—IP—Ethernet, or programming languages—bytecode—assembly—machine code. As we have seen, Haskell gives us many nice tools for constructing multiple layers of abstraction <em>within Haskell programs themselves</em>, that is, we get to dynamically extend the “programming language” layer stack upwards. This is a powerful facility but can lead to confusion. One must learn to explicitly be able to think on multiple levels, and to switch between levels.</p>
+<p>With respect to <code>Applicative</code> and <code>Monad</code> in particular, there are just two levels to be concerned with. The first is the level of implementing various <code>Applicative</code> and <code>Monad</code> instances, <em>i.e.</em> the “raw Haskell” level. You gained some experience with this level in your previous homework, when you implemented an <code>Applicative</code> instance for <code>Parser</code>.</p>
+<p>Once we have an <code>Applicative</code> instance for a type like <code>Parser</code>, the point is that we get to “move up a layer” and program with <code>Parser</code>s <em>using the <code>Applicative</code> interface</em>, without thinking about the details of how <code>Parser</code> and its <code>Applicative</code> instance are actually implemented. You got a little bit of experience with this on last week’s homework, and will get a lot more of it this week. Programming at this level has a very different feel than actually implementing the instances. Let’s see some examples.</p>
+<h2 id="the-applicative-api">The Applicative API</h2>
+<p>One of the benefits of having a unified interface like <code>Applicative</code> is that we can write generic tools and control structures that work with <em>any</em> type which is an instance of <code>Applicative</code>. As a first example, let’s try writing</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="ot">pair ::</span> <span class="kw">Applicative</span> f <span class="ot">=&gt;</span> f a <span class="ot">-&gt;</span> f b <span class="ot">-&gt;</span> f (a,b)</code></pre>
+<p><code>pair</code> takes two values and pairs them, but all in the context of some <code>Applicative f</code>. As a first try we can take a function for pairing and “lift” it over the arguments using <code>(&lt;$&gt;)</code> and <code>(&lt;*&gt;)</code>:</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell">pair fa fb <span class="fu">=</span> (\x y <span class="ot">-&gt;</span> (x,y)) <span class="fu">&lt;$&gt;</span> fa <span class="fu">&lt;*&gt;</span> fb</code></pre>
+<p>This works, though we can simplify it a bit. First, note that Haskell allows the special syntax <code>(,)</code> to represent the pair constructor, so we can write</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell">pair fa fb <span class="fu">=</span> (,) <span class="fu">&lt;$&gt;</span> fa <span class="fu">&lt;*&gt;</span> fb</code></pre>
+<p>But actually, we’ve seen this pattern before—this is the <code>liftA2</code> pattern which got us started down this whole <code>Applicative</code> road. So we can further simplify to</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell">pair fa fb <span class="fu">=</span> liftA2 (,) fa fb</code></pre>
+<p>but now there is no need to explicitly write out the function arguments, so we reach our final simplified version:</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell">pair <span class="fu">=</span> liftA2 (,)</code></pre>
+<p>Now, what does this function do? It depends, of course, on the particular <code>f</code> chosen. Let’s consider a number of particular examples:</p>
+<ul>
+<li><code>f = Maybe</code>: the result is <code>Nothing</code> if either of the arguments is; if both are <code>Just</code> the result is <code>Just</code> their pairing.</li>
+<li><code>f = []</code>: <code>pair</code> computes the Cartesian product of two lists.</li>
+<li><code>f = ZipList</code>: <code>pair</code> is the same as the standard <code>zip</code> function.</li>
+<li><code>f = IO</code>: <code>pair</code> runs two <code>IO</code> actions in sequence, returning a pair of their results.</li>
+<li><code>f = Parser</code>: <code>pair</code> runs two parsers in sequence (the parsers consume consecutive sections of the input), returning their results as a pair. If either parser fails, the whole thing fails.</li>
+</ul>
+<p>Can you implement the following functions? Consider what each function does when <code>f</code> is replaced with each of the above types.</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="ot">(*&gt;)       ::</span> <span class="kw">Applicative</span> f <span class="ot">=&gt;</span> f a <span class="ot">-&gt;</span> f b <span class="ot">-&gt;</span> f b
+<span class="ot">mapA       ::</span> <span class="kw">Applicative</span> f <span class="ot">=&gt;</span> (a <span class="ot">-&gt;</span> f b) <span class="ot">-&gt;</span> ([a] <span class="ot">-&gt;</span> f [b])
+<span class="ot">sequenceA  ::</span> <span class="kw">Applicative</span> f <span class="ot">=&gt;</span> [f a] <span class="ot">-&gt;</span> f [a]
+<span class="ot">replicateA ::</span> <span class="kw">Applicative</span> f <span class="ot">=&gt;</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> f a <span class="ot">-&gt;</span> f [a]</code></pre>
+<p><!--
+
+Local Variables:
+mode:markdown
+compile-command:"mk pre"
+End:
+
+--></p>
+<hr></hr>
+<p><code>Generated 2013-04-04 15:15:39.334627</code></p>
+
+    </div>
+
+    <div id="footer"><center>
+      <font size="-2">Powered
+      by <a href="http://community.haskell.org/~ndm/shake/">shake</a>,
+      <a href="http://jaspervdj.be/hakyll/index.html">hakyll</a>,
+      and <a href="http://johnmacfarlane.net/pandoc/">pandoc</a>.
+      </center>
+    </div>
+  </div>
+</body>
+
+
+<!-- Mirrored from www.cis.upenn.edu/~cis194/spring13/lectures/11-applicative2.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 13:54:40 GMT -->
+</html>

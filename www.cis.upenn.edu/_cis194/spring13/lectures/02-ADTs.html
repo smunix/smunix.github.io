@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+
+<!-- Mirrored from www.cis.upenn.edu/~cis194/spring13/lectures/02-ADTs.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 13:53:27 GMT -->
+<head>
+  <META http-equiv="Content-Type" content="text/html; charset='UTF-8'">
+  <title>02-ADTs</title>
+
+  <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+  <link href="../css/style.html" rel="stylesheet" type="text/css"></link>
+</head>
+<body>
+
+  <div id="canvas">
+    <div id="nav"><p><strong>CIS 194</strong>: <a href="../index.html">Home</a> | <a href="../lectures.html">Lectures &amp; Assignments</a> | <a href="../policies.html">Policies</a> | <a href="../resources.html">Resources</a> | <a href="../final.html">Final Project</a></p></div>
+
+    <div id="content">
+      
+      <p>Algebraic data types ====================</p>
+<p>CIS 194 Week 2<br />21 January 2013</p>
+<p>Suggested reading:</p>
+<ul>
+<li><a href="http://book.realworldhaskell.org/">Real World Haskell</a>, chapters 2 and 3</li>
+</ul>
+<h2 id="enumeration-types">Enumeration types</h2>
+<p>Like many programming languages, Haskell allows programmers to create their own <em>enumeration</em> types. Here’s a simple example:</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Thing</span> <span class="fu">=</span> <span class="dt">Shoe</span> 
+           <span class="fu">|</span> <span class="dt">Ship</span> 
+           <span class="fu">|</span> <span class="dt">SealingWax</span> 
+           <span class="fu">|</span> <span class="dt">Cabbage</span> 
+           <span class="fu">|</span> <span class="dt">King</span>
+  <span class="kw">deriving</span> <span class="kw">Show</span></code></pre>
+<p>This declares a new type called <code>Thing</code> with five <em>data constructors</em> <code>Shoe</code>, <code>Ship</code>, etc. which are the (only) values of type <code>Thing</code>. (The <code>deriving Show</code> is a magical incantation which tells GHC to automatically generate default code for converting <code>Thing</code>s to <code>String</code>s. This is what <code>ghci</code> uses when printing the value of an expression of type <code>Thing</code>.)</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="ot">shoe ::</span> <span class="dt">Thing</span>
+shoe <span class="fu">=</span> <span class="dt">Shoe</span>
+
+<span class="ot">listO'Things ::</span> [<span class="dt">Thing</span>]
+listO'Things <span class="fu">=</span> [<span class="dt">Shoe</span>, <span class="dt">SealingWax</span>, <span class="dt">King</span>, <span class="dt">Cabbage</span>, <span class="dt">King</span>]</code></pre>
+<p>We can write functions on <code>Thing</code>s by <em>pattern-matching</em>.</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="ot">isSmall ::</span> <span class="dt">Thing</span> <span class="ot">-&gt;</span> <span class="dt">Bool</span>
+isSmall <span class="dt">Shoe</span>       <span class="fu">=</span> <span class="kw">True</span>
+isSmall <span class="dt">Ship</span>       <span class="fu">=</span> <span class="kw">False</span>
+isSmall <span class="dt">SealingWax</span> <span class="fu">=</span> <span class="kw">True</span>
+isSmall <span class="dt">Cabbage</span>    <span class="fu">=</span> <span class="kw">True</span>
+isSmall <span class="dt">King</span>       <span class="fu">=</span> <span class="kw">False</span></code></pre>
+<p>Recalling how function clauses are tried in order from top to bottom, we could also make the definition of <code>isSmall</code> a bit shorter like so:</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="ot">isSmall2 ::</span> <span class="dt">Thing</span> <span class="ot">-&gt;</span> <span class="dt">Bool</span>
+isSmall2 <span class="dt">Ship</span> <span class="fu">=</span> <span class="kw">False</span>
+isSmall2 <span class="dt">King</span> <span class="fu">=</span> <span class="kw">False</span>
+isSmall2 _    <span class="fu">=</span> <span class="kw">True</span></code></pre>
+<h2 id="beyond-enumerations">Beyond enumerations</h2>
+<p><code>Thing</code> is an <em>enumeration type</em>, similar to those provided by other languages such as Java or C++. However, enumerations are actually only a special case of Haskell’s more general <em>algebraic data types</em>. As a first example of a data type which is not just an enumeration, consider the definition of <code>FailableDouble</code>:</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">FailableDouble</span> <span class="fu">=</span> <span class="dt">Failure</span>
+                    <span class="fu">|</span> <span class="dt">OK</span> <span class="dt">Double</span>
+  <span class="kw">deriving</span> <span class="kw">Show</span></code></pre>
+<p>This says that the <code>FailableDouble</code> type has two data constructors. The first one, <code>Failure</code>, takes no arguments, so <code>Failure</code> by itself is a value of type <code>FailableDouble</code>. The second one, <code>OK</code>, takes an argument of type <code>Double</code>. So <code>OK</code> by itself is not a value of type <code>FailableDouble</code>; we need to give it a <code>Double</code>. For example, <code>OK 3.4</code> is a value of type <code>FailableDouble</code>.</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell">ex01 <span class="fu">=</span> <span class="dt">Failure</span>
+ex02 <span class="fu">=</span> <span class="dt">OK</span> <span class="dv">3</span><span class="fu">.</span><span class="dv">4</span></code></pre>
+<p>Thought exercise: what is the type of <code>OK</code>?</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="ot">safeDiv ::</span> <span class="dt">Double</span> <span class="ot">-&gt;</span> <span class="dt">Double</span> <span class="ot">-&gt;</span> <span class="dt">FailableDouble</span>
+safeDiv _ <span class="dv">0</span> <span class="fu">=</span> <span class="dt">Failure</span>
+safeDiv x y <span class="fu">=</span> <span class="dt">OK</span> (x <span class="fu">/</span> y)</code></pre>
+<p>More pattern-matching! Notice how in the <code>OK</code> case we can give a name to the <code>Double</code> that comes along with it.</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="ot">failureToZero ::</span> <span class="dt">FailableDouble</span> <span class="ot">-&gt;</span> <span class="dt">Double</span>
+failureToZero <span class="dt">Failure</span> <span class="fu">=</span> <span class="dv">0</span>
+failureToZero (<span class="dt">OK</span> d)  <span class="fu">=</span> d</code></pre>
+<p>Data constructors can have more than one argument.</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="co">-- Store a person's name, age, and favourite Thing.</span>
+<span class="kw">data</span> <span class="dt">Person</span> <span class="fu">=</span> <span class="dt">Person</span> <span class="dt">String</span> <span class="dt">Int</span> <span class="dt">Thing</span>
+  <span class="kw">deriving</span> <span class="kw">Show</span>
+
+<span class="ot">brent ::</span> <span class="dt">Person</span>
+brent <span class="fu">=</span> <span class="dt">Person</span> <span class="st">&quot;Brent&quot;</span> <span class="dv">31</span> <span class="dt">SealingWax</span>
+
+<span class="ot">stan ::</span> <span class="dt">Person</span>
+stan  <span class="fu">=</span> <span class="dt">Person</span> <span class="st">&quot;Stan&quot;</span> <span class="dv">94</span> <span class="dt">Cabbage</span>
+
+<span class="ot">getAge ::</span> <span class="dt">Person</span> <span class="ot">-&gt;</span> <span class="dt">Int</span>
+getAge (<span class="dt">Person</span> _ a _) <span class="fu">=</span> a</code></pre>
+<p>Notice how the type constructor and data constructor are both named <code>Person</code>, but they inhabit different namespaces and are different things. This idiom (giving the type and data constructor of a one-constructor type the same name) is common, but can be confusing until you get used to it.</p>
+<h2 id="algebraic-data-types-in-general">Algebraic data types in general</h2>
+<p>In general, an algebraic data type has one or more data constructors, and each data constructor can have zero or more arguments.</p>
+<pre><code>data AlgDataType = Constr1 Type11 Type12
+                 | Constr2 Type21
+                 | Constr3 Type31 Type32 Type33
+                 | Constr4
+</code></pre>
+<p>This specifies that a value of type <code>AlgDataType</code> can be constructed in one of four ways: using <code>Constr1</code>, <code>Constr2</code>, <code>Constr3</code>, or <code>Constr4</code>. Depending on the constructor used, an <code>AlgDataType</code> value may contain some other values. For example, if it was constructed using <code>Constr1</code>, then it comes along with two values, one of type <code>Type11</code> and one of type <code>Type12</code>.</p>
+<p>One final note: type and data constructor names must always start with a capital letter; variables (including names of functions) must always start with a lowercase letter. (Otherwise, Haskell parsers would have quite a difficult job figuring out which names represent variables and which represent constructors).</p>
+<h2 id="pattern-matching">Pattern-matching</h2>
+<p>We’ve seen pattern-matching in a few specific cases, but let’s see how pattern-matching works in general. Fundamentally, pattern-matching is about taking apart a value by <em>finding out which constructor</em> it was built with. This information can be used as the basis for deciding what to do—indeed, in Haskell, this is the <em>only</em> way to make a decision.</p>
+<p>For example, to decide what to do with a value of type <code>AlgDataType</code> (the made-up type defined in the previous section), we could write something like</p>
+<pre><code>foo (Constr1 a b)   = ...
+foo (Constr2 a)     = ...
+foo (Constr3 a b c) = ...
+foo Constr4         = ...
+</code></pre>
+<p>Note how we also get to give names to the values that come along with each constructor. Note also that parentheses are required around patterns consisting of more than just a single constructor.</p>
+<p>This is the main idea behind patterns, but there are a few more things to note.</p>
+<ol style="list-style-type: decimal">
+<li><p>An underscore <code>_</code> can be used as a “wildcard pattern” which matches anything.</p></li>
+<li><p>A pattern of the form <code>x@pat</code> can be used to match a value against the pattern <code>pat</code>, but <em>also</em> give the name <code>x</code> to the entire value being matched. For example:</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="ot">baz ::</span> <span class="dt">Person</span> <span class="ot">-&gt;</span> <span class="dt">String</span>
+baz p<span class="fu">@</span>(<span class="dt">Person</span> n _ _) <span class="fu">=</span> <span class="st">&quot;The name field of (&quot;</span> <span class="fu">++</span> <span class="fu">show</span> p <span class="fu">++</span> <span class="st">&quot;) is &quot;</span> <span class="fu">++</span> n</code></pre>
+<pre><code>*Main&gt; baz brent
+&quot;The name field of (Person \&quot;Brent\&quot; 31 SealingWax) is Brent&quot;
+</code></pre></li>
+<li><p>Patterns can be <em>nested</em>. For example:</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="ot">checkFav ::</span> <span class="dt">Person</span> <span class="ot">-&gt;</span> <span class="dt">String</span>
+checkFav (<span class="dt">Person</span> n _ <span class="dt">SealingWax</span>) <span class="fu">=</span> n <span class="fu">++</span> <span class="st">&quot;, you're my kind of person!&quot;</span>
+checkFav (<span class="dt">Person</span> n _ _)          <span class="fu">=</span> n <span class="fu">++</span> <span class="st">&quot;, your favorite thing is lame.&quot;</span></code></pre>
+<pre><code>*Main&gt; checkFav brent
+&quot;Brent, you're my kind of person!&quot;
+*Main&gt; checkFav stan
+&quot;Stan, your favorite thing is lame.&quot;
+</code></pre>
+<p>Note how we nest the pattern <code>SealingWax</code> inside the pattern for <code>Person</code>.</p></li>
+</ol>
+<p>In general, the following grammar defines what can be used as a pattern:</p>
+<pre><code>pat ::= _
+     |  var
+     |  var @ ( pat )
+     |  ( Constructor pat1 pat2 ... patn )
+</code></pre>
+<p>The first line says that an underscore is a pattern. The second line says that a variable by itself is a pattern: such a pattern matches anything, and “binds” the given variable name to the matched value. The third line specifies <code>@</code>-patterns. The last line says that a constructor name followed by a sequence of patterns is itself a pattern: such a pattern matches a value if that value was constructed using the given constructor, <em>and</em> <code>pat1</code> through <code>patn</code> all match the values contained by the constructor, recursively.</p>
+<p>(In actual fact, the full grammar of patterns includes yet more features still, but the rest would take us too far afield for now.)</p>
+<p>Note that literal values like <code>2</code> or <code>'c'</code> can be thought of as constructors with no arguments. It is as if the types <code>Int</code> and <code>Char</code> were defined like</p>
+<pre><code>data Int  = 0 | 1 | -1 | 2 | -2 | ...
+data Char = 'a' | 'b' | 'c' | ...
+</code></pre>
+<p>which means that we can pattern-match against literal values. (Of course, <code>Int</code> and <code>Char</code> are not <em>actually</em> defined this way.)</p>
+<h2 id="case-expressions">Case expressions</h2>
+<p>The fundamental construct for doing pattern-matching in Haskell is the <code>case</code> expression. In general, a <code>case</code> expression looks like</p>
+<pre><code>case exp of
+  pat1 -&gt; exp1
+  pat2 -&gt; exp2
+  ...
+</code></pre>
+<p>When evaluated, the expression <code>exp</code> is matched against each of the patterns <code>pat1</code>, <code>pat2</code>, … in turn. The first matching pattern is chosen, and the entire <code>case</code> expression evaluates to the expression corresponding to the matching pattern. For example,</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell">ex03 <span class="fu">=</span> <span class="kw">case</span> <span class="st">&quot;Hello&quot;</span> <span class="kw">of</span>
+           []      <span class="ot">-&gt;</span> <span class="dv">3</span>
+           (<span class="ch">'H'</span><span class="fu">:</span>s) <span class="ot">-&gt;</span> <span class="fu">length</span> s
+           _       <span class="ot">-&gt;</span> <span class="dv">7</span></code></pre>
+<p>evaluates to <code>4</code> (the second pattern is chosen; the third pattern matches too, of course, but it is never reached).</p>
+<p>In fact, the syntax for defining functions we have seen is really just convenient syntax sugar for defining a <code>case</code> expression. For example, the definition of <code>failureToZero</code> given previously can equivalently be written as</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="ot">failureToZero' ::</span> <span class="dt">FailableDouble</span> <span class="ot">-&gt;</span> <span class="dt">Double</span>
+failureToZero' x <span class="fu">=</span> <span class="kw">case</span> x <span class="kw">of</span>
+                     <span class="dt">Failure</span> <span class="ot">-&gt;</span> <span class="dv">0</span>
+                     <span class="dt">OK</span> d    <span class="ot">-&gt;</span> d</code></pre>
+<h2 id="recursive-data-types">Recursive data types</h2>
+<p>Data types can be <em>recursive</em>, that is, defined in terms of themselves. In fact, we have already seen a recursive type—the type of lists. A list is either empty, or a single element followed by a remaining list. We could define our own list type like so:</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">IntList</span> <span class="fu">=</span> <span class="dt">Empty</span> <span class="fu">|</span> <span class="dt">Cons</span> <span class="dt">Int</span> <span class="dt">IntList</span></code></pre>
+<p>Haskell’s own built-in lists are quite similar; they just get to use special built-in syntax (<code>[]</code> and <code>:</code>). (Of course, they also work for any type of elements instead of just <code>Int</code>s; more on this next week.)</p>
+<p>We often use recursive functions to process recursive data types:</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="ot">intListProd ::</span> <span class="dt">IntList</span> <span class="ot">-&gt;</span> <span class="dt">Int</span>
+intListProd <span class="dt">Empty</span>      <span class="fu">=</span> <span class="dv">1</span>
+intListProd (<span class="dt">Cons</span> x l) <span class="fu">=</span> x <span class="fu">*</span> intListProd l</code></pre>
+<p>As another simple example, we can define a type of binary trees with an <code>Int</code> value stored at each internal node, and a <code>Char</code> stored at each leaf:</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Tree</span> <span class="fu">=</span> <span class="dt">Leaf</span> <span class="dt">Char</span>
+          <span class="fu">|</span> <span class="dt">Node</span> <span class="dt">Tree</span> <span class="dt">Int</span> <span class="dt">Tree</span>
+  <span class="kw">deriving</span> <span class="kw">Show</span></code></pre>
+<p>(Don’t ask me what you would use such a tree for; it’s an example, OK?) For example,</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="ot">tree ::</span> <span class="dt">Tree</span>
+tree <span class="fu">=</span> <span class="dt">Node</span> (<span class="dt">Leaf</span> <span class="ch">'x'</span>) <span class="dv">1</span> (<span class="dt">Node</span> (<span class="dt">Leaf</span> <span class="ch">'y'</span>) <span class="dv">2</span> (<span class="dt">Leaf</span> <span class="ch">'z'</span>))</code></pre>
+<hr></hr>
+<p><code>Generated 2013-03-14 14:39:58.373475</code></p>
+
+    </div>
+
+    <div id="footer"><center>
+      <font size="-2">Powered
+      by <a href="http://community.haskell.org/~ndm/shake/">shake</a>,
+      <a href="http://jaspervdj.be/hakyll/index.html">hakyll</a>,
+      and <a href="http://johnmacfarlane.net/pandoc/">pandoc</a>.
+      </center>
+    </div>
+  </div>
+</body>
+
+
+<!-- Mirrored from www.cis.upenn.edu/~cis194/spring13/lectures/02-ADTs.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 13:53:27 GMT -->
+</html>

@@ -1,0 +1,458 @@
+<!DOCTYPE HTML>
+<html>
+
+  
+<!-- Mirrored from www.stackbuilders.com/tutorials/haskell/bdd-in-haskell-with-hspec/ by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 13:51:16 GMT -->
+<head>
+
+    <title>
+      Behavior-driven development (BDD) in Haskell with Hspec - Tutorials
+    </title>
+
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
+
+    <meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+    <meta name="viewport" content="width=device-width,
+                                   initial-scale=1.0,
+                                   maximum-scale=5.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="google-site-verification" content="uUpeU0Xsc1oiaKwIVW1RnAbHbKozHBAJdd9XA-fJm-k">
+
+    <link rel="shortcut icon" type="image/png" href="http://www.stackbuilders.com/assets/img/favicon.png">
+
+    <link rel="alternate" hreflang="en" href="https://www.stackbuilders.com/tutorials"> <!-- TODO: make this dynamic -->
+    <link rel="stylesheet" type="text/css" href="http://www.stackbuilders.com/assets/stylesheets/application.min.css">
+    <link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css?family=Muli">
+    <link rel="stylesheet" type="text/css" href="http://maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css">
+    <link rel="stylesheet" type="text/css" href="http://www.stackbuilders.com/assets/css/news-page.css">
+    <link rel="stylesheet" type="text/css" href="http://www.stackbuilders.com/assets/css/highlight.style.css">
+
+    <link rel="stylesheet" href="https://www.stackbuilders.com/tutorials/stylesheets/tutorials.css">
+    <script type="text/javascript">(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){(i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)})(window,document,'script','http://www.google-analytics.com/analytics.js','ga');ga('create', 'UA-17522809-1', 'auto');ga('send', 'pageview');</script>
+  </head>
+
+  <body itemscope itemtype="http://schema.org/WebPage">
+
+    <div itemprop="mainEntity">
+      <nav class="navbar navbar-default navbar-fixed-top
+                  navbar--transparent">
+        <div class="navbar__header container">
+          <div class="row">
+            <div itemscope itemtype="http://schema.org/Organization">
+              <div class="navbar__header__logo">
+                <a class="img-logo" href="http://www.stackbuilders.com/" title="Stack Builders">
+                  <img itemprop="image" src="http://www.stackbuilders.com/assets/images/stack-builders-logo-nav-horizontal.svg" alt="Stack Builders logo">
+                  <span class="hidden" itemprop="name">
+                    Stack Builders
+                  </span>
+                </a>
+                <button class="navbar-toggle" type="button" data-target="#navbarOptions" data-toggle="collapse">
+                  <span class="sr-only">Toggle navigation</span>
+                  <span class="icon-bar"></span>
+                  <span class="icon-bar"></span>
+                  <span class="icon-bar"></span>
+                </button>
+              </div>
+              <div class="nav navbar-nav navbar-right"><div class="navbar__header__contact_info">
+                  <div class="navbar__header__contact_info__languages">
+                    <!-- <a href="//www.stackbuilders.com/es/news/page/1">Español</a> -->
+                  </div>
+                  <div class="navbar__header__contact_info__phone"><a href="tel:212-686-5870" itemprop="telephone">212 686-5870</a>&nbsp;
+                    <i class="fa fa-phone"></i>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="navbar__links nav navbar-center collapse navbar-collapse" id="navbarOptions" itemprop="breadcrumb">
+              <ul class="list-inline">
+                <li><a href="http://www.stackbuilders.com/services">Services</a></li>
+                <li><a href="http://www.stackbuilders.com/portfolio">Portfolio</a></li>
+                <li><a href="http://www.stackbuilders.com/news/page/1">News</a></li>
+                <li><a href="https://www.stackbuilders.com/tutorials">Tutorials</a></li>
+                <li><a href="http://www.stackbuilders.com/join">Join Us</a></li>
+                <li><a href="http://www.stackbuilders.com/contact">Contact</a></li>
+                <!-- <li class="navbar__links__contact_info__languages"><a href="//www.stackbuilders.com/es/news/page/1">Español</a></li> -->
+              </ul>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </div>
+
+    <section class="post__hero">
+      <div class="container">
+        <h1>
+          Stack Builders Tutorials
+        </h1>
+      </div>
+    </section>
+
+    <div class="tutorials container">
+        <div class="row">
+  <div class="tutorial-content">
+    <h2>
+      Behavior-driven development (BDD) in Haskell with Hspec
+    </h2>
+
+    <p>
+      First published: June 14, 2016
+      
+      <br />
+      by Juan Carlos Pazmiño
+    </p>
+
+    <p>
+      Tested with:
+      <ul>
+        
+        <li>
+          Resolver:
+          <a href="https://www.stackage.org/lts-5.18">
+            LTS Haskell 5.18 (ghc-7.10.3)
+          </a>
+        </li>
+        
+        
+        
+        <li>
+          Libraries:
+          
+          <a href="https://hackage.haskell.org/package/hspec-2.2.3">
+            hspec-2.2.3
+          </a>
+          
+          <a href="https://hackage.haskell.org/package/QuickCheck-2.8.1">
+            QuickCheck-2.8.1
+          </a>
+          
+        </li>
+        
+      </ul>
+    </p>
+
+    <hr>
+
+    <blockquote>
+<p>“Do the simplest thing that could possibly work” - Kent Beck</p>
+</blockquote>
+<h3 id="but-why-bdd">But why BDD?</h3>
+<p>Test Driven Development (TDD) is an iterative approach of software development that promotes a very simple idea: test before you code. It encourages developers to write tests first, and then write the minimum necessary amount of code for the tests to pass, repeating the process again, in small incremental iterations.</p>
+<p>Behavior Driven Development (BDD) goes a step further by describing not tests but the behavior a piece of code should show to an outside observer. It provides semantics shifted towards specification rather than testing.</p>
+<p>Haskell offers a strong type system that guarantees code correctness. So, why would you ever bother to use BDD in your Haskell projects? Although Haskell does help us with this, when it comes to ensure that the code does what's expected, you're the only one responsible and BDD comes in handy. Common uses of BDD include preventing division by zero cases, or ensuring your own instances of monoids, functors, monads, etc., follow the expected rules.</p>
+<h3 id="hspec">Hspec</h3>
+<p><a href="http://hspec.github.io/">Hspec</a> is a Haskell library that provides an embedded domain specific language (EDSL) for defining BDD specs. A spec is organized in a tree structure defined in terms of <code>describe</code> and <code>it</code>.</p>
+<p>The <code>describe</code> clause shows the name of the function or feature whose behavior we are going to specify. This clause can contain multiple <code>it</code> clauses that show a textual description of the expected behavior.</p>
+<p>And inside the <code>it</code> clauses, we place the expectations. Expectations are implementations of the expectancy of a certain behavior, and commonly use the word <code>should</code>. Examples of this expectation functions are <code>shouldBe</code>, <code>shouldSatisfy</code>, etc.</p>
+<h3 id="the-luhn-algorithm">The Luhn algorithm</h3>
+<p>While trying to choose the &quot;perfect&quot; sample for a BDD tutorial, I got suddenly inspired by one of the first exercises I saw in the <a href="../../../../www.cis.upenn.edu/_cis194/spring13/index.html">CIS 194</a> course. Personally, I consider it a great Haskell introduction material.</p>
+<p>Luhn is an algorithm used to validate credit card numbers. The algorithm is very simple in its conception. Thus, it's a great option to watch BDD in action.</p>
+<p>Given an integer number, the Luhn algorithm follows these steps:</p>
+<ul>
+<li>Double every second digit beginning from the right. That is, the last digit is unchanged; the second-to-last digit is doubled; the third-to-last digit is unchanged; and so on. For example, <code>[1,3,8,6]</code> becomes <code>[2,3,16,6]</code>.</li>
+<li>Add the digits of the doubled values and the undoubled digits from the original number. For example, <code>[2,3,16,6]</code> becomes <code>2+3+1+6+6 = 18</code>.</li>
+<li>Calculate the remainder when the sum is divided by 10. For the above example, the remainder would be 8. If the result equals 0, then the number is valid.</li>
+</ul>
+<h3 id="ok-lets-do-this">OK, let's do this</h3>
+<p>The fastest way to start an Hspec-enabled project is by creating a new <a href="http://www.haskellstack.org/">Stack</a> project using the hspec template:</p>
+<pre><code>$ stack new luhn hspec
+$ cd luhn</code></pre>
+<p>This command will create a new folder with the necessary files and configuration to create Hspec specifications. The important bits are:</p>
+<ul>
+<li>A <code>luhn.cabal</code> file with a test-suite configuration which includes, amongst others, <code>hspec</code> and <code>QuickCheck</code> as build dependencies. <code>QuickCheck</code> is a library that allows creating property tests in Haskell, but more on that later:</li>
+</ul>
+<pre><code>test-suite luhn-test
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test
+  main-is:             Spec.hs
+  build-depends:       base
+                     , luhn
+                     , hspec
+                     , QuickCheck
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  default-language:    Haskell2010</code></pre>
+<ul>
+<li>A <code>src</code> folder with a sample module <code>Data.String.Strip</code>.</li>
+<li>A <code>test</code> folder with an <code>Spec.hs</code> test driver file, containing configuration options that allow Hspec to find your specs without the need to include them manually. You shouldn't change this file:</li>
+</ul>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">{-# OPTIONS_GHC -F -pgmF hspec-discover #-}</span></code></pre></div>
+<p>The project has all it needs to run the specs, out of the box. So, why don't you try the following command and see what happens:</p>
+<pre><code>$ stack build --test</code></pre>
+<p>Hspec's output will give you some useful information like the number of specs, the described features and what is expected from them in color coded text (green for passing specs and red for failing ones), and a small summary.</p>
+<p>You can take a look at the project structure and sample code if you want. For the purpose of this tutorial there are some files we don't need anymore, so we'll start by removing the <code>src/Data/</code> and <code>test/Data</code> folders completely.</p>
+<p>This tutorial relies only on Hspec tests. We are not going to create an executable application so we can also remove the <code>app</code> folder.</p>
+<p>At the <code>luhn.cabal</code> file:</p>
+<ul>
+<li>Remove the <code>executable luhn-exe</code> section entirely.</li>
+<li>In the library section, remove <code>Data.String.Strip</code> module and add the <code>Luhn</code> and <code>Luhn.Internal</code> modules (we'll create these modules next). The <code>library</code> section should end up looking like this:</li>
+</ul>
+<pre><code>library
+  hs-source-dirs:      src
+  exposed-modules:     Luhn
+                     , Luhn.Internal
+  build-depends:       base &gt;= 4.7 &amp;&amp; &lt; 5
+  default-language:    Haskell2010</code></pre>
+<p>Lastly we'll add some shell content for the project to compile:</p>
+<pre><code>$ echo &quot;module Luhn where&quot; &gt; src/Luhn.hs
+$ mkdir src/Luhn
+$ echo &quot;module Luhn.Internal where&quot; &gt; src/Luhn/Internal.hs</code></pre>
+<p>Run the specs again and everything should be green. We should have 0 examples now.</p>
+<h3 id="building-the-foundation">Building the foundation</h3>
+<p>When programming the BDD way, you start writing the specs first. This is not only a good practice, it also helps to reason about your code as a series of individual decoupled units.</p>
+<p>For the Luhn algorithm, we'll need a <code>validate :: Integer -&gt; Bool</code> function that receives a number and determines if it is valid or not. Based on the Luhn algorithm description, we can foresee the need of the following helper functions:</p>
+<ul>
+<li><code>toDigits :: Integer -&gt; [Integer]</code> to convert an integer number to a list of digits.</li>
+<li><code>doubleEveryOther :: [Integer] -&gt; [Integer]</code> to double every other digit starting from the right.</li>
+<li><code>sumDigits :: [Integer] -&gt; Integer</code> to sum all digits, ensuring doubled digits sum its own digits first.</li>
+</ul>
+<p>As good practice, some developers split their code into two source files. One of the modules will contain the function we want exposed publicly to the whole project. The other one (commonly suffixed as <code>.Internal</code>) will hold the helper functions.</p>
+<p>You should avoid importing the Internal modules in your application, but having this file around is useful whenever you want to import them in order to test its functions.</p>
+<p>So we are going to edit our <code>src/Luhn.hs</code> module file and create a stub function. The file should look like this:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">module</span> <span class="dt">Luhn</span>
+  ( validate
+  )
+  <span class="kw">where</span>
+
+<span class="kw">import </span><span class="dt">Luhn.Internal</span>
+
+<span class="ot">validate ::</span> <span class="dt">Integer</span> <span class="ot">-&gt;</span> <span class="dt">Bool</span>
+validate <span class="fu">=</span> undefined</code></pre></div>
+<p>Then, we edit our <code>src/Luhn/Internal.hs</code> module file and insert the following code:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">module</span> <span class="dt">Luhn.Internal</span>
+  ( toDigits
+  , doubleEveryOther
+  , sumDigits
+  )
+  <span class="kw">where</span>
+
+<span class="ot">toDigits ::</span> <span class="dt">Integer</span> <span class="ot">-&gt;</span> [<span class="dt">Integer</span>]
+toDigits <span class="fu">=</span> undefined
+
+<span class="ot">doubleEveryOther ::</span> [<span class="dt">Integer</span>] <span class="ot">-&gt;</span> [<span class="dt">Integer</span>]
+doubleEveryOther <span class="fu">=</span> undefined
+
+<span class="ot">sumDigits ::</span> [<span class="dt">Integer</span>] <span class="ot">-&gt;</span> <span class="dt">Integer</span>
+sumDigits <span class="fu">=</span> undefined</code></pre></div>
+<p>Even if we're supposed to start with the spec, having these undefined definitions at hand will help us compile the spec and run them.</p>
+<h3 id="our-first-spec">Our first spec</h3>
+<p>Let's create the <code>test/LuhnSpec.hs</code> file inside the <code>test</code> folder. The name of the folder is important here. In order for Hspec to find our spec files you should follow certain rules:</p>
+<ol style="list-style-type: decimal">
+<li>Spec files have to be placed into the same directory as the test driver <code>Spec.hs</code> file, or into a subdirectory.</li>
+<li>The name of a spec file has to end in <code>Spec.hs</code>; the module name has to match the file name.</li>
+<li>Each spec file has to export a top-level binding “spec” with type <code>Spec</code>.</li>
+</ol>
+<p>Now, let's add a little bit of boilerplate code, starting with our imports:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">module</span> <span class="dt">LuhnSpec</span> (main, spec) <span class="kw">where</span>
+
+<span class="kw">import </span><span class="dt">Test.Hspec</span>
+<span class="kw">import </span><span class="dt">Test.QuickCheck</span>
+
+<span class="kw">import </span><span class="dt">Luhn</span>
+<span class="kw">import </span><span class="dt">Luhn.Internal</span></code></pre></div>
+<p>We import our spec targets <code>Luhn</code> and <code>Luhn.Internal</code>.</p>
+<p>Now, we create our <code>main</code> function that simply calls <code>hspec</code> sending a <code>Spec</code> value as parameter:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> hspec spec</code></pre></div>
+<p>Finally, we create our <code>Spec</code> object with the first spec. We need to ensure <code>toDigits</code> behaves as expected:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">spec ::</span> <span class="dt">Spec</span>
+spec <span class="fu">=</span> <span class="kw">do</span>
+  describe <span class="st">&quot;toDigits&quot;</span> <span class="fu">$</span> <span class="kw">do</span>
+    it <span class="st">&quot;converts a number to a list of digits&quot;</span> <span class="fu">$</span> <span class="kw">do</span>
+      toDigits <span class="dv">1234567</span> <span class="ot">`shouldBe`</span> [<span class="dv">1</span>,<span class="dv">2</span>,<span class="dv">3</span>,<span class="dv">4</span>,<span class="dv">5</span>,<span class="dv">6</span>,<span class="dv">7</span>]</code></pre></div>
+<p>We'll destructure this code a bit:</p>
+<ul>
+<li>Our <code>spec</code> contains one or many <code>describe</code> clauses.</li>
+<li>Each <code>describe</code> clause receives a <code>String</code> with the name of the function or feature we are going to specify. This clause can contain one or more <code>it</code> clauses.</li>
+<li>Each <code>it</code> clause receives a <code>String</code> describing the expected behavior for the function or feature. This clause can contain one or more expectations.</li>
+<li>We are using the basic <code>shouldBe</code> expectation here, which simply expects its two operands to be equal. We'll use a couple more later.</li>
+</ul>
+<p>The current structure lets us read our spec as &quot;toDigits, converts a number to a list of digits&quot;. This is, at least, the behavior we expect to see.</p>
+<p>If we run the spec now, it should fail with an uncaught exception because <code>toDigits</code> is not yet implemented.</p>
+<p>Let's add the minimal implementation needed for the spec to pass. We'll do this in the <code>Luhn.Internal</code> module:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">toDigits ::</span> <span class="dt">Integer</span> <span class="ot">-&gt;</span> [<span class="dt">Integer</span>]
+toDigits _ <span class="fu">=</span> [<span class="dv">1</span>,<span class="dv">2</span>,<span class="dv">3</span>,<span class="dv">4</span>,<span class="dv">5</span>,<span class="dv">6</span>,<span class="dv">7</span>]</code></pre></div>
+<p>Run the spec again and voilà! The spec passed. Now, let's add another expectation to be sure. Add this code just below our previous expectation and run the spec again:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">      toDigits <span class="dv">2468</span> <span class="ot">`shouldBe`</span> [<span class="dv">2</span>,<span class="dv">4</span>,<span class="dv">6</span>,<span class="dv">8</span>]</code></pre></div>
+<p>It fails! Easy enough, we could modify the function to return the reversed list this time. That will make the first expectation fail. As naive as this game seems, it illustrates what happens in real life, once you have written larger amounts of code.</p>
+<p>You can have the task to add new features to your application. So, you start refactoring your code to make your new feature work but then you unknowingly break some other feature you wrote days or even months ago. Without specs, you'll be lucky if you catch this error before they hit production. You would have been warned about this in a very early stage, with the right specs.</p>
+<p>Let's implement this function, in a way that makes more sense, to make both expectations pass:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">toDigits ::</span> <span class="dt">Integer</span> <span class="ot">-&gt;</span> [<span class="dt">Integer</span>]
+toDigits n
+  <span class="fu">|</span> n <span class="fu">&lt;=</span> <span class="dv">0</span>    <span class="fu">=</span> []
+  <span class="fu">|</span> otherwise <span class="fu">=</span> m <span class="fu">:</span> toDigits d <span class="kw">where</span> (d,m) <span class="fu">=</span> divMod n <span class="dv">10</span></code></pre></div>
+<p>Feeling proud about our achievements, we save the file, hit the console, run 'em specs and ... still didn't pass. Not to worry. Hspec's feedback can help us out. Just look at the output Hspec displays. You should see something like this:</p>
+<pre><code>test/LuhnSpec.hs:16:
+  1) Luhn.toDigits &quot;converts a number to a list of digits&quot;
+       expected: [1,2,3,4,5,6,7]
+        but got: [7,6,5,4,3,2,1]</code></pre>
+<p>We are getting the inverse of the expected result. So we change our code respectively:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">toDigits ::</span> <span class="dt">Integer</span> <span class="ot">-&gt;</span> [<span class="dt">Integer</span>]
+toDigits <span class="fu">=</span> go []
+  <span class="kw">where</span> go xs n
+          <span class="fu">|</span> n <span class="fu">&lt;=</span> <span class="dv">0</span>    <span class="fu">=</span> xs
+          <span class="fu">|</span> otherwise <span class="fu">=</span> go (m<span class="fu">:</span>xs) d <span class="kw">where</span> (d,m) <span class="fu">=</span> divMod n <span class="dv">10</span></code></pre></div>
+<p>Running the specs again everything should go green, and we regain our confidence. Let's move on to the <code>doubleEveryOther</code> function. Think about it. What do we expect?</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">  describe <span class="st">&quot;doubleEveryOther&quot;</span> <span class="fu">$</span> <span class="kw">do</span>
+    it <span class="st">&quot;doubles every other number starting from the right&quot;</span> <span class="fu">$</span> <span class="kw">do</span>
+      doubleEveryOther [<span class="dv">1</span>,<span class="dv">2</span>,<span class="dv">3</span>,<span class="dv">4</span>,<span class="dv">5</span>] <span class="ot">`shouldBe`</span> [<span class="dv">1</span>,<span class="dv">4</span>,<span class="dv">3</span>,<span class="dv">8</span>,<span class="dv">5</span>]</code></pre></div>
+<p>The specs shouldn't pass due to an uncaught exception again.</p>
+<p>This time it's your turn. Give it a try and create an implementation for this function. Remember not to start with a fancy solution right away. Just write what it's needed for the spec to pass.</p>
+<p>Now, we'll add another expectation to reassure our code behaves:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">      doubleEveryOther [<span class="dv">1</span>,<span class="dv">2</span>,<span class="dv">3</span>,<span class="dv">4</span>,<span class="dv">5</span>,<span class="dv">6</span>] <span class="ot">`shouldBe`</span> [<span class="dv">2</span>,<span class="dv">2</span>,<span class="dv">6</span>,<span class="dv">4</span>,<span class="dv">10</span>,<span class="dv">6</span>]</code></pre></div>
+<p>Specs fail again, of course. As a hint, having even and odd number of elements in the list might complicate our algorithm. The use of functions like <code>reverse</code> might help. Improve your code in small steps until the specs are green one more time.</p>
+<p>You can always take a look at the sample project accompanying this tutorial and compare your results. Code doesn't need to match. As long as you get the right results and specs pass, it's alright. And, remember to run your specs after each step to gain immediate feedback.</p>
+<h3 id="contexts">Contexts</h3>
+<p>Sometimes you need to write specs for a single function or feature, when used in just a couple of different environments. You could use <code>it</code> clauses describing the input properties every time. Or, you could use a <code>context</code>. A <code>context</code> groups one or many <code>it</code> clauses that share the same kind of input or environment.</p>
+<p>In particular, we want to test <code>sumDigits</code> behavior when all of the digit numbers are less than ten. Also, test the same function when some of the numbers are greater or equal to ten.</p>
+<p>We start by creating the context and expectations for the first case:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">  describe <span class="st">&quot;sumDigits&quot;</span> <span class="fu">$</span> <span class="kw">do</span>
+    context <span class="st">&quot;when all numbers are less than 10&quot;</span> <span class="fu">$</span> <span class="kw">do</span>
+      it <span class="st">&quot;sums the list of integers&quot;</span> <span class="fu">$</span> <span class="kw">do</span>
+        sumDigits [<span class="dv">1</span>,<span class="dv">2</span>,<span class="dv">3</span>,<span class="dv">4</span>,<span class="dv">5</span>,<span class="dv">6</span>] <span class="ot">`shouldBe`</span> sum [<span class="dv">1</span>,<span class="dv">2</span>,<span class="dv">3</span>,<span class="dv">4</span>,<span class="dv">5</span>,<span class="dv">6</span>]</code></pre></div>
+<p>Why don't you give it a try and implement <code>sumDigits</code>? Again, you can look at the source code to compare your results.</p>
+<p>After you implement <code>sumDigits</code>, let's add another context to describe the behavior of the function if the list contains some numbers greater or equal to ten. This numbers should first sum their digits prior to summing the list itself:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">    context <span class="st">&quot;when some numbers are greater or equal to 10&quot;</span> <span class="fu">$</span> <span class="kw">do</span>
+      it <span class="st">&quot;sums their digits first before summing the list&quot;</span> <span class="fu">$</span> <span class="kw">do</span>
+        <span class="co">-- 2+1+2+4+1+4+6+8 = 28</span>
+        sumDigits [<span class="dv">2</span>,<span class="dv">12</span>,<span class="dv">4</span>,<span class="dv">14</span>,<span class="dv">6</span>,<span class="dv">8</span>] <span class="ot">`shouldBe`</span> <span class="dv">28</span></code></pre></div>
+<p>Can you modify the <code>sumDigits</code> implementation to match the new requirements?</p>
+<h3 id="quickcheck">QuickCheck</h3>
+<p><a href="https://hackage.haskell.org/package/QuickCheck">QuickCheck</a> is a Haskell library that allows testing properties rather than expectations. This means that if you have some piece of code which must hold on a property that should always be true, you can use QuickCheck to feed that property, with as much arbitrary inputs as possible, to check if it really holds.</p>
+<p>For educative purposes we'll add a <code>fromDigits</code> function. This function should do the opposite of what <code>toDigits</code> does. It should take a list of digits and convert it to a number.</p>
+<p>Let's begin with some code as if we don't have QuickCheck around. We can start by adding this code to the <code>describe &quot;toDigits&quot;</code> section in the <code>LuhnSpec</code> file:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">    it <span class="st">&quot;holds on: x == fromDigits(toDigits x)&quot;</span> <span class="fu">$</span> <span class="kw">do</span>
+      <span class="dv">12345</span> <span class="ot">`shouldBe`</span> fromDigits (toDigits <span class="dv">123456</span>)</code></pre></div>
+<p>And then add this simple implementation to the <code>Luhn.Internal</code> module. Remember to expose this function in the <code>module</code> clause:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">fromDigits ::</span> [<span class="dt">Integer</span>] <span class="ot">-&gt;</span> <span class="dt">Integer</span>
+fromDigits _ <span class="fu">=</span> <span class="dv">12345</span></code></pre></div>
+<p>Spec passes and everyone is happy. Now, let's replace the spec we just wrote with a QuickCheck property instead:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">    it <span class="st">&quot;holds on the property x == fromDigits(toDigits x)&quot;</span> <span class="fu">$</span> <span class="kw">do</span>
+      property <span class="fu">$</span> \x <span class="ot">-&gt;</span> x <span class="fu">==</span> (fromDigits <span class="fu">.</span> toDigits) x</code></pre></div>
+<p>Here we are creating a property. The property receives a function that will receive arbitrary values of the inferred type and must return a <code>Bool</code>. In this case, <code>x</code> is going to be of type <code>Integer</code> and we use it to assert the property.</p>
+<p>Under the hood QuickCheck will feed the property function with many arbitrary values, and the property checks if, and only if, for all cases, the function returns <code>True</code>.</p>
+<p>After running the specs and checking that the property doesn't hold, we add a suitable implementation:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">fromDigits ::</span> [<span class="dt">Integer</span>] <span class="ot">-&gt;</span> <span class="dt">Integer</span>
+fromDigits <span class="fu">=</span> sum <span class="fu">.</span> zipWith (<span class="fu">*</span>) [<span class="dv">10</span> <span class="fu">^</span> i <span class="fu">|</span> i <span class="ot">&lt;-</span> [<span class="dv">0</span><span class="fu">..</span>]] <span class="fu">.</span> reverse</code></pre></div>
+<p>It didn't pass. What's going on? Let's check the Hspec display:</p>
+<pre><code>test/LuhnSpec.hs:22:
+  1) Luhn.toDigits holds on: x == fromDigits(toDigits x)
+       Falsifiable (after 3 tests):
+       -1</code></pre>
+<p>Aha! The property doesn't hold for negative numbers. That's alright, after all, this was the expected behavior. The <code>toDigits</code> function returns an empty list for numbers lower or equal to zero. So we cannot recover the same number back with the <code>fromDigits</code> function.</p>
+<p>The solution is to prevent QuickCheck from feeding negative numbers. QuickCheck's <code>(==&gt;)</code> operator offers a way to specify arbitrary prerequisites for your properties.</p>
+<p>We just place the conditions you want the arbitrary values to comply, to the left of the operator and your property check to the right. With this in mind, we can rewrite our spec once more:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">      property <span class="fu">$</span> \x <span class="ot">-&gt;</span>
+        x <span class="fu">&gt;=</span> <span class="dv">0</span> <span class="fu">==&gt;</span> x <span class="fu">==</span> (fromDigits <span class="fu">.</span> toDigits) x</code></pre></div>
+<p>We are forcing the <code>x</code> values to be greater or equal to zero. This time around, it works like a charm.</p>
+<h3 id="validating-the-luhn-algorithm">Validating the Luhn algorithm</h3>
+<p>So, we've implemented all helper functions. However, the main <code>validate</code> function is still missing. The spec should look like this:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">  describe <span class="st">&quot;validate&quot;</span> <span class="fu">$</span> <span class="kw">do</span>
+    it <span class="st">&quot;returns True if number is valid, False otherwise&quot;</span> <span class="fu">$</span> <span class="kw">do</span>
+      <span class="dv">1234567889</span> <span class="ot">`shouldSatisfy`</span> validate
+      <span class="dv">1234567887</span> <span class="ot">`shouldNotSatisfy`</span> validate</code></pre></div>
+<p>Wait a minute. We are using different expectation functions, <code>shouldSatisfy</code> and <code>shouldNotSatisfy</code> to be more precise. These functions receive a predicate function of type <code>Show a =&gt; a -&gt; Bool</code> as its second parameter. So basically, this predicate must receive a parameter of any showable type and return a <code>Bool</code> value. And given our <code>validate</code> function receives an <code>Integer</code> and returns a <code>Bool</code>, it fits perfectly.</p>
+<p>After some iterations we might come up with an implementation for <code>validate</code> similar to this one, in our <code>Luhn</code> module ...</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">validate ::</span> <span class="dt">Integer</span> <span class="ot">-&gt;</span> <span class="dt">Bool</span>
+validate <span class="fu">=</span> (<span class="fu">==</span> <span class="dv">0</span>) <span class="fu">.</span> (<span class="ot">`mod`</span> <span class="dv">10</span>) <span class="fu">.</span> sumDigits <span class="fu">.</span> doubleEveryOther <span class="fu">.</span> toDigits</code></pre></div>
+<p>... which is simply a composition of all of our previous helper functions. Just run the specs one final time and, if everything is green, let's consider it done.</p>
+<h3 id="wrapping-it-up">Wrapping it up</h3>
+<p>In this tutorial we reviewed some concepts like TDD and BDD. We also gave you a small taste of, what it is, and what it feels like writing specs the TDD/BDD way. Additionally, we used a bunch of expectation functions and QuickCheck properties.</p>
+<p>There is more to BDD than what we've learned in this tutorial. Here are some other follow-up resources you can check:</p>
+<ul>
+<li><a href="http://www.bioinf.uni-leipzig.de/conference-registration/13haskell/submissions/hal8_submission_16.pdf">Behavior-Driven Development in Haskell</a> - Simon Hengel (Author of Hspec)</li>
+<li><a href="http://hspec.github.io/">Hspec User's Manual</a></li>
+<li><a href="https://hackage.haskell.org/package/QuickCheck">The QuickCheck package</a></li>
+<li><a href="http://behaviourdriven.org/">BehaviourDrivenDevelopment</a></li>
+<li><a href="../../../../www.cis.upenn.edu/_cis194/spring13/index.html">CIS-194</a> Haskell course</li>
+</ul>
+<p>Happy testing! or should I say ... specification?</p>
+
+    <hr>
+
+    <p>
+      Thanks for reading this tutorial! If you have any feedback,
+      please join the discussion below, or open issues and pull
+      requests
+      on <a href="https://github.com/stackbuilders/tutorials">GitHub</href>.
+    </p>
+
+    <div id="disqus_thread"></div>
+    <script>
+      (function() {
+      var d = document, s = d.createElement('script');
+
+      s.src = 'http://stackbuilders.disqus.com/embed.js';
+
+      s.setAttribute('data-timestamp', +new Date());
+      (d.head || d.body).appendChild(s);
+      })();
+    </script>
+    <noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a></noscript>
+
+  </div>
+</div>
+
+    </div>
+
+    <section class="careers__we_are_hiring">
+      <div class="container">
+        <div class="row">
+          <div class="col-sm-12 v-center-container">
+            <h2>
+              Do You Have What it Takes To Be a Stack Builder?
+            </h2>
+            <div class="careers__we_are_hiring__cta">
+              <a class="btn btn-cta-secondary" href="http://www.stackbuilders.com/join" title="Join Our Team">
+                Join Our Team
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <div class="container">
+        <div class="row">
+          <div class="col-sm-6 footer__right">
+            <a href="http://www.stackbuilders.com/" title="Stack Builders">
+              <img class="footer__logo svg-logo" src="http://www.stackbuilders.com/assets/images/stack-builders-logo-blackwhite.svg" alt="Stack Builders logo">
+            </a>
+          </div>
+          <div class="col-sm-6">
+            <div class="footer__conversation">
+              <h6>
+                Join The Conversation
+              </h6>
+              <div class="footer__conversation__social">
+                <a href="https://twitter.com/stackbuilders" target="_blank" rel="nofollow">
+                  <i class="fa fa-twitter-square fa-3x" aria-hidden="true"></i>
+                </a>
+                <a href="https://www.facebook.com/Stack-Builders-207670466070752/" target="_blank" rel="nofollow">
+                  <i class="fa fa-facebook-square fa-3x" aria-hidden="true"></i>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-sm-12 footer__copyright">© Stack Builders Inc. 2016</div>
+        </div>
+      </div>
+    </footer>
+
+<script type="text/javascript" src="http://code.jquery.com/jquery-1.12.0.min.js">
+</script>
+<script type="text/javascript" src="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js">
+</script>
+<script type="text/javascript" src="http://www.stackbuilders.com/assets/javascripts/all.min.js">
+</script>
+<script type="text/javascript" src="http://platform.twitter.com/widgets.js">
+</script>
+<!--[if lt IE 9]><script type="text/javascript" src="//oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+<script type="text/javascript" src="//oss.maxcdn.com/respond/1.4.2/respond.min.js"></script><![endif]-->
+
+  </body>
+
+<!-- Mirrored from www.stackbuilders.com/tutorials/haskell/bdd-in-haskell-with-hspec/ by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 13:51:16 GMT -->
+</html>

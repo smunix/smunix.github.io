@@ -1,0 +1,1111 @@
+<!DOCTYPE HTML>
+<html>
+
+  
+<!-- Mirrored from www.stackbuilders.com/tutorials/haskell/ghc-optimization-and-fusion/ by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 13:51:19 GMT -->
+<head>
+
+    <title>
+      GHC optimization and fusion - Tutorials
+    </title>
+
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
+
+    <meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+    <meta name="viewport" content="width=device-width,
+                                   initial-scale=1.0,
+                                   maximum-scale=5.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="google-site-verification" content="uUpeU0Xsc1oiaKwIVW1RnAbHbKozHBAJdd9XA-fJm-k">
+
+    <link rel="shortcut icon" type="image/png" href="http://www.stackbuilders.com/assets/img/favicon.png">
+
+    <link rel="alternate" hreflang="en" href="https://www.stackbuilders.com/tutorials"> <!-- TODO: make this dynamic -->
+    <link rel="stylesheet" type="text/css" href="http://www.stackbuilders.com/assets/stylesheets/application.min.css">
+    <link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css?family=Muli">
+    <link rel="stylesheet" type="text/css" href="http://maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css">
+    <link rel="stylesheet" type="text/css" href="http://www.stackbuilders.com/assets/css/news-page.css">
+    <link rel="stylesheet" type="text/css" href="http://www.stackbuilders.com/assets/css/highlight.style.css">
+
+    <link rel="stylesheet" href="https://www.stackbuilders.com/tutorials/stylesheets/tutorials.css">
+    <script type="text/javascript">(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){(i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)})(window,document,'script','http://www.google-analytics.com/analytics.js','ga');ga('create', 'UA-17522809-1', 'auto');ga('send', 'pageview');</script>
+  </head>
+
+  <body itemscope itemtype="http://schema.org/WebPage">
+
+    <div itemprop="mainEntity">
+      <nav class="navbar navbar-default navbar-fixed-top
+                  navbar--transparent">
+        <div class="navbar__header container">
+          <div class="row">
+            <div itemscope itemtype="http://schema.org/Organization">
+              <div class="navbar__header__logo">
+                <a class="img-logo" href="http://www.stackbuilders.com/" title="Stack Builders">
+                  <img itemprop="image" src="http://www.stackbuilders.com/assets/images/stack-builders-logo-nav-horizontal.svg" alt="Stack Builders logo">
+                  <span class="hidden" itemprop="name">
+                    Stack Builders
+                  </span>
+                </a>
+                <button class="navbar-toggle" type="button" data-target="#navbarOptions" data-toggle="collapse">
+                  <span class="sr-only">Toggle navigation</span>
+                  <span class="icon-bar"></span>
+                  <span class="icon-bar"></span>
+                  <span class="icon-bar"></span>
+                </button>
+              </div>
+              <div class="nav navbar-nav navbar-right"><div class="navbar__header__contact_info">
+                  <div class="navbar__header__contact_info__languages">
+                    <!-- <a href="//www.stackbuilders.com/es/news/page/1">Español</a> -->
+                  </div>
+                  <div class="navbar__header__contact_info__phone"><a href="tel:212-686-5870" itemprop="telephone">212 686-5870</a>&nbsp;
+                    <i class="fa fa-phone"></i>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="navbar__links nav navbar-center collapse navbar-collapse" id="navbarOptions" itemprop="breadcrumb">
+              <ul class="list-inline">
+                <li><a href="http://www.stackbuilders.com/services">Services</a></li>
+                <li><a href="http://www.stackbuilders.com/portfolio">Portfolio</a></li>
+                <li><a href="http://www.stackbuilders.com/news/page/1">News</a></li>
+                <li><a href="https://www.stackbuilders.com/tutorials">Tutorials</a></li>
+                <li><a href="http://www.stackbuilders.com/join">Join Us</a></li>
+                <li><a href="http://www.stackbuilders.com/contact">Contact</a></li>
+                <!-- <li class="navbar__links__contact_info__languages"><a href="//www.stackbuilders.com/es/news/page/1">Español</a></li> -->
+              </ul>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </div>
+
+    <section class="post__hero">
+      <div class="container">
+        <h1>
+          Stack Builders Tutorials
+        </h1>
+      </div>
+    </section>
+
+    <div class="tutorials container">
+        <div class="row">
+  <div class="tutorial-content">
+    <h2>
+      GHC optimization and fusion
+    </h2>
+
+    <p>
+      First published: November 29, 2016
+      
+      <br />
+      by Mark Karpov
+    </p>
+
+    <p>
+      Tested with:
+      <ul>
+        
+        <li>
+          Resolver:
+          <a href="https://www.stackage.org/lts-7.4">
+            LTS Haskell 7.4 (ghc-8.0.1)
+          </a>
+        </li>
+        
+        
+        
+        <li>
+          Libraries:
+          
+          <a href="https://hackage.haskell.org/package/criterion-1.1.1.0">
+            criterion-1.1.1.0
+          </a>
+          
+          <a href="https://hackage.haskell.org/package/weigh-0.0.3">
+            weigh-0.0.3
+          </a>
+          
+        </li>
+        
+      </ul>
+    </p>
+
+    <hr>
+
+    <p>The tutorial walks through the details of using GHC pragmas such as <code>INLINE</code>, <code>SPECIALIZE</code>, and <code>RULES</code> to improve the performance of your Haskell programs. Usually you gain this knowledge from the <a href="https://downloads.haskell.org/~ghc/8.0.1/docs/html/users_guide/">GHC user manual</a>, and that's definitely a recommended reading, but we've also noticed that some bits of important info are scattered across different sites like <a href="https://wiki.haskell.org/Introduction">Haskell Wiki</a>, not to mention papers. This tutorial is an attempt to show all important optimization “know-how” details in one place with practical examples benchmarked to demonstrate their effects.</p>
+<p>The details we are going to discuss are not in the Haskell language report, it's rather a sort of GHC-specific tuning you may want to perform when other means of optimization are exhausted. Speaking of optimization means, here is a list of what you may want to attempt to make your program work faster (in the order you should attempt them):</p>
+<ol style="list-style-type: decimal">
+<li>Choose a better algorithm/data structures.</li>
+<li>Use GHC pragmas (covered in the tutorial).</li>
+<li>Rewrite critical bits in C.</li>
+</ol>
+<p>As it turns out, we may be already using the best algorithm for the task in hand, so using GHC pragmas may be the only way to make considerable improvements without going to the C land (which may make things faster, but it also takes away the possibility of compiling your code with GHCJS for example).</p>
+<p>This tutorial would be normally considered rather “advanced”, because it has to do with various GHC trickery, but I think it's quite approachable for beginner-intermediate level Haskellers, because the things it describes are to some extent isolated from other topics and so they can be mastered by any motivated individual.</p>
+<h2 id="ghc-pragmas">GHC pragmas</h2>
+<p>Pragmas are sort of special hints to the compiler. You should be familiar with the <code>LANGUAGE</code> pragma that enables language extensions in GHC, e.g.:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">{-# LANGUAGE OverloadedStrings #-}</span></code></pre></div>
+<p>The same syntax is used for all GHC pragmas. Technically, everything between <code>{-</code> and <code>-}</code> is a comment, but adding hashes makes GHC watch for pragmas it knows inside the comment.</p>
+<p>We will discuss 3 topics:</p>
+<ol style="list-style-type: decimal">
+<li>Inlining with <code>INLINE</code> and <code>INLINABLE</code> pragmas.</li>
+<li>Specializing with <code>SPECIALIZE</code>.</li>
+<li>Crafting rewrite rules with <code>RULES</code>.</li>
+</ol>
+<h3 id="inlining">Inlining</h3>
+<p>When a program is compiled, functions become labels — strings associated with positions in machine code. To call a function, its arguments must be put in appropriate places in memory, stack, and registers and then execution flow jumps to the address where the function begins. After execution of the function it's necessary to restore the state of the stack and registers so they look just like before calling the function and jump back to continue executing the program. All these instructions are not free, and for a short function they may actually take longer than execution of the function's body itself.</p>
+<p>Here <em>inlining</em> comes into play. The idea is simple: just take a function's body and insert it at the place it would otherwise be called. Since functions to inline are usually short, duplication of code is minimal and we get a considerable performance boost. Inlining is perhaps the simplest (well, for end user, not for compiler developers!) and yet very efficient way to improve performance. Furthermore, we will see shortly that inlining in GHC is not just about eliminating calls themselves, it's also a way to let other optimizations be applied.</p>
+<h4 id="how-ghc-does-inlining-by-itself">How GHC does inlining by itself</h4>
+<p>When GHC decides whether to inline a particular function or not, it looks at its size and assigns some sort of weight to that function in a given context. That's right, the decision whether to inline a function or not is made on a per-call basis and a given function may be inlined in one place and called in another place. We won't go into the details of how a function's “weight” (or “cost”) is calculated, but it should make sense that the lighter the function, the keener the compiler is to inline it.</p>
+<p>It's worth noticing that GHC is careful about avoiding excessive code bloat and it does not inline blindly. Generally, a function is only inlined when it makes at least some sense to inline it. When deciding whether to inline, GHC considers the following:</p>
+<ul>
+<li><p><strong>Does it make sense to inline something at a particular call site?</strong> The GHC user guide shows the following example:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">map f xs</code></pre></div>
+<p>Here, inlining <code>f</code> would produce <code>map (\x -&gt; body) xs</code>, which is not any better than the original, so GHC does not inline it.</p>
+<p>The case shown in the example can be generalized to the following rule: <strong>GHC only inlines functions that are applied to as many arguments as they have syntactically on the left-hand side (LHS) of function definition.</strong> This makes sense because otherwise lambda-wrapping would be necessary anyway.</p>
+<p>To clarify, let's steal one more example from the GHC user guide:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">comp1 ::</span> (b <span class="ot">-&gt;</span> c) <span class="ot">-&gt;</span> (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> c
+comp1 f g <span class="fu">=</span> \x <span class="ot">-&gt;</span> f (g x)
+
+<span class="ot">comp2 ::</span> (b <span class="ot">-&gt;</span> c) <span class="ot">-&gt;</span> (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> c
+comp2 f g x <span class="fu">=</span> f (g x)</code></pre></div>
+<p><code>comp1</code> has only two arguments on its LHS, while <code>comp2</code> has three, so a call like this</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">map (comp1 not not) xs</code></pre></div>
+<p>…optimizes better than a similar call with <code>comp2</code>.</p></li>
+<li><p><strong>How much code duplication inlining would cause?</strong> Code bloat is bad as it increases compilation time, size of program, and lowers cache hit rates.</p></li>
+<li><p><strong>How much work duplication would inlining cause?</strong> Consider the next two examples from the paper “Secrets of the Glasgow Haskell Compiler inliner” (Simon Peyton Jones, Simon Marlow):</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">let</span> x <span class="fu">=</span> foo <span class="dv">1000</span> <span class="kw">in</span> x <span class="fu">+</span> x</code></pre></div>
+<p>…where <code>foo</code> is expensive to compute. Inlining <code>x</code> would result in two calls to <code>foo</code> instead of one.</p>
+<p>Let's see another example:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">let</span> x <span class="fu">=</span> foo <span class="dv">1000</span>
+    f <span class="fu">=</span> \y <span class="ot">-&gt;</span> x <span class="fu">*</span> y
+<span class="kw">in</span> … (f <span class="dv">3</span>) … (f <span class="dv">4</span>)</code></pre></div>
+<p>This example shows that work can be duplicated even if <code>x</code> only appears once. If we inline <code>x</code> in its occurrence site, it will be evaluated every time <code>f</code> is called. Indeed, inlining inside a lambda may be a dangerous business.</p></li>
+</ul>
+<p>Given the cases above, it's not surprising that GHC is quite conservative about work duplication. However, it makes sense to put up with some duplication of work because inlining often opens up new transformation opportunities at the inlining site. To state it clearer, <strong>avoiding the call itself is not the only</strong> (and actually not the main) <strong>reason to do inlining</strong>. Inlining puts together pieces of code that were previously separate thus allowing next passes of the optimizer to do more wonderful work.</p>
+<p>With this in mind, you shouldn't be too surprised to find out that the <strong>body of an inlineable function</strong> (or right-hand side, RHS) <strong>is not optimized by GHC</strong>. This is an important point that we'll revisit later. It's not optimized to allow other machinery to do its work <strong>after</strong> inlining. For that machinery it's important that the function's body is intact because it operates on a rather syntactic level and optimizations, if applied, would leave almost no chance for the machinery to do its trick. For now remember that the bodies of functions that GHC sees as inlineable won't be optimized, they will be inserted “as is”. (The body of an inlineable function won't be optimized and inlining may not happen as well, so you may end up with a call to a non-optimized function. Fear not, we will learn how to fix that later in the tutorial.)</p>
+<p>One of the simplest optimization techniques GHC can use with inlining is plain old beta-reduction. But beta-reduction, combined with inlining, is nothing short of compile-time evaluation of a program. Which means that GHC should somehow ensure that it terminates.</p>
+<p>This brings us to two edge cases:</p>
+<ul>
+<li><p><strong>Self-recursive functions are never inlined.</strong> This should be quite obvious, because if we chose to inline it, we would never finish.</p></li>
+<li><p><strong>With mutually recursive definitions</strong>, <strong>GHC selects</strong> one or more <strong>loop breakers</strong>. Loop breakers are just functions that GHC chooses to call, not inline, to break the loop it would get into if it started to inline everything. For example, if we have <code>a</code> defined via <code>b</code> and <code>b</code> defined via <code>a</code>, we can choose either of them as a loop breaker. GHC tries not to select a function that would be very beneficial to inline (but if it has no choice, it will).</p></li>
+</ul>
+<p>Finally, before we move on to discussing how one can manually control inlining, it's important to understand a couple of things about how compiled Haskell programs are stored and what GHC can do with already compiled Haskell code and what it cannot do.</p>
+<p>Just like with many other languages that compile to native machine code, after compilation of say, a library, we get <code>*.o</code> files, called <a href="https://en.wikipedia.org/wiki/Object_file">object files</a>. They contain object code, which is machine code that can be used in an executable, but cannot usually be executed on its own. In other words, it's a collection of compiled executable bits of that library. Every module produces an object file of its own. But it's hard to work with just object files, because they contain information in not very friendly form: you can execute it, but you cannot generally reason about it.</p>
+<p>To keep additional information about a compiled module, GHC also creates “interface files”, which contain info like what GHC was used to compile it, list of modules that the compiled module depends on, list of things it exports and imports, and other stuff; most importantly, interface files contain the bodies of inlineable functions (actual “unfoldings”) from the compiled module, so GHC can use them to do “cross-module” inlining. This is an important thing to understand: <strong>we cannot inline a function if we don't have its body verbatim</strong> (remember, GHC inlines functions without any processing, as they are!), and unless the function's body is dumped in an interface file, we only have object code which cannot be used for inlining.</p>
+<p>With this knowledge, we are now prepared to learn how to manually control inlining.</p>
+<h4 id="how-to-control-inlining">How to control inlining</h4>
+<p>GHC allows certain level of flexibility regarding inlining, so there are several ways to tell the compiler that some function should be inlined (and even <strong>where</strong> it should be inlined). Since we've just spoken about interface files, it makes sense to first introduce the <code>INLINEABLE</code> pragma.</p>
+<p>Use of the pragma looks like this:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">myFunction ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span>
+myFunction <span class="fu">=</span> …
+<span class="ot">{-# INLINEABLE myFunction #-}</span></code></pre></div>
+<p>Syntactically, an <code>INLINEABLE</code> pragma can be put anywhere its type signature can be put, just like almost all other pragmas that works on a per-function basis.</p>
+<p>The main effect of the pragma is that GHC will keep in mind that this function may be inlined, even if it would not consider it inlineable otherwise. We don't get any guarantees about whether the function will be inlined or not in any particular case, but now unfolding of the function is dumped to an interface file, which means that it's possible to inline it in another module, should it be necessary or convenient.</p>
+<p>With a function marked <code>INLINEABLE</code>, we can use the special built-in function called <code>inline</code>, which will tell GHC to try very hard to inline its argument at a particular call site, like this:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">foo <span class="fu">=</span> bar (inline myFunction) baz</code></pre></div>
+<p>Semantically, <code>inline</code> it just an identity function.</p>
+<p>Let's see an actual example of <code>INLINEABLE</code> in action. We have a module <code>Goaf</code> (that stands for “GHC optimizations and fusion”, BTW) with this:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">module</span> <span class="dt">Goaf</span>
+  ( inlining0 )
+<span class="kw">where</span>
+
+<span class="ot">inlining0 ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span>
+inlining0 x <span class="fu">=</span>
+  product [x<span class="fu">..</span><span class="dv">1000000</span>] <span class="fu">+</span>
+  product [x<span class="fu">..</span><span class="dv">1000000</span>] <span class="fu">+</span>
+  product [x<span class="fu">..</span><span class="dv">1000000</span>] <span class="fu">+</span>
+  product [x<span class="fu">..</span><span class="dv">1000000</span>] <span class="fu">+</span>
+  product [x<span class="fu">..</span><span class="dv">1000000</span>] <span class="fu">+</span>
+  product [x<span class="fu">..</span><span class="dv">1000000</span>] <span class="fu">+</span>
+  product [x<span class="fu">..</span><span class="dv">1000000</span>]</code></pre></div>
+<p>Here I tried hard and convinced GHC that <code>inlining</code> doesn't look very inlineable right now (well yeah, pretty dumb example, but it demonstrates the point), if we compile with <code>-O2</code> (as we will do in every example from now on) and dump <code>Goaf.hi</code> interface file, we will see no unfolding of <code>inlining0</code>'s body (if you use a different version of GHC you may be unable to reproduce exactly this output):</p>
+<pre><code>$ ghc --show-iface Goaf.hi
+
+…
+
+142c0e92c650162b33735c798cb20be3
+  $winlining0 :: Int# -&gt; Int#
+  {- Arity: 1, HasNoCafRefs, Strictness: &lt;S,U&gt;, Inline: [0] -}
+e447f016aa264b71f156911b664944d0
+  inlining0 :: Int -&gt; Int
+  {- Arity: 1, HasNoCafRefs, Strictness: &lt;S(S),1*U(U)&gt;m,
+     Inline: INLINE[0],
+     Unfolding: InlineRule (1, True, False)
+                (\ (w :: Int) -&gt;
+                 case w of ww { I# ww1 -&gt;
+                 case $winlining0 ww1 of ww2 { DEFAULT -&gt; I# ww2 } }) -}
+
+…</code></pre>
+<p>This <code>$winlining0</code> is actually compiled function that works on unboxed integers <code>Int#</code> and it is not inlineable. <code>inlining0</code> itself is a thin wrapper around it that turns result of type <code>Int#</code> into normal <code>Int</code> by wrapping it into <code>Int</code>'s constructor <code>I#</code>. I won't go into detailed explanations about unboxed data and primitives, but <code>Int#</code> is just your bare-metal, hard-working C <code>int</code>, while <code>Int</code> is our familiar boxed, lazy Haskell <code>Int</code> (there are links about primitive Haskell at the end of the tutorial, you can start form there if this looks interesting).</p>
+<p>We see two important things here:</p>
+<ul>
+<li><p><code>inlining0</code> itself (in form of <code>$winlining0</code>) is not dumped into the interface file, that means that we have lost the ability to look inside it.</p></li>
+<li><p>Still, hope dies last even for GHC, so it has turned the <code>inlining0</code> function into a wrapper which itself is inlineable as you can see. The idea is that if <code>inlining0</code> is called in an arithmetic context with some other operations on <code>Int</code>s, GHC might be able to optimize further and better glue things working on <code>Int#</code>s (like <code>$winlining0</code>) together.</p></li>
+</ul>
+<p>Now let's use the <code>INLINEABLE</code> pragma (if you follow the experiments on your own don't forget to export the new function as well):</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">inlining1 ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span>
+inlining1 x <span class="fu">=</span>
+  product [x<span class="fu">..</span><span class="dv">1000000</span>] <span class="fu">+</span>
+  product [x<span class="fu">..</span><span class="dv">1000000</span>] <span class="fu">+</span>
+  product [x<span class="fu">..</span><span class="dv">1000000</span>] <span class="fu">+</span>
+  product [x<span class="fu">..</span><span class="dv">1000000</span>] <span class="fu">+</span>
+  product [x<span class="fu">..</span><span class="dv">1000000</span>] <span class="fu">+</span>
+  product [x<span class="fu">..</span><span class="dv">1000000</span>] <span class="fu">+</span>
+  product [x<span class="fu">..</span><span class="dv">1000000</span>]
+<span class="ot">{-# INLINEABLE inlining1 #-}</span></code></pre></div>
+<p>…which results in:</p>
+<pre><code>…
+
+033f89de148ece86b9e431dfcd7dde8c
+  $winlining1 :: Int# -&gt; Int#
+  {- Arity: 1, HasNoCafRefs, Strictness: &lt;S,U&gt;, Inline: INLINABLE[0],
+     Unfolding: &lt;stable&gt; (\ (ww :: Int#) -&gt;
+
+       … a LOT of stuff…
+
+6a60cad1d71ad9dfde046c97c2b6f2e9
+  inlining1 :: Int -&gt; Int
+  {- Arity: 1, HasNoCafRefs, Strictness: &lt;S(S),1*U(U)&gt;m,
+     Inline: INLINE[0],
+     Unfolding: InlineRule (1, True, False)
+                (\ (w :: Int) -&gt;
+                 case w of ww { I# ww1 -&gt;
+                 case $winlining1 ww1 of ww2 { DEFAULT -&gt; I# ww2 } }) -}</code></pre>
+<p>The result is almost the same, but now we have complete unfolding of <code>$winlining1</code> in our interface file. It's unlikely that this will improve performance considerably, because our functions are rather slow, one-shot beasts and inlining really won't matter much here:</p>
+<pre><code>benchmarking inlining0
+time                 5.653 ms   (5.632 ms .. 5.673 ms)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 5.614 ms   (5.601 ms .. 5.627 ms)
+std dev              39.86 μs   (33.20 μs .. 48.70 μs)
+
+benchmarking inlining1
+time                 5.455 ms   (5.442 ms .. 5.471 ms)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 5.447 ms   (5.432 ms .. 5.458 ms)
+std dev              38.08 μs   (28.36 μs .. 58.38 μs)</code></pre>
+<p>As expected, this gives a rather marginal improvement, but in other cases it may be more useful.</p>
+<p>It turns out that not only inlining requires access to original function body to work, some other optimizations do as well, so the <strong><code>INLINEABLE</code> pragma</strong>, causing putting function's unfolding into an interface file <strong>effectively removes module boundaries that could otherwise prevent other optimizations</strong> from being applied. We will see how this works with specializing in the next section. For that reason it's nothing unusual to see <code>INLINEABLE</code> used on a self-recursive function, because the intention is not to inline the function, but to dump its definition into interface file.</p>
+<p>A more straightforward approach to control inlining is to use the <code>INLINE</code> pragma. When GHC calculates the weight of a function, this pragma makes the function seem very lightweight, to the extent that GHC will always decide to inline it. So <code>{-# INLINE myFunction #-}</code> will cause unconditional inlining of <code>myFunction</code> everywhere (except for edge cases, like when <code>myFunction</code> is self-recursive).</p>
+<p>Inlining is always an option for the compiler, unless you tell it that a particular function should not be inlined, and sometimes you will want to be able to do that. In such cases the <code>NOINLINE</code> pragma may be helpful.</p>
+<p>Let's have an example from a real, practical package called <a href="https://hackage.haskell.org/package/http-client-tls"><code>http-client-tls</code></a> which adds TLS (HTTPS) support to another package (<code>http-client</code>) for doing HTTP requests. The package has a notion of HTTP manager that stores information about open connections and stuff like that. The problem with it is that it's expensive to create and in general you should have only one such manager for maximal connection sharing. For that there is a thing called <code>globalManager</code> which you can get and set when you're in the <code>IO</code> monad (it uses <code>IORef</code>s under the hood). To get the <code>IORef</code> of a global manager the following code is used (well not exactly, this is simplified, but it may get into this form some day):</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">globalManager ::</span> <span class="dt">IORef</span> <span class="dt">Manager</span>
+globalManager <span class="fu">=</span>
+  unsafePerformIO (newManager tlsManagerSettings <span class="fu">&gt;&gt;=</span> newIORef)
+<span class="ot">{-# NOINLINE globalManager #-}</span></code></pre></div>
+<p>Here we use <code>unsafePerformIO</code> which has the type <code>IO a -&gt; a</code> and is a dangerous thing to throw into your code, unless you know what you are doing. It basically just does its dirty <code>IO</code> thing in broad daylight but pretends that it's prudent and pure, not wanting to live in the <code>IO</code> cage. We want <code>IORef</code>, not <code>IO IORef</code>, as the latter is just a recipe of how to get an <code>IORef</code> to one more such manager, and we want it to be created just once. The expression inside <code>unsafePerformIO</code> is to be run and after that its result should be shared for all future use. Well, it will be shared all right, since the value is named and top-level, but one thing may impede our success: GHC can just inline it, causing re-creation and problems with connection sharing that we wanted to avoid in the first place. To fix this we add the <code>NOINLINE</code> pragma, not stressing about consequences of the unsafe attitude of <code>globalManager</code> anymore.</p>
+<p>Another use-case for <code>NOINLINE</code> is more obvious. Remember that GHC won't optimize the body of an inlineable function? If you don't care if some function <code>myFunction</code> will be inlined or not, but you want its body to be optimized, you may solve the problem like this:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">myFunction ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span>
+myFunction <span class="fu">=</span> …
+<span class="ot">{-# NOINLINE myFunction #-}</span></code></pre></div>
+<p>Often times, you will also want to <strong>prevent inlining until some other optimization happens</strong>. This is also done with <code>NOINLINE</code> and <code>INLINE</code>, but to control order in which optimizations are applied, we will need to master more black magic than we know now, so let's move on to specializing.</p>
+<h3 id="specializing">Specializing</h3>
+<p>To understand how specializing works (and what it is, for that matter), we first need to review how ad-hoc polymorphism with type classes is implemented in GHC. When there is a type class constraint in the signature of a function:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">foo ::</span> <span class="dt">Num</span> a <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> a
+foo <span class="fu">=</span> …</code></pre></div>
+<p>…it means that the function should work differently for different the <code>a</code> that implement the type class (<code>Num</code> in our example). This is accomplished by passing around a dictionary indexed by methods in the given type class, so the example above turns into:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">foo ::</span> <span class="dt">Num</span> a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a
+foo d <span class="fu">=</span> …</code></pre></div>
+<p>Note the <code>d</code> argument of type <code>Num a</code>. This is a dictionary that contains functions that implement the methods of the <code>Num</code> type class. When a method of that type class needs to be called, the dictionary is indexed by the name of that method and the extracted function is used. Not only does <code>foo</code> accept the dictionary as an additional argument, it also passes it to polymorphic functions inside <code>foo</code>, and those functions may pass it to functions in their bodies:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">foo ::</span> <span class="dt">Num</span> a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a
+foo d <span class="fu">=</span> … bar d …
+  <span class="kw">where</span>
+    bar,<span class="ot"> baz ::</span> <span class="dt">Num</span> a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a
+    bar d <span class="fu">=</span> … baz d …
+    baz d <span class="fu">=</span> …</code></pre></div>
+<p>It should be obvious by now that all that passing around and indexing is not free, it does make your program slower. Think about it: <strong>in every place we actually use a polymorphic function, we have concrete types</strong> (“use” in the sense of performing actual work, not defining another polymorphic function in terms of the given one). Then it should be possible for GHC to figure out which implementation is used in every place (we know types at compile time) and speed up things considerably. When we turn a polymorphic function into one specialized for concrete type(s), we do specializing.</p>
+<p>You may be wondering now why GHC doesn't do this for us automatically? Well, it tries and does specialize a great deal of stuff, but there are cases (and we run into them pretty often) when it cannot specialize:</p>
+<ul>
+<li>A module exports a polymorphic function. To specialize we need the function's body, but in this case we only have the compiled version of the function, so we just use it without specializing. The solution is to use <code>INLINEABLE</code> on the exported polymorphic function combined with <code>SPECIALIZE</code> in the module where we wish to specialize the function (see below).</li>
+</ul>
+<p>So if you want to specialize, your tool is the <code>SPECIALIZE</code> pragma. Syntactically, a <code>SPECIALIZE</code> pragma can be put anywhere its type signature can be put:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">foo ::</span> <span class="dt">Num</span> a <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> a
+foo <span class="fu">=</span> …
+<span class="ot">{-# SPECIALIZE foo :: Int -&gt; Int #-}</span></code></pre></div>
+<p>The specified type may be any type that is less polymorphic than the type of the original function. I like this example from GHC user manual, it states that</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">{-# SPECIALIZE f :: &lt;type&gt; #-}</span></code></pre></div>
+<p>…is valid when</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">f_spec ::</span> <span class="fu">&lt;</span><span class="kw">type</span><span class="fu">&gt;</span>
+f_spec <span class="fu">=</span> f</code></pre></div>
+<p>…is valid. It makes sense!</p>
+<p>The actual effect of the pragma is to generate a specialized version of the specified function and a rewrite rule (they are described in the section about rewrite rules below with more details of how <code>SPECIALIZE</code> works) which rewrites calls to the original function to calls to its specialized version whenever the types match.</p>
+<p>There is a way to specialize all methods in a type class for specific instances of that class. It looks like this (example from GHC user guide):</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> (<span class="dt">Eq</span> a) <span class="ot">=&gt;</span> <span class="dt">Eq</span> (<span class="dt">Foo</span> a) <span class="kw">where</span>
+  <span class="ot">{-# SPECIALIZE instance Eq (Foo [(Int, Bar)]) #-}</span>
+  … usual stuff …</code></pre></div>
+<p>It's also possible to inline the specialized version of a function (vanilla specialization disables inlining as will be demonstrated later in the tutorial) using the <code>SPECIALIZE INLINE</code> pragma. It may be surprising, but it will even work with self-recursive functions. The motivation here is the fact that a polymorphic function, unlike a function that works with concrete types, may actually use different instances when it's called in different contexts, so inlining specialized versions of the function does not necessarily diverge. An obvious consequence of this is that GHC can also go into an infinite loop, so be careful. A <code>SPECIALIZE NOINLINE</code> variant is also available.</p>
+<p>For a practical example let's try to start with this code:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">module</span> <span class="dt">Goaf</span>
+  ( special0'
+  , special0 )
+<span class="kw">where</span>
+
+<span class="ot">special0' ::</span> (<span class="dt">Num</span> a, <span class="dt">Enum</span> a) <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> a
+special0' x <span class="fu">=</span>
+  product [x<span class="fu">..</span><span class="dv">1000000</span>] <span class="fu">+</span>
+  product [x<span class="fu">..</span><span class="dv">1000000</span>] <span class="fu">+</span>
+  product [x<span class="fu">..</span><span class="dv">1000000</span>] <span class="fu">+</span>
+  product [x<span class="fu">..</span><span class="dv">1000000</span>] <span class="fu">+</span>
+  product [x<span class="fu">..</span><span class="dv">1000000</span>] <span class="fu">+</span>
+  product [x<span class="fu">..</span><span class="dv">1000000</span>] <span class="fu">+</span>
+  product [x<span class="fu">..</span><span class="dv">1000000</span>]
+
+<span class="ot">special0 ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span>
+special0 x <span class="fu">=</span> special0' x <span class="ot">`rem`</span> <span class="dv">10</span></code></pre></div>
+<p>In the interface file we get:</p>
+<pre><code>…
+
+3d2b7aef38f4af3a87867079a7fb9d7d
+  $w$sspecial0' :: Int# -&gt; Int#
+  {- Arity: 1, HasNoCafRefs, Strictness: &lt;S,U&gt;, Inline: [0] -}
+
+9aab4f68c56ea324d5b4f1ae96f44304
+  special0 :: Int -&gt; Int
+  {- Arity: 1, HasNoCafRefs, Strictness: &lt;S(S),1*U(U)&gt;m,
+     Unfolding: InlineRule (1, True, False)
+                (\ (x :: Int) -&gt;
+                 case special0_$sspecial0' x of wild2 { I# x1 -&gt;
+                 I# (remInt# x1 10#) }) -}
+97c360215ea1cab7acdf5a4928d349e8
+  special0' :: (Num a, Enum a) =&gt; a -&gt; a
+  {- Arity: 3, HasNoCafRefs,
+     Strictness: &lt;S(C(C(S))LLLLLL),U(C(C1(U)),A,U,A,A,A,C(U))&gt;&lt;L,U(A,A,A,A,A,A,C(C1(U)),A)&gt;&lt;L,U&gt; -}
+efc0709eeb0afdb2be8cdce06cc54623
+  special0_$sspecial0' :: Int -&gt; Int
+  {- Arity: 1, HasNoCafRefs, Strictness: &lt;S(S),1*U(U)&gt;m,
+     Inline: INLINE[0],
+     Unfolding: InlineRule (1, True, False)
+                (\ (w :: Int) -&gt;
+                 case w of ww { I# ww1 -&gt;
+                 case $w$sspecial0' ww1 of ww2 { DEFAULT -&gt; I# ww2 } }) -}
+&quot;SPEC special0' @ Int&quot; [ALWAYS] forall ($dNum :: Num Int)
+                                       ($dEnum :: Enum Int)
+  special0' @ Int $dNum $dEnum = special0_$sspecial0'</code></pre>
+<p>What can I say, GHC is really good at specializing if a polymorphic function defined and used in the same module. I could not really find a case where GHC 8.0.1 would fail to specialize on its own, bravo! The specialized version of <code>special0'</code> is called <code>$w$sspecial0'</code> here and it works on <code>Int#</code> for maximal speed.</p>
+<p>What else do we see? <code>special0'</code> is compiled, but not dumped into the interface file. This means that if we use it from another module we should get considerably worse performance compared to <code>special0</code>, let's try:</p>
+<pre><code>benchmarking special0
+time                 5.457 ms   (5.436 ms .. 5.477 ms)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 5.481 ms   (5.470 ms .. 5.492 ms)
+std dev              35.69 μs   (29.94 μs .. 44.88 μs)
+
+benchmarking special0_alt   &lt;---- defined in a separate module
+time                 5.462 ms   (5.436 ms .. 5.496 ms)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 5.472 ms   (5.458 ms .. 5.485 ms)
+std dev              41.42 μs   (33.29 μs .. 55.02 μs)</code></pre>
+<p>Hmm? What's going on? <code>special0_alt</code> was able to take advantage of the specialized function <code>$w$sspecial0'</code> as well! But if we remove the export of <code>special0</code>, things change as <code>special0_alt</code> would not be able to find the appropriate specialization anymore (it won't be generated by GHC):</p>
+<pre><code>benchmarking special0_alt
+time                 912.0 ms   (866.2 ms .. 947.7 ms)
+                     1.000 R²   (NaN R² .. 1.000 R²)
+mean                 931.0 ms   (919.8 ms .. 939.9 ms)
+std dev              13.88 ms   (0.0 s .. 15.45 ms)</code></pre>
+<p>Oh hell, ×167 slowdown is not good. Let's try to fix it:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">special0' ::</span> (<span class="dt">Num</span> a, <span class="dt">Enum</span> a) <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> a
+special0' x <span class="fu">=</span>
+  product [x<span class="fu">..</span><span class="dv">1000000</span>] <span class="fu">+</span>
+  product [x<span class="fu">..</span><span class="dv">1000000</span>] <span class="fu">+</span>
+  product [x<span class="fu">..</span><span class="dv">1000000</span>] <span class="fu">+</span>
+  product [x<span class="fu">..</span><span class="dv">1000000</span>] <span class="fu">+</span>
+  product [x<span class="fu">..</span><span class="dv">1000000</span>] <span class="fu">+</span>
+  product [x<span class="fu">..</span><span class="dv">1000000</span>] <span class="fu">+</span>
+  product [x<span class="fu">..</span><span class="dv">1000000</span>]
+<span class="ot">{-# SPECIALIZE special0' :: Int -&gt; Int #-}</span></code></pre></div>
+<p>This brings our specialization back:</p>
+<pre><code>  special0'_$sspecial0' :: Int -&gt; Int
+  {- Arity: 1, HasNoCafRefs, Strictness: &lt;S(S),1*U(U)&gt;m,
+     Inline: INLINE[0],
+     Unfolding: InlineRule (1, True, False)
+                (\ (w :: Int) -&gt;
+                 case w of ww { I# ww1 -&gt;
+                 case $w$sspecial0' ww1 of ww2 { DEFAULT -&gt; I# ww2 } }) -}
+&quot;SPEC special0'&quot; [ALWAYS] forall ($dNum :: Num Int)
+                                 ($dEnum :: Enum Int)
+  special0' @ Int $dNum $dEnum = special0'_$sspecial0'</code></pre>
+<p>…and it indeed returns <code>special0_alt</code> its ability to perform well:</p>
+<pre><code>benchmarking special0_alt
+time                 5.392 ms   (5.381 ms .. 5.403 ms)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 5.399 ms   (5.392 ms .. 5.408 ms)
+std dev              25.12 μs   (16.60 μs .. 38.90 μs)</code></pre>
+<p>Let's conclude:</p>
+<ul>
+<li><p>GHC has no problem specializing for you when a polymorphic function is used in the same module it's defined: it has its body and it knows what to do.</p></li>
+<li><p>Lack of specialization kills your performance completely and very reliably.</p></li>
+<li><p>If you can guess which specializations to request from GHC when you write your module, most of the time you're OK and you can get your speed back.</p></li>
+</ul>
+<p>What about the case when a user of a library wants a specialization that the library's author hasn't thought about? Let's see. We first remove the <code>SPECIALIZE</code> pragma for <code>special0'</code>, so no specializations are generated on compilation of our “source” module. Then we try to specialize in the “consumer” module:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">special0_alt ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span>
+special0_alt x <span class="fu">=</span> special0' x <span class="ot">`rem`</span> <span class="dv">10</span>
+<span class="ot">{-# SPECIALIZE special0' :: Int -&gt; Int #-}</span></code></pre></div>
+<p>…and GHC tells us in plain English:</p>
+<blockquote>
+<p>You cannot SPECIALISE <code>special0'</code> because its definition has no INLINE/INLINABLE pragma</p>
+<p>(or its defining module <code>Goaf</code> was compiled without -O)</p>
+</blockquote>
+<p>Cool, but we know that already, don't we? Let's add <code>special0'</code>'s body to interface file with <code>INLINEABLE</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">special0' ::</span> (<span class="dt">Num</span> a, <span class="dt">Enum</span> a) <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> a
+special0' x <span class="fu">=</span>
+  product [x<span class="fu">..</span><span class="dv">1000000</span>] <span class="fu">+</span>
+  product [x<span class="fu">..</span><span class="dv">1000000</span>] <span class="fu">+</span>
+  product [x<span class="fu">..</span><span class="dv">1000000</span>] <span class="fu">+</span>
+  product [x<span class="fu">..</span><span class="dv">1000000</span>] <span class="fu">+</span>
+  product [x<span class="fu">..</span><span class="dv">1000000</span>] <span class="fu">+</span>
+  product [x<span class="fu">..</span><span class="dv">1000000</span>] <span class="fu">+</span>
+  product [x<span class="fu">..</span><span class="dv">1000000</span>]
+<span class="ot">{-# INLINEABLE special0' #-}</span></code></pre></div>
+<p>…and we win again:</p>
+<pre><code>benchmarking special0_alt
+time                 5.329 ms   (5.313 ms .. 5.348 ms)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 5.340 ms   (5.326 ms .. 5.356 ms)
+std dev              45.16 μs   (36.56 μs .. 55.29 μs)</code></pre>
+<p>I've also had a different warning from GHC when I used the same combination of <code>INLINEABLE</code>/<code>SPECIALIZE</code>:</p>
+<blockquote>
+<p>SPECIALIZE pragma probably won't fire on inlined function <code>foo</code></p>
+</blockquote>
+<p>…and benchmarks showed that it didn't fire indeed. So well, yeah, take care and remember to benchmark every time you change something!</p>
+<h3 id="rewrite-rules">Rewrite rules</h3>
+<p>Haskell, being a pure language, gives GHC the magic ability to perform a wide range of transformations over Haskell programs without changing their meanings. And GHC allows the programmer to take part in that process. Thank you, GHC!</p>
+<h4 id="the-rules-pragma">The <code>RULES</code> pragma</h4>
+<p>The <code>RULES</code> pragma allows to write arbitrary rules how to transform certain combinations of functions. Here is an example of <code>RULES</code> in use:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">{-# RULES</span>
+<span class="co">&quot;map/map&quot; forall f g xs. map f (map g xs) = map (f . g) xs</span>
+<span class="co">  #-}</span></code></pre></div>
+<p>Let's go though the example explaining its syntax (the GHC user guide has a very good description, so I don't see why not to include it here almost verbatim):</p>
+<ul>
+<li><p>There may be zero or more rules in a <code>RULES</code> pragma, which you may write each on its own line or even several in one line separating them by semicolons.</p></li>
+<li><p>Closing <code>#-}</code> should start in a column to the right of the opening <code>{-#</code>. Pretty weird requirement, BTW. If you happen to know why it's this way, please comment.</p></li>
+<li><p>Each rule has a name, enclosed in double quotes. The name itself has no significance at all. It is only used when reporting how many times the rule fired.</p></li>
+<li><p>Each variable mentioned in a rule must either be in scope (e.g. <code>map</code>), or bound by the <code>forall</code> (e.g. <code>f</code>, <code>g</code>, <code>xs</code>). The variables bound by the <code>forall</code> are called the <strong>pattern variables</strong>. They are separated by spaces, just like in a type <code>forall</code>.</p></li>
+<li><p>A pattern variable may optionally have a type signature. <strong>If the type of the pattern variable is polymorphic, it must have a type signature</strong>. For example:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">{-# RULES</span>
+<span class="co">&quot;fold/build&quot;  forall k z (g :: forall b. (a -&gt; b -&gt; b) -&gt; b -&gt; b).</span>
+<span class="co">              foldr k z (build g) = g k z</span>
+<span class="co">  #-}</span></code></pre></div>
+<p>Since <code>g</code> has a polymorphic type, it must have a type signature.</p></li>
+<li><p>The left hand side of a rule must consist of a top-level variable applied to arbitrary expressions. For example, this is not OK:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">{-# RULES</span>
+<span class="co">&quot;wrong1&quot;   forall e1 e2.  case True of { True -&gt; e1; False -&gt; e2 } = e1</span>
+<span class="co">&quot;wrong2&quot;   forall f.      f True = True</span>
+<span class="co">  #-}</span></code></pre></div>
+<p>In <code>&quot;wrong1&quot;</code>, the LHS is not an application; in <code>&quot;wrong2&quot;</code>, the LHS has a pattern variable in the head.</p></li>
+<li><p>A rule does not need to be in the same module as (any of) the variables it mentions, though of course they need to be in scope.</p></li>
+<li><p>All rules are implicitly exported from the module, and are therefore in force in any module that imports the module that defined the rule, directly or indirectly. (That is, if <code>A</code> imports <code>B</code>, which imports <code>C</code>, then <code>C</code>'s rules are in force when compiling <code>A</code>.) The situation is very similar to that for instance declarations.</p></li>
+<li><p>Inside a rule <code>forall</code> is treated as a keyword, regardless of any other flag settings. Furthermore, inside a rule, the language extension <code>-XScopedTypeVariables</code> is automatically enabled.</p></li>
+<li><p>Like other pragmas, RULE pragmas are always checked for scope errors, and are typechecked. Typechecking means that the LHS and RHS of a rule are typechecked, and must have the same type.</p></li>
+</ul>
+<p>The GHC user guide then goes on to explain what rewrite rules actually do (I have edited it a bit):</p>
+<blockquote>
+<p>GHC uses a very simple, syntactic, matching algorithm for matching a rule LHS with an expression. It seeks a substitution which makes the LHS and expression syntactically equal modulo alpha-conversion (that is, a rule matches only if types match too). The pattern (rule), but not the expression, is eta-expanded if necessary. (Eta-expanding the expression can lead to laziness bugs.) But no beta-conversion is performed (that's called higher-order matching).</p>
+</blockquote>
+<p>This requirement of verbatim matching modulo alpha conversion in combination with the fact that a lot is going on during the optimization process in GHC makes working with rules a bit tricky. That is, sometimes rules do not fire. Some cases of this are covered in the next section, called “Gotchas”.</p>
+<p>Another important thing to mention is that when several rules match at once, GHC will choose one arbitrarily to apply. You might be wondering “why not to choose the first one for example” — well, given that rules are much like instance declarations with respect to how they are imported, there is no order for them, and the only thing GHC can do when several rules match is to either apply none (probably it's worse than applying at least something) or pick one randomly and apply that.</p>
+<p>Now before we start considering problems you may have with <code>RULES</code>, I promised to show what sort of rules the <code>SPECIALIZE</code> pragma generates. Here they are:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">foo ::</span> <span class="dt">Num</span> a <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> a
+foo <span class="fu">=</span> …
+<span class="ot">{-# SPECIALIZE foo :: Int -&gt; Int #-}</span>
+
+<span class="ot">⇒</span>
+
+<span class="ot">fooForInts ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span> <span class="co">-- this is generated by GHC</span>
+fooForInts <span class="fu">=</span> …
+<span class="ot">{-# NOINLINE foo #-}</span>
+<span class="ot">{-# RULES &quot;foo for ints&quot; foo = fooForInts #-}</span></code></pre></div>
+<p>Yes, specializing normally “disables” inlining. Think about it: we have generated a specialized version of a function and we have a rule that replaces polymorphic function <code>foo</code> with <code>fooForInts</code>, so we don't want <code>foo</code> to be inlined because then the rule would have no chance to fire!</p>
+<h4 id="gotchas">Gotchas</h4>
+<p>Even though GHC keeps trying to apply the rules as it optimizes the program, there are way too many opportunities for things to go in an unexpected direction that may make the whole experience of crafting rewrite rules rather frustrating (at least at first). This section highlights some of them (well, I tried to collect here all of them, but there may be more).</p>
+<p><strong>GHC does not attempt to verify whether RHS has the same meaning as LHS</strong>. It's the programmer's responsibility to ensure that the rules do not wreak havoc! An example of a tricky rule that may seem obviously correct could be something like this:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">{-# RULES</span>
+<span class="co">&quot;double reverse&quot; forall xs. reverse (reverse xs) = xs</span>
+<span class="co">  #-}</span></code></pre></div>
+<p>At first glance it really makes sense, doesn't it? The <code>&quot;double reverse&quot;</code> rule nevertheless does not preserve meaning of expression it transforms. <code>reverse (reverse xs)</code> applied to an infinite list would diverge, never yielding any element, while the infinite list <code>xs</code> can be consumed normally, given that it's never forced in its entirety.</p>
+<p><strong>GHC does not attempt to ensure that rules are terminating</strong>. For example (example from GHC user guide):</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">{-# RULES</span>
+<span class="co">&quot;loop&quot; forall x y. f x y = f y x</span>
+<span class="co">  #-}</span></code></pre></div>
+<p>…will cause the compiler to go into an infinite loop.</p>
+<p>To make things more interesting for the programmer, not only every transformation must not introduce any differences in meaning, ability to terminate, etc., but also in complex combinations of functions, it is desirable that we get the same result no matter where we start the transformation with the condition that we apply rules until no rules can be applied anymore — this is called <strong>confluence</strong>. Here is an example that will hopefully demonstrate what is meant (adapted from an example found on the Haskell Wiki):</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">{-# RULES</span>
+<span class="co">&quot;f/f&quot; forall x. f (f x) = f x</span>
+<span class="co">&quot;f/g&quot; forall x. f (g x) = fg x</span>
+<span class="co">  #-}</span></code></pre></div>
+<p>The <code>&quot;f/f&quot;</code> rule states that <code>f</code> is a kind of idempotent function, while the <code>&quot;f/g&quot;</code> rule recognizes the particular combination of <code>f</code> and <code>g</code> and replaces it with ad-hoc implementation <code>fg</code>.</p>
+<p>Now consider the rewriting of <code>f . f . g</code>. If we first apply <code>&quot;f/f&quot;</code>, then we'll end up with <code>fg x</code>, but if we first apply <code>&quot;f/g&quot;</code>, then we'll get <code>f . fg</code>. The system is not confluent. An obvious fix would be to add this rule:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">{-# RULES</span>
+<span class="co">&quot;f/fg&quot; forall x. f (fg x) = fg x</span>
+<span class="co">  #-}</span></code></pre></div>
+<p>…which makes the system confluent. <strong>GHC does not attempt to check if your rules are confluent</strong>, so take some time to check your rule set for confluence too!</p>
+<p>Finally, <strong>writing rules matching on methods of type classes is futile</strong> because methods may be specialized (that is, replaced by specialized less polymorphic functions generated “on-the-fly”) by GHC before rewrite rules have a chance to be applied, so such rules most certainly won't fire because the types specialized functions won't match types specified in rewrite rules.</p>
+<p>Finally, while inlining can get into the way of rewrite rules, it can also help glue together different pieces of code acting as a catalyst for the chemical reaction of rewrite rules. There is a special modifier to <code>INLINE</code> pragma called <code>CONLIKE</code> that tells GHC “hey, if inlining this (even many times) helps some rewrite rules fire, go wild and inline, that's cheap enough for us”. <code>CONLIKE</code> stands for “constructor-like”. In fact, GHC maintains the invariant that every constructor application has arguments that can be duplicated at no cost: variables, literals, and type applications (you can find more about this in “Secrets of the GHC inliner”, see links for further reading at the end of the tutorial), hence the name.</p>
+<h4 id="phase-control">Phase control</h4>
+<p>I wouldn't be surprised if it feels now that a lot is happening during optimization and things really get messy and interfere with each other in undesirable ways. I, for one, have this feeling. There must be a way to say: this should happen first, that should happen after. Well, there is a way.</p>
+<p>GHC has a concept of simplifier phases. The phases are numbered. The first phase that runs currently has number 4 (maybe there will be more of them in later versions of GHC), then goes number 3, 2, 1, and finally the last phase has number 0.</p>
+<p>Unfortunately, the phase separation does not give fine-grained control, but just enough for us to construct something that works. In an ideal world, we would like to be able to specify which optimization procedure depends on which, etc., instead we have only two options:</p>
+<ol style="list-style-type: decimal">
+<li><p>Specify beginning from which phase given rewrite rule or inline/specialize pragma should be enabled.</p></li>
+<li><p>Specify up to which phase (not including) a rule should be enabled.</p></li>
+</ol>
+<p>The syntactic part boils down to adding <code>[n]</code> or <code>[~n]</code> after the pragma's name. The GHC user tutorial has a really nice table that we absolutely must have here:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">                         <span class="co">-- Before phase 2     Phase 2 and later</span>
+<span class="ot">{-# INLINE   [2]  f #-}</span>  <span class="co">--      No                 Yes</span>
+<span class="ot">{-# INLINE   [~2] f #-}</span>  <span class="co">--      Yes                No</span>
+<span class="ot">{-# NOINLINE [2]  f #-}</span>  <span class="co">--      No                 Maybe</span>
+<span class="ot">{-# NOINLINE [~2] f #-}</span>  <span class="co">--      Maybe              No</span>
+
+<span class="ot">{-# INLINE   f #-}</span>       <span class="co">--      Yes                Yes</span>
+<span class="ot">{-# NOINLINE f #-}</span>       <span class="co">--      No                 No</span></code></pre></div>
+<p>Regarding “maybe”:</p>
+<blockquote>
+<p>By “Maybe” we mean that the usual heuristic inlining rules apply (if the function body is small, or it is applied to interesting-looking arguments etc).</p>
+</blockquote>
+<p>The phase control is also available for <code>SPECIALIZE</code> and on a per-rule basis in <code>RULES</code>. Let's take a look at what sort of effect phase indication has with the <code>SPECIALIZE</code> pragma for example:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">foo ::</span> <span class="dt">Num</span> a <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> a
+foo <span class="fu">=</span> …
+<span class="ot">{-# SPECIALIZE [1] foo :: Int -&gt; Int #-}</span>
+
+<span class="ot">⇒</span>
+
+<span class="ot">fooForInts ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span> <span class="co">-- generated by GHC</span>
+fooForInts <span class="fu">=</span> …
+<span class="ot">{-# NOINLINE [1] foo #-}</span>
+<span class="ot">{-# RULES    [1] foo = forForInts #-}</span></code></pre></div>
+<p>Here the phase indication for <code>SPECIALIZE</code> has the effect of disabling inlining till it's time to activate the “specializing rule”.</p>
+<p>As an example of how phase control may be indispensable with rewrite rules, it's enough to look at <code>map</code>-specific rules found in <code>Prelude</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- The rules for map work like this.</span>
+<span class="fu">--</span>
+<span class="co">-- Up to (but not including) phase 1, we use the &quot;map&quot; rule to</span>
+<span class="co">-- rewrite all saturated applications of map with its build/fold</span>
+<span class="co">-- form, hoping for fusion to happen.</span>
+<span class="co">-- In phase 1 and 0, we switch off that rule, inline build, and</span>
+<span class="co">-- switch on the &quot;mapList&quot; rule, which rewrites the foldr/mapFB</span>
+<span class="co">-- thing back into plain map.</span>
+<span class="fu">--</span>
+<span class="co">-- It's important that these two rules aren't both active at once</span>
+<span class="co">-- (along with build's unfolding) else we'd get an infinite loop</span>
+<span class="co">-- in the rules.  Hence the activation control below.</span>
+<span class="fu">--</span>
+<span class="co">-- The &quot;mapFB&quot; rule optimizes compositions of map.</span>
+<span class="fu">--</span>
+<span class="co">-- This same pattern is followed by many other functions:</span>
+<span class="co">-- e.g. append, filter, iterate, repeat, etc.</span>
+
+<span class="co">{-# RULES</span>
+<span class="co">&quot;map&quot;       [~1] forall f xs.   map f xs                = build (\c n -&gt; foldr (mapFB c f) n xs)</span>
+<span class="co">&quot;mapList&quot;   [1]  forall f.      foldr (mapFB (:) f) []  = map f</span>
+<span class="co">&quot;mapFB&quot;     forall c f g.       mapFB (mapFB c f) g     = mapFB c (f.g)</span>
+<span class="co">  #-}</span></code></pre></div>
+<p>Note two important points here:</p>
+<ol style="list-style-type: decimal">
+<li><p>Without phase control both rules <code>&quot;map&quot;</code> and <code>&quot;mapList&quot;</code> would be active at once and GHC would go into an infinite loop. Phase control is the only way to make this set of rules work.</p></li>
+<li><p>We first use the <code>&quot;map&quot;</code> rule, and then we use <code>&quot;mapList&quot;</code> which essentially rewrites the function back into its <code>map</code> form. This strategy is called “pair rules”. The reasoning here is to try to represent a function in fusion-friendly form, but if by the time we hint phase 1 fusion still did not happen, it's better to rewrite it back.</p>
+<p>It may be not obvious how the result of <code>&quot;map&quot;</code> is going to match the <code>&quot;mapList&quot;</code> rules, but if you keep in mind the definition of <code>build g =  g (:) []</code> and the fact that it will most certainly be inlined by phase 1, then <code>&quot;mapList&quot;</code> should make perfect sense.</p></li>
+</ol>
+<p>You might be thinking: “Fusion? Yet another buzzword in the never-ending Haskell dictionary?”. This brings us to the next major topic of this tutorial…</p>
+<h2 id="fusion">Fusion</h2>
+<p>Enough of that hairy stuff! Take a deep breath, let's discuss something different now. This section will be about fusion, but before we start talking about it, we need to define what “fusion” is.</p>
+<p>For the purposes of this tutorial, <strong>fusion is a technique that allows to avoid constructing intermediate results</strong> (such as lists, vectors, arrays…) when chaining operations (functions). Allocating intermediate results may really suck out power from your program, so fusion is a very nice optimization technique in certain cases.</p>
+<p>To demonstrate the benefits of fusion it's enough to start with a simple composition of functions you may find yourself writing quite often. The only difference is that we will use our own, homemade functions (functions from <code>Prelude</code> have rewrite rules we are yet to reinvent) implemented as you would expect:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">map0 ::</span> (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> [a] <span class="ot">-&gt;</span> [b]
+map0 _ []     <span class="fu">=</span> []
+map0 f (x<span class="fu">:</span>xs) <span class="fu">=</span> f x <span class="fu">:</span> map0 f xs
+
+<span class="ot">foldr0 ::</span> (a <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> [a] <span class="ot">-&gt;</span> b
+foldr0 _ b []     <span class="fu">=</span> b
+foldr0 f b (a<span class="fu">:</span>as) <span class="fu">=</span> foldr0 f (f a b) as
+
+<span class="ot">nofusion0 ::</span> [<span class="dt">Int</span>] <span class="ot">-&gt;</span> <span class="dt">Int</span>
+nofusion0 <span class="fu">=</span> foldr0 (<span class="fu">+</span>) <span class="dv">0</span> <span class="fu">.</span> map0 sqr
+
+<span class="ot">sqr ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span>
+sqr x <span class="fu">=</span> x <span class="fu">*</span> x</code></pre></div>
+<p>This all looks quite mundane — good ol' pipeline of functions with function composition, you probably write a lot of such code. Let's see how it performs:</p>
+<pre><code>benchmarking nofusion0
+time                 155.4 ms   (146.4 ms .. 162.4 ms)
+                     0.996 R²   (0.980 R² .. 1.000 R²)
+mean                 155.1 ms   (151.3 ms .. 159.0 ms)
+std dev              5.522 ms   (3.154 ms .. 7.537 ms)</code></pre>
+<p>This is the result with <code>[0..1000000]</code> passed as argument to <code>nofusion0</code>.</p>
+<p>With <code>weigh</code> (a relatively new library that allows to find out memory consumption of your code) I'm getting the following:</p>
+<pre><code>Case                  Bytes  GCs  Check
+nofusion0       249,259,656  448  OK</code></pre>
+<p>In a lazy language like Haskell laziness just changes when parts of intermediate lists are allocated, but they still must be allocated because that's what the next step in the “pipe” takes as input, and that's the overhead we want to reduce with fusion.</p>
+<p>Can we do better if we rewrite everything as a single function that sums and multiplies in one pass? Not so sexy, but let's give it a try to see what sort of power we're missing with our “elegant” composition of list processing functions:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">manuallyFused ::</span> [<span class="dt">Int</span>] <span class="ot">-&gt;</span> <span class="dt">Int</span>
+manuallyFused []     <span class="fu">=</span> <span class="dv">0</span>
+manuallyFused (x<span class="fu">:</span>xs) <span class="fu">=</span> x <span class="fu">*</span> x <span class="fu">+</span> manuallyFused xs</code></pre></div>
+<p>Let's benchmark it:</p>
+<pre><code>benchmarking manuallyFused
+time                 17.10 ms   (16.71 ms .. 17.54 ms)
+                     0.996 R²   (0.992 R² .. 0.998 R²)
+mean                 17.18 ms   (16.87 ms .. 17.62 ms)
+std dev              932.8 μs   (673.7 μs .. 1.453 ms)
+
+Case                 Bytes  GCs  Check
+manuallyFused   96,646,160  153  OK</code></pre>
+<p>The improvement is dramatic. We just manually “fused” the two functions and produced code that runs faster, consumes less memory, and does the same thing. But how can we give up on composability and elegance — main merits of functional programming? No way!</p>
+<p>What we would like to achieve is the following:</p>
+<ol style="list-style-type: decimal">
+<li>Ability to write beautiful, composable programs.</li>
+<li>Avoid allocating intermediate results where possible, because it sucks.</li>
+</ol>
+<p>The point 2 can be (and has been) addressed differently:</p>
+<ol style="list-style-type: decimal">
+<li><p>We can build our vocabulary of little “primitive” operations (that we use as building blocks in our programs) in such a way that they do not ever produce results immediately. So when such primitives are combined, they produce another (wrapped) function that does not produce a result immediately either. To get “real” result, we need yet another function that can “run” the composite action we've constructed. This is also fusion and this is how the <code>repa</code> package works for example.</p></li>
+<li><p>We want to have our cake and eat it too. We can expose familiar interface where every “primitive” produces a result immediately, but we also can add rewrite rules that will (hopefully) make GHC rewrite things in such a way that in the end the compiler gets one tight loop without intermediate allocations.</p></li>
+</ol>
+<p>I must say that I like the first approach more because it's more explicit and reliable. Let's see it in action.</p>
+<h3 id="fusion-without-rewrite-rules">Fusion without rewrite rules</h3>
+<p>Returning to the example with <code>map</code> and <code>foldr</code>, we can re-write the functions differently using the principle we've just discussed — avoiding generation of intermediate results. It's essential for fusion that we don't write our functions as transformations of whole lists (or whatever you have), because then we are back to the problem of creating those lists at some point.</p>
+<p>It's actually tricky to have several independent functions that conceptually work on linked lists without re-creating the list structure in some form. So, we won't start with fusion that works on linked lists. Instead, let's start with a more obvious example: arrays.</p>
+<p>An array can be represented as a combination of its size and a function that takes index and returns a value at that index. We can write:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Array</span> a <span class="fu">=</span> <span class="dt">Array</span> <span class="dt">Int</span> (<span class="dt">Int</span> <span class="ot">-&gt;</span> a)
+
+<span class="ot">rangea ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Array</span> <span class="dt">Int</span>
+rangea n <span class="fu">=</span> <span class="dt">Array</span> n id
+
+<span class="ot">mapa ::</span> (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> <span class="dt">Array</span> a <span class="ot">-&gt;</span> <span class="dt">Array</span> b
+mapa f (<span class="dt">Array</span> size g) <span class="fu">=</span> <span class="dt">Array</span> size (f <span class="fu">.</span> g)
+
+<span class="ot">foldra ::</span> (a <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> <span class="dt">Array</span> a <span class="ot">-&gt;</span> b
+foldra f b (<span class="dt">Array</span> size g) <span class="fu">=</span> go <span class="dv">0</span> b
+  <span class="kw">where</span>
+    go n b' <span class="fu">|</span> n <span class="fu">&lt;</span> size  <span class="fu">=</span> go (n <span class="fu">+</span> <span class="dv">1</span>) (f (g n) b')
+            <span class="fu">|</span> otherwise <span class="fu">=</span> b'
+
+<span class="ot">fuseda ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span>
+fuseda <span class="fu">=</span> foldra (<span class="fu">+</span>) <span class="dv">0</span> <span class="fu">.</span> mapa sqr <span class="fu">.</span> rangea</code></pre></div>
+<p>Here, we have what Repa calls “delayed arrays”. Note that the function <code>rangea</code> allows to create arrays which have elements filled with their indices. This is for simplicity, in a real array library we would want to complement the delayed arrays with real ones that hold all the data in memory in adjoined addresses and allow for fast indexing, but for the demonstration of fusion we can do without “real” arrays.</p>
+<p>Now if you take a look at <code>mapa</code>, it doesn't really do anything but making the indexing function just a little bit more complex, so we don't create any intermediate results with it. <code>foldra</code> allows to traverse entire array and get some value computed from all its elements, it plays the role of consumer in our case. Finally, <code>fuseda 1000000</code> is the same as <code>manuallyFused [0..1000000]</code>, but runs much faster.</p>
+<p>Of course <code>fuseda</code> is not equivalent in power to <code>manuallyFused</code>, but the whole collection and functions shows that it's possible to have composability and speed at the same time. Note again, we get this by just changing the indexing function without actually doing anything with the real array (which of course can be “rendered” or built given an <code>Array</code>).</p>
+<p>Now let's try to do something like this with linked lists, although it's less obvious. We should start with the idea of not touching the real list, but modifying a function that… what? Indexes the list? What should such a function do to a list? If the most basic function of an array is to be indexed by the position of its elements, then what is the most basic function of a list? How is a linked list consumed?</p>
+<p>If we have a list <code>[a]</code>, then the way it's usually consumed is via “unconsing”, that is, we take the head of the list <code>a</code> and also we get the rest of it <code>[a]</code>. There is a function named <code>uncons</code> in <code>Data.List</code> for that, let's take a look at it:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">uncons ::</span> [a] <span class="ot">-&gt;</span> <span class="dt">Maybe</span> (a, [a])
+uncons []     <span class="fu">=</span> <span class="dt">Nothing</span>
+uncons (a<span class="fu">:</span>as) <span class="fu">=</span> <span class="dt">Just</span> (a, as)</code></pre></div>
+<p>So here we can get the head of given list and the rest of it, but if the given list is empty, we can't get its head. This idea is expressed by <code>Maybe</code>. Let's try to represent a “delayed list” as a wrapper around <code>uncons</code>-like function:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">newtype</span> <span class="dt">List</span> a <span class="fu">=</span> <span class="dt">List</span> ([a] <span class="ot">-&gt;</span> <span class="dt">Maybe</span> (a, [a]))</code></pre></div>
+<p>How about <code>map</code> and <code>foldr</code>? It looks like they follow from that definition rather naturally:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">map1 ::</span> (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> <span class="dt">List</span> a <span class="ot">-&gt;</span> <span class="dt">List</span> b
+map1 g (<span class="dt">List</span> f) <span class="fu">=</span> <span class="dt">List</span> h
+  <span class="kw">where</span>
+    h s' <span class="fu">=</span> <span class="kw">case</span> f s' <span class="kw">of</span>
+      <span class="dt">Nothing</span>       <span class="ot">-&gt;</span> <span class="dt">Nothing</span>
+      <span class="dt">Just</span> (x, s'') <span class="ot">-&gt;</span> <span class="dt">Just</span> (g x, s'')</code></pre></div>
+<p>Uh-oh. This does not type check though:</p>
+<blockquote>
+<p>Couldn't match type <code>a</code> with <code>b</code></p>
+</blockquote>
+<p>What's the problem? Well, remember that we just want to make the inner function more complex. In this particular case, it means that it should consume a list of type <code>[a]</code> and produce a list of type <code>[b]</code>, which means that the inner function should have type <code>[a] -&gt; Maybe (b, [a])</code> (remember, we produce elements of <code>[b]</code> one at a time). Clearly, this type signature differs from the one we have so far, hence we should adjust it:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">newtype</span> <span class="dt">List</span> a b <span class="fu">=</span> <span class="dt">List</span> ([a] <span class="ot">-&gt;</span> <span class="dt">Maybe</span> (b, [a]))</code></pre></div>
+<p>So the type <code>List a b</code> means “produces a list of elements of type <code>b</code> from a list of elements of type <code>a</code>”. Not a very clear signature to have for a thing like a list, but let's put up with this and go to the end to see if this at least performs better. Finally, <code>map1</code> compiles:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">map1 ::</span> (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> <span class="dt">List</span> s a <span class="ot">-&gt;</span> <span class="dt">List</span> s b
+map1 g (<span class="dt">List</span> f) <span class="fu">=</span> <span class="dt">List</span> h
+  <span class="kw">where</span>
+    h s' <span class="fu">=</span> <span class="kw">case</span> f s' <span class="kw">of</span>
+      <span class="dt">Nothing</span>       <span class="ot">-&gt;</span> <span class="dt">Nothing</span>
+      <span class="dt">Just</span> (x, s'') <span class="ot">-&gt;</span> <span class="dt">Just</span> (g x, s'')</code></pre></div>
+<p>The signature literally says: “when you have a list that has <code>a</code> elements, no matter what you consume to get them (in our case this is something labelled <code>s</code>), I'll give you another list that produces <code>b</code> elements, still consuming the same thing <code>s</code>”.</p>
+<p>Let's go ahead and implement <code>foldr1</code> (this is not your <code>foldr1</code> from <code>Predule</code>, the numeric suffix just shows which example it belongs to). To implement <code>foldr1</code> we need something to consume, because we want to get one single value in the end — a real value, not something “delayed”.</p>
+<p>We could pass source of values directly to <code>foldr1</code>, but it's not nice for two reasons:</p>
+<ol style="list-style-type: decimal">
+<li><p>We want the signature of <code>foldr1</code> to stay as close to the familiar signature of <code>foldr</code> as possible.</p></li>
+<li><p><code>foldr</code> is just one primitive that “forces” a delayed list, what about other ones? Should we add an extra argument to all of them? This is not elegant.</p></li>
+</ol>
+<p>So what can we do here? Well, perhaps we could store the initial list together with the function we already have <code>[a] -&gt; Maybe (b, [a])</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">List</span> a b <span class="fu">=</span> <span class="dt">List</span> ([a] <span class="ot">-&gt;</span> <span class="dt">Maybe</span> (b, [a])) [a]</code></pre></div>
+<p>We should remember though that we want to pass that list unchanged until we want to “force” consumption of that list:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">map1 ::</span> (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> <span class="dt">List</span> s a <span class="ot">-&gt;</span> <span class="dt">List</span> s b
+map1 g (<span class="dt">List</span> f s) <span class="fu">=</span> <span class="dt">List</span> h s
+<span class="co">--             ^           ^</span>
+<span class="co">--             |  “as is”  |</span>
+<span class="co">--             +-----------+</span>
+  <span class="kw">where</span>
+    h s' <span class="fu">=</span> <span class="kw">case</span> f s' <span class="kw">of</span>
+      <span class="dt">Nothing</span>       <span class="ot">-&gt;</span> <span class="dt">Nothing</span>
+      <span class="dt">Just</span> (x, s'') <span class="ot">-&gt;</span> <span class="dt">Just</span> (g x, s'')
+
+foldr1<span class="ot"> ::</span> (a <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> <span class="dt">List</span> s a <span class="ot">-&gt;</span> b
+foldr1 g b (<span class="dt">List</span> f s) <span class="fu">=</span> go b s
+  <span class="kw">where</span>
+    go b' s' <span class="fu">=</span> <span class="kw">case</span> f s' <span class="kw">of</span>
+      <span class="dt">Nothing</span>       <span class="ot">-&gt;</span> b'
+      <span class="dt">Just</span> (x, s'') <span class="ot">-&gt;</span> go (g x b') s''</code></pre></div>
+<p>Now that we store the initial list in <code>List</code> itself, we can write a function that converts a normal list into a delayed one:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">fromLinkedList ::</span> [a] <span class="ot">-&gt;</span> <span class="dt">List</span> a a
+fromLinkedList <span class="fu">=</span> <span class="dt">List</span> uncons</code></pre></div>
+<p>And just for the sake of completeness, here is how to get it back:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">toLinkedList ::</span> <span class="dt">List</span> a b <span class="ot">-&gt;</span> [b]
+toLinkedList (<span class="dt">List</span> f s) <span class="fu">=</span> unfoldr f s</code></pre></div>
+<p>Here is <code>unfoldr</code> from <code>Data.List</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">unfoldr ::</span> (s <span class="ot">-&gt;</span> <span class="dt">Maybe</span> (a, s)) <span class="ot">-&gt;</span> s <span class="ot">-&gt;</span> [a]
+unfoldr f s <span class="fu">=</span> <span class="kw">case</span> f s <span class="kw">of</span>
+  <span class="dt">Nothing</span>      <span class="ot">-&gt;</span> []
+  <span class="dt">Just</span> (x, s') <span class="ot">-&gt;</span> x <span class="fu">:</span> unfoldr f s'</code></pre></div>
+<p><code>unfoldr</code> takes an initial state, passes it to a given function and gets one element of the final list and new state. It continues till <code>Nothing</code> is returned.</p>
+<p>Finally, we can build <code>fused1</code> that solves the same problem of summing up a list of squared numbers:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">fused1 ::</span> [<span class="dt">Int</span>] <span class="ot">-&gt;</span> <span class="dt">Int</span>
+fused1 <span class="fu">=</span> foldr1 (<span class="fu">+</span>) <span class="dv">0</span> <span class="fu">.</span> map1 sqr <span class="fu">.</span> fromLinkedList</code></pre></div>
+<p>Elegance and composability: check. Let's benchmark it:</p>
+<pre><code>benchmarking fused1
+time                 3.422 ms   (3.412 ms .. 3.433 ms)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 3.432 ms   (3.427 ms .. 3.440 ms)
+std dev              19.74 μs   (14.15 μs .. 29.65 μs)
+
+Case                 Bytes  GCs  Check
+fused1          80,000,016  153  OK</code></pre>
+<p>It's the fastest implementation so far! What's wrong with our simple-minded <code>manuallyFused</code> BTW? Shouldn't it be the fastest? Well, it's not tail-recursive, but we can rewrite it like this:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">manuallyFused' ::</span> [<span class="dt">Int</span>] <span class="ot">-&gt;</span> <span class="dt">Int</span>
+manuallyFused' <span class="fu">=</span> go <span class="dv">0</span>
+  <span class="kw">where</span>
+    go <span class="fu">!</span>n []     <span class="fu">=</span> n
+    go <span class="fu">!</span>n (x<span class="fu">:</span>xs) <span class="fu">=</span> go (n <span class="fu">+</span> x <span class="fu">*</span> x) xs</code></pre></div>
+<p>And then it sure wins:</p>
+<pre><code>benchmarking manuallyFused'
+time                 3.206 ms   (3.202 ms .. 3.210 ms)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 3.213 ms   (3.210 ms .. 3.217 ms)
+std dev              11.28 μs   (7.599 μs .. 17.46 μs)
+
+Case                  Bytes  GCs  Check
+manuallyFused'   80,000,016  153  OK</code></pre>
+<p>Returning to <code>List</code>, one thing we would like to do is to remove the type of elements it consumes. I mean, if you have a list of <code>a</code> elements, shouldn't it be <code>List a</code>? Sure it should. Let's see the definition of <code>List</code> again:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">List</span> a b <span class="fu">=</span> <span class="dt">List</span> ([a] <span class="ot">-&gt;</span> <span class="dt">Maybe</span> (b, [a])) [a]</code></pre></div>
+<p><code>[a]</code> here doesn't really ever change as per our idea of not touching it. Its type should be just the same as type of the argument its companion <code>[a] -&gt; Maybe (b, [a])</code> function consumes. We could hide it then using existential quantification:</p>
+<pre><code>data List b = forall a. List ([a] -&gt; Maybe (b, [a])) [a]
+≡ &lt;via alpha reduction&gt;
+data List a = forall s. List (s -&gt; Maybe (a, s)) s</code></pre>
+<p>With this we get the following signatures (implementations stay the same):</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">fromLinkedList ::</span> [a] <span class="ot">-&gt;</span> <span class="dt">List</span> a
+<span class="ot">toLinkedList   ::</span> <span class="dt">List</span> a <span class="ot">-&gt;</span> [a]
+<span class="ot">map1           ::</span> (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> <span class="dt">List</span> a <span class="ot">-&gt;</span> <span class="dt">List</span> b
+foldr1<span class="ot">         ::</span> (a <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> <span class="dt">List</span> a <span class="ot">-&gt;</span> b</code></pre></div>
+<p>Much better! This section has demonstrated that fusion is doable and nice without rewrite rules. In the next section we will explore the notion of “fusion system”.</p>
+<h3 id="buildfoldr-fusion-system"><code>build</code>/<code>foldr</code> fusion system</h3>
+<p>Another approach to avoiding intermediate results can be summarized as the following: “we can use functions that operate on normal lists, arrays, vectors, etc. and let GHC rewrite combinations of these functions in such a way that we still get one tight loop processing the entire thing in one pass”.</p>
+<p>So here's where rewrite rules come into play. There is one problem with this approach though: too many functions to account for. The standard dictionary of a functional programmer includes the following list-specific functions: <code>map</code>, <code>filter</code>, <code>(++)</code>, <code>foldr</code>, <code>foldl</code>, <code>dropWhile</code>, etc. Let's say optimistically, we want to be able to work with 10 functions so they all play nicely together and get rewritten into high-performance code by GHC. Then we need to account for (at least!) 10 × 10 = 100 combinations of these functions. Now remember all the stuff about verifying that every transformation is correct, confluent, that there are no combinations that send GHC into an infinite loop, etc. Do you feel the pain already?</p>
+<p>Fusion with many different functions is hard. So instead we would like to do the following:</p>
+<ol style="list-style-type: decimal">
+<li><p>Rewrite the given function as a combination of very few selected and general functions that form a <strong>fusion system</strong>.</p></li>
+<li><p>Do transformations on these functions and simplify their combinations instead using (often) just one rewrite rule.</p></li>
+</ol>
+<p>In this section we will consider the <code>build</code>/<code>foldr</code> fusion system that is used in the <code>base</code> package and powers all the functions on lists we take for granted.</p>
+<p><code>foldr</code> is a familiar function, but what is <code>build</code>? It looks like this:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">build ::</span> (forall b<span class="fu">.</span> (a <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> [a]
+build g <span class="fu">=</span> g (<span class="fu">:</span>) []</code></pre></div>
+<p>What does it do? Why do we need it? The purpose of <code>build</code> is to keep a list in “delayed” form by abstracting over the <code>(:)</code> “cons” operation and empty list <code>[]</code> “null”. The argument of the function is another function that takes cons-like operation <code>(a -&gt; b -&gt; b)</code> and null-like “starting point” <code>b</code> and produces something of the same type <code>b</code>. Clearly, this is a generalization of functions that produce list-like things.</p>
+<p><code>build</code> just gives that general function the specific <code>(:)</code> function for consing and <code>[]</code> as starting point and we get our list back. The following example is taken from Duncan Coutts' thesis called “Stream Fusion: Practical shortcut fusion for coinductive sequence types” (yeah, the title is hairy, but the text itself is easy to understand and quite interesting, I recommend reading the whole thing!):</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">build l <span class="fu">==</span> [<span class="dv">1</span>,<span class="dv">2</span>,<span class="dv">3</span>]
+  <span class="kw">where</span>
+    l cons nil <span class="fu">=</span> <span class="dv">1</span> <span class="ot">`cons`</span> (<span class="dv">2</span> <span class="ot">`cons`</span> (<span class="dv">3</span> <span class="ot">`cons`</span> nil))</code></pre></div>
+<p>Now the fusion system with <code>build</code> and <code>foldr</code> has only one rule:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">foldr f z (build g) <span class="fu">=</span> g f z</code></pre></div>
+<p>How does it help to eliminate intermediate lists? Let's see, <code>build g</code> builds some list, while <code>foldr f z</code> goes through the list “replacing” <code>(:)</code> applications with <code>f</code> and the empty list with <code>z</code>, in fact this is a popular explanation of what <code>foldr</code> does:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">foldr f z [<span class="dv">1</span>,<span class="dv">2</span>,<span class="dv">3</span>] <span class="fu">=</span> <span class="dv">1</span> <span class="ot">`f`</span> (<span class="dv">2</span> <span class="ot">`f`</span> (<span class="dv">3</span> <span class="ot">`f`</span> z))</code></pre></div>
+<p>With that in mind, <code>g</code> is perfectly prepared to receive <code>f</code> and <code>z</code> directly to deliver exactly the same result!</p>
+<p>Let's rewrite our example using <code>build</code>/<code>foldr</code> fusion system:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">map2 ::</span> (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> [a] <span class="ot">-&gt;</span> [b]
+map2 _ []     <span class="fu">=</span> []
+map2 f (x<span class="fu">:</span>xs) <span class="fu">=</span> f x <span class="fu">:</span> map2 f xs
+<span class="ot">{-# NOINLINE map2 #-}</span>
+
+<span class="co">{-# RULES</span>
+<span class="co">&quot;map2&quot;     [~1] forall f xs. map2 f xs               = build (\c n -&gt; foldr2 (mapFB c f) n xs)</span>
+<span class="co">&quot;map2List&quot; [1]  forall f.    foldr2 (mapFB (:) f) [] = map2 f</span>
+<span class="co">&quot;mapFB&quot;    forall c f g.     mapFB (mapFB c f) g     = mapFB c (f . g)</span>
+<span class="co">  #-}</span>
+
+<span class="ot">mapFB ::</span> (b <span class="ot">-&gt;</span> l <span class="ot">-&gt;</span> l) <span class="ot">-&gt;</span> (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> l <span class="ot">-&gt;</span> l
+mapFB c f <span class="fu">=</span> \x ys <span class="ot">-&gt;</span> c (f x) ys
+<span class="ot">{-# INLINE [0] mapFB #-}</span>
+
+<span class="ot">foldr2 ::</span> (a <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> [a] <span class="ot">-&gt;</span> b
+foldr2 _ b []     <span class="fu">=</span> b
+foldr2 f b (a<span class="fu">:</span>as) <span class="fu">=</span> foldr2 f (f a b) as
+
+<span class="co">{-# RULES</span>
+<span class="co">&quot;build/foldr2&quot; forall f z (g :: forall b. (a -&gt; b -&gt; b) -&gt; b -&gt; b). foldr2 f z (build g) = g f z</span>
+<span class="co">  #-}</span>
+
+<span class="ot">fused2 ::</span> [<span class="dt">Int</span>] <span class="ot">-&gt;</span> <span class="dt">Int</span>
+fused2 <span class="fu">=</span> foldr2 (<span class="fu">+</span>) <span class="dv">0</span> <span class="fu">.</span> map2 sqr</code></pre></div>
+<p>A few comments here:</p>
+<ul>
+<li><p>We need <code>NOINLINE</code> on <code>map2</code> to silence the warning that <code>&quot;map2&quot;</code> may never fire because <code>map2</code> may be inlined first. Of course <code>map2</code> won't ever be inlined because it's self-recursive, but GHC can't figure that out (yet).</p></li>
+<li><p><code>mapFB</code> is a helper function that takes a consing function <code>c</code>, function we want to apply to list <code>f</code> and lambda's head inside also binds <code>x</code> which is an input value (<code>f</code> is applied to it) and <code>ys</code> which is the rest of the list. The function's LHS has only two arguments to facilitate inlining in our particular case (see fusion rules). Of course we want it to be inlined, but only at the end because some rules match on it and they would be broken if it were inlined too early.</p></li>
+<li><p>Inlining is essential to all this stuff because it brings together otherwise separate pieces of code and lets GHC manipulate them as a whole.</p></li>
+<li><p>The <code>&quot;map2&quot;</code> and <code>&quot;build/foldr2&quot;</code> rewrite rules are familiar to us already. <code>&quot;mapFB&quot;</code> is rather trivial. As I said previously, we have here what is called “pair rules”, that is, the <code>&quot;map2List&quot;</code> rule rewrites things back to simple <code>map2</code> if by the phase 1 fusion did not happen. This is also why we have normal definition for <code>map2</code>, not <code>build (…)</code> one — if fusion doesn't happen, <code>build</code>/<code>foldr</code> stuff actually makes things worse, that's why it should be “a thing to try” for the compiler, not default implementation.</p></li>
+</ul>
+<p>OK, let's see if it actually improves anything:</p>
+<pre><code>benchmarking fused2
+time                 107.5 ms   (103.8 ms .. 110.2 ms)
+                     0.998 R²   (0.995 R² .. 1.000 R²)
+mean                 107.3 ms   (104.6 ms .. 109.8 ms)
+std dev              3.768 ms   (2.519 ms .. 6.098 ms)
+
+Case                  Bytes  GCs  Check
+fused2          161,259,568  310  OK</code></pre>
+<p>Well, it's certainly better than the version without any fusion whatsoever, but still kinda sucks. What's the problem though?</p>
+<p>As I said inlining is essential in this sort of fusion business. Notice that <code>foldr2</code> won't be inlined and it won't be rewritten either (unlike <code>map2</code>). This is because <code>foldr</code> is self-recursive. Let's make it non-recursive and inline:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">foldr2 ::</span> (a <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> [a] <span class="ot">-&gt;</span> b
+foldr2 f z <span class="fu">=</span> go
+  <span class="kw">where</span>
+    go []     <span class="fu">=</span> z
+    go (y<span class="fu">:</span>ys) <span class="fu">=</span> y <span class="ot">`f`</span> go ys
+<span class="ot">{-# INLINE [0] foldr2 #-}</span></code></pre></div>
+<p>We specify phase 0 because we want GHC to inline it, but only after fusion has happened (remember that if we inlined it too early it would break our fusion rules and they wouldn't fire).</p>
+<p>Let's give it another shot:</p>
+<pre><code>benchmarking fused2
+time                 17.87 ms   (17.48 ms .. 18.33 ms)
+                     0.996 R²   (0.992 R² .. 0.998 R²)
+mean                 17.94 ms   (17.61 ms .. 18.42 ms)
+std dev              962.6 μs   (689.0 μs .. 1.401 ms)
+
+Case                  Bytes  GCs  Check
+fused2           96,646,160  153  OK</code></pre>
+<p>Nothing to be ashamed of, in fact, this is the same result we would get if we used <code>map</code> and <code>foldr</code> from <code>base</code> package.</p>
+<p>Duncan Coutts' thesis features the step-by-step substitution process that GHC performs that we will omit here (or we will never finish with the tutorial indeed!), so again, look there if you want to see it.</p>
+<p>Indeed most functions can be re-written via <code>foldr</code> and <code>build</code>. Most, but not all. In particular <code>foldl</code> and <code>zip</code> cannot be fused efficiently when written via <code>build</code> and <code>foldr</code>. Unfortunately, we don't have the space to cover all the details here. As already mentioned, Duncan Coutts' thesis is a wonderful read if you want to know more about the matter.</p>
+<h3 id="stream-fusion">Stream fusion</h3>
+<p>So we know what fusion is, but you may have heard of “stream fusion”. Stream fusion is a fusion technique that fuses streams. What is a stream? I think it's acceptable to describe a stream as a list (conceptually), but without the overhead that is normally associated with a linked list.</p>
+<p>In fact, while trying to fuse operations on lists, we already have developed a stream fusion system! Remember our definition for “delayed list”:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">List</span> a <span class="fu">=</span> forall s<span class="fu">.</span> <span class="dt">List</span> (s <span class="ot">-&gt;</span> <span class="dt">Maybe</span> (a, s)) s</code></pre></div>
+<p><code>List</code> represents what's called “stream without skip”. That is, we can either get an element with this model or finish processing, no third option. We will return to this “skip” problem later in this section, for now let's rewrite the definition in a more common form before we continue:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Stream</span> a <span class="fu">=</span> forall s<span class="fu">.</span> <span class="dt">Stream</span> (s <span class="ot">-&gt;</span> <span class="dt">Step</span> a s) s
+
+<span class="kw">data</span> <span class="dt">Step</span> a s
+  <span class="fu">=</span> <span class="dt">Yield</span> a s
+  <span class="fu">|</span> <span class="dt">Done</span></code></pre></div>
+<p>Nothing has really changed here, we just introduced the <code>Step</code> data type which is the same as <code>Maybe (a, s)</code>.</p>
+<p>What can we do with this approach now? One thing we can attempt is to write functions that have familiar signatures with linked lists in them (or indeed it can be vectors or something else) and add rewrite rules to make them run fast.</p>
+<p>The rewrite rule we want to use is extremely simple, much simpler than <code>build</code>/<code>foldr</code> rule. Remember that we can turn a list into a stream like this:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">stream ::</span> [a] <span class="ot">-&gt;</span> <span class="dt">Stream</span> a <span class="co">-- aka fromLinkedList</span>
+stream <span class="fu">=</span> <span class="dt">Stream</span> f
+  <span class="kw">where</span>
+    f []     <span class="fu">=</span> <span class="dt">Done</span>
+    f (x<span class="fu">:</span>xs) <span class="fu">=</span> <span class="dt">Yield</span> x xs</code></pre></div>
+<p>…and we can get our list back:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">unstream ::</span> <span class="dt">Stream</span> a <span class="ot">-&gt;</span> [a] <span class="co">-- aka toLinkedList</span>
+unstream (<span class="dt">Stream</span> f s) <span class="fu">=</span> go s
+  <span class="kw">where</span>
+    go s' <span class="fu">=</span> <span class="kw">case</span> f s' <span class="kw">of</span>
+      <span class="dt">Done</span>        <span class="ot">-&gt;</span> []
+      <span class="dt">Yield</span> x s'' <span class="ot">-&gt;</span> x <span class="fu">:</span> go s''</code></pre></div>
+<p>Then it should make sense that:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">stream (unstream s) <span class="fu">=</span> s</code></pre></div>
+<p>Converting from stream and then back to stream doesn't change anything. If we write our functions as functions on streams and wrap them into <code>stream</code>/<code>unstream</code> pair of functions, we should get functions that operate on lists:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">map3 ::</span> (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> [a] <span class="ot">-&gt;</span> [b]
+map3 f <span class="fu">=</span> unstream <span class="fu">.</span> map3' f <span class="fu">.</span> stream
+
+<span class="ot">map3' ::</span> (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> <span class="dt">Stream</span> a <span class="ot">-&gt;</span> <span class="dt">Stream</span> b
+map3' g (<span class="dt">Stream</span> f s) <span class="fu">=</span> <span class="dt">Stream</span> h s
+  <span class="kw">where</span>
+    h s' <span class="fu">=</span> <span class="kw">case</span> f s' <span class="kw">of</span>
+      <span class="dt">Done</span>        <span class="ot">-&gt;</span> <span class="dt">Done</span>
+      <span class="dt">Yield</span> x s'' <span class="ot">-&gt;</span> <span class="dt">Yield</span> (g x) s''
+
+<span class="ot">foldr3 ::</span> (a <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> [a] <span class="ot">-&gt;</span> b
+foldr3 f z <span class="fu">=</span> foldr3' f z <span class="fu">.</span> stream
+
+<span class="ot">foldr3' ::</span> (a <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> <span class="dt">Stream</span> a <span class="ot">-&gt;</span> b
+foldr3' g b (<span class="dt">Stream</span> f s) <span class="fu">=</span> go b s
+  <span class="kw">where</span>
+    go b' s' <span class="fu">=</span> <span class="kw">case</span> f s' <span class="kw">of</span>
+      <span class="dt">Done</span>        <span class="ot">-&gt;</span> b'
+      <span class="dt">Yield</span> x s'' <span class="ot">-&gt;</span> go (g x b') s''</code></pre></div>
+<p>And at the same time, with this rewrite rule:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">{-# RULES</span>
+<span class="co">&quot;stream/unstream&quot; forall (s :: Stream a). stream (unstream s) = s</span>
+<span class="co">  #-}</span></code></pre></div>
+<p>GHC will make intermediate conversions to and fro shrink:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">fused3 ::</span> [<span class="dt">Int</span>] <span class="ot">-&gt;</span> <span class="dt">Int</span>
+fused3 <span class="fu">=</span> foldr3 (<span class="fu">+</span>) <span class="dv">0</span> <span class="fu">.</span> map3 sqr
+<span class="co">-- ≡     foldr3' (+) 0 . stream . unstream . map3' sqr . stream</span>
+<span class="co">--                       ^               ^</span>
+<span class="co">--                       | nuked by rule |</span>
+<span class="co">--                       +---------------+</span>
+<span class="co">-- ≡     foldr3' (+) 0 . map3' sqr . stream</span></code></pre></div>
+<p><code>(.)</code> will be inlined, so rules start to match and we will get exactly this code, and as we already know, it's <strong>fast</strong>.</p>
+<p>We still need to make a few adjustments before this starts working. Right now I'm seeing the following warning:</p>
+<blockquote>
+<p>Rule <code>&quot;stream/unstream&quot;</code> may never fire because <code>unstream</code> might inline first</p>
+<p>Probable fix: add an <code>INLINE[n]</code> or <code>NOINLINE[n]</code> pragma for <code>unstream</code></p>
+</blockquote>
+<p>I propose you copy the code we have so far for this stream fusion system and try yourself to add some pragmas to make it work. You can then compare it with the solution found in the source code of this tutorial (see <a href="https://github.com/stackbuilders/tutorials">our repo</a>). I have written some comments there to explain what I did and why.</p>
+<p>Here are the results:</p>
+<pre><code>benchmarking fused3
+time                 3.450 ms   (3.440 ms .. 3.459 ms)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 3.459 ms   (3.450 ms .. 3.474 ms)
+std dev              34.64 μs   (23.78 μs .. 52.99 μs)
+
+Case                  Bytes  GCs  Check
+fused3           80,000,016  153  OK</code></pre>
+<p>So now we have functions that work on normal lists, and yet their combinations are very fast! Note that exactly this approach is used in popular libraries like <code>vector</code> and <code>text</code>.</p>
+<p>This fusion system works, but it's not powerful enough for all functions we may want to use, such as <code>filter</code>. Let's try to write <code>filter3</code> to find out why. Here is probably the only way to write <code>filter3</code> given limitation of the framework we have developed:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">filter3 ::</span> (a <span class="ot">-&gt;</span> <span class="dt">Bool</span>) <span class="ot">-&gt;</span> [a] <span class="ot">-&gt;</span> [a]
+filter3 f <span class="fu">=</span> unstream <span class="fu">.</span> filter3' f <span class="fu">.</span> stream
+
+<span class="ot">filter3' ::</span> (a <span class="ot">-&gt;</span> <span class="dt">Bool</span>) <span class="ot">-&gt;</span> <span class="dt">Stream</span> a <span class="ot">-&gt;</span> <span class="dt">Stream</span> a
+filter3' p (<span class="dt">Stream</span> f s) <span class="fu">=</span> <span class="dt">Stream</span> g s
+  <span class="kw">where</span>
+    g s' <span class="fu">=</span> <span class="kw">case</span> f s' <span class="kw">of</span>
+      <span class="dt">Done</span> <span class="ot">-&gt;</span> <span class="dt">Done</span>
+      <span class="dt">Yield</span> x s'' <span class="ot">-&gt;</span>
+        <span class="kw">if</span> p x
+          <span class="kw">then</span> <span class="dt">Yield</span> x s''
+          <span class="kw">else</span> g s''
+
+<span class="ot">fusedFilter ::</span> [<span class="dt">Int</span>] <span class="ot">-&gt;</span> <span class="dt">Int</span>
+fusedFilter <span class="fu">=</span> foldr3 (<span class="fu">+</span>) <span class="dv">0</span> <span class="fu">.</span> filter3 even <span class="fu">.</span> map3 sqr</code></pre></div>
+<p>The problem here is that if we need to skip a value, the only thing we can do is to recursively call <code>g</code>, which is not good, as the compiler can't “flatten”, inline, and further optimize recursive functions.</p>
+<p>Benchmarking shows the following:</p>
+<pre><code>benchmarking fusedFilter
+time                 10.79 ms   (10.76 ms .. 10.82 ms)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 10.81 ms   (10.79 ms .. 10.84 ms)
+std dev              69.54 μs   (47.87 μs .. 118.8 μs)
+
+Case                    Bytes  GCs  Check
+fusedFilter       100,000,056  192  OK</code></pre>
+<p>If we introduce <code>Skip</code>, <code>g</code> ceases to be self-recursive (adjustments to other functions are trivial and not shown here):</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="fu">&lt;</span>…<span class="fu">&gt;</span>
+
+<span class="kw">data</span> <span class="dt">Step</span> a s
+  <span class="fu">=</span> <span class="dt">Yield</span> a s
+  <span class="fu">|</span> <span class="dt">Skip</span> s
+  <span class="fu">|</span> <span class="dt">Done</span>
+
+<span class="fu">&lt;</span>…<span class="fu">&gt;</span>
+
+<span class="ot">filter3' ::</span> (a <span class="ot">-&gt;</span> <span class="dt">Bool</span>) <span class="ot">-&gt;</span> <span class="dt">Stream</span> a <span class="ot">-&gt;</span> <span class="dt">Stream</span> a
+filter3' p (<span class="dt">Stream</span> f s) <span class="fu">=</span> <span class="dt">Stream</span> g s
+  <span class="kw">where</span>
+    g s' <span class="fu">=</span> <span class="kw">case</span> f s' <span class="kw">of</span>
+      <span class="dt">Done</span> <span class="ot">-&gt;</span> <span class="dt">Done</span>
+      <span class="dt">Skip</span>    s'' <span class="ot">-&gt;</span> <span class="dt">Skip</span> s''
+      <span class="dt">Yield</span> x s'' <span class="ot">-&gt;</span>
+        <span class="kw">if</span> p x
+          <span class="kw">then</span> <span class="dt">Yield</span> x s''
+          <span class="kw">else</span> <span class="dt">Skip</span> s''</code></pre></div>
+<p>This gives us some speed and space improvements:</p>
+<pre><code>benchmarking fusedFilter
+time                 8.904 ms   (8.880 ms .. 8.926 ms)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 8.923 ms   (8.906 ms .. 8.941 ms)
+std dev              50.94 μs   (36.94 μs .. 74.59 μs)
+
+Case                   Bytes  GCs  Check
+fusedFilter       80,000,016  153  OK</code></pre>
+<p>The introduction of <code>Skip</code> promised fame and fortune, but it's not so much of an improvement in this case. That said, prefer stream fusion with skip for maximal efficiency, but <a href="https://www.youtube.com/watch?v=jyaLZHiJJnE">don't cross the streams</a>!</p>
+<h2 id="conclusion">Conclusion</h2>
+<p>We have learned how to make Haskell programs run faster with the magic of GHC pragmas and how to avoid creating intermediate results with various fusion systems. Now, understanding inner workings of packages like <code>base</code> (list functions with <code>build</code>/<code>foldr</code> fusion system), <code>text</code>, and <code>vector</code> shall pose no problem whatsoever to the educated reader :-D</p>
+<p>The next section provides the recommended collection of sources for those who want to learn more.</p>
+<h2 id="see-also">See also</h2>
+<p>Here are some links about GHC pragmas and fusion:</p>
+<ul>
+<li><a href="https://downloads.haskell.org/~ghc/8.0.1/docs/html/users_guide/glasgow_exts.html#inline-and-noinline-pragmas">The section about inlining (GHC user guide)</a></li>
+<li><a href="http://research.microsoft.com/en-us/um/people/simonpj/Papers/inlining/inline.pdf">Secrets of the GHC inliner (paper)</a></li>
+<li><a href="https://downloads.haskell.org/~ghc/8.0.1/docs/html/users_guide/glasgow_exts.html#specialize-pragma">The section about specializing (GHC user guide)</a></li>
+<li><a href="https://downloads.haskell.org/~ghc/8.0.1/docs/html/users_guide/glasgow_exts.html#rewrite-rules">The section about rewrite rules (GHC user guide)</a></li>
+<li><a href="https://stackoverflow.com/questions/38905369/what-is-fusion-in-haskell">Question on Stack Overflow: What is fusion in Haskell?</a></li>
+<li><a href="https://wiki.haskell.org/GHC/Using_rules">Instructions how to use rewrite rules from Haskell Wiki</a></li>
+<li><a href="http://community.haskell.org/~duncan/thesis.pdf">Stream Fusion: Practical shortcut fusion for coinductive sequence types (Duncan Coutts' thesis)</a></li>
+</ul>
+<p>If you are into this topic, you may want to learn about GHC primitives as well:</p>
+<ul>
+<li><a href="https://www.schoolofhaskell.com/user/commercial/content/primitive-haskell">Primitive Haskell</a>, an article from School of Haskell</li>
+<li><a href="https://downloads.haskell.org/~ghc/8.0.1/docs/html/users_guide/glasgow_exts.html#unboxed-types-and-primitive-operations">The relevant section in the GHC user guide</a></li>
+<li><a href="https://hackage.haskell.org/package/ghc-prim-0.5.0.0/docs/GHC-Prim.html"><code>GHC.Prim</code> module</a></li>
+</ul>
+
+    <hr>
+
+    <p>
+      Thanks for reading this tutorial! If you have any feedback,
+      please join the discussion below, or open issues and pull
+      requests
+      on <a href="https://github.com/stackbuilders/tutorials">GitHub</href>.
+    </p>
+
+    <div id="disqus_thread"></div>
+    <script>
+      (function() {
+      var d = document, s = d.createElement('script');
+
+      s.src = 'http://stackbuilders.disqus.com/embed.js';
+
+      s.setAttribute('data-timestamp', +new Date());
+      (d.head || d.body).appendChild(s);
+      })();
+    </script>
+    <noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a></noscript>
+
+  </div>
+</div>
+
+    </div>
+
+    <section class="careers__we_are_hiring">
+      <div class="container">
+        <div class="row">
+          <div class="col-sm-12 v-center-container">
+            <h2>
+              Do You Have What it Takes To Be a Stack Builder?
+            </h2>
+            <div class="careers__we_are_hiring__cta">
+              <a class="btn btn-cta-secondary" href="http://www.stackbuilders.com/join" title="Join Our Team">
+                Join Our Team
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <div class="container">
+        <div class="row">
+          <div class="col-sm-6 footer__right">
+            <a href="http://www.stackbuilders.com/" title="Stack Builders">
+              <img class="footer__logo svg-logo" src="http://www.stackbuilders.com/assets/images/stack-builders-logo-blackwhite.svg" alt="Stack Builders logo">
+            </a>
+          </div>
+          <div class="col-sm-6">
+            <div class="footer__conversation">
+              <h6>
+                Join The Conversation
+              </h6>
+              <div class="footer__conversation__social">
+                <a href="https://twitter.com/stackbuilders" target="_blank" rel="nofollow">
+                  <i class="fa fa-twitter-square fa-3x" aria-hidden="true"></i>
+                </a>
+                <a href="https://www.facebook.com/Stack-Builders-207670466070752/" target="_blank" rel="nofollow">
+                  <i class="fa fa-facebook-square fa-3x" aria-hidden="true"></i>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-sm-12 footer__copyright">© Stack Builders Inc. 2016</div>
+        </div>
+      </div>
+    </footer>
+
+<script type="text/javascript" src="http://code.jquery.com/jquery-1.12.0.min.js">
+</script>
+<script type="text/javascript" src="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js">
+</script>
+<script type="text/javascript" src="http://www.stackbuilders.com/assets/javascripts/all.min.js">
+</script>
+<script type="text/javascript" src="http://platform.twitter.com/widgets.js">
+</script>
+<!--[if lt IE 9]><script type="text/javascript" src="//oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+<script type="text/javascript" src="//oss.maxcdn.com/respond/1.4.2/respond.min.js"></script><![endif]-->
+
+  </body>
+
+<!-- Mirrored from www.stackbuilders.com/tutorials/haskell/ghc-optimization-and-fusion/ by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 13:51:19 GMT -->
+</html>

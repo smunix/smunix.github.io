@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+
+<!-- Mirrored from www.cis.upenn.edu/~cis194/spring13/lectures/07-folds-monoids.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 13:54:28 GMT -->
+<head>
+  <META http-equiv="Content-Type" content="text/html; charset='UTF-8'">
+  <title>07-folds-monoids</title>
+
+  <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+  <link href="../css/style.html" rel="stylesheet" type="text/css"></link>
+</head>
+<body>
+
+  <div id="canvas">
+    <div id="nav"><p><strong>CIS 194</strong>: <a href="../index.html">Home</a> | <a href="../lectures.html">Lectures &amp; Assignments</a> | <a href="../policies.html">Policies</a> | <a href="../resources.html">Resources</a> | <a href="../final.html">Final Project</a></p></div>
+
+    <div id="content">
+      
+      <p><!-- CLASS
+ 
+> {-# OPTIONS_GHC -Wall #-}
+> {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+
+--></p>
+<h1 id="folds-and-monoids">Folds and monoids</h1>
+<p>CIS 194 Week 7<br />25 February 2013</p>
+<p>Suggested reading:</p>
+<ul>
+<li>Learn You a Haskell, <a href="../../../../learnyouahaskell.com/higher-order-functions.html#folds">Only folds and horses</a></li>
+<li>Learn You a Haskell, <a href="../../../../learnyouahaskell.com/functors-applicative-functors-and-monoids.html#monoids">Monoids</a></li>
+<li><a href="http://haskell.org/haskellwiki/Fold">Fold</a> from the Haskell wiki</li>
+<li>Heinrich Apfelmus, <a href="http://apfelmus.nfshost.com/articles/monoid-fingertree.html">Monoids and Finger Trees</a></li>
+<li>Dan Piponi, <a href="http://blog.sigfpe.com/2009/01/haskell-monoids-and-their-uses.html">Haskell Monoids and their Uses</a></li>
+<li><a href="http://haskell.org/ghc/docs/latest/html/libraries/base/Data-Monoid.html">Data.Monoid documentation</a></li>
+<li><a href="http://haskell.org/ghc/docs/latest/html/libraries/base/Data-Foldable.html">Data.Foldable documentation</a></li>
+</ul>
+<h2 id="folds-again">Folds, again</h2>
+<p>We’ve already seen how to define a folding function for lists… but we can generalize the idea to other data types as well!</p>
+<p>Consider the following data type of binary trees with data stored at internal nodes:</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Tree</span> a <span class="fu">=</span> <span class="dt">Empty</span>
+            <span class="fu">|</span> <span class="dt">Node</span> (<span class="dt">Tree</span> a) a (<span class="dt">Tree</span> a)
+  <span class="kw">deriving</span> (<span class="kw">Show</span>, <span class="kw">Eq</span>)
+
+<span class="ot">leaf ::</span> a <span class="ot">-&gt;</span> <span class="dt">Tree</span> a
+leaf x <span class="fu">=</span> <span class="dt">Node</span> <span class="dt">Empty</span> x <span class="dt">Empty</span></code></pre>
+<p>Let’s write a function to compute the size of a tree (<em>i.e.</em> the number of <code>Node</code>s):</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="ot">treeSize ::</span> <span class="dt">Tree</span> a <span class="ot">-&gt;</span> <span class="dt">Integer</span>
+treeSize <span class="dt">Empty</span>        <span class="fu">=</span> <span class="dv">0</span>
+treeSize (<span class="dt">Node</span> l _ r) <span class="fu">=</span> <span class="dv">1</span> <span class="fu">+</span> treeSize l <span class="fu">+</span> treeSize r</code></pre>
+<p>How about the sum of the data in a tree of <code>Integer</code>s?</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="ot">treeSum ::</span> <span class="dt">Tree</span> <span class="dt">Integer</span> <span class="ot">-&gt;</span> <span class="dt">Integer</span>
+treeSum <span class="dt">Empty</span>     <span class="fu">=</span> <span class="dv">0</span>
+treeSum (<span class="dt">Node</span> l x r)  <span class="fu">=</span> x <span class="fu">+</span> treeSum l <span class="fu">+</span> treeSum r</code></pre>
+<p>Or the depth of a tree?</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="ot">treeDepth ::</span> <span class="dt">Tree</span> a <span class="ot">-&gt;</span> <span class="dt">Integer</span>
+treeDepth <span class="dt">Empty</span>        <span class="fu">=</span> <span class="dv">0</span>
+treeDepth (<span class="dt">Node</span> l _ r) <span class="fu">=</span> <span class="dv">1</span> <span class="fu">+</span> <span class="fu">max</span> (treeDepth l) (treeDepth r)</code></pre>
+<p>Or flattening the elements of the tree into a list?</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="ot">flatten ::</span> <span class="dt">Tree</span> a <span class="ot">-&gt;</span> [a]
+flatten <span class="dt">Empty</span>        <span class="fu">=</span> []
+flatten (<span class="dt">Node</span> l x r) <span class="fu">=</span> flatten l <span class="fu">++</span> [x] <span class="fu">++</span> flatten r</code></pre>
+<p>Are you starting to see any patterns? Each of the above functions:</p>
+<ol style="list-style-type: decimal">
+<li>takes a <code>Tree</code> as input</li>
+<li>pattern-matches on the input <code>Tree</code></li>
+<li>in the <code>Empty</code> case, gives a simple answer</li>
+<li>in the <code>Node</code> case:
+<ol style="list-style-type: decimal">
+<li>calls itself recursively on both subtrees</li>
+<li>somehow combines the results from the recursive calls with the data <code>x</code> to produce the final result</li>
+</ol></li>
+</ol>
+<p>As good programmers, we always strive to abstract out repeating patterns, right? So let’s generalize. We’ll need to pass as parameters the parts of the above examples which change from example to example:</p>
+<ol style="list-style-type: decimal">
+<li>The return type</li>
+<li>The answer in the <code>Empty</code> case</li>
+<li>How to combine the recursive calls</li>
+</ol>
+<p>We’ll call the type of data contained in the tree <code>a</code>, and the type of the result <code>b</code>.</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="ot">treeFold ::</span> b <span class="ot">-&gt;</span> (b <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> <span class="dt">Tree</span> a <span class="ot">-&gt;</span> b
+treeFold e _ <span class="dt">Empty</span>        <span class="fu">=</span> e
+treeFold e f (<span class="dt">Node</span> l x r) <span class="fu">=</span> f (treeFold e f l) x (treeFold e f r)</code></pre>
+<p>Now we should be able to define <code>treeSize</code>, <code>treeSum</code> and the other examples much more simply. Let’s try:</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="ot">treeSize' ::</span> <span class="dt">Tree</span> a <span class="ot">-&gt;</span> <span class="dt">Integer</span>
+treeSize' <span class="fu">=</span> treeFold <span class="dv">0</span> (\l _ r <span class="ot">-&gt;</span> <span class="dv">1</span> <span class="fu">+</span> l <span class="fu">+</span> r)
+
+<span class="ot">treeSum' ::</span> <span class="dt">Tree</span> <span class="dt">Integer</span> <span class="ot">-&gt;</span> <span class="dt">Integer</span>
+treeSum' <span class="fu">=</span> treeFold <span class="dv">0</span> (\l x r <span class="ot">-&gt;</span> l <span class="fu">+</span> x <span class="fu">+</span> r)
+
+<span class="ot">treeDepth' ::</span> <span class="dt">Tree</span> a <span class="ot">-&gt;</span> <span class="dt">Integer</span>
+treeDepth' <span class="fu">=</span> treeFold <span class="dv">0</span> (\l _ r <span class="ot">-&gt;</span> <span class="dv">1</span> <span class="fu">+</span> <span class="fu">max</span> l r)
+
+<span class="ot">flatten' ::</span> <span class="dt">Tree</span> a <span class="ot">-&gt;</span> [a]
+flatten' <span class="fu">=</span> treeFold [] (\l x r <span class="ot">-&gt;</span> l <span class="fu">++</span> [x] <span class="fu">++</span> r)</code></pre>
+<p>We can write new tree-folding functions easily as well:</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="ot">treeMax ::</span> (<span class="kw">Ord</span> a, <span class="kw">Bounded</span> a) <span class="ot">=&gt;</span> <span class="dt">Tree</span> a <span class="ot">-&gt;</span> a
+treeMax <span class="fu">=</span> treeFold <span class="fu">minBound</span> (\l x r <span class="ot">-&gt;</span> l <span class="ot">`max`</span> x <span class="ot">`max`</span> r)</code></pre>
+<p>Much better!</p>
+<p><strong>Folding expressions</strong></p>
+<p>Where else have we seen folds?</p>
+<p>Recall the <code>ExprT</code> type and corresponding <code>eval</code> function from Homework 5:</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">ExprT</span> <span class="fu">=</span> <span class="dt">Lit</span> <span class="dt">Integer</span>
+           <span class="fu">|</span> <span class="dt">Add</span> <span class="dt">ExprT</span> <span class="dt">ExprT</span>
+           <span class="fu">|</span> <span class="dt">Mul</span> <span class="dt">ExprT</span> <span class="dt">ExprT</span>
+
+<span class="ot">eval ::</span> <span class="dt">ExprT</span> <span class="ot">-&gt;</span> <span class="dt">Integer</span>
+eval (<span class="dt">Lit</span> i)     <span class="fu">=</span> i
+eval (<span class="dt">Add</span> e1 e2) <span class="fu">=</span> eval e1 <span class="fu">+</span> eval e2
+eval (<span class="dt">Mul</span> e1 e2) <span class="fu">=</span> eval e1 <span class="fu">*</span> eval e2</code></pre>
+<p>Hmm… this looks familiar! What would a fold for <code>ExprT</code> look like?</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="ot">exprTFold ::</span> (<span class="dt">Integer</span> <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> (b <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> (b <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> <span class="dt">ExprT</span> <span class="ot">-&gt;</span> b
+exprTFold f _ _ (<span class="dt">Lit</span> i)     <span class="fu">=</span> f i
+exprTFold f g h (<span class="dt">Add</span> e1 e2) <span class="fu">=</span> g (exprTFold f g h e1) (exprTFold f g h e2)
+exprTFold f g h (<span class="dt">Mul</span> e1 e2) <span class="fu">=</span> h (exprTFold f g h e1) (exprTFold f g h e2)
+
+<span class="ot">eval2 ::</span> <span class="dt">ExprT</span> <span class="ot">-&gt;</span> <span class="dt">Integer</span>
+eval2 <span class="fu">=</span> exprTFold <span class="fu">id</span> (<span class="fu">+</span>) (<span class="fu">*</span>)</code></pre>
+<p>Now we can easily do other things like count the number of literals in an expression:</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="ot">numLiterals ::</span> <span class="dt">ExprT</span> <span class="ot">-&gt;</span> <span class="dt">Int</span>
+numLiterals <span class="fu">=</span> exprTFold (<span class="fu">const</span> <span class="dv">1</span>) (<span class="fu">+</span>) (<span class="fu">+</span>)</code></pre>
+<p><strong>Folds in general</strong></p>
+<p>The take-away message is that we can implement a fold for many (though not all) data types. The fold for <code>T</code> will take one (higher-order) argument for each of <code>T</code>’s constructors, encoding how to turn the values stored by that constructor into a value of the result type—assuming that any recursive occurrences of <code>T</code> have already been folded into a result. Many functions we might want to write on <code>T</code> will end up being expressible as simple folds.</p>
+<h2 id="monoids">Monoids</h2>
+<p>Here’s another standard type class you should know about, found in the <a href="http://haskell.org/ghc/docs/latest/html/libraries/base/Data-Monoid.html"><code>Data.Monoid</code></a> module:</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Monoid</span> m <span class="kw">where</span>
+<span class="ot">    mempty  ::</span> m
+<span class="ot">    mappend ::</span> m <span class="ot">-&gt;</span> m <span class="ot">-&gt;</span> m
+
+<span class="ot">    mconcat ::</span> [m] <span class="ot">-&gt;</span> m
+    mconcat <span class="fu">=</span> <span class="fu">foldr</span> mappend mempty
+
+<span class="ot">(&lt;&gt;) ::</span> <span class="dt">Monoid</span> m <span class="ot">=&gt;</span> m <span class="ot">-&gt;</span> m <span class="ot">-&gt;</span> m
+(<span class="fu">&lt;&gt;</span>) <span class="fu">=</span> mappend</code></pre>
+<p><code>(&lt;&gt;)</code> is defined as a synonym for <code>mappend</code> (as of GHC 7.4.1) simply because writing <code>mappend</code> is tedious.</p>
+<p>Types which are instances of <code>Monoid</code> have a special element called <code>mempty</code>, and a binary operation <code>mappend</code> (abbreviated <code>(&lt;&gt;)</code>) which takes two values of the type and produces another one. The intention is that <code>mempty</code> is an identity for <code>&lt;&gt;</code>, and <code>&lt;&gt;</code> is associative; that is, for all <code>x</code>, <code>y</code>, and <code>z</code>,</p>
+<ol style="list-style-type: decimal">
+<li><code>mempty &lt;&gt; x == x</code></li>
+<li><code>x &lt;&gt; mempty == x</code></li>
+<li><code>(x &lt;&gt; y) &lt;&gt; z == x &lt;&gt; (y &lt;&gt; z)</code></li>
+</ol>
+<p>The associativity law means that we can unambiguously write things like</p>
+<p><code>a &lt;&gt; b &lt;&gt; c &lt;&gt; d &lt;&gt; e</code></p>
+<p>because we will get the same result no matter how we parenthesize.</p>
+<p>There is also <code>mconcat</code>, for combining a whole list of values. By default it is implemented using <code>foldr</code>, but it is included in the <code>Monoid</code> class since particular instances of <code>Monoid</code> may have more efficient ways of implementing it.</p>
+<p><code>Monoid</code>s show up <em>everywhere</em>, once you know to look for them. Let’s write some instances (just for practice; these are all in the standard libraries).</p>
+<p>Lists form a monoid under concatenation:</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Monoid</span> [a] <span class="kw">where</span>
+  mempty  <span class="fu">=</span> []
+  mappend <span class="fu">=</span> (<span class="fu">++</span>)</code></pre>
+<p>As hinted above, addition defines a perfectly good monoid on integers (or rational numbers, or real numbers…). However, so does multiplication! What to do? We can’t give two different instances of the same type class to the same type. Instead, we create two <code>newtype</code>s, one for each instance:</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">newtype</span> <span class="dt">Sum</span> a <span class="fu">=</span> <span class="dt">Sum</span> a
+  <span class="kw">deriving</span> (<span class="kw">Eq</span>, <span class="kw">Ord</span>, <span class="kw">Num</span>, <span class="kw">Show</span>)
+
+<span class="ot">getSum ::</span> <span class="dt">Sum</span> a <span class="ot">-&gt;</span> a
+getSum (<span class="dt">Sum</span> a) <span class="fu">=</span> a
+
+<span class="kw">instance</span> <span class="kw">Num</span> a <span class="ot">=&gt;</span> <span class="dt">Monoid</span> (<span class="dt">Sum</span> a) <span class="kw">where</span>
+  mempty  <span class="fu">=</span> <span class="dt">Sum</span> <span class="dv">0</span>
+  mappend <span class="fu">=</span> (<span class="fu">+</span>)
+
+<span class="kw">newtype</span> <span class="dt">Product</span> a <span class="fu">=</span> <span class="dt">Product</span> a
+  <span class="kw">deriving</span> (<span class="kw">Eq</span>, <span class="kw">Ord</span>, <span class="kw">Num</span>, <span class="kw">Show</span>)
+
+<span class="ot">getProduct ::</span> <span class="dt">Product</span> a <span class="ot">-&gt;</span> a
+getProduct (<span class="dt">Product</span> a) <span class="fu">=</span> a
+
+<span class="kw">instance</span> <span class="kw">Num</span> a <span class="ot">=&gt;</span> <span class="dt">Monoid</span> (<span class="dt">Product</span> a) <span class="kw">where</span>
+  mempty  <span class="fu">=</span> <span class="dt">Product</span> <span class="dv">1</span>
+  mappend <span class="fu">=</span> (<span class="fu">*</span>)</code></pre>
+<p>Note that to find, say, the product of a list of <code>Integer</code>s using <code>mconcat</code>, we have to first turn them into values of type <code>Product Integer</code>:</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="ot">lst ::</span> [<span class="dt">Integer</span>]
+lst <span class="fu">=</span> [<span class="dv">1</span>,<span class="dv">5</span>,<span class="dv">8</span>,<span class="dv">23</span>,<span class="dv">423</span>,<span class="dv">99</span>]
+
+<span class="ot">prod ::</span> <span class="dt">Integer</span>
+prod <span class="fu">=</span> getProduct <span class="fu">.</span> mconcat <span class="fu">.</span> <span class="fu">map</span> <span class="dt">Product</span> <span class="fu">$</span> lst</code></pre>
+<p>(Of course, this particular example is silly, since we could use the standard <code>product</code> function instead, but this pattern does come in handy somtimes.)</p>
+<p>Pairs form a monoid as long as the individual components do:</p>
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">instance</span> (<span class="dt">Monoid</span> a, <span class="dt">Monoid</span> b) <span class="ot">=&gt;</span> <span class="dt">Monoid</span> (a,b) <span class="kw">where</span>
+  mempty <span class="fu">=</span> (mempty, mempty)
+  (a,b) <span class="ot">`mappend`</span> (c,d) <span class="fu">=</span> (a <span class="ot">`mappend`</span> c, b <span class="ot">`mappend`</span> d)</code></pre>
+<p>Challenge: can you make an instance of <code>Monoid</code> for <code>Bool</code>? How many different instances are there?</p>
+<p>Challenge: how would you make function types an instance of <code>Monoid</code>?</p>
+<p><!--
+
+Local Variables:
+mode:markdown
+compile-command:"make explec"
+End:
+
+--></p>
+<hr></hr>
+<p><code>Generated 2013-03-14 14:39:58.103139</code></p>
+
+    </div>
+
+    <div id="footer"><center>
+      <font size="-2">Powered
+      by <a href="http://community.haskell.org/~ndm/shake/">shake</a>,
+      <a href="http://jaspervdj.be/hakyll/index.html">hakyll</a>,
+      and <a href="http://johnmacfarlane.net/pandoc/">pandoc</a>.
+      </center>
+    </div>
+  </div>
+</body>
+
+
+<!-- Mirrored from www.cis.upenn.edu/~cis194/spring13/lectures/07-folds-monoids.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 13:54:28 GMT -->
+</html>
