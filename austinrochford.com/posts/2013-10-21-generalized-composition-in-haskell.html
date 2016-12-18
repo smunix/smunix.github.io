@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+    
+<!-- Mirrored from austinrochford.com/posts/2013-10-21-generalized-composition-in-haskell.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 14:08:48 GMT -->
+<head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+
+        <title>Austin Rochford - Generalized Composition in Haskell</title>
+
+        <link rel="stylesheet" type="text/css" href="http://netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap.min.css" />
+        <link href="http://netdna.bootstrapcdn.com/font-awesome/4.0.1/css/font-awesome.css" rel="stylesheet">
+
+        <link rel="stylesheet" type="text/css" href="http://austinrochford.com/css/syntax.css" />
+        <link rel="stylesheet" type="text/css" href="http://austinrochford.com/css/custom.css" />
+    </head>
+    <body>
+        <div class="container">
+            <div class="row">
+                <div class="col-md-10 col-md-offset-1">
+                    <div class="page-header">
+                        <h1>Austin Rochford <small>{Math, Data, Software}</small></h1>
+
+                        <div class="row">
+                            <div class="col-xs-1"><a href="http://github.com/AustinRochford"><i class="fa fa-github fa-lg fa-fw"></i></a></div>
+                            <div class="col-xs-1"><a href="https://twitter.com/AustinRochford"><i class="fa fa-twitter fa-lg fa-fw"></i></a></div>
+                            <div class="col-xs-1"><a href="http://austinrochford.com/rss.xml"><i class="fa fa-rss fa-lg fa-fw"></i></a></div>
+                        </div>
+
+                        <div style="margin-top:20px;">
+                            <div class="row">
+                                <div class="col-md-2"><a href="http://austinrochford.com/"><i class="fa fa-home fa-lg fa-fw"></i> Home</a></div>
+                                <div class="col-md-2"><a href="http://austinrochford.com/posts.html"><i class="fa fa-book fa-lg fa-fw"></i> Posts</a></div>
+                                <div class="col-md-2"><a href="http://austinrochford.com/tags.html"><i class="fa fa-tag fa-lg fa-fw"></i> Tags</a></div>
+                                <div class="col-md-2"><a href="http://austinrochford.com/about.html"><i class="fa fa-male fa-lg fa-fw"></i> About</a></div>
+                                <div class="col-md-2"><a href="http://austinrochford.com/talks.html"><i class="fa fa-youtube-play fa-lg fa-fw"></i> Talks</a></div>
+                                <div class="col-md-2"><a href="https://cdn.knightlab.com/libs/timeline3/latest/embed/index.html?source=1wNbJv1Zf4Oichj3-dEQXE_lXVCwuYQjaoyU1gGQQqk4&amp;font=Default&amp;lang=en&amp;start_at_end=true&amp;initial_zoom=2&amp;height=650"><i class="fa fa-bookmark fa-lg fa-fw"></i> Reading Log</a></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-10 col-md-offset-1">
+                    <h3>Generalized Composition in Haskell</h3>
+
+<small>Posted on October 21, 2013 <a href="2013-10-21-generalized-composition-in-haskell.html"><i class="fa fa-link fa-lg fa-fw"></i></a></small>
+
+<p>To me, the most beautiful Haskell code is <a href="http://www.haskell.org/haskellwiki/Pointfree">point-free</a>. As an example of the point-free style, consider the following function which determines the length of a list.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">length' ::</span> [a] <span class="ot">-&gt;</span> <span class="dt">Int</span>
+length' <span class="fu">=</span> sum <span class="fu">.</span> map (const <span class="dv">1</span>)</code></pre></div>
+<p>As my knowledge of Haskell has deepened, my appreciation for the ability of the combinators provided by libraries such as <a href="http://hackage.haskell.org/package/base-4.6.0.1/docs/Control-Arrow.html"><code>Control.Arrow</code></a>, <a href="http://hackage.haskell.org/package/base-4.6.0.1/docs/Control-Monad.html"><code>Control.Monad</code></a>, <a href="http://www.haskell.org/ghc/docs/latest/html/libraries/base/Control-Applicative.html"><code>Control.Applicative</code></a>, <a href="http://hackage.haskell.org/package/base-4.6.0.1/docs/Data-Either.html"><code>Data.Either</code></a>, and <a href="http://hackage.haskell.org/package/base-4.6.0.1/docs/Data-Maybe.html"><code>Data.Maybe</code></a>, to express more complicated functions in the point-free style has grown. (Note that all of these libraries are also important for reasons other than writing point-free code.)</p>
+<p>Point-free Haskell makes liberal use of the composition operator, <code>(.)</code>. Recall that the definition of composition is</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">(.) ::</span> (b <span class="ot">-&gt;</span> c) <span class="ot">-&gt;</span> (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> c
+(f <span class="fu">.</span> g) x <span class="fu">=</span> f <span class="fu">$</span> g x
+          <span class="fu">=</span> f (g x)</code></pre></div>
+<p>While this operator is immensely useful, it cannot express all forms of composition. For example, consider the problem of determining whether nor not any elements of a list satisfy a predicate (like <a href="http://hackage.haskell.org/package/base-4.6.0.1/docs/Data-List.html#g:4"><code>any</code></a> from <a href="http://hackage.haskell.org/package/base-4.6.0.1/docs/Data-List.html"><code>Data.List</code></a>). Written in the pointed style, such a function is simple.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">any' ::</span> (a <span class="ot">-&gt;</span> <span class="dt">Bool</span>) <span class="ot">-&gt;</span> [a] <span class="ot">-&gt;</span> <span class="dt">Bool</span>
+any' p xs <span class="fu">=</span> not <span class="fu">$</span> null <span class="fu">$</span> filter p xs</code></pre></div>
+<p>This function is an excellent candidate to be refactored to be point-free. In fact, whenever the last argument of a function <em>only</em> appears in the last (rightmost) place in its definition, it may be refactored to be point free. For <code>any'</code>, we refactor as</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">any' p <span class="fu">=</span> not <span class="fu">.</span> null <span class="fu">.</span> filter p</code></pre></div>
+<p>We see again that, by our heuristic, this function should be able to be refactored to be completely point-free by removing the predicate <code>p</code>.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">any' <span class="fu">=</span> not <span class="fu">.</span> null <span class="fu">.</span> filter</code></pre></div>
+<p>Unfortunately, this implementation of <code>any'</code> will not type-check, giving the following error.</p>
+<pre><code>Couldn't match expected type `[a0]' with actual type `[a1] -&gt; [a1]'
+    Expected type: (a1 -&gt; Bool) -&gt; [a0]
+      Actual type: (a1 -&gt; Bool) -&gt; [a1] -&gt; [a1]
+    In the second argument of `(.)', namely `filter'
+    In the second argument of `(.)', namely `null . filter'</code></pre>
+<p>There problem is that <code>filter :: (a -&gt; Bool) -&gt; [a] -&gt; [a]</code> is a function of two arguments, but composition, <code>(.)</code>, expects a function of one argument. It is simple enough to define a function that does the sort of composition we need,</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">(##) ::</span> (c <span class="ot">-&gt;</span> d) <span class="ot">-&gt;</span> (a <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> c) <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> d
+(f <span class="fu">##</span> g) x y <span class="fu">=</span> f <span class="fu">$</span> g x y</code></pre></div>
+<p>Using this function, we may implement <code>any'</code> in a completely point-free manner as</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">any' <span class="fu">=</span> (not <span class="fu">.</span> null) <span class="fu">##</span> filter</code></pre></div>
+<p>This implementation is nice, be we have really just pushed the pointed code into <code>(##)</code>. Before finding a point-free implementation of <code>(##)</code>, let’s rewrite this definition a bit.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">(f <span class="fu">##</span> g) x y <span class="fu">=</span> f <span class="fu">$</span> g x y
+             <span class="fu">=</span> f <span class="fu">$</span> (g x) y
+             <span class="fu">=</span> f <span class="fu">.</span> (g x) <span class="fu">$</span> y</code></pre></div>
+<p>So we may move one step closer to a point-free implementation with</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">(f <span class="fu">##</span> g) x <span class="fu">=</span> f <span class="fu">.</span> (g x)
+           <span class="fu">=</span> (f <span class="fu">.</span>) (g x)
+           <span class="fu">=</span> (f <span class="fu">.</span>) <span class="fu">$</span> g x
+           <span class="fu">=</span> (f <span class="fu">.</span>) <span class="fu">.</span> g <span class="fu">$</span> x</code></pre></div>
+<p>Therefore</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">(f <span class="fu">##</span> g) <span class="fu">=</span> (f <span class="fu">.</span>) <span class="fu">.</span> g</code></pre></div>
+<p>This implementation is still not quite point-free, so we write</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">(f <span class="fu">##</span> g) <span class="fu">=</span> (f <span class="fu">.</span>) <span class="fu">.</span> g
+         <span class="fu">=</span> (<span class="fu">.</span>) (f <span class="fu">.</span>) g</code></pre></div>
+<p>so</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">(<span class="fu">##</span>) f <span class="fu">=</span> (<span class="fu">.</span>) (f <span class="fu">.</span>)
+       <span class="fu">=</span> (<span class="fu">.</span>) ((<span class="fu">.</span>) f)
+       <span class="fu">=</span> ((<span class="fu">.</span>) <span class="fu">.</span> (<span class="fu">.</span>)) f</code></pre></div>
+<p>Therefore, the point-free implementation of <code>(##)</code> is</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">(<span class="fu">##</span>) <span class="fu">=</span> ((<span class="fu">.</span>) <span class="fu">.</span> (<span class="fu">.</span>))</code></pre></div>
+<p>This implementation is a bit mind-bending at first, but really cool once you wrap your head around it.</p>
+
+<div class="panel panel-default">
+    <div class="panel-body">
+        <div class="pull-left">
+            Tags: <a href="http://austinrochford.com/tags/Haskell.html">Haskell</a>, <a href="http://austinrochford.com/tags/Functional Programming.html">Functional Programming</a>
+        </div>
+    </div>
+</div>
+
+<script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0],p=/^http:/.test(d.location)?'http':'https';if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src=p+'://platform.twitter.com/widgets.js';fjs.parentNode.insertBefore(js,fjs);}}(document, 'script', 'twitter-wjs');</script>
+
+                </div>
+            </div>
+        </div>
+
+        <script>
+          (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+            (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+                })(window,document,'script','http://www.google-analytics.com/analytics.js','ga');
+
+                  ga('create', 'UA-40431894-1', 'austinrochford.com');
+                    ga('send', 'pageview');
+
+        </script>
+    </body>
+
+<!-- Mirrored from austinrochford.com/posts/2013-10-21-generalized-composition-in-haskell.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 14:08:48 GMT -->
+</html>

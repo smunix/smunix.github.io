@@ -1,0 +1,309 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+
+<!-- Mirrored from cis.upenn.edu/~cis194/fall16/lectures/05-real-world-haskell.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 14:08:49 GMT -->
+<head>
+  <META http-equiv="Content-Type" content="text/html; charset='UTF-8'">
+  <title>CIS194</title>
+
+  <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+  <link href="../css/style.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+
+  <div id="canvas">
+    <div id="nav">
+     <p><a href="../index-2.html">CIS 194</a> | <a href="../policies.html">Policies</a> | <a href="../resources.html">Resources</a> | <a href="../final.html">Final Project</a></p>
+   </div>
+
+    
+    <div id="topic">
+    Real World Haskell
+    </div>
+    
+
+    
+    <div role="nav" id="toc">
+     <ul>
+<li><a href="#more-ways-to-run-haskell">More ways to run Haskell</a><ul>
+<li><a href="#the-interpreter">The interpreter</a></li>
+<li><a href="#loading-files">Loading files</a></li>
+<li><a href="#compiling-a-program">Compiling a program</a></li>
+<li><a href="#documentation">Documentation</a></li>
+</ul></li>
+<li><a href="#the-standard-library">The standard library</a><ul>
+<li><a href="#bool"><code>Bool</code></a></li>
+<li><a href="#maybe"><code>Maybe</code></a></li>
+<li><a href="#pairs-and-tuples">Pairs and tuples</a></li>
+<li><a href="#char"><code>Char</code></a></li>
+<li><a href="#lists">Lists</a></li>
+<li><a href="#strings">Strings</a></li>
+<li><a href="#show-and-read"><code>Show</code> and <code>Read</code></a></li>
+<li><a href="#ord"><code>Ord</code></a></li>
+<li><a href="#operators-for-functions">Operators for functions</a></li>
+<li><a href="#a-glimpse-of-io">A glimpse of IO</a></li>
+</ul></li>
+<li><a href="#modules">Modules</a><ul>
+<li><a href="#restricted-imports">Restricted imports</a></li>
+<li><a href="#qualifed-imports">Qualifed imports</a></li>
+<li><a href="#install-more-packages">Install more packages</a></li>
+</ul></li>
+</ul>
+    </div>
+    
+
+
+    <div id="content">
+      <p>So far, we have confined ourselves to the walled garden of CodeWorld. This provided us a smooth start, but of course Haskell is much more than that. This week we will learn about “real” Haskell: How to run it locally, how to compile programs, and what the standard libray provides for us.</p>
+<h1 id="more-ways-to-run-haskell">More ways to run Haskell</h1>
+<p>In order to use Haskell locally, we have to install it first. I will not go into the details of that now. Just follow the <a href="../resources.html">links on the resources</a> page. There are plenty of competing installation instructions out there in the world. I do not particularly care which one you follow, but make sure you get GHC-7.10.3.</p>
+<p>Once installed, you have two new programs <code>ghc</code> and <code>ghci</code>. The former is the compiler:</p>
+<pre><code>$ ghc
+ghc: no input files
+Usage: For basic information, try the `--help' option.</code></pre>
+<p>Without an input file it does little.</p>
+<h2 id="the-interpreter">The interpreter</h2>
+<p>The latter is an interpreter:</p>
+<pre><code>$ ghci
+GHCi, version 7.10.3: http://www.haskell.org/ghc/  :? for help
+Prelude&gt;</code></pre>
+<p>and running it gives us a prompt where we can now go ahead and evalute Haskell expressions:</p>
+<pre><code>Prelude&gt; 1+1
+2
+Prelude&gt; 2^2^2
+16
+Prelude&gt; 2^2^2^2
+65536
+Prelude&gt; 2^2^2^2^2
+2003529930406846464979072351560255…</code></pre>
+<p>Besides evaluating expressions, we can bind variables or define functions (using <code>let</code>), and even declare data types:</p>
+<pre><code>Prelude&gt; data Pair a = Pair a a deriving Show
+Prelude&gt; let four x = Pair (Pair x x) (Pair x x)
+Prelude&gt; let fourTrues = four True
+Prelude&gt; fourTrues
+Pair (Pair True True) (Pair True True)</code></pre>
+<p>There are a few useful command that allow us to query the interpreter:</p>
+<pre><code>Prelude&gt; :t four
+four :: a -&gt; Pair (Pair a)
+Prelude&gt; :i Pair
+data Pair a = Pair a a           -- Defined at &lt;interactive&gt;:15:1
+instance Show a =&gt; Show (Pair a) -- Defined at &lt;interactive&gt;:15:31</code></pre>
+<h2 id="loading-files">Loading files</h2>
+<p>It is also possible to enter mult-line functions definition into the interpreter, but that gets quickly unweildy. But there is a better way: You can load files into the interpreter.</p>
+<p>So here I load last week’s homework. The file gets loaded as <code>Main</code>, and I can use the <code>:browse</code> command to see the contents of the file:</p>
+<pre><code>$ ghci LastWeek.hs
+GHCi, version 7.10.3: http://www.haskell.org/ghc/  :? for help
+[1 of 1] Compiling Main             ( LastWeek.hs, interpreted )
+Ok, modules loaded: Main.
+*Main&gt; :browse Main
+main :: IO ()
+data List a = Empty | Entry a (List a)
+mapList :: (a -&gt; b) -&gt; List a -&gt; List b
+combine :: List Picture -&gt; Picture
+allList :: List Bool -&gt; Bool</code></pre>
+<!-- Unbreak Syntaxhighlighting* -->
+<p>So we can play around in the file:</p>
+<pre><code>*Main&gt; let list = Entry 23 (Entry 42 Empty)
+*Main&gt; nth list 2
+42
+*Main&gt; mapList (+1) list
+
+&lt;interactive&gt;:7:1:
+    No instance for (Show (List b0)) arising from a use of ‘print’
+    In the first argument of ‘print’, namely ‘it’
+    In a stmt of an interactive GHCi command: print it</code></pre>
+<p>The latter did not work. We can deduce from the error message that the interpreter is using the command <code>print</code> to print out the results, and that this function requires its argument to be of a type that has a <code>Show</code> instance.</p>
+<p>Luckily, that instance can also be dervied. So after editing the file, adding <code>deriving Show</code> to the <code>data List a = …</code> line, I can reload the file with <code>:r</code> and now this works (but I have to redefine <code>list</code> – all definitions are lost when you reload):</p>
+<pre><code>*Main&gt; :r
+[1 of 1] Compiling Main             ( LastWeek.hs, interpreted )
+Ok, modules loaded: Main.
+*Main&gt; let list = Entry 23 (Entry 42 Empty)
+*Main&gt; mapList (+1) list
+Entry 24 (Entry 43 Empty)</code></pre>
+<p>I can also, if I so want, run the <code>main</code> function from the interpreter:</p>
+<pre><code>*Main&gt; main
+Open me on http://127.0.0.1:3000/</code></pre>
+<p>In this case, because <code>main</code> calls <code>interactionOf</code>, this starts a local webserver that I can access in the browser and play our game. It keeps running even when I close the tab; I have to press Ctrl-C to return to the prompt of the interpreter.</p>
+<h2 id="compiling-a-program">Compiling a program</h2>
+<p>But clearly, entering <code>main</code> in the interpreter is not the desired way of running a program. Therefore, we use the compiler to produce a binary that we can run like any other compiled program of any other programming language:</p>
+<pre><code>$ ghc -O LastWeek.hs
+[1 of 1] Compiling Main             ( LastWeek.hs, LastWeek.o )
+Linking LastWeek ...
+$ ./LastWeek
+Open me on http://127.0.0.1:3000/
+Application needs to be re-compiled with -threaded flag
+ExitFailure 1</code></pre>
+<p>Nice, the program runs, but complains about a missing compile-time flag. So let’s just do what it says – for your own non-codeworld programs, this is not necessary:</p>
+<pre><code>$ ghc --make -O -threaded LastWeek.hs
+Linking LastWeek ...
+$ ./LastWeek
+Open me on http://127.0.0.1:3000/
+^Cuser interrupt</code></pre>
+<p>The flag <code>-O</code> tells the compiler to optimize the code. Without it, it would favor quick compilation over runtime performance.</p>
+<h2 id="documentation">Documentation</h2>
+<p>Haskell comes with API documentation in HTML format. Depending on how you installed GHC, it may lie in different places. In my case, I open <a href="file:///usr/share/doc/ghc-doc/html/libraries/index.html" class="uri">file:///usr/share/doc/ghc-doc/html/libraries/index.html</a>. One online copy of that is at <a href="https://downloads.haskell.org/~ghc/latest/docs/html/libraries/index.html" class="uri">https://downloads.haskell.org/~ghc/latest/docs/html/libraries/index.html</a>.</p>
+<p>As you can see, there are many modules, most of which you probably do not care about. The important one to start with is the <a href="http://hackage.haskell.org/package/base-4.8.2.0/docs/Prelude.html"><code>Prelude</code></a>, which contains all the functions, types and classes that are in scope automatically.</p>
+<h1 id="the-standard-library">The standard library</h1>
+<p>Let me introduce some of these now.</p>
+<h2 id="bool"><code>Bool</code></h2>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Bool</span> <span class="fu">=</span> <span class="dt">False</span> <span class="fu">|</span> <span class="dt">True</span></code></pre></div>
+<p>We have already used <a href="http://hackage.haskell.org/package/base-4.8.2.0/docs/Prelude.html#t:Bool"><code>Bool</code></a> a lot, and there is not much to see here. Fun fact: <a href="http://hackage.haskell.org/package/base-4.8.2.0/docs/Prelude.html#v:otherwise"><code>otherwise</code></a> is not built in or anything, but simply a value that is defined to be equal to <code>True</code>, with the sole purpose of making guards easier to read.</p>
+<h2 id="maybe"><code>Maybe</code></h2>
+<p>Often, a given type happens to have just one element to few. For example our <code>nth</code> function with type <code>nth :: List a -&gt; Integer -&gt; a</code>: It claims that for every list of <code>a</code>s and any index, it returns an <code>a</code>. But that is a lie: For many indices it does not return a <code>a</code>, but rather returns!</p>
+<p>So the way to do this properly is to have a type that is only maybe an <code>a</code>. And precisely such a type is <a href="http://hackage.haskell.org/package/base-4.8.2.0/docs/Prelude.html#t:Maybe"><code>Maybe</code></a>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Maybe</span> a <span class="fu">=</span> <span class="dt">Nothing</span> <span class="fu">|</span> <span class="dt">Just</span> a</code></pre></div>
+<p>An idiomatic implementation of <code>nth</code> would thus be</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">nth ::</span> <span class="dt">List</span> a <span class="ot">-&gt;</span> <span class="dt">Integer</span> <span class="ot">-&gt;</span> <span class="dt">Maybe</span> a
+nth <span class="dt">Empty</span> _ <span class="fu">=</span> <span class="dt">Nothing</span>
+nth (<span class="dt">Entry</span> x _) <span class="dv">1</span> <span class="fu">=</span> <span class="dt">Just</span> x
+nth (<span class="dt">Entry</span> _ xs) n <span class="fu">=</span> nth xs (n<span class="fu">-</span><span class="dv">1</span>)</code></pre></div>
+<p>and every <em>user</em> of <code>nths</code> that needs to get its hand on the actual <code>a</code> has to pattern-match against the <code>Maybe</code>, and is thust forced to handle the <code>Nothing</code> case.</p>
+<p>Contrast this to the usual pattern in other languages, where you would simply return a NULL-pointer (or <code>None</code> or <code>null</code> or <code>undef</code>) here, and the caller <em>may</em> test for that, but more often than not does not, thus crashing the program.</p>
+<p>You can find some more convenience functions around <code>Maybe</code> in the module <a href="http://hackage.haskell.org/package/base-4.8.2.0/docs/Data-Maybe.html"><code>Data.Maybe</code></a>.</p>
+<h2 id="pairs-and-tuples">Pairs and tuples</h2>
+<p>So we have seen how to return one or no result from a list. What if we want to return more than one result? We could always define a new data type with a constructor with multiple arguments, and that would be a fine thing to do. But there is also a convenient thing, namely tupels of (almost) any size:</p>
+<pre><code>Prelude&gt; (True,1)
+(True,1)
+Prelude&gt; (True,1,2)
+(True,1,2)
+Prelude&gt; (True,1,2,Nothing)
+(True,1,2,Nothing)</code></pre>
+<p>While these introduce new syntax, they are behaving just like any other product data type. The way to think about them is as if they were defined using</p>
+<pre><code>data (a,b) = (a,b)
+data (a,b,c) = (a,b,c)</code></pre>
+<p>although that does not work.</p>
+<p>Useful functions are <a href="http://hackage.haskell.org/package/base-4.8.2.0/docs/Prelude.html#v:fst"><code>fst</code></a> and <a href="http://hackage.haskell.org/package/base-4.8.2.0/docs/Prelude.html#v:snd"><code>snd</code></a> to obtain the element of a pair, in cases where a pattern match is inconvenient:</p>
+<pre><code>fst :: (a, b) -&gt; a
+snd :: (a, b) -&gt; b</code></pre>
+<p>These only exist for pairs (i.e. two-tuples). Some people say that larger tuples should not be used anyways, and data types with more helpful names introduced for them.</p>
+<h2 id="char"><code>Char</code></h2>
+<p>There is a built-in data type for <em>characters</em> called <a href="http://hackage.haskell.org/package/base-4.8.2.0/docs/Prelude.html#t:Char"><code>Char</code></a>. It represents exactly one character, which includes all the fancy unicode characters out there. A character literal is enclosed in single quotes. Control characters can be escaped with a backslash:</p>
+<pre><code>Prelude&gt; 'a'
+'a'
+Prelude&gt; '1'
+'1'
+Prelude&gt; 'ä'
+'\228'
+Prelude&gt; '∞'
+'\8734'
+Prelude&gt; '💩'
+'\128169'
+Prelude&gt; '☃'
+'\9731'
+Prelude&gt; '☺'
+'\9786'
+Prelude&gt; '\0'
+'\NUL'</code></pre>
+<p>A large number of functions related to characters can be found in <a href="http://hackage.haskell.org/package/base-4.8.2.0/docs/Data-Char.html"><code>Data.Char</code></a>. These include predicates like <code>isDigit</code> or <code>isSpace</code> and conversion functions such as <code>ord</code> and <code>chr</code>.</p>
+<h2 id="lists">Lists</h2>
+<p>I made you implement lists yourself, but I am sure you know already that lists already exist in Haskell. And because they are so ubiquitous in functional programming, they have special syntax. Again, just like with tuples, this is only syntax, otherwise lists behave just like the <code>List</code> type you have defined.</p>
+<p>Instead of <code>List a</code>, you write <code>[a]</code>. Instead of <code>Empty</code>, you write <code>[]</code>, which is called <em>Nil</em>. And instead of <code>Entry x xs</code>, you write <code>x:xs</code>, which is called <em>cons</em>.</p>
+<p>The <em>cons</em> operator is right-associative, so you can write a four element list as <code>a:b:c:d:[]</code> without parethesis.</p>
+<p>Furthermore, if you write <code>[a,b,c,d]</code> (either as an expression or as a pattern), then this desugars to <code>a:b:c:d:[]</code>:</p>
+<pre><code>Prelude&gt; 1:2:3:4:[]
+[1,2,3,4]
+Prelude&gt; 1:2:3:4:[] == [1,2,3,4]
+True</code></pre>
+<p>The list operations that you had to define – <code>map</code>, <code>filter</code>, <code>length</code> – are also provided by the prelude. Since a recent version of Haskell, though, they are <em>generalized</em>:</p>
+<pre><code>Prelude&gt; :t length
+length :: Foldable t =&gt; t a -&gt; Int</code></pre>
+<p>As you can see, the type of <code>length</code> does not mention the list type, but some type class constraint <code>Foldable</code>. We will not look into that type class in detail now. Simply imagine it is not there and instead of <code>t a</code> it would say <code>[a]</code>. Indeed, that is also a valid type for <code>length</code>:</p>
+<pre><code>Prelude&gt; :t length :: [a] -&gt; Int
+length :: [a] -&gt; Int :: [a] -&gt; Int
+Prelude&gt; length [1,2,3,4]
+4</code></pre>
+<p>You can concatenate two lists using the <code>(++)</code> operator; this corresponds to <code>appendList</code> from the exercise.</p>
+<p>Please have a look at the section “<a href="http://hackage.haskell.org/package/base-4.8.2.0/docs/Prelude.html#g:13">List operations</a>” in the documentation of the <code>Prelude</code> and familiarize yourself with these functions. Some will be very useful. More on that in the homework. And if these are insufficient, you can find even more in <a href="http://hackage.haskell.org/package/base-4.8.2.0/docs/Data-List.html"><code>Data.List</code></a>.</p>
+<h2 id="strings">Strings</h2>
+<p>Next is a type for strings. I say “a”, because there are multiple, and things get a bit hairy.</p>
+<p>The string type that comes with the Prelude is very simple: It is simply a list of characters. But since writing <code>[Char]</code> is not very nice, the Prelude defines a <em>type synonym</em> called <a href="http://hackage.haskell.org/package/base-4.8.2.0/docs/Prelude.html#g:13"><code>String</code></a>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">String</span> <span class="fu">=</span> [<span class="dt">Char</span>]</code></pre></div>
+<p>Type synonyms introduce alias names for existing types, but do not introduce new types. So a value of type <code>String</code> is <em>also</em> a value of type <code>[Char]</code>. In contrast to definitions using <code>data</code>, no type safety is achieved here.</p>
+<p>The string type has advantages: It is very simple to understand; you can use all the list-related functions on it, and <a href="http://hackage.haskell.org/package/base-4.8.2.0/docs/Prelude.html#g:21">some more</a> that you find in the Prelude, such as <code>lines</code>, <code>unlines</code>, <code>words</code> and <code>unwords</code>.</p>
+<p>Strings have their own convenient syntax: Instead of <code>['H','e','l','l','o']</code> you may write “Hello”. As usual, special characters need to be escaped: <code>&quot;First line\nSecond line\nLine\twith\ttabs&quot;</code>.</p>
+<p>Unfortunately, it is quite an inefficient data structure if you have to manage any serious amount of text. As long as it is only for filenames, status messages etc., that is not a worry, but if you need to handle more, you should reach out for a better suited data type.</p>
+<p>We will work with <code>String</code> for now, but just for reference: There are two <code>String</code>-like data types out there that you would reach out to in real code: <a href="http://hackage.haskell.org/package/text-1.2.2.1/docs/Data-Text.html"><code>Text</code></a> and <a href="http://hackage.haskell.org/package/bytestring-0.10.6.0/docs/Data-ByteString.html"><code>ByteString</code></a>. The former handles Unicode text, and should be used for, well text. The latter handles packed arrays of bytes, and should be used for binary data. Mixing up strings and binary data is another major cause of bugs in any programming languge, and again the distinction here helps.</p>
+<h2 id="show-and-read"><code>Show</code> and <code>Read</code></h2>
+<p>We have already noticed that we need an instance of the <code>Show</code> type class in order get stuff printed out by the interpreter. The <a href="http://hackage.haskell.org/package/base-4.8.2.0/docs/Prelude.html#t:Show"><code>Show</code></a> type class provides the function</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">show<span class="ot"> ::</span> <span class="dt">Show</span> a <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">String</span></code></pre></div>
+<p>which is supposed to provide a textual representation of the given argument.</p>
+<p>There is a corresponding converse type class <a href="http://hackage.haskell.org/package/base-4.8.2.0/docs/Prelude.html#t:Read"><code>Read</code></a> which provides a function</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">read<span class="ot"> ::</span> <span class="dt">Read</span> a <span class="ot">=&gt;</span> <span class="dt">String</span> <span class="ot">-&gt;</span> a</code></pre></div>
+<p>For well behaving types, <code>read (show x) == x</code> should hold. Note that the type of <code>read</code> is a lie (historical accident): There are many arguments for which it will raise an exception because the string cannot be parsed! Therefore, do not use this function unless you can guarantee it is safe (e.g. <code>read</code>ing an integer after you have otherwise checked that the input consists only of digits)! Better to import <a href="http://hackage.haskell.org/package/base-4.8.2.0/docs/Text-Read.html"><code>Text.Read</code></a> and use <a href="http://hackage.haskell.org/package/base-4.8.2.0/docs/Text-Read.html#v:readMaybe"><code>readMaybe</code></a>!</p>
+<p>Both <code>Show</code> and <code>Read</code> can be dervied, but you can also define your own instances. It is tempting to use the <code>Show</code> instance to create a “pretty” presentation for your datatype, and use that in your program when communicating with the user. This is discouraged practice: The output of <code>Show</code> should be usable as code; you should be able to paste it into the source code or interpreter and work with it!</p>
+<p>If you want to use type classes to create output to be consumed by the user, create a new type class for that (commonly called <code>Pretty</code> or <code>PP</code>) or build upon dedicated libraries like <a href="http://hackage.haskell.org/package/pretty"><code>pretty</code></a> (which exports the module <code>Text.PrettyPrint.HughesPJClass</code>).</p>
+<p>An exception to this rule are numbers: Using <code>show</code> is the usual way of turning an <code>Integer</code> or an <code>Int</code> into a <code>String</code>.</p>
+<p>Note: There are is no <code>Show</code> instance for function types. Can you imagine why?</p>
+<h2 id="ord"><code>Ord</code></h2>
+<p>The <a href="http://hackage.haskell.org/package/base-4.8.2.0/docs/Prelude.html#t:Ord"><code>Ord</code></a> type class provides the methods required to compare elements. This is used by, for example <code>maximum</code>.</p>
+<p>Besides the expected oprations like <code>(&lt;=)</code> etc. the type class has a method</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Ordering</span> <span class="fu">=</span> <span class="dt">LT</span> <span class="fu">|</span> <span class="dt">EQ</span> <span class="fu">|</span> <span class="dt">GT</span>
+compare<span class="ot"> ::</span> <span class="dt">Ord</span> a <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">Ordering</span></code></pre></div>
+<p>which is a bit more general.</p>
+<p>You find this type again in functions like <code>maximumBy</code> in <code>Data.List</code>, where you can give a custom comparison function. So to use these, you have to return an ordering. But usually you don’t have to create it yourself, but rather use a function like <code>comparing</code> in <a href="http://hackage.haskell.org/package/base-4.8.2.0/docs/Data-Ord.html"><code>Data.Ord</code></a>.</p>
+<h2 id="operators-for-functions">Operators for functions</h2>
+<p>The Prelude defines two useful operators for functions that you should know about.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">(.) ::</span> (b <span class="ot">-&gt;</span> c) <span class="ot">-&gt;</span> (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> c</code></pre></div>
+<p>The dot composes two functions, just like <span class="math inline">\(\circ\)</span> in math. So instead of writing</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">foo xs <span class="fu">=</span> map show (filter (<span class="fu">&gt;</span> <span class="dv">0</span>) xs)</code></pre></div>
+<p>you can write</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">foo xs <span class="fu">=</span> (map show <span class="fu">.</span> filter (<span class="fu">&gt;</span> <span class="dv">0</span>)) xs</code></pre></div>
+<p>or simply</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">foo <span class="fu">=</span> map show <span class="fu">.</span> filter (<span class="fu">&gt;</span> <span class="dv">0</span>)</code></pre></div>
+<p>Thinking about functions that you compose can yield nicer and more typical Haskell code.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">($) ::</span> (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> b</code></pre></div>
+<p>The other operator is <code>($)</code>. This does not really do anything: <code>f $ x</code> is the same as <code>f x</code>. The trick is that <code>$</code> has a low precedence, so you can use it to avoid parenthesis. Instead of</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">trice f x <span class="fu">=</span> f (f (f x))</code></pre></div>
+<p>you can write</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">trice f x <span class="fu">=</span> f <span class="fu">$</span> f <span class="fu">$</span> f x</code></pre></div>
+<p>When your arguments get large, this is a real time-saver.</p>
+<h2 id="a-glimpse-of-io">A glimpse of IO</h2>
+<p>We will go into it in more detail later, but here is a glimpse.</p>
+<p>When you compile a program using <code>ghc</code>, its behaviour is determined by the <code>main</code> function, which needs to be of type <code>IO ()</code>. In CodeWorld, we have had functions such as <code>drawingOf</code> or <code>interactionOf</code> that created a value of type <code>IO ()</code>. In the prelude, these functions might be of interest to you at this point:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">putStr<span class="ot">   ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
+print<span class="ot">    ::</span> <span class="dt">Show</span> a <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
+interact<span class="ot"> ::</span> (<span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">String</span>) <span class="ot">-&gt;</span> <span class="dt">IO</span> ()</code></pre></div>
+<p>The function <a href="http://hackage.haskell.org/package/base-4.8.2.0/docs/Prelude.html#v:putStr">putStr</a> simply outputs a string, <a href="http://hackage.haskell.org/package/base-4.8.2.0/docs/Prelude.html#v:print">print</a> uses <code>show</code> to print some value, which is good for debugging, and finally <a href="http://hackage.haskell.org/package/base-4.8.2.0/docs/Prelude.html#v:interact">interact</a> reads the standard input of the program, runs the given function on it, and prints the result. You can already write many useful programs using <code>interact</code>!</p>
+<h1 id="modules">Modules</h1>
+<p>I have mentioned that there are modules besides <code>Prelude</code>, and you have already used the <code>CodeWorld</code> module. Here is a quick primer how to use modules:</p>
+<p>In the simplest case, you simply import a module</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">import </span><span class="dt">Data.List</span>
+<span class="kw">import </span><span class="dt">CodeWorld</span></code></pre></div>
+<h2 id="restricted-imports">Restricted imports</h2>
+<p>You can restrict the import to certain types and functions. This is recommended in large, well-maintained code, as it is less likely to break your code if a newer version of the imported module contains a new name that clashes with one of yours:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">import </span><span class="dt">Data.Function</span> (on, (&amp;))
+<span class="kw">import </span><span class="dt">Data.Fixed</span> (<span class="dt">Fixed</span>(<span class="dt">MkFixed</span>), <span class="dt">E0</span>)
+<span class="kw">import </span><span class="dt">Data.Complex</span> (<span class="dt">Complex</span>(..))</code></pre></div>
+<p>You can selectively not import some function (and you can even do that with the Prelude):</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">import </span><span class="dt">Prelude</span> <span class="kw">hiding</span> (head, tail)</code></pre></div>
+<h2 id="qualifed-imports">Qualifed imports</h2>
+<p>You can also import a module qualified. You need to fully qualify its functions then:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">import qualified</span> <span class="dt">Data.Text</span></code></pre></div>
+<p>With this, you would use the type <code>Data.Text.text</code> and the function <code>Data.Text.lines</code>. A common idiom is to import the type unqualified, and the whole module with a short name:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">import </span><span class="dt">Data.Text</span> (<span class="dt">Text</span>)
+<span class="kw">import qualified</span> <span class="dt">Data.Text</span> <span class="kw">as</span> <span class="dt">T</span></code></pre></div>
+<p>Now you can use <code>Text</code> in your type signatures, and use <code>T.lines</code> in the code.</p>
+<p>Certain modules, such as <code>Data.Text</code> or <code>Data.Map</code>, are designed to be imported qualified and intentionally use names that would otherwise clash with those in the Prelude.</p>
+<h2 id="install-more-packages">Install more packages</h2>
+<p>Many more modules come with separate <em>packages</em>, which need to be downloaded and installed separately. You can use the <code>cabal</code> tool for that. For example to install the <code>text</code> package, you would run</p>
+<pre><code>$ cabal update
+$ cabal install text</code></pre>
+<p>To find packages, look at the <a href="http://hackage.haskell.org/packages/">package repository Hackage</a> or consult the API search engine <a href="http://hayoo.fh-wedel.de/">hayoo</a>.</p>
+    </div>
+
+    <div id="footer"><center>
+      <font size="-2">Powered
+      by <a href="http://community.haskell.org/~ndm/shake/">shake</a>,
+      <a href="http://jaspervdj.be/hakyll/index.html">hakyll</a>,
+      <a href="http://johnmacfarlane.net/pandoc/">pandoc</a>,
+      <a href="http://projects.haskell.org/diagrams">diagrams</a>,
+      and <a href="http://www.andres-loeh.de/lhs2tex/">lhs2TeX</a>.
+      </center>
+    </div>
+  </div>
+</body>
+
+
+<!-- Mirrored from cis.upenn.edu/~cis194/fall16/lectures/05-real-world-haskell.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 14:08:49 GMT -->
+</html>

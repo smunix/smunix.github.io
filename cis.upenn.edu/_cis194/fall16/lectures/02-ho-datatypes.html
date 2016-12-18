@@ -1,0 +1,329 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+
+<!-- Mirrored from cis.upenn.edu/~cis194/fall16/lectures/02-ho-datatypes.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 14:08:49 GMT -->
+<head>
+  <META http-equiv="Content-Type" content="text/html; charset='UTF-8'">
+  <title>CIS194</title>
+
+  <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+  <link href="../css/style.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+
+  <div id="canvas">
+    <div id="nav">
+     <p><a href="../index-2.html">CIS 194</a> | <a href="../policies.html">Policies</a> | <a href="../resources.html">Resources</a> | <a href="../final.html">Final Project</a></p>
+   </div>
+
+    
+    <div id="topic">
+    Higher order functions and data types
+    </div>
+    
+
+    
+    <div role="nav" id="toc">
+     <ul>
+<li><a href="#higher-order-functions">Higher Order Functions</a><ul>
+<li><a href="#partial-application">Partial application</a></li>
+<li><a href="#local-definitions">Local definitions</a></li>
+<li><a href="#captured-variables">Captured variables</a></li>
+<li><a href="#a-note-on-indentation">A note on indentation</a></li>
+<li><a href="#lambda-expressions">Lambda expressions</a></li>
+</ul></li>
+<li><a href="#data-types">Data types</a><ul>
+<li><a href="#booleans">Booleans</a></li>
+<li><a href="#more-data-types-for-sokoboban">More data types for Sokoboban</a></li>
+</ul></li>
+<li><a href="#pure-interaction">Pure Interaction</a><ul>
+<li><a href="#interaction-on-codeworld">Interaction on CodeWorld</a></li>
+<li><a href="#events">Events</a></li>
+<li><a href="#some-terminology">Some terminology</a></li>
+</ul></li>
+</ul>
+    </div>
+    
+
+
+    <div id="content">
+      <h1 id="higher-order-functions">Higher Order Functions</h1>
+<p>The solution for last week’s homework might have been solved with this code, which draws a row and then draws a column:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">pictureOfMaze ::</span> <span class="dt">Picture</span>
+pictureOfMaze <span class="fu">=</span> drawRows (<span class="fu">-</span><span class="dv">10</span>)
+
+<span class="ot">drawRows ::</span> <span class="dt">Integer</span> <span class="ot">-&gt;</span> <span class="dt">Picture</span>
+drawRows <span class="dv">11</span> <span class="fu">=</span> blank
+drawRows r  <span class="fu">=</span> drawCols r (<span class="fu">-</span><span class="dv">10</span>) <span class="fu">&amp;</span> drawRows (r<span class="fu">+</span><span class="dv">1</span>)
+
+<span class="ot">drawCols ::</span> <span class="dt">Integer</span> <span class="ot">-&gt;</span> <span class="dt">Integer</span> <span class="ot">-&gt;</span> <span class="dt">Picture</span>
+drawCols _ <span class="dv">11</span> <span class="fu">=</span> blank
+drawCols r c <span class="fu">=</span> drawTileAt r c <span class="fu">&amp;</span> drawCols r (c<span class="fu">+</span><span class="dv">1</span>)
+
+<span class="ot">drawTileAt ::</span> <span class="dt">Integer</span> <span class="ot">-&gt;</span> <span class="dt">Integer</span> <span class="ot">-&gt;</span> <span class="dt">Picture</span>
+drawTileAt <span class="fu">=</span> …</code></pre></div>
+<p>Clearly there is some repetition going on here, with <code>drawRows</code> and <code>drawCols</code> doing very similar things. In prose, what they are doing is “21 times, do something similar each time, but varying with the count”. They differ in two aspects:</p>
+<ul>
+<li>The <code>something</code> is different: it is calling <code>drawCols</code> in the one case, and <code>drawTileAt</code> in the other case.</li>
+<li>For <code>drawCols</code>, there is an extra argument that is passed around to the “something”.</li>
+</ul>
+<p>I promised that Haskell is a language with good abstractions, so it should be possible to abstract over this pattern. So lets give it a try:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">
+draw21times something <span class="fu">=</span> helper something (<span class="fu">-</span><span class="dv">10</span>)
+
+helper something <span class="dv">11</span> <span class="fu">=</span> blank
+helper something n  <span class="fu">=</span> something <span class="fu">&amp;</span> helper something (n<span class="fu">+</span><span class="dv">1</span>)
+
+pictureOfMaze <span class="fu">=</span> draw21times drawRow
+drawRow <span class="fu">=</span> draw21times drawCol
+drawCol <span class="fu">=</span> drawTileAt <span class="fu">?</span> <span class="fu">?</span></code></pre></div>
+<p>Now we are stuck: In the definition of <code>drawATiles</code>, we need to know the current row and column number, but we do not have that! If we would write <code>n</code> (which maybe a perl programmer from the last century would try here), we would get an error about a variable being not in scope. And even if we somehow could access the <code>n</code> there, which one would it be – <code>draw21times</code> is run twice here!</p>
+<p>So the <code>helper</code> needs to pass down the <code>n</code> to <code>something</code>. And similarly, <code>drawRow</code> has to tell <code>drawCol</code> what row it should draw:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">draw21times something <span class="fu">=</span> helper something (<span class="fu">-</span><span class="dv">10</span>)
+
+helper something <span class="dv">11</span> <span class="fu">=</span> blank
+helper something n  <span class="fu">=</span> something n <span class="fu">&amp;</span> helper something (n<span class="fu">+</span><span class="dv">1</span>)
+
+pictureOfMaze <span class="fu">=</span> draw21times drawRow
+drawRow r <span class="fu">=</span> draw21times (drawCol r)
+drawCol r c <span class="fu">=</span> drawTileAt r c</code></pre></div>
+<p>Nice, so this works. But what exactly have we done here? Let us clarify things by adding type signatures, conveniently provided to us by the CodeWorld interface:</p>
+<p>For <code>draw21times</code> it says</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">draw21times ::</span> forall a<span class="fu">.</span> (<span class="dt">Eq</span> a, <span class="dt">Num</span> a) <span class="ot">=&gt;</span> (a <span class="ot">-&gt;</span> <span class="dt">Picture</span>) <span class="ot">-&gt;</span> <span class="dt">Picture</span></code></pre></div>
+<p>Now that is a mouthful. We’ll skip the details for now, but simply follow the heuristics that <code>Num a</code> says that <code>a</code> is a numeric type, so we just use <code>Integer</code>, and similarly for the other functions:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">draw21times ::</span> (<span class="dt">Integer</span> <span class="ot">-&gt;</span> <span class="dt">Picture</span>) <span class="ot">-&gt;</span> <span class="dt">Picture</span>
+<span class="ot">helper ::</span> (<span class="dt">Integer</span> <span class="ot">-&gt;</span> <span class="dt">Picture</span>) <span class="ot">-&gt;</span> <span class="dt">Integer</span> <span class="ot">-&gt;</span> <span class="dt">Picture</span>
+<span class="ot">drawRow ::</span> <span class="dt">Integer</span> <span class="ot">-&gt;</span> <span class="dt">Picture</span>
+<span class="ot">drawCol ::</span> <span class="dt">Integer</span> <span class="ot">-&gt;</span> <span class="dt">Integer</span> <span class="ot">-&gt;</span> <span class="dt">Picture</span></code></pre></div>
+<p>The type signature of <code>draw21times</code> again has two arrows, but it does <em>not</em> take two arguments! The parenthesis around the first argument are important: This means that there is <em>one</em> argument, which happens to be a function, which itself takes <em>one</em> argument.</p>
+<p>Similarly, the type signature of <code>helper</code> says that there are <em>two</em> arguments, the first being a function taking <em>one</em> argument, and the second being simply an <code>Integer</code>.</p>
+<p>The types of <code>drawRow</code> and <code>drawCol</code> are again straight-forward function types. Note that the type of <code>drawRow</code> is precisely the type of of the argument to <code>draw21times</code> – and therefore we can pass <code>drawRow</code> as an argument to <code>draw21times</code>.</p>
+<p>What you see here is an instance of an <strong>Higher Order Function</strong>, i.e. a function that takes other functions as arguments. It is a central idea in functional programming and one main reason for the great abstraction possibilities in Haskell.</p>
+<h2 id="partial-application">Partial application</h2>
+<p>There is something odd about the use of <code>drawCol</code> here. It seems that <code>drawCol</code> is a function of <em>two</em> parameters, but we use it with only one parameter, as an argument to <code>draw21times</code>. How can that work?</p>
+<p>To understand that, let me write the type signature of <code>drawCol</code> differently:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">drawCol ::</span> <span class="dt">Integer</span> <span class="ot">-&gt;</span> (<span class="dt">Integer</span> <span class="ot">-&gt;</span> <span class="dt">Picture</span>)</code></pre></div>
+<p>This suddenly changes the perspective: Now <code>drawCol</code> is a function taking <em>one</em> argument, and returning <em>another</em> function, which again takes one argument. And this returned function nicely fits the argument type of <code>draw21times</code>.</p>
+<p>But it really is just a change of perspective. The two types are identical. In this sense, every function in Haskell takes one argument – it is just that some return a function.</p>
+<p>You can also understand that from looking at a function call. The expression <code>f x y</code> is equivalent to <code>(f x) y</code>.</p>
+<p>We note that the function type arrow is <em>right associative</em> and function application is <em>left associative</em>.</p>
+<h2 id="local-definitions">Local definitions</h2>
+<p>Let us clean up the code a bit. First of all, the definition <code>drawCol r c = drawTileAt r c</code> looks quite useless. All it says is that “using <code>drawCol</code> is equivalent to using <code>drawTileAt</code>”. So let us remove <code>drawCol</code>.</p>
+<p>The next code smell is the <code>helper</code> function. It really is a helper to <code>draw21times</code>, so it would be nice to have this function only available within <code>draw21times</code>. To do so, we use local definitions. They come in two varieties:</p>
+<ol style="list-style-type: decimal">
+<li><p>As <code>let</code>-bindings:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">draw21times ::</span> (<span class="dt">Integer</span> <span class="ot">-&gt;</span> <span class="dt">Picture</span>) <span class="ot">-&gt;</span> <span class="dt">Picture</span>
+draw21times something <span class="fu">=</span>
+  <span class="kw">let</span><span class="ot"> helper ::</span> (<span class="dt">Integer</span> <span class="ot">-&gt;</span> <span class="dt">Picture</span>) <span class="ot">-&gt;</span> <span class="dt">Integer</span> <span class="ot">-&gt;</span> <span class="dt">Picture</span>
+      helper something <span class="dv">11</span> <span class="fu">=</span> blank
+      helper something n  <span class="fu">=</span> something n <span class="fu">&amp;</span> helper something (n<span class="fu">+</span><span class="dv">1</span>)
+  <span class="kw">in</span> helper something (<span class="fu">-</span><span class="dv">10</span>)</code></pre></div>
+<p>A <code>let</code>-binding contains definitions for functions and values, quite like top-level definitions. It can contain multiple definitions, and makes them available to both the definitions it contains, as well as to the expression after the <code>in</code>. The <code>let</code>-construct is a self-contained expression and can be used wherever any other expression is expected.</p></li>
+<li><p>In a <code>where</code>-clause:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">draw21times ::</span> (<span class="dt">Integer</span> <span class="ot">-&gt;</span> <span class="dt">Picture</span>) <span class="ot">-&gt;</span> <span class="dt">Picture</span>
+draw21times something <span class="fu">=</span> helper something (<span class="fu">-</span><span class="dv">10</span>)
+  <span class="kw">where</span>
+<span class="ot">    helper ::</span> (<span class="dt">Integer</span> <span class="ot">-&gt;</span> <span class="dt">Picture</span>) <span class="ot">-&gt;</span> <span class="dt">Integer</span> <span class="ot">-&gt;</span> <span class="dt">Picture</span>
+    helper something <span class="dv">11</span> <span class="fu">=</span> blank
+    helper something n  <span class="fu">=</span> something n <span class="fu">&amp;</span> helper something (n<span class="fu">+</span><span class="dv">1</span>)</code></pre></div>
+<p>This is just a syntactic variation, and equivalent to the code above. One or more definitions can follow the <code>where</code>, and are available to those definitions and the body of the function.</p></li>
+</ol>
+<p>It is a matter of style which ones to use. Generally, <code>where</code> clauses are prettier, require less indentation and are almost always used for local functions. They also have the advantage of scoping over multiple guards. For local values (e.g. some computation), a <code>let</code> clause can also work well. You’ll get the hang of it.</p>
+<p>A more common name for such a local definition is simply <code>go</code>. It is ok to use such a non-descript name, because its scope is so small and clearly defined. Also, type signatures for such local definitions are often omitted.</p>
+<h2 id="captured-variables">Captured variables</h2>
+<p>Making <code>go</code> a local function and moving it into <code>draw21times</code> has another advantage: It can reference the parameters of <code>draw21times</code>. Currently, <code>go</code> goes through quite some lengths to pass the <code>something</code> parameter around. But that is no longer necesary: It can simply refer to <code>something</code> as it is bound by <code>draw21times</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">draw21times ::</span> (<span class="dt">Integer</span> <span class="ot">-&gt;</span> <span class="dt">Picture</span>) <span class="ot">-&gt;</span> <span class="dt">Picture</span>
+draw21times something <span class="fu">=</span> go (<span class="fu">-</span><span class="dv">10</span>)
+  <span class="kw">where</span>
+    go <span class="dv">11</span> <span class="fu">=</span> blank
+    go n  <span class="fu">=</span> something n <span class="fu">&amp;</span> go (n<span class="fu">+</span><span class="dv">1</span>)</code></pre></div>
+<h2 id="a-note-on-indentation">A note on indentation</h2>
+<p>By now you might have noticed that indentation seems to be significant in Haskell – how else would you know where the <code>where</code> clause ends. Indeed, like Python, but unlike most other programming languages, Haskell is indentation sensitive. This has two advantages:</p>
+<ul>
+<li>There is need for delimiters like curly braces etc, which makes the code cleaner and easier to read.</li>
+<li>It ensures that the programmer writes properly indented code.</li>
+</ul>
+<p>The indentation rules are somewhat technical, so I will <em>not</em> explain them here. Instead, I appeal to intuition: From the examples given in class and the exercises, you will soon get an intuition about how that works, and that will be sufficient. In fact, I myself cannot give you the exact rules, but I have not had a problem with indentation since many years.</p>
+<p>If it does not work: Experiment. If you are stuck: Ask (e.g. on Piazza).</p>
+<p>If you really want to know the rules start with the <a href="https://en.wikibooks.org/wiki/Haskell/Indentation">chapter on indentation</a> in the Wikibook on Haskell.</p>
+<h2 id="lambda-expressions">Lambda expressions</h2>
+<p>We have now seen already three way of defining a function: Global, in a <code>let</code> or in an <code>where</code> clause. The form of the definition has always been the same, though, and all of them required giving a name to the thing.</p>
+<p>Giving a name is not always desired. Naming things is hard! Therefore, at least for very small functions that are used only once, it is desireable to just define them on the spot where they are used.</p>
+<p>Consider the <code>drawRow</code> function: All it does is to call <code>draw21times</code> with <code>drawTileAt</code> as its argument. That is hardly worth giving a name, writing a type signature and so on.</p>
+<p>So instead of using <code>drawRow</code>, we can define this functionality right on the spot in <code>pictureOfMaze</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">pictureOfMaze <span class="fu">=</span> draw21times (\r <span class="ot">-&gt;</span> draw21times (drawTileAt r))</code></pre></div>
+<p>The <code>backslash</code> is a poor rendering of the greek letter λ (lambda), and indicates that this defines an anonymous, local function, which, when called, takes one parameter <code>r</code>, and returns the stuff after the right arrow, i.e. <code>draw21times (drawTileAt r)</code>.</p>
+<p>We could use it twice to make it a bit clearer what this code does, by naming the variables for the row and the column appropriately, and also showing the symmetry:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">pictureOfMaze <span class="fu">=</span> draw21times (\r <span class="ot">-&gt;</span> draw21times (\c <span class="ot">-&gt;</span> drawTileAt r c))</code></pre></div>
+<p>Higher order functions, local functions and lambda expressions allow for very concise, but yet readable code. Use it!</p>
+<p>You can see the <a href="https://code.world/haskell#PeAw6a9gel9QEvOyFRS8sZA">final code on CodeWorld</a>.</p>
+<h1 id="data-types">Data types</h1>
+<p>On to the next topic, and again we will motivate and introduce it by adressing some wart in the code from last weeks homework.</p>
+<p>The functions <code>drawTile</code> and <code>maze</code> designate the different types of tiles by a number. That calls for trouble: It is easy to mix them up, extending the list of tiles is error-prone, as you might forget to extend the code somewhere else that handles the numbers.</p>
+<p>The problem is that <code>Integers</code> are not a a suitable type to represent types: There are too many of them, and their meaning is implicit.</p>
+<p>So we want a type that is tight, i.e. large enough to encompass all tiles we want to represent, but no more, and explicit, i.e. the meaning of a value of such a type is clear.</p>
+<p>So we simply introduce such a type:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Tile</span> <span class="fu">=</span> <span class="dt">Wall</span> <span class="fu">|</span> <span class="dt">Ground</span> <span class="fu">|</span> <span class="dt">Storage</span> <span class="fu">|</span> <span class="dt">Box</span> <span class="fu">|</span> <span class="dt">Blank</span></code></pre></div>
+<p>The keyword is <code>data</code>, followed by the name of the new type, followed by an equals sign, followed by a list of <em>constructors</em> of this type, separated by bars. Type and constructor names always start with a capital letter, and they each have their own namespace (so you can use the same name for a type and a constructor).</p>
+<p>The new type <code>Tile</code> now consists of exactly these five constructors as values, no more and no less. So the type is tight. And further more, every value is self-explanatory.</p>
+<p>We can return them in <code>maze</code>, and pattern match in <code>drawTile</code>, just like with numbers (<a href="https://code.world/haskell#P-M5f3eyKkHqrbfW2KObbKQ">open on CodeWorld</a>):</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">drawTile ::</span> <span class="dt">Tile</span> <span class="ot">-&gt;</span> <span class="dt">Picture</span>
+drawTile <span class="dt">Wall</span>    <span class="fu">=</span> wall
+drawTile <span class="dt">Ground</span>  <span class="fu">=</span> ground
+drawTile <span class="dt">Storage</span> <span class="fu">=</span> storage
+drawTile <span class="dt">Box</span>     <span class="fu">=</span> box
+drawTile <span class="dt">Blank</span>   <span class="fu">=</span> blank
+
+<span class="ot">maze ::</span> <span class="dt">Integer</span> <span class="ot">-&gt;</span> <span class="dt">Integer</span> <span class="ot">-&gt;</span> <span class="dt">Tile</span>
+maze x y
+  <span class="fu">|</span> abs x <span class="fu">&gt;</span> <span class="dv">4</span>  <span class="fu">||</span> abs y <span class="fu">&gt;</span> <span class="dv">4</span>  <span class="fu">=</span> <span class="dt">Blank</span>
+  <span class="fu">|</span> abs x <span class="fu">==</span> <span class="dv">4</span> <span class="fu">||</span> abs y <span class="fu">==</span> <span class="dv">4</span> <span class="fu">=</span> <span class="dt">Wall</span>
+  <span class="fu">|</span> x <span class="fu">==</span>  <span class="dv">2</span> <span class="fu">&amp;&amp;</span> y <span class="fu">&lt;=</span> <span class="dv">0</span>        <span class="fu">=</span> <span class="dt">Wall</span>
+  <span class="fu">|</span> x <span class="fu">==</span>  <span class="dv">3</span> <span class="fu">&amp;&amp;</span> y <span class="fu">&lt;=</span> <span class="dv">0</span>        <span class="fu">=</span> <span class="dt">Storage</span>
+  <span class="fu">|</span> x <span class="fu">&gt;=</span> <span class="fu">-</span><span class="dv">2</span> <span class="fu">&amp;&amp;</span> y <span class="fu">==</span> <span class="dv">0</span>        <span class="fu">=</span> <span class="dt">Box</span>
+  <span class="fu">|</span> otherwise                <span class="fu">=</span> <span class="dt">Ground</span></code></pre></div>
+<p>Note how suddenly the type signature of <code>drawTile</code> and especially of <code>maze</code> has become much more helpful!</p>
+<h2 id="booleans">Booleans</h2>
+<p>You have actually used such a datatype before, in last week’s class: We were using the type <code>Bool</code>, with its values <code>True</code> and <code>False</code>. And it may come as a surprise to you that this type is defined using the very same mechanism that you just learend:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Bool</span> <span class="fu">=</span> <span class="dt">False</span> <span class="fu">|</span> <span class="dt">True</span></code></pre></div>
+<p>It is a sign of good programming language design if many concepts can be implemented using the language itself, instead of having to be built in.</p>
+<p>The same then holds for operators like <code>(||)</code> and <code>(&amp;&amp;)</code> – there is nothing special about them, and you could have definded them yourself. (Try to come up with their definition, and then compare it against the real one!)</p>
+<p>The type is still somewhat priviliged though, because guards, like the one in <code>maze</code>, need to be expressions of type <code>Bool</code>. But that’s just a use of the type, not the definition of the type.</p>
+<h2 id="more-data-types-for-sokoboban">More data types for Sokoboban</h2>
+<p>Let us work towards making our animation interactive. To start with, we might want to move the maze around, using the keyboard, in case it is larger than our screen (or just as a preparation for moving the player around).</p>
+<p>To that end, let us first talk about the types involved. It makes sense to have one type that describes the possible ways to interact with the system. For now, the only interaction is moving the view into one of the four directions, so we can define a data type for that:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Direction</span> <span class="fu">=</span> <span class="dt">R</span> <span class="fu">|</span> <span class="dt">U</span> <span class="fu">|</span> <span class="dt">L</span> <span class="fu">|</span> <span class="dt">D</span></code></pre></div>
+<p>We also need to keep track of the current position, after a few key presses. Now, there are infinitely many possible positions, so a simple enumeration does not cut it. We could describe the position with two integer numbers, so we need a type that stores two such numbers. We can do that also using the <code>data</code> keyword, and giving the <em>parameters</em> to the constructor:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Coord</span> <span class="fu">=</span> <span class="dt">C</span> <span class="dt">Integer</span> <span class="dt">Integer</span></code></pre></div>
+<p>Here I define the type <code>Coord</code>. There is a single constructor to created this type, called <code>C</code>, which takes two <code>Integer</code>s and turns them into one <code>Coord</code>.</p>
+<p>Just like above, the constructors are value we can use in expressions, we can do this with <code>C</code>, which is a function of type <code>Integer -&gt; Integer -&gt; Coord</code>.</p>
+<p>If you like math-talk: The type <code>Coord</code> is now isomorphic to the product type of <code>Integer</code> with <code>Integer</code>, and <code>C</code> is an isomorphism between them. If follows that constructors are always injective, and if that does not mean anything to you right now, you can ignore this.</p>
+<p>Here is an example use of <code>C</code> as a function:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">initialCoord ::</span> <span class="dt">Coord</span>
+initialCoord <span class="fu">=</span> <span class="dt">C</span> <span class="dv">0</span> <span class="dv">0</span></code></pre></div>
+<p>So it is straight forward to create a <code>Coord</code> (just use the constructor as a function). How do we use a <code>Coord</code>? This works by pattern matching. We will need a function that translates a picture to have its origin at a given coord. Let us write it, first thinking about the type and then the code:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">atCoord ::</span> <span class="dt">Coord</span> <span class="ot">-&gt;</span> <span class="dt">Picture</span> <span class="ot">-&gt;</span> <span class="dt">Picture</span>
+atCoord (<span class="dt">C</span> x y) pic <span class="fu">=</span> translated (fromIntegral x) (fromIntegral y) pic</code></pre></div>
+<p>So when we pattern match against a constructor with parameters, we simply give names to the parameters. We have to put parentheses around this, to distinguish it from multiple function parameters – this applies consistently in pattern just as well as in expressions.</p>
+<p>(The <code>fromIntegral</code> is needed to convert the <code>Integer</code> to a <code>Double</code>. Why did we not put <code>Double</code> in the type of <code>Coord</code> in the first place? Because <code>Integer</code> is more honest: If we just use the keyboard, there will never be non-integral coordiantes there.)</p>
+<p>The next function that we will want to write is one that calculates a new coordiante, based on the current coordiante and a direction.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">adjacentCoord ::</span> <span class="dt">Direction</span> <span class="ot">-&gt;</span> <span class="dt">Coord</span> <span class="ot">-&gt;</span> <span class="dt">Coord</span>
+adjacentCoord <span class="dt">R</span> (<span class="dt">C</span> x y) <span class="fu">=</span> <span class="dt">C</span> (x<span class="fu">+</span><span class="dv">1</span>) y
+adjacentCoord <span class="dt">U</span> (<span class="dt">C</span> x y) <span class="fu">=</span> <span class="dt">C</span>  x   (y<span class="fu">+</span><span class="dv">1</span>)
+adjacentCoord <span class="dt">L</span> (<span class="dt">C</span> x y) <span class="fu">=</span> <span class="dt">C</span> (x<span class="fu">-</span><span class="dv">1</span>) y
+adjacentCoord <span class="dt">D</span> (<span class="dt">C</span> x y) <span class="fu">=</span> <span class="dt">C</span>  x   (y<span class="fu">-</span><span class="dv">1</span>)</code></pre></div>
+<p>That was a lot of coding without seeing anything. Let us try it out (<a href="https://code.world/haskell#PAp1po1qT2i8Dmim1XCGfWw">also on CodeWorld</a>):</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">someCoord ::</span> <span class="dt">Coord</span>
+someCoord <span class="fu">=</span> adjacentCoord <span class="dt">U</span> (adjacentCoord <span class="dt">U</span> (adjacentCoord <span class="dt">L</span> initialCoord))
+
+main <span class="fu">=</span> drawingOf (atCoord someCoord pictureOfMaze)</code></pre></div>
+<iframe width="400" height="400" src="https://code.world/run.html?mode=haskell&amp;hash=PAp1po1qT2i8Dmim1XCGfWw">
+</iframe>
+<h1 id="pure-interaction">Pure Interaction</h1>
+<p>Time to put these thing to good use. The goal is as follows: The maze should be centered when we start the program. Then we can use the arrow keys to move it around. We have already implemented most functionality for that, but you might wonder: How can we have interaction in a world without side-effects? How can we remember the current state in a world without mutable variables?</p>
+<p>Well, we solved such a riddle before, when we implemented an animation, by modelling our thoughts in terms of pure functions, and then having some “machinery” that executes our pure functions, yielding the desired effect. We can do it again.</p>
+<p>An interactive program changes state whenever a new input event happens. If we want to separate the logic of the state change from the logic of remembering the current state, the former becomes a pure function again, namely one that, given the input event and the current state, calculates the new state. Additionally, we need to specify the initial state, and then of course how to visualize the state.</p>
+<h2 id="interaction-on-codeworld">Interaction on CodeWorld</h2>
+<p>This functionality is provided in CodeWorld by the following function, which has quite a large type signature:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">interactionOf ::</span> world <span class="ot">-&gt;</span>
+                (<span class="dt">Double</span> <span class="ot">-&gt;</span> world <span class="ot">-&gt;</span> world) <span class="ot">-&gt;</span>
+                (<span class="dt">Event</span> <span class="ot">-&gt;</span> world <span class="ot">-&gt;</span> world) <span class="ot">-&gt;</span>
+                (world <span class="ot">-&gt;</span> <span class="dt">Picture</span>) <span class="ot">-&gt;</span>
+                <span class="dt">IO</span> ()</code></pre></div>
+<p>Its type signature mentions the type <code>world</code>. This is not a specific type, but rather a type variable. We’ll get to that later; all we need to know for now is that this type can be any type we want it to be. This type contains the state of the program. In our case, it is simply a <code>Coord</code>.</p>
+<p>The function <code>interactionOf</code> takes four arguments:</p>
+<ol style="list-style-type: decimal">
+<li>An initial state.</li>
+<li>A function modifying the state if a certain amount of time (given as a the first argument) has passed.</li>
+<li>A function modifying the state if a certain input even thas happened.</li>
+<li>A function to draw a picture according to the current state.</li>
+</ol>
+<p>Let us try to use this function, in a simple way (<a href="https://code.world/haskell#PpjfIR2NrgPeBJQKfg_63Kg">open on CodeWorld</a>):</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">main <span class="fu">=</span> interactionOf initialCoord handleTime handleEvent drawState
+
+<span class="ot">handleTime ::</span> <span class="dt">Double</span> <span class="ot">-&gt;</span> <span class="dt">Coord</span> <span class="ot">-&gt;</span> <span class="dt">Coord</span>
+handleTime _ c <span class="fu">=</span> c
+
+<span class="ot">handleEvent ::</span> <span class="dt">Event</span> <span class="ot">-&gt;</span> <span class="dt">Coord</span> <span class="ot">-&gt;</span> <span class="dt">Coord</span>
+handleEvent e c <span class="fu">=</span> adjacentCoord <span class="dt">U</span> c
+
+<span class="ot">drawState ::</span> <span class="dt">Coord</span> <span class="ot">-&gt;</span> <span class="dt">Picture</span>
+drawState c <span class="fu">=</span> atCoord c pictureOfMaze</code></pre></div>
+<iframe width="400" height="400" src="https://code.world/run.html?mode=haskell&amp;hash=PpjfIR2NrgPeBJQKfg_63Kg">
+</iframe>
+<p>That does … something. But as soon as we move the mouse over the picture, it disappears. Which makes sense, as mouse movements are also events.</p>
+<h2 id="events">Events</h2>
+<p>So we need to look at the <code>Event</code> type. According to the documentation, it is a data type. We know data types!</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Event</span> <span class="fu">=</span> <span class="dt">KeyPress</span> <span class="dt">Text</span>
+           <span class="fu">|</span> <span class="dt">KeyRelease</span> <span class="dt">Text</span>
+           <span class="fu">|</span> <span class="dt">MousePress</span> <span class="dt">MouseButton</span> <span class="dt">Point</span>
+           <span class="fu">|</span> <span class="dt">MouseRelease</span> <span class="dt">MouseButton</span> <span class="dt">Point</span>
+           <span class="fu">|</span> <span class="dt">MouseMovement</span> <span class="dt">Point</span></code></pre></div>
+<p>There are five constructors, for different kind of events. We care about <code>KeyPress</code> events. This constructor has an argument, which is a <code>Text</code>. We have not seen this type before, but we can guess what it means. So let us handle this (<a href="https://code.world/haskell#Px4XRGfE1Aw0GCEDKSDVAAw">open on CodeWorld</a>):</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">handleEvent ::</span> <span class="dt">Event</span> <span class="ot">-&gt;</span> <span class="dt">Coord</span> <span class="ot">-&gt;</span> <span class="dt">Coord</span>
+handleEvent (<span class="dt">KeyPress</span> key) c
+    <span class="fu">|</span> key <span class="fu">==</span> <span class="st">&quot;Right&quot;</span> <span class="fu">=</span> adjacentCoord <span class="dt">R</span> c
+    <span class="fu">|</span> key <span class="fu">==</span> <span class="st">&quot;Up&quot;</span>    <span class="fu">=</span> adjacentCoord <span class="dt">U</span> c
+    <span class="fu">|</span> key <span class="fu">==</span> <span class="st">&quot;Left&quot;</span>  <span class="fu">=</span> adjacentCoord <span class="dt">L</span> c
+    <span class="fu">|</span> key <span class="fu">==</span> <span class="st">&quot;Down&quot;</span>  <span class="fu">=</span> adjacentCoord <span class="dt">D</span> c
+handleEvent _ c      <span class="fu">=</span> c</code></pre></div>
+<p>(From now on, make sure you have <code>{-# LANGUAGE OverloadedStrings #-}</code> on top of the file, or you will get strange error messages.)</p>
+<iframe width="400" height="400" src="https://code.world/run.html?mode=haskell&amp;hash=Px4XRGfE1Aw0GCEDKSDVAAw">
+</iframe>
+<p>And there we go, we can move the maze around! (You might have to click on the embedded picture before it reacts to your key presses.)</p>
+<h2 id="some-terminology">Some terminology</h2>
+<ul>
+<li><p>A data type where none of the constructors has parameters is called an <em>enumeration type</em>.</p></li>
+<li><p>A data type with exactly one constructor is called a <em>product type</em>.</p></li>
+<li><p>A data type with multiple constructors is called a <em>sum type</em>.</p></li>
+<li><p>A data type with no constructors is an <em>empty type</em>. Yes, that is a thing. Yes, this is sometimes useful.</p></li>
+</ul>
+<!--
+
+Keep this for the introduction of Maybe...
+
+Resetting the stage
+===================
+
+Let us add another way of interacting with the program: Pressing the escape key should reset everything.
+
+Adding this functionality is quite simple: Just add another line to `handleEvent`:
+
+```haskell
+    | key == "Down"  = adjacentCoord D c
+```
+
+But this is not pleasing: The function `handleEvent` is getting large, and is
+mixing two different things: Decyphering the `Event` type, and actually
+performing the event. So let us separate these two, and define a clear
+interface for our game. For that, we want to define a datatype.
+
+What interactions do we have now? All four directions, plus reset. It would not be wise to add `Reset` to the directions, as `Reset` is not a direction. It would also not be wise to simply create a new data type with five constructors, as we would be duplicating the structure of directions.
+
+So we want a data type that is either a direction (and use `Direction` there), or a reset command. We thus need to constructors, one of which has a `Direction` as a paremeter:
+
+```haskell
+data Command = Goto Direction | Reset
+```
+
+We then split `handleEvent` into `parseEvent`
+-->
+<p>With that knowledge (and some cleverness) you should already be able to write a fully functional Sokoban, although we will use this week’s homework for some more prelimaries, and learn more next week that will help us finish the game.</p>
+    </div>
+
+    <div id="footer"><center>
+      <font size="-2">Powered
+      by <a href="http://community.haskell.org/~ndm/shake/">shake</a>,
+      <a href="http://jaspervdj.be/hakyll/index.html">hakyll</a>,
+      <a href="http://johnmacfarlane.net/pandoc/">pandoc</a>,
+      <a href="http://projects.haskell.org/diagrams">diagrams</a>,
+      and <a href="http://www.andres-loeh.de/lhs2tex/">lhs2TeX</a>.
+      </center>
+    </div>
+  </div>
+</body>
+
+
+<!-- Mirrored from cis.upenn.edu/~cis194/fall16/lectures/02-ho-datatypes.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 14:08:49 GMT -->
+</html>

@@ -1,0 +1,249 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+
+<!-- Mirrored from cis.upenn.edu/~cis194/fall16/lectures/06-io-and-monads.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 14:08:49 GMT -->
+<head>
+  <META http-equiv="Content-Type" content="text/html; charset='UTF-8'">
+  <title>CIS194</title>
+
+  <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+  <link href="../css/style.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+
+  <div id="canvas">
+    <div id="nav">
+     <p><a href="../index-2.html">CIS 194</a> | <a href="../policies.html">Policies</a> | <a href="../resources.html">Resources</a> | <a href="../final.html">Final Project</a></p>
+   </div>
+
+    
+    <div id="topic">
+    IO and monads
+    </div>
+    
+
+    
+    <div role="nav" id="toc">
+     <ul>
+<li><a href="#the-io-type">The <code>IO</code> type</a><ul>
+<li><a href="#there-is-no-string-inside-an-io-string">There is no <code>String</code> “inside” an <code>IO String</code></a></li>
+<li><a href="#combining-io">Combining <code>IO</code></a><ul>
+<li><a href="#sequencing">Sequencing</a></li>
+<li><a href="#tupling">Tupling</a></li>
+<li><a href="#bind">Bind</a></li>
+</ul></li>
+</ul></li>
+<li><a href="#monads">Monads</a><ul>
+<li><a href="#maybe-a-monad">Maybe a monad?</a></li>
+<li><a href="#bind-is-overloaded">Bind is overloaded</a></li>
+<li><a href="#a-note-about-monads">A note about Monads</a></li>
+<li><a href="#another-example-lists">Another example: Lists</a></li>
+<li><a href="#the-other-methods-of-monad">The other methods of Monad</a></li>
+<li><a href="#the-monad-laws">The Monad laws</a></li>
+<li><a href="#do-notation">Do notation</a></li>
+</ul></li>
+</ul>
+    </div>
+    
+
+
+    <div id="content">
+      <p><!-- CLASS
+
+> {-# OPTIONS_GHC -Wall #-}
+> {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+
+--></p>
+<p>Remember that Haskell is <em>lazy</em> and therefore <em>pure</em>. This means two primary things:</p>
+<ol style="list-style-type: decimal">
+<li><p>Functions may not have any external effects. For example, a function may not print anything on the screen. Functions may only compute their outputs.</p></li>
+<li><p>Functions may not depend on external stuff. For example, they may not read from the keyboard, or filesystem, or network. Functions may depend only on their inputs—put another way, functions should give the same output for the same input every time.</p></li>
+</ol>
+<p>But—sometimes we <em>do</em> want to be able to do stuff like this! If the only thing we could do with Haskell is write functions which we can then evaluate at the ghci prompt, it would be theoretically interesting but practically useless.</p>
+<p>In fact, it <em>is</em> possible to do these sorts of things with Haskell, but it looks very different than in most other languages.</p>
+<h1 id="the-io-type">The <code>IO</code> type</h1>
+<p>The solution to the conundrum is a special type called <code>IO</code>. Values of type <code>IO a</code> are <em>descriptions of</em> effectful computations, which, if executed would (possibly) perform some effectful I/O operations and (eventually) produce a value of type <code>a</code>. There is a level of indirection here that’s crucial to understand. A value of type <code>IO a</code>, <em>in and of itself</em>, is just an inert, perfectly safe thing with no effects. It is just a <em>description</em> of an effectful computation. One way to think of it is as a <em>first-class imperative program</em>.</p>
+<p>As an illustration, suppose you have</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">c ::</span> <span class="dt">Cake</span></code></pre></div>
+<p>What do you have? Why, a delicious cake, of course. Plain and simple.</p>
+<p><img src="../images/cake.jpg" width="200" /></p>
+<p>By contrast, suppose you have</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">r ::</span> <span class="dt">Recipe</span> <span class="dt">Cake</span></code></pre></div>
+<p>What do you have? A cake? No, you have some <em>instructions</em> for how to make a cake, just a sheet of paper with some writing on it.</p>
+<p><img src="../images/recipe.gif" width="200" /></p>
+<p>Not only do you not actually have a cake, merely being in possession of the recipe has no effect on anything else whatsoever. Simply holding the recipe in your hand does not cause your oven to get hot or flour to be spilled all over your floor or anything of that sort. To actually produce a cake, the recipe must be <em>followed</em> (causing flour to be spilled, ingredients mixed, the oven to get hot, <em>etc.</em>).</p>
+<p><img src="../images/fire.jpg" width="200" /></p>
+<p>In the same way, a value of type <code>IO a</code> is just a “recipe” for producing a value of type <code>a</code> (and possibly having some effects along the way). Like any other value, it can be passed as an argument, returned as the output of a function, stored in a data structure, or (as we will see shortly) combined with other <code>IO</code> values into more complex recipes.</p>
+<p>So, how do values of type <code>IO a</code> actually ever get executed? There is only one way: the Haskell compiler looks for a special value</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">main ::</span> <span class="dt">IO</span> ()</code></pre></div>
+<p>which will actually get handed to the runtime system and executed. That’s it! Think of the Haskell runtime system as a master chef who is the only one allowed to do any cooking.</p>
+<p><img src="../images/chef.jpg" width="200" /></p>
+<p>If you want your recipe to be followed then you had better make it part of the big recipe (<code>main</code>) that gets handed to the master chef. Of course, <code>main</code> can be arbitrarily complicated, and will usually be composed of many smaller <code>IO</code> computations.</p>
+<p>So let’s write our first actual, executable Haskell program! We can use the function</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">putStrLn<span class="ot"> ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> ()</code></pre></div>
+<p>which, given a <code>String</code>, returns an <code>IO</code> computation that will (when executed) print out that <code>String</code> on the screen. So we simply put this in a file called <code>Hello.hs</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">main <span class="fu">=</span> putStrLn <span class="st">&quot;Hello, Haskell!&quot;</span></code></pre></div>
+<p>Then typing <code>runhaskell Hello.hs</code> at a command-line prompt results in our message getting printed to the screen! We can also use <code>ghc -O Hello.hs</code> to produce an executable version called <code>Hello</code> (or <code>Hello.exe</code> on Windows).</p>
+<h2 id="there-is-no-string-inside-an-io-string">There is no <code>String</code> “inside” an <code>IO String</code></h2>
+<p>Many new Haskell users end up at some point asking a question like “I have an <code>IO String</code>, how do I turn it into a <code>String</code>?”, or, “How do I get the <code>String</code> out of an <code>IO String</code>”? Given the above intuition, it should be clear that these are nonsensical questions: a value of type <code>IO String</code> is a description of some computation, a <em>recipe</em>, for generating a <code>String</code>. There is no <code>String</code> “inside” an <code>IO String</code>, any more than there is a cake “inside” a cake recipe. To produce a <code>String</code> (or a delicious cake) requires actually <em>executing</em> the computation (or recipe). And the only way to do that is to give it (perhaps as part of some larger <code>IO</code> value) to the Haskell runtime system, via <code>main</code>.</p>
+<h2 id="combining-io">Combining <code>IO</code></h2>
+<p>As should be clear by now, we need a way to <em>combine</em> <code>IO</code> computations into larger ones.</p>
+<h3 id="sequencing">Sequencing</h3>
+<p>Thinking about our recipe analogy, we could combine two recipes by writing one below the other (and discarding the result of the first one). Does it make sense to perform the steps of a recipe without using the result? Yes, it may: There might be a recipe for “heating up the oven”, and although no food comes out of it, we still want to perform it for the effects it have.</p>
+<p>We can do the equivalent thing with <code>IO</code> actions, using the <code>(&gt;&gt;)</code> operator (pronounced “and then”), which has the type</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">(&gt;&gt;) ::</span> <span class="dt">IO</span> a <span class="ot">-&gt;</span> <span class="dt">IO</span> b <span class="ot">-&gt;</span> <span class="dt">IO</span> b</code></pre></div>
+<p>This simply creates an <code>IO</code> computation which consists of running the two input computations in sequence. Notice that the result of the first computation is discarded; we only care about it for its <em>effects</em>. For example:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">main <span class="fu">=</span> putStrLn <span class="st">&quot;Hello&quot;</span> <span class="fu">&gt;&gt;</span> putStrLn <span class="st">&quot;world!&quot;</span></code></pre></div>
+<h3 id="tupling">Tupling</h3>
+<p>This works fine for code of the form “do this; do this; do this” where the results don’t really matter. However, in general this is insufficient. What if we don’t want to throw away the result from the first computation?</p>
+<p>Speaking in terms of recipes, it would be nice to be able to tack two recipes together and get both results, i.e. to create a multi-course menu.</p>
+<p>For that, we would need a function of type <code>IO a -&gt; IO b -&gt; IO (a,b)</code>, or, more generally, a function</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">liftM2 ::</span> (a <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> r) <span class="ot">-&gt;</span> <span class="dt">IO</span> a <span class="ot">-&gt;</span> <span class="dt">IO</span> b <span class="ot">-&gt;</span> <span class="dt">IO</span> r</code></pre></div>
+<p>where we can give a (pure) function that indicates how to combine the two courses.</p>
+<h3 id="bind">Bind</h3>
+<p>However, this is still insufficient. The recipe analogy gets a bit stretched here, but imagine you have a recipe, suitable for very late night hunger attacks, of the form “pull some random stuff from the freezer”. That would have type <code>Recipe FrozenStuff</code>. Now how to prepare the frozen stuff depends on what particular thing you pulled out, and a frozen pizza is prepared differently than a frozen stew. So you need to actually look at <code>FrozenStuff</code> to decide what recipe to use to make the stuff yummy. So the second step is actually a <em>function</em> from frozen stuff to a recipe that produces yummy stuff: <code>FrozenStuff -&gt; Recipe YummyStuff</code>, and you will notice that we cannot combine these two recipes using <code>liftM2</code>.</p>
+<p>Therefore, there is the operator <code>(&gt;&gt;=)</code> (pronounced “bind”) with the type</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">(&gt;&gt;=) ::</span> <span class="dt">IO</span> a <span class="ot">-&gt;</span> (a <span class="ot">-&gt;</span> <span class="dt">IO</span> b) <span class="ot">-&gt;</span> <span class="dt">IO</span> b</code></pre></div>
+<p>It takes a computation which will produce a value of type <code>a</code>, and a <em>function</em> which gets to <em>compute</em> a second computation based on this intermediate value of type <code>a</code>. The result of <code>(&gt;&gt;=)</code> is a (description of a) computation which performs the first computation, uses its result to decide what to do next, and then does that.</p>
+<p>For example, we can write a program to read a number from the user and print out its successor. Note our use of <code>readLn :: Read a =&gt; IO a</code> which is a computation that reads input from the user and converts it into any type which is an instance of <code>Read</code>.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> putStrLn <span class="st">&quot;Please enter a number: &quot;</span> <span class="fu">&gt;&gt;</span>
+       readLn <span class="fu">&gt;&gt;=</span> \n <span class="ot">-&gt;</span>
+       <span class="kw">let</span> m <span class="fu">=</span> n <span class="fu">+</span> <span class="dv">1</span> <span class="kw">in</span>
+       putStrLn (show m)</code></pre></div>
+<p>Of course, this looks kind of ugly, but there are better ways to write it, which we’ll talk about in late today.</p>
+<p>Side remark: <code>readLn</code> is not a good citizen, as it throws an exception if the input value is not a number. In real code, better write something like:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">import </span><span class="dt">Text.Read</span>
+main <span class="fu">=</span> putStrLn <span class="st">&quot;Hello World. Please enter a number:&quot;</span> <span class="fu">&gt;&gt;</span>
+       getLine <span class="fu">&gt;&gt;=</span> \s <span class="ot">-&gt;</span>
+       <span class="kw">case</span> readMaybe s <span class="kw">of</span>
+           <span class="dt">Just</span> n <span class="ot">-&gt;</span>  <span class="kw">let</span> m <span class="fu">=</span> n <span class="fu">+</span> <span class="dv">1</span> <span class="kw">in</span>
+                      putStrLn (show m)
+           <span class="dt">Nothing</span> <span class="ot">-&gt;</span> putStrLn <span class="st">&quot;That’s not a number! Try again&quot;</span></code></pre></div>
+<h1 id="monads">Monads</h1>
+<p>While introducing the <code>IO</code> combinators, I talked about recipes. So there seems to be some abstract concept here, and because we like abstraction, let us search for more instances of the pattern.</p>
+<h2 id="maybe-a-monad">Maybe a monad?</h2>
+<p>Consider the following function, which combines two trees if they have the same shape, and returns <code>Nothing</code> if they do not have the same shape:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Tree</span> a <span class="fu">=</span> <span class="dt">Node</span> (<span class="dt">Tree</span> a) a (<span class="dt">Tree</span> a) <span class="fu">|</span> <span class="dt">Empty</span> <span class="kw">deriving</span> (<span class="dt">Show</span>)
+
+<span class="ot">zipTree ::</span> (a <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> c) <span class="ot">-&gt;</span> <span class="dt">Tree</span> a <span class="ot">-&gt;</span> <span class="dt">Tree</span> b <span class="ot">-&gt;</span> <span class="dt">Maybe</span> (<span class="dt">Tree</span> c)
+zipTree _ (<span class="dt">Node</span> _ _ _) <span class="dt">Empty</span> <span class="fu">=</span> <span class="dt">Nothing</span>
+zipTree _ <span class="dt">Empty</span> (<span class="dt">Node</span> _ _ _) <span class="fu">=</span> <span class="dt">Nothing</span>
+zipTree _ <span class="dt">Empty</span> <span class="dt">Empty</span>        <span class="fu">=</span> <span class="dt">Just</span> <span class="dt">Empty</span>
+zipTree f (<span class="dt">Node</span> l1 x r1) (<span class="dt">Node</span> l2 y r2) <span class="fu">=</span>
+    <span class="kw">case</span> zipTree f l1 l2 <span class="kw">of</span>
+      <span class="dt">Nothing</span> <span class="ot">-&gt;</span> <span class="dt">Nothing</span>
+      <span class="dt">Just</span> l  <span class="ot">-&gt;</span> <span class="kw">case</span> zipTree f r1 r2 <span class="kw">of</span>
+                   <span class="dt">Nothing</span> <span class="ot">-&gt;</span> <span class="dt">Nothing</span>
+                   <span class="dt">Just</span> r  <span class="ot">-&gt;</span> <span class="dt">Just</span> <span class="fu">$</span> <span class="dt">Node</span> l (f x y) r</code></pre></div>
+<p>Clearly, there is some repetition in the last case that obscures whats going on. Twice, we look at some value of type <code>Maybe c</code>. If it is <code>Nothing</code>, we return <code>Nothing</code>. If it is <code>Just</code> something, we continue with some code that uses something. But that is precisely the pattern that we saw above when we combined recipes or <code>IO</code> actions. And in fact if we factor out the pattern as a separate function, we find that that function has a type signature quite similar to bind:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">bindMaybe ::</span> <span class="dt">Maybe</span> a <span class="ot">-&gt;</span> (a <span class="ot">-&gt;</span> <span class="dt">Maybe</span> b) <span class="ot">-&gt;</span> <span class="dt">Maybe</span> b
+bindMaybe mx f <span class="fu">=</span> <span class="kw">case</span> mx <span class="kw">of</span>
+                   <span class="dt">Nothing</span> <span class="ot">-&gt;</span> <span class="dt">Nothing</span>
+                   <span class="dt">Just</span> x  <span class="ot">-&gt;</span> f x
+
+<span class="ot">zipTree ::</span> (a <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> c) <span class="ot">-&gt;</span> <span class="dt">Tree</span> a <span class="ot">-&gt;</span> <span class="dt">Tree</span> b <span class="ot">-&gt;</span> <span class="dt">Maybe</span> (<span class="dt">Tree</span> c)
+zipTree _ (<span class="dt">Node</span> _ _ _) <span class="dt">Empty</span> <span class="fu">=</span> <span class="dt">Nothing</span>
+zipTree _ <span class="dt">Empty</span> (<span class="dt">Node</span> _ _ _) <span class="fu">=</span> <span class="dt">Nothing</span>
+zipTree _ <span class="dt">Empty</span> <span class="dt">Empty</span>        <span class="fu">=</span> <span class="dt">Just</span> <span class="dt">Empty</span>
+zipTree f (<span class="dt">Node</span> l1 x r1) (<span class="dt">Node</span> l2 y r2) <span class="fu">=</span>
+    bindMaybe (zipTree f l1 l2) <span class="fu">$</span> \l <span class="ot">-&gt;</span>
+    bindMaybe (zipTree f r1 r2) <span class="fu">$</span> \r <span class="ot">-&gt;</span>
+    <span class="dt">Just</span> (<span class="dt">Node</span> l (f x y) r)</code></pre></div>
+<p>This is already better. But if <code>bindMaybe</code> and the bind of <code>IO</code> have such a similar type signature, and capture such similar concepts, then we would want to use the same name for it.</p>
+<h2 id="bind-is-overloaded">Bind is overloaded</h2>
+<p>Luckily, we can. In fact, we can use <code>(&gt;&gt;=)</code>, as it is in fact overloaded using the <code>Monad</code> type class, of which both <code>IO</code> and <code>Maybe</code> are instances:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">zipTree ::</span> (a <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> c) <span class="ot">-&gt;</span> <span class="dt">Tree</span> a <span class="ot">-&gt;</span> <span class="dt">Tree</span> b <span class="ot">-&gt;</span> <span class="dt">Maybe</span> (<span class="dt">Tree</span> c)
+zipTree _ (<span class="dt">Node</span> _ _ _) <span class="dt">Empty</span> <span class="fu">=</span> <span class="dt">Nothing</span>
+zipTree _ <span class="dt">Empty</span> (<span class="dt">Node</span> _ _ _) <span class="fu">=</span> <span class="dt">Nothing</span>
+zipTree _ <span class="dt">Empty</span> <span class="dt">Empty</span>        <span class="fu">=</span> <span class="dt">Just</span> <span class="dt">Empty</span>
+zipTree f (<span class="dt">Node</span> l1 x r1) (<span class="dt">Node</span> l2 y r2) <span class="fu">=</span>
+    zipTree f l1 l2 <span class="fu">&gt;&gt;=</span> \l <span class="ot">-&gt;</span>
+    zipTree f r1 r2 <span class="fu">&gt;&gt;=</span> \r <span class="ot">-&gt;</span>
+    <span class="dt">Just</span> (<span class="dt">Node</span> l (f x y) r)</code></pre></div>
+<h2 id="a-note-about-monads">A note about Monads</h2>
+<p>Despite their scary reputation, there’s nothing all that frightening about monads. The concept of a monad started its life as an abstract bit of mathematics from the field of Category Theory (Monads are just monoids on the category of endofunctors!). It so happened that functional programmers stumbled upon it as a useful programming construct!</p>
+<p>A monad is handy whenever a programmer wants to sequence actions. The details of the monad says exactly how the actions should be sequenced. A monad may also store some information that can be read from and written to while performing actions.</p>
+<p>We’ve already learned about the <code>IO</code> monad, which sequences its actions quite naturally, performing them in order, and gives actions access to read and write anything, anywhere. We’ll also see the <code>Maybe</code> and <code>[]</code> (pronounced “list”) monads, which don’t give any access to reading and writing, but do interesting things with sequencing. There are other monads such as the <code>Rand</code> monad, which doesn’t much care about sequencing, but it does allow actions to read from and update a random generator.</p>
+<p>One of the beauties of programming with monads is that monads allow programmers to work with mutable state from a pure language. Haskell doesn’t lose its purity when monads come in (although monadic code is often called “impure”). Instead, the degree to which code can be impure is denoted by the choice of monad. For example, the <code>Rand</code> monad means that an action can generate random numbers, but can’t for example, write strings to the user. And the <code>Maybe</code> monad doesn’t give you any extra capabilities at all, but makes writing possibly-erroring computations much easier to write.</p>
+<p>In the end, the best way to really understand monads is to work with them for a while. After programming using several different monads, you’ll be able to abstract away the essence of what a monad really is.</p>
+<h2 id="another-example-lists">Another example: Lists</h2>
+<p>If lists are an instance of monads, then what does its bind operator do? Its type is</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">(&gt;&gt;=) ::</span> [a] <span class="ot">-&gt;</span> (a <span class="ot">-&gt;</span> [b]) <span class="ot">-&gt;</span> [b]</code></pre></div>
+<p>From the type signature, we can guess that it replaces every <code>a</code> in the first list with the list produced by the second argument, producing one flat list of <code>b</code>s.</p>
+<p>The mental model here is that <code>[a]</code> represents nondeterministic programs that can have multiple possible results.</p>
+<p>Here is one example using it, which calculates the cartesian product of the given list and then keeping the ordered pairs:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">ordPairs ::</span> <span class="dt">Ord</span> t <span class="ot">=&gt;</span> [a] <span class="ot">-&gt;</span> [(a, a)]
+ordPairs xs <span class="fu">=</span>
+    xs <span class="fu">&gt;&gt;=</span> \x1 <span class="ot">-&gt;</span>
+    xs <span class="fu">&gt;&gt;=</span> \x2 <span class="ot">-&gt;</span>
+    <span class="kw">if</span> x1 <span class="fu">&lt;</span> x2 <span class="kw">then</span> [(x1,x2)] <span class="kw">else</span> []</code></pre></div>
+<p>(This is the first time you see <code>if…then…else</code>. It does what you expect.)</p>
+<h2 id="the-other-methods-of-monad">The other methods of Monad</h2>
+<p>Above, we have already seen the <code>&gt;&gt;</code> combinator for <code>IO</code>. Indeed, that operator is also overloaded:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">(&gt;&gt;) ::</span> <span class="dt">Monad</span> m <span class="ot">=&gt;</span> m a <span class="ot">-&gt;</span> m b <span class="ot">-&gt;</span> m b</code></pre></div>
+<p>It is, in fact, just a special case of <code>(&gt;&gt;=)</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">f <span class="fu">&gt;&gt;</span> g <span class="fu">==</span> f <span class="fu">&gt;&gt;=</span> \_ <span class="ot">-&gt;</span> g</code></pre></div>
+<p>What does it do for <code>Maybe</code>? What does it do for the list monad?</p>
+<p>The other method that <code>Monad</code> provides is this:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">return<span class="ot"> ::</span> <span class="dt">Monad</span> m <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> m a</code></pre></div>
+<p>The name is a bit misleading, as it is unrelated to <code>return</code> as a control statement in other programming languages. And maybe it should have been called <code>pure</code> instead…</p>
+<p>The purpose of this function is to take something you already have, and then create the “computation” that produces this thing. In terms of recipes: Consider a cake with a label attached: “Recipe. Done”.</p>
+<p>What is <code>return</code> for <code>Maybe</code>, and what for lists? (For <code>IO</code> the implementation is hidden, so it would not be fair to ask that.)</p>
+<p>The point of having this is to write generic monad functions that you can use with <code>IO</code>, or with <code>Maybe</code> or with lists, or with one of the myriads of other types that have a <code>Monad</code> instance. Here is one example:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">mapM<span class="ot"> ::</span> <span class="dt">Monad</span> m <span class="ot">=&gt;</span> (a <span class="ot">-&gt;</span> m b) <span class="ot">-&gt;</span> [a] <span class="ot">-&gt;</span> m [b]
+mapM f [] <span class="fu">=</span> return []
+mapM f (a<span class="fu">:</span>as) <span class="fu">=</span> f a <span class="fu">&gt;&gt;=</span> \b <span class="ot">-&gt;</span> mapM f as <span class="fu">&gt;&gt;=</span> \bs <span class="ot">-&gt;</span> return (b<span class="fu">:</span>bs)</code></pre></div>
+<h2 id="the-monad-laws">The Monad laws</h2>
+<p>Two weeks ago, when we introduced type classes, I said that good type classes are those that come with laws, and <code>Monad</code> is one such type class. The following three are called the monad laws:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">return a <span class="fu">&gt;&gt;=</span> k          <span class="fu">=</span> k a
+m <span class="fu">&gt;&gt;=</span> return            <span class="fu">=</span> m
+m <span class="fu">&gt;&gt;=</span> (\x <span class="ot">-&gt;</span> k x <span class="fu">&gt;&gt;=</span> h) <span class="fu">=</span> (m <span class="fu">&gt;&gt;=</span> k) <span class="fu">&gt;&gt;=</span> h</code></pre></div>
+<p>These effectively say that <code>return</code> really has no effect (whatever effect is supposed to mean), and that bind is associative, i.e. it does not matter which way these things nest.</p>
+<h2 id="do-notation">Do notation</h2>
+<p>Now that we have monads that allow us to write code that do <code>IO</code> (in addition to other fancy stuff, like nondeterministic calculuations), the only thing missing is nice syntax. And we have that. Recall the <code>main</code> function above:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> putStrLn <span class="st">&quot;Please enter a number: &quot;</span> <span class="fu">&gt;&gt;</span>
+       readLn <span class="fu">&gt;&gt;=</span> \n <span class="ot">-&gt;</span>
+       <span class="kw">let</span> m <span class="fu">=</span> n <span class="fu">+</span> <span class="dv">1</span> <span class="kw">in</span>
+       putStrLn (show m)</code></pre></div>
+<p>We can rewrite that using <code>do</code>-notation as follows:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">main' ::</span> <span class="dt">IO</span> ()
+main' <span class="fu">=</span> <span class="kw">do</span> putStrLn <span class="st">&quot;Please enter a number: &quot;</span>
+           n <span class="ot">&lt;-</span> readLn
+           <span class="kw">let</span> m <span class="fu">=</span> n <span class="fu">+</span> <span class="dv">1</span>
+           putStrLn (show m)</code></pre></div>
+<p>That looks almost like your good old imperative programming language, doesn’t it? No wonder there are people that say that Haskell is the best imperative programming language…</p>
+<p>Keep in mind that this is purely syntactic sugar, and both functions are equivalent. Every line in a <code>do</code> block can be either</p>
+<ul>
+<li>A single expression <code>e</code>, which is then prepended to the rest with <code>e &gt;&gt; …</code></li>
+<li>A monadic bind <code>p &lt;- e</code>, which is replaced by <code>e &gt;&gt;= (\p -&gt; …)</code>. On the left of the arrow you can not only use a single variable, but also a full pattern, for example to take a pair apart.</li>
+<li>A let binding <code>let p = e</code>, which is translated to <code>let e = p in …</code>.</li>
+</ul>
+<p>Here, as another example, is the <code>zipTree</code> example, rewritten using <code>do</code>-notation and <code>return</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">zipTree ::</span> (a <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> c) <span class="ot">-&gt;</span> <span class="dt">Tree</span> a <span class="ot">-&gt;</span> <span class="dt">Tree</span> b <span class="ot">-&gt;</span> <span class="dt">Maybe</span> (<span class="dt">Tree</span> c)
+zipTree _ (<span class="dt">Node</span> _ _ _) <span class="dt">Empty</span> <span class="fu">=</span> <span class="dt">Nothing</span>
+zipTree _ <span class="dt">Empty</span> (<span class="dt">Node</span> _ _ _) <span class="fu">=</span> <span class="dt">Nothing</span>
+zipTree _ <span class="dt">Empty</span> <span class="dt">Empty</span>        <span class="fu">=</span> return <span class="dt">Empty</span>
+zipTree f (<span class="dt">Node</span> l1 x r1) (<span class="dt">Node</span> l2 y r2) <span class="fu">=</span>
+  <span class="kw">do</span> l <span class="ot">&lt;-</span> zipTree f l1 l2
+     r <span class="ot">&lt;-</span> zipTree f r1 r2
+     return (<span class="dt">Node</span> l (f x y) r)</code></pre></div>
+    </div>
+
+    <div id="footer"><center>
+      <font size="-2">Powered
+      by <a href="http://community.haskell.org/~ndm/shake/">shake</a>,
+      <a href="http://jaspervdj.be/hakyll/index.html">hakyll</a>,
+      <a href="http://johnmacfarlane.net/pandoc/">pandoc</a>,
+      <a href="http://projects.haskell.org/diagrams">diagrams</a>,
+      and <a href="http://www.andres-loeh.de/lhs2tex/">lhs2TeX</a>.
+      </center>
+    </div>
+  </div>
+</body>
+
+
+<!-- Mirrored from cis.upenn.edu/~cis194/fall16/lectures/06-io-and-monads.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 14:08:49 GMT -->
+</html>

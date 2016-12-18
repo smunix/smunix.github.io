@@ -1,0 +1,260 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+
+<!-- Mirrored from cis.upenn.edu/~cis194/fall16/lectures/11-frp.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 14:08:49 GMT -->
+<head>
+  <META http-equiv="Content-Type" content="text/html; charset='UTF-8'">
+  <title>CIS194</title>
+
+  <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+  <link href="../css/style.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+
+  <div id="canvas">
+    <div id="nav">
+     <p><a href="../index-2.html">CIS 194</a> | <a href="../policies.html">Policies</a> | <a href="../resources.html">Resources</a> | <a href="../final.html">Final Project</a></p>
+   </div>
+
+    
+    <div id="topic">
+    Functional Reactive Programming
+    </div>
+    
+
+    
+    <div role="nav" id="toc">
+     <ul>
+<li><a href="#classical-ui-primitives">Classical UI primitives</a></li>
+<li><a href="#reactive-bananas">Reactive-bananas</a><ul>
+<li><a href="#behaviors">Behaviors</a></li>
+<li><a href="#events">Events</a></li>
+<li><a href="#combining-events-and-behaviors">Combining Events and Behaviors</a></li>
+<li><a href="#the-moment-monad-and-running-an-event-network">The Moment Monad and running an event network</a><ul>
+<li><a href="#recursive-do">Recursive Do</a></li>
+<li><a href="#compliling-and-activating-a-network">Compliling and activating a network</a></li>
+<li><a href="#reacting-on-events">Reacting on Events</a></li>
+<li><a href="#reacting-to-behavior">Reacting to Behavior</a></li>
+</ul></li>
+</ul></li>
+<li><a href="#other-frp-libraries">Other FRP libraries</a></li>
+</ul>
+    </div>
+    
+
+
+    <div id="content">
+      <p>So far, most of our programs were concerned with simple input to output transformations (e.g. parsing). Naturally, functional programming languages excell at such tasks, as functions are all about transforming input to output.</p>
+<p>When we did implement something interactive (the Sokoban game), we resorted taking a very imperative concept, namely a state machine, and implemented it functionally.</p>
+<p>Today we will learn about a programming model for tackling inherently interactive tasks, such as user interfaces, robot controlers, computer music and others: <em>Functional reactive programming</em> (FRP). This is a paradigm that allows you to declaratively specify the behavior of a complex interactive system. The principle is independent of the programming language, and you will be able to take some of the concepts and ideas here, and apply them elsewhere.</p>
+<h1 id="classical-ui-primitives">Classical UI primitives</h1>
+<p>But before we venture to functional reactive programming, let us have a look at how user interfaces are classically programmed. Here is the code for a typical GUI application, in this case a simple model of a banana dispensing machine:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">module</span> <span class="dt">Main</span> <span class="kw">where</span>
+<span class="kw">import </span><span class="dt">Graphics.UI.WX</span>
+
+<span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> start coinUI
+
+<span class="ot">coinUI ::</span> <span class="dt">IO</span> ()
+coinUI <span class="fu">=</span> <span class="kw">do</span>
+    f     <span class="ot">&lt;-</span> frame      [text <span class="fu">:=</span> <span class="st">&quot;WX Demo&quot;</span>]
+    money <span class="ot">&lt;-</span> textEntry f [text <span class="fu">:=</span> <span class="st">&quot;5&quot;</span>]
+
+    add   <span class="ot">&lt;-</span> button f   [text <span class="fu">:=</span> <span class="st">&quot;Insert coin&quot;</span>]
+    buy   <span class="ot">&lt;-</span> button f   [text <span class="fu">:=</span> <span class="st">&quot;Buy banana&quot;</span>, enabled <span class="fu">:=</span> <span class="dt">False</span>]
+
+    quit  <span class="ot">&lt;-</span> button f   [text <span class="fu">:=</span> <span class="st">&quot;Quit&quot;</span>, on command <span class="fu">:=</span> close f]
+
+    set f [layout <span class="fu">:=</span>
+        margin <span class="dv">5</span> <span class="fu">$</span> column <span class="dv">5</span> <span class="fu">$</span> map hfill
+            [ widget add
+            , widget buy
+            , widget money
+            , widget quit
+            ]]
+
+    set add [ on command <span class="fu">:=</span> <span class="kw">do</span>
+          v <span class="ot">&lt;-</span> read <span class="fu">&lt;$&gt;</span> get money text
+          <span class="kw">let</span> v' <span class="fu">=</span> v <span class="fu">+</span> <span class="dv">1</span><span class="ot"> ::</span> <span class="dt">Integer</span>
+          set money [ text <span class="fu">:=</span> show v' ]
+          when (v' <span class="fu">&gt;=</span> <span class="dv">10</span>) <span class="fu">$</span> <span class="kw">do</span>
+              set buy [ enabled <span class="fu">:=</span> <span class="dt">True</span> ]
+        ]
+
+    set buy [ on command <span class="fu">:=</span> <span class="kw">do</span>
+           v <span class="ot">&lt;-</span> read <span class="fu">&lt;$&gt;</span> get money text
+           <span class="kw">let</span> v' <span class="fu">=</span> v <span class="fu">-</span> <span class="dv">10</span><span class="ot"> ::</span> <span class="dt">Integer</span>
+           set money [ text <span class="fu">:=</span> show v' ]
+           infoDialog f <span class="st">&quot;Yummy&quot;</span> <span class="st">&quot;You bought a banana.&quot;</span>
+        ]</code></pre></div>
+<p>This is using the <a href="http://hackage.haskell.org/package/wx">Haskell bindings to the <code>wx</code> toolkit</a>, but the concepts are similar in other UI interfaces, such as GTK, QT or, to some extent, HTML.</p>
+<p>The basic scheme is:</p>
+<ul>
+<li>You create a bunch of widgets (buttons, text entry fields).</li>
+<li>You arrange them on screen in a layout.</li>
+<li>You set up call backs: Pieces of code to run when certain events happen.</li>
+<li>In these callbacks, you read and write status from the widgets, fire up dialoges etc.</li>
+<li>A central event loop, provided by the UI toolkit, is started (here <code>start</code>) which will now run forever, waiting for user input and other events, and then running the appropriate callback.</li>
+</ul>
+<p>This works, but this is obvioulsy error prone, because we are not declaring our intent, but rather have to implement it. For example, the intention is: „A banana can only be bought when there are at least 10 coins inserted.“ Already we applied this logic at two spots in the program: In the initialization code we disable the <code>buy</code> button because we initialize the counter with 5. And when we add coins, we check if we can enable the button. But we forgot that chek in the callback of the <code>buy</code> button.</p>
+<p>And this repeats itself: For every event we have to think of all the possible effecs on the state of the program this can have. Now assume the price of the banana would vary with every banana bought, or could be set separately, or might even depend on some varying factor such as the time of day – this would really complicate things!</p>
+<h1 id="reactive-bananas">Reactive-bananas</h1>
+<p>One solution to this problem is functional reactive programming, where the interaction between the components is declared once, and the system takes care of doing the right thing.</p>
+<p>There are several implementations of FRP around, some more experimental, some more educational and some more practical. I will use <code>reactive-banana</code>, because it has good documentation and explains the concepts quite clearly. I will later comment on an interesting alternative.</p>
+<h2 id="behaviors">Behaviors</h2>
+<p>The key to reactive programming is to zoom out. Instead of looking at a single piece of a complex system at a given time, and deciding what to next, the idea is too zoom out and look at the behavior over time. Wholemeal programming again!</p>
+<p>So one type of interest is that of a <code>Behavior</code>. The real implementation is different, but we can think of it as having the following type:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">Behavior</span> a <span class="fu">=</span> <span class="dt">Time</span> <span class="ot">-&gt;</span> a</code></pre></div>
+<p>This describes a value over time that is always available. The position of the mouse is a good example of this, or the current time, or some measurement, or the status of a network connection.</p>
+<p><img src="../images/frp-behavior.png" width="306" height="205" /></p>
+<p><em>This and the following pictures were taken from the <code>reactive-banana</code> package and were created by Heinrich Apfelmus.</em></p>
+<p>We have seen this when working with animations in CodeWorld. The new things now is that we are going to be combinating multiple behaviors. What combinator do we want? We want to</p>
+<ul>
+<li>be able to apply a pure function to a behavior,</li>
+<li>create a constant behavior and</li>
+<li>apply a pure function to more than one behavior.</li>
+</ul>
+<p>Clearly, we want to have instances <code>Functor Behavior</code> and <code>Applicative Behavior</code>.</p>
+<p>What behaviors exist in our example? The current value of the coin cointer might be modelled as</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">counter ::</span> <span class="dt">Behavior</span> <span class="dt">Integer</span></code></pre></div>
+<p>and the current price of the banana might be</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">price ::</span> <span class="dt">Behavior</span> <span class="dt">Integer</span></code></pre></div>
+<p>and then we could derive a behavior that, for any moment in time, indicates whether we can buy a banana:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">canBuy ::</span> <span class="dt">Behavior</span> <span class="dt">Bool</span>
+canBuy <span class="fu">=</span> (<span class="fu">&gt;=</span>) <span class="fu">&lt;$&gt;</span> counter <span class="fu">&lt;*&gt;</span> price</code></pre></div>
+<p>But this only gets us so far, and on their own, behaviors are not very useful. They are more fun in the interplay with <em>events</em>.</p>
+<h2 id="events">Events</h2>
+<p>Events occur at certain tims, and may carry a value with them. At a specific time, there can be at most one event. Typical examples are mouse clicks, keyboard presses, status changes of the network connection.</p>
+<p><img src="../images/frp-event.png" width="306" height="205" /></p>
+<p>The model type for one event source, is the following:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">Event</span> a <span class="fu">=</span> [(<span class="dt">Time</span>,a)]</code></pre></div>
+<p>with the constraints the the <code>Time</code>s are strictly monotonically increasing.</p>
+<p>So clearly, a possible event is one that never fires:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">never ::</span> <span class="dt">Event</span>
+never <span class="fu">=</span> []</code></pre></div>
+<p>No other events are provided by the FRP framework itself. Any such events, e.g. keyboad presses, are provided from the outside, often via callback functions of the UI library used.</p>
+<p>It is not hard to define our own events, but there exists glue code that integrates into various UI frameworks. We will see that in a moment, but for now just assume that you can have events like <code>Event ()</code> for button clicks, or <code>Event String</code> for key presses.</p>
+<p>Events on their own can be combined in various ways:</p>
+<ul>
+<li><p>There is a <code>Functor Event</code> instance so we have</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">fmap<span class="ot"> ::</span> (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> <span class="dt">Event</span> a <span class="ot">-&gt;</span> <span class="dt">Event</span> b</code></pre></div></li>
+<li><p>Two events can be combined using</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">unionWith ::</span> (a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a) <span class="ot">-&gt;</span> <span class="dt">Event</span> a <span class="ot">-&gt;</span> <span class="dt">Event</span> a <span class="ot">-&gt;</span> <span class="dt">Event</span> a</code></pre></div>
+<p>which just merges the events from two sources. They need to have the same type for that. The first argument indicates what to do if both events fire at the same time: Then this function is used to combine them.</p>
+<p>A common case is to combine many events that contain functions, so here we have</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">unions ::</span> [<span class="dt">Event</span> (a <span class="ot">-&gt;</span> a)] <span class="ot">-&gt;</span> <span class="dt">Event</span> (a <span class="ot">-&gt;</span> a)</code></pre></div></li>
+<li><p>An event stream can be filtered:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">filterE ::</span> (a <span class="ot">-&gt;</span> <span class="dt">Bool</span>) <span class="ot">-&gt;</span> <span class="dt">Event</span> a <span class="ot">-&gt;</span> <span class="dt">Event</span> a</code></pre></div></li>
+<li><p>The value of an event can be accumulated:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">accumE ::</span> <span class="dt">MonadMoment</span> m <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">Event</span> (a <span class="ot">-&gt;</span> a) <span class="ot">-&gt;</span> m (<span class="dt">Event</span> a)</code></pre></div>
+<p>Ignore the <code>MonadMoment</code> constraint at this point. This function takes an initial value, and an event that produces functions to modify this value, and returns an event that is the accumulation of all the functions that were sent over this event so far.</p>
+<p>For example, let <code>groupSizeEntered :: Event Integer</code> be an event that fires whenever a group enters, and indicates the group event size. Then</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">totalPatrons ::</span> <span class="dt">Event</span> <span class="dt">Integer</span>
+totalPatrons <span class="fu">=</span> accumE <span class="dv">0</span> ((<span class="fu">+</span>) <span class="fu">&lt;$&gt;</span> groupSizeEntered)</code></pre></div>
+<p>fires whenever a group enters, but now indicates the total number of people who have entered so far.</p></li>
+</ul>
+<h2 id="combining-events-and-behaviors">Combining Events and Behaviors</h2>
+<p>Then there are ways to create events that also involves reading from an behavior:</p>
+<ul>
+<li><p>An extension of <code>fmap</code> allows the function to be varying over time:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">apply ::</span> <span class="dt">Behavior</span> (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> <span class="dt">Event</span> a <span class="ot">-&gt;</span> <span class="dt">Event</span> b</code></pre></div>
+<p>This function is also available as <code>&lt;@&gt;</code>. Obviously, at the time an event arrives the current value of the behavior is used to modify the value of the event.</p>
+<p>A derived notion is</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">(&lt;@) ::</span> <span class="dt">Behavior</span> b <span class="ot">-&gt;</span> <span class="dt">Event</span> a <span class="ot">-&gt;</span> <span class="dt">Event</span> b</code></pre></div>
+<p>which fires whenver the given event fires, but takes the value from the behavior.</p>
+<p>Note the similarity to the type signatures of <code>&lt;*&gt;</code> and <code>&lt;*</code>; these combinators can be used similarly. Events do <em>not</em> support <code>&lt;*&gt;</code>, i.e. they do not have an applicative instance. They cannot, because two given events do usually not provide a value at the same time.</p></li>
+<li><p>Similarly, <code>filterE</code> is generalized to</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">filterApply ::</span> <span class="dt">Behavior</span> (a <span class="ot">-&gt;</span> <span class="dt">Bool</span>) <span class="ot">-&gt;</span> <span class="dt">Event</span> a <span class="ot">-&gt;</span> <span class="dt">Event</span> a</code></pre></div>
+<p>Of this, a special case is</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">whenE ::</span> <span class="dt">Behavior</span> <span class="dt">Bool</span> <span class="ot">-&gt;</span> <span class="dt">Event</span> a <span class="ot">-&gt;</span> <span class="dt">Event</span> a</code></pre></div></li>
+</ul>
+<p>And then there is a way of treating an event as a behavior:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">stepper ::</span> <span class="dt">MonadMoment</span> m <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">Event</span> a <span class="ot">-&gt;</span> m (<span class="dt">Behavior</span> a)</code></pre></div>
+<p>Again ignore the constraint for now. This takes a starting value and an event of the same type, and as a behavior, always takes the last seen value of the event:</p>
+<p><img src="../images/frp-stepper.png" width="509" height="181" /></p>
+<p>At just the time of an event, the stepper still has the previous value. This is important in order to have cyclic dependencies between events and behaviors without crashing the program.</p>
+<p>Often one would combine <code>stepper</code> with <code>accumE</code>, so this is conveniently available as</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">accumB ::</span> <span class="dt">MonadMoment</span> m <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">Event</span> (a <span class="ot">-&gt;</span> a) <span class="ot">-&gt;</span> m (<span class="dt">Behavior</span> a)</code></pre></div>
+<h2 id="the-moment-monad-and-running-an-event-network">The Moment Monad and running an event network</h2>
+<p>In the type signatures above, we ignored a <code>MonadMoment m</code> constraing a few times. This monad is where we wire up all the pieces and combine the events and behaviours the way we want them to. The <code>MonadMoment</code> type class has two instances: <code>Moment</code> and <code>MomentIO</code>. The second allows events to have an external effect, so in a UI application we, likely need that one.</p>
+<p>So here is a partial attempt of implementing the coin machine:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">coinMachine ::</span> <span class="dt">MonadIO</span> ()
+coinMachine <span class="fu">=</span> <span class="kw">do</span>
+    <span class="kw">let</span> eCoin       <span class="fu">=</span> never
+        eBuyPress   <span class="fu">=</span> never
+        bPrice      <span class="fu">=</span> pure <span class="dv">10</span>
+        bCanBuy     <span class="fu">=</span> (<span class="fu">&gt;=</span>) <span class="fu">&lt;$&gt;</span> bMoney <span class="fu">&lt;*&gt;</span> bPrice
+        eBananaSold <span class="fu">=</span> whenE bCanBuy eBuyPress
+
+    bMoney <span class="ot">&lt;-</span> accumB <span class="dv">5</span> <span class="fu">$</span> unions
+        [ (<span class="fu">+</span><span class="dv">1</span>) <span class="fu">&lt;$</span> eCoin
+        , subtract <span class="fu">&lt;$&gt;</span> bPrice <span class="fu">&lt;@</span> eBananaSold
+        ]
+    return ()</code></pre></div>
+<p>We leave out the definition of the external eventts (<code>eCoin</code> and <code>eBuyPress</code>) for later.</p>
+<h3 id="recursive-do">Recursive Do</h3>
+<p>This code does not work as such, because <code>bMoney</code> is out of scope in the definition of <code>eCanBuy</code>. Reordering the definitions would not help, because these genuinely are recursive. Usually, when using monads and do-notation, one does not want to have such recursive definitions, but in our case, this is precisely what we need to describe the network.</p>
+<p>So we need to reach out for a language extension that allows us to to have recursive definintions in do-notation. We add <code>{-# LANGAUGE RecursiveDo #-}</code> to the top of the file and change <code>do</code> to <code>mdo</code> (from μ-do, where μ is used in math to denote fixed points).</p>
+<p>There is much that can be said about the theory and <code>RecursiveDo</code> and its applications. For now we just accept that it allows us to refer to things later in a <code>MonadIO</code> computation.</p>
+<h3 id="compliling-and-activating-a-network">Compliling and activating a network</h3>
+<p>So what can we do with this network description? First we have to compile it to an event network using</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">compile ::</span> <span class="dt">MomentIO</span> () <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">EventNetwork</span></code></pre></div>
+<p>and then, once we have such an <code>EventNetwork</code>, we can start it using</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">actuate ::</span> <span class="dt">EventNetwork</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> ()</code></pre></div>
+<p>The latter will actually start listening to events. But we have not hooked up our events, so lets do that.</p>
+<p>We move the definition of our <code>coinMachine</code> into the <code>coinUI</code> function, so that the widgets that we created are in scope. Then we can use the <code>event0</code> function from <code>Reactive.Banana.WX</code> to create a banana <code>Event</code> from an UI event.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">    <span class="kw">let</span><span class="ot"> coinMachine ::</span> <span class="dt">MomentIO</span> ()
+        coinMachine <span class="fu">=</span> mdo
+            eCoin <span class="ot">&lt;-</span> event0 add command
+            eBuyPress <span class="ot">&lt;-</span> event0 buy command
+
+            <span class="kw">let</span> bPrice      <span class="fu">=</span> pure <span class="dv">10</span>
+                bCanBuy     <span class="fu">=</span> (<span class="fu">&gt;=</span>) <span class="fu">&lt;$&gt;</span> bMoney <span class="fu">&lt;*&gt;</span> bPrice
+                eBananaSold <span class="fu">=</span> whenE bCanBuy eBuyPress
+
+            bMoney <span class="ot">&lt;-</span> accumB <span class="dv">5</span> <span class="fu">$</span> unions
+                [ (<span class="fu">+</span><span class="dv">1</span>) <span class="fu">&lt;$</span> eCoin
+                , subtract <span class="fu">&lt;$&gt;</span> bPrice <span class="fu">&lt;@</span> eBananaSold
+                ]
+            return ()
+
+    eventNetwork <span class="ot">&lt;-</span> compile coinMachine
+    actuate eventNetwork</code></pre></div>
+<p>This works, but so far, we do not do anything with our events or our behavior changes. Lets change that. We remove our pedestrian event handlers, and also enable the buy button right from the start.</p>
+<h3 id="reacting-on-events">Reacting on Events</h3>
+<p>In order to react on event, we run the</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">reactimate ::</span> <span class="dt">Event</span> (<span class="dt">IO</span> ()) <span class="ot">-&gt;</span> <span class="dt">MomentIO</span> ()</code></pre></div>
+<p>function. In our case, whenever a banana is sold, we want to show a dialog. So this code will do:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">let</span><span class="ot"> showDialog ::</span> <span class="dt">IO</span> ()
+    showDialog <span class="fu">=</span> infoDialog f <span class="st">&quot;Yummy&quot;</span> <span class="st">&quot;You bought a banana.&quot;</span>
+
+reactimate (showDialog <span class="fu">&lt;$</span> eBananaSold)</code></pre></div>
+<h3 id="reacting-to-behavior">Reacting to Behavior</h3>
+<p>Yay, we get bananas! But the UI does not reflect the state of affairs. Luckily, we can tell the system to ensure that a UI property should always reflect the state of a behavior, using</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Prop'</span> w <span class="fu">=</span> forall a<span class="fu">.</span> (<span class="dt">Attr</span> w a) <span class="fu">:==</span> (<span class="dt">Behavior</span> a)
+<span class="ot">sink ::</span> w <span class="ot">-&gt;</span> [<span class="dt">Prop'</span> w] <span class="ot">-&gt;</span> <span class="dt">MomentIO</span> ()</code></pre></div>
+<p>So we can use this to enable/disable the buy button, and also show the current balance:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">sink buy [ enabled <span class="fu">:==</span> bCanBuy ]
+sink money [ text <span class="fu">:==</span> show <span class="fu">&lt;$&gt;</span> bMoney ]</code></pre></div>
+<h1 id="other-frp-libraries">Other FRP libraries</h1>
+<p>The <a href="https://wiki.haskell.org/Reactive-banana"><code>reactive-banana</code></a> library is a very nicely designed implementation of FRP, well documented. If it suits your needs, you can and should use it. It comes with bindings to WX, which allows you to create native applications on Linux, Windows and OS X. There are also bindings to SDL, and it is easy to integrate it into your own event handler loop, e.g. for a command line arguments. Also see the <a href="https://wiki.haskell.org/Reactive-banana/Examples">list of examples</a>, which includes games.</p>
+<p>From the same author there is also <a href="https://wiki.haskell.org/Threepenny-gui"><code>threepenny-gui</code></a> which uses the web browser as a display. “A program written with Threepenny is essentially a small web server that displays the user interface as a web page to any browser that connects to it.”. It has its own implementation of FRP, similar to that of <code>reactive-banana</code>.</p>
+<p>Among the many other FRP implementations out there I’d like to highlight <a href="https://github.com/reflex-frp/reflex"><code>reflex</code></a> together with <code>reflex-dom</code>. This is developed by a company that makes good money by rapidly creating complex browser-based applications, and is based on a very performant FRP applications. It is all written in Haskell, but compiled to JavaScript and runs in the browser. If you want to write highly interactive, slick and complex web applications, this might be the tool of your choice. Unfortunately, documentation is still scarce.</p>
+    </div>
+
+    <div id="footer"><center>
+      <font size="-2">Powered
+      by <a href="http://community.haskell.org/~ndm/shake/">shake</a>,
+      <a href="http://jaspervdj.be/hakyll/index.html">hakyll</a>,
+      <a href="http://johnmacfarlane.net/pandoc/">pandoc</a>,
+      <a href="http://projects.haskell.org/diagrams">diagrams</a>,
+      and <a href="http://www.andres-loeh.de/lhs2tex/">lhs2TeX</a>.
+      </center>
+    </div>
+  </div>
+</body>
+
+
+<!-- Mirrored from cis.upenn.edu/~cis194/fall16/lectures/11-frp.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 14:08:49 GMT -->
+</html>

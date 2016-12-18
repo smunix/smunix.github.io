@@ -1,0 +1,269 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+
+<!-- Mirrored from cis.upenn.edu/~cis194/fall16/lectures/03-polymorphism.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 14:08:49 GMT -->
+<head>
+  <META http-equiv="Content-Type" content="text/html; charset='UTF-8'">
+  <title>CIS194</title>
+
+  <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+  <link href="../css/style.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+
+  <div id="canvas">
+    <div id="nav">
+     <p><a href="../index-2.html">CIS 194</a> | <a href="../policies.html">Policies</a> | <a href="../resources.html">Resources</a> | <a href="../final.html">Final Project</a></p>
+   </div>
+
+    
+    <div id="topic">
+    Polymorphism
+    </div>
+    
+
+    
+    <div role="nav" id="toc">
+     <ul>
+<li><a href="#polymorphism">Polymorphism</a><ul>
+<li><a href="#parametricity">Parametricity</a></li>
+<li><a href="#polymorphic-data-types">Polymorphic Data Types</a></li>
+<li><a href="#wholemeal-interactions">Wholemeal interactions</a></li>
+</ul></li>
+<li><a href="#recursive-data-types">Recursive data types</a><ul>
+<li><a href="#lists">Lists</a></li>
+<li><a href="#maplist">mapList</a></li>
+<li><a href="#combine">combine</a></li>
+</ul></li>
+<li><a href="#case-expressions">Case expressions</a></li>
+</ul>
+    </div>
+    
+
+
+    <div id="content">
+      <p>Today, we will explore how polymorphism allows for yet more abstract and compositional thinking, and how to apply wholemeal programming.</p>
+<h1 id="polymorphism">Polymorphism</h1>
+<p>Polymorphism is a property of a function that it can work with any type. We have seen this in the type signature of <code>interactionOf</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">interactionOf ::</span> world <span class="ot">-&gt;</span>
+                 (<span class="dt">Double</span> <span class="ot">-&gt;</span> world <span class="ot">-&gt;</span> world) <span class="ot">-&gt;</span>
+		 (<span class="dt">Event</span> <span class="ot">-&gt;</span> world <span class="ot">-&gt;</span> world) <span class="ot">-&gt;</span>
+		 (world <span class="ot">-&gt;</span> <span class="dt">Picture</span>) <span class="ot">-&gt;</span>
+		 <span class="dt">IO</span> ()</code></pre></div>
+<p>This function is polymorphic becaues the type <code>world</code> is arbitrary, and can be chosen by the caller. We did that in last week’s class when we instantiated with <code>Coord</code>, and you did it again in the homework, using your custom <code>State</code> type.</p>
+<h2 id="parametricity">Parametricity</h2>
+<p>It is important to keep in mind that <em>the caller picks the type</em>. Therefore, the implementation has to be able to handle any possible type. And since in Haskell you cannot make decisions based on the type of an argument (only on the value of the argument), this implies that Haskell is <strong>parametric</strong>: Polymorphic code behaves “the same” for any type that you pass it to.</p>
+<p>Why is parametricity important?</p>
+<ol style="list-style-type: decimal">
+<li><p>It makes <strong>type erasure</strong> possible. Type erasure means that no information about the type of values is present at run-time. The compiler erases the types from your program as it compiles it to machine code. The benefit is that he code runs much faster than, say, Python code, where type information needs to be carried around and inspected at run-time.</p></li>
+<li><p>It restricts what polymorphic functions can do. Consider the following type signature:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">riddle ::</span> a <span class="ot">-&gt;</span> a</code></pre></div>
+<p>We do not see its implementation. What can we say about it?</p>
+<p>It will have to return a value of type <code>a</code>, in a way that works for every possible type. So it cannot return <code>3</code>, it cannot return <code>True</code>. The only value of type <code>a</code> that it has access to is its parameter. So the only sensible definition of this function is</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">riddle ::</span> a <span class="ot">-&gt;</span> a
+riddle x <span class="fu">=</span> x</code></pre></div>
+<p>Similarly, consider a function</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">riddle2 ::</span> (a <span class="ot">-&gt;</span> a) <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a</code></pre></div>
+<p>which takes two arguments: a function, and a value, again of some type that <code>riddle2</code> cannot know anything about. We can again wonder: What values of type <code>a</code> can <code>riddle2</code> return? Well, it can return its second argument. Or it can apply its first argument (the function) to the second argument. Or it can apply it twice… so there are many possible <code>riddle2</code> implementations, but we still can tell a lot about them from the type signature:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">riddle2 ::</span> (a <span class="ot">-&gt;</span> a) <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a
+riddle2 f x <span class="fu">=</span> x
+riddle2 f x <span class="fu">=</span> f x
+riddle2 f x <span class="fu">=</span> f (f x)
+…</code></pre></div>
+<p>In-class exercise: What can you know about a function with this type:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">riddle3 ::</span> a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a
+…</code></pre></div>
+<p>What about this riddle:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">riddle4 ::</span> a <span class="ot">-&gt;</span> b</code></pre></div>
+<p>Such a function cannot be written in Haskell! <code>riddle4</code> has no way of producing a value that will work as any possible type <code>b</code>!</p>
+<p>If you want to learn more about what one can find out about a function from its polymorphic type, read up on <em>free theorems</em>.</p></li>
+</ol>
+<p>The above is not completely accurate. It is possible to implement a function of type <code>riddle4</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">riddle4 ::</span> a <span class="ot">-&gt;</span> b
+riddle4 x <span class="fu">=</span> riddle4 x</code></pre></div>
+<p>But this function will send the program into a infinite loop. The above observations are true for <em>total</em> functions, i.e. functions that always return. Haskell does allow for partial functions (i.e. functions that go into an infinite loop, or that throw an exception).</p>
+<h2 id="polymorphic-data-types">Polymorphic Data Types</h2>
+<p>Not only functions can be polymorphic, but also data types. Let us motivate that by an example.</p>
+<p>In last week’s homework (<a href="https://code.world/haskell#PWc3Dtw35PArCBLII3HtK5w">example solution</a>), we created a variant of <code>interactionOf</code> that would allow the game to be reset (and it was indeed polymorphic). Let us do something similar and create a variant of <code>interactionOf</code> that would initially show a startup-screeen, and start the game proper only when the space key is pressed.</p>
+<p>We define a very simple start screen:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">startScreen ::</span> <span class="dt">Picture</span>
+startScreen <span class="fu">=</span> scaled <span class="dv">3</span> <span class="dv">3</span> (text <span class="st">&quot;Sokoban!&quot;</span>)</code></pre></div>
+<p>In order to implement this functionality, we need, in the state, remember whether we are showing the start screen, or whether we are already playing the game. But the type of <code>startScreenInteractionOf</code> (which is the same as <code>interactionOf</code>) is polymorphic in the state! We do not know what kind of state is used for the interaction we are wrapping, so we cannot use it to find out whether we are showing the start screen or not!</p>
+<p>So we need to define our own state data type. And clearly, it is in one of two states: It is either showing the start screen, or the game is running, in which case we need to hold the game’s state. We can define a data type that does that:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">SSState</span> <span class="fu">=</span> <span class="dt">StartScreen</span> <span class="fu">|</span> <span class="dt">Running</span> world</code></pre></div>
+<p>With this code, we get the error message <code>Not in scope: type variable ‘world’</code>. To fix this, we have to give the type <code>SSState</code> a <em>type parameter</em>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">SSState</span> world <span class="fu">=</span> <span class="dt">StartScreen</span> <span class="fu">|</span> <span class="dt">Running</span> world</code></pre></div>
+<p>So while <code>SSState</code> on its own is not a proper type yet, <code>SSState</code> applied to any type (e.g. <code>SSState Coord</code>) is.</p>
+<p>Now we can implement the bits required for `startScreenInteractionOf:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">startScreenInteractionOf ::</span>
+    world <span class="ot">-&gt;</span> (<span class="dt">Double</span> <span class="ot">-&gt;</span> world <span class="ot">-&gt;</span> world) <span class="ot">-&gt;</span>
+    (<span class="dt">Event</span> <span class="ot">-&gt;</span> world <span class="ot">-&gt;</span> world) <span class="ot">-&gt;</span> (world <span class="ot">-&gt;</span> <span class="dt">Picture</span>) <span class="ot">-&gt;</span>
+    <span class="dt">IO</span> ()
+startScreenInteractionOf state0 step handle draw
+  <span class="fu">=</span> interactionOf state0' step' handle' draw'
+  <span class="kw">where</span>
+    state0' <span class="fu">=</span> <span class="dt">StartScreen</span>
+
+    step' _ <span class="dt">StartScreen</span> <span class="fu">=</span> <span class="dt">StartScreen</span>
+    step' t (<span class="dt">Running</span> s) <span class="fu">=</span> <span class="dt">Running</span> (step t s)
+
+    handle' (<span class="dt">KeyPress</span> key) <span class="dt">StartScreen</span>
+         <span class="fu">|</span> key <span class="fu">==</span> <span class="st">&quot; &quot;</span>                  <span class="fu">=</span> <span class="dt">Running</span> state0
+    handle' _              <span class="dt">StartScreen</span> <span class="fu">=</span> <span class="dt">StartScreen</span>
+    handle' e              (<span class="dt">Running</span> s) <span class="fu">=</span> <span class="dt">Running</span> (handle e s)
+
+    draw' <span class="dt">StartScreen</span> <span class="fu">=</span> startScreen
+    draw' (<span class="dt">Running</span> s) <span class="fu">=</span> draw s</code></pre></div>
+<p>It was easy to write down the code, because we can program type-driven: With the type of the local functions in mind, we could simply program by cases. Every case on its own is rather obvious, and once we handled all the cases, we have a working program. (<a href="https://code.world/haskell#PgWdfKuq3lKWArNmdLLlm_A">Open on CodeWorld</a>)</p>
+<iframe width="400" height="400" src="https://code.world/run.html?mode=haskell&amp;hash=PgWdfKuq3lKWArNmdLLlm_A">
+</iframe>
+<h2 id="wholemeal-interactions">Wholemeal interactions</h2>
+<p>We now have this nice start screen, so it is a bit unfortunate that once we start the game, we cannot go back and see it again. So we really would want to combine this functionality with the reset functionality that we did in last week’s homework. But we can’t! Both these generic interaction-modifiers produce complete programs, there is no way to apply one to the other.</p>
+<p>Surely, we can do better.</p>
+<p>Imagine we had a type <code>Interaction</code> that captures everything about an Interaction. Then what we had functions</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">resetable ::</span> <span class="dt">Interaction</span> <span class="ot">-&gt;</span> <span class="dt">Interaction</span>
+<span class="ot">withStartScreen ::</span> <span class="dt">Interaction</span> <span class="ot">-&gt;</span> <span class="dt">Interaction</span></code></pre></div>
+<p>that modify interactions? Then we can obviously compose them. We would also need a type</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">runInteraction ::</span> <span class="dt">Interaction</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> ()</code></pre></div>
+<p>that actually runs this interaction.</p>
+<p>It is possible to define such a type <code>Interaction</code>. Can you imagine how?</p>
+<p>An interaction is defined by a state type, and by the four parameters that we so far have passed to <code>interactionOf</code>. So let us not pass them to <code>interactionOf</code>, but rather store them in a datatype:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Interaction</span> world <span class="fu">=</span> <span class="dt">Interaction</span>
+        world
+	(<span class="dt">Double</span> <span class="ot">-&gt;</span> world <span class="ot">-&gt;</span> world)
+	(<span class="dt">Event</span> <span class="ot">-&gt;</span> world <span class="ot">-&gt;</span> world)
+	(world <span class="ot">-&gt;</span> <span class="dt">Picture</span>)</code></pre></div>
+<p>Because of the type variable <code>world</code>, the type signatures of <code>resetable</code> and <code>withStartScreen</code> are a bit more complicated. We can use type inference to let the compile figure it out for us, though.</p>
+<p>Changing the existing functions <code>startScreenInteractionOf</code> to <code>withStartScreen</code>, and <code>resetableInteractionOf</code> to <code>resetable</code> turns out to be trivial: Just replace the four parameters by one, pattern matching on <code>Interaction</code>, and replace the use of <code>interactionOf</code> with the constructor <code>Interaction</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">resetable ::</span> <span class="dt">Interaction</span> s <span class="ot">-&gt;</span> <span class="dt">Interaction</span> s
+resetable (<span class="dt">Interaction</span> state0 step handle draw)
+  <span class="fu">=</span> <span class="dt">Interaction</span> state0 step handle' draw
+  <span class="kw">where</span> handle' (<span class="dt">KeyPress</span> key) _ <span class="fu">|</span> key <span class="fu">==</span> <span class="st">&quot;Esc&quot;</span> <span class="fu">=</span> state0
+        handle' e s <span class="fu">=</span> handle e s
+
+<span class="ot">withStartScreen ::</span> <span class="dt">Interaction</span> s <span class="ot">-&gt;</span> <span class="dt">Interaction</span> (<span class="dt">SSState</span> s)
+withStartScreen (<span class="dt">Interaction</span> state0 step handle draw)
+  <span class="fu">=</span> <span class="dt">Interaction</span> state0' step' handle' draw'
+  <span class="kw">where</span>
+    state0' <span class="fu">=</span> <span class="dt">StartScreen</span>
+
+    step' _ <span class="dt">StartScreen</span> <span class="fu">=</span> <span class="dt">StartScreen</span>
+    step' t (<span class="dt">Running</span> s) <span class="fu">=</span> <span class="dt">Running</span> (step t s)
+
+    handle' (<span class="dt">KeyPress</span> key) <span class="dt">StartScreen</span>
+         <span class="fu">|</span> key <span class="fu">==</span> <span class="st">&quot; &quot;</span>                  <span class="fu">=</span> <span class="dt">Running</span> state0
+    handle' _              <span class="dt">StartScreen</span> <span class="fu">=</span> <span class="dt">StartScreen</span>
+    handle' e              (<span class="dt">Running</span> s) <span class="fu">=</span> <span class="dt">Running</span> (handle e s)
+
+    draw' <span class="dt">StartScreen</span> <span class="fu">=</span> startScreen
+    draw' (<span class="dt">Running</span> s) <span class="fu">=</span> draw s</code></pre></div>
+<p>The function <code>runInteraction</code> is also very simply to write: We just pattern match on <code>Interaction</code> to get our hands on the individual functions, and pass them to <code>interactionOf</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">runInteraction ::</span> <span class="dt">Interaction</span> s <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
+runInteraction (<span class="dt">Interaction</span> state0 step handle draw)
+  <span class="fu">=</span> interactionOf state0 step handle draw</code></pre></div>
+<p>The final bit we need to change, before we can put everything together, is to actually have an <code>Interaction</code> that represents our exercise2 from last homework. Again, we simply have to change <code>interactionOf</code> to <code>Interaction</code>, and the type of <code>exercise2</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">exercise2 ::</span> <span class="dt">Interaction</span> <span class="dt">State</span>
+exercise2 <span class="fu">=</span> <span class="dt">Interaction</span> initialState (\_ c <span class="ot">-&gt;</span> c) handleEvent2 drawState2</code></pre></div>
+<p>And finally, we can compose our interactions (<a href="https://code.world/haskell#PJWfm6wWdR7J83ePoNG_e8A">open on CodeWorld</a>):</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">main <span class="fu">=</span> runInteraction (resetable (withStartScreen exercise2))</code></pre></div>
+<iframe width="400" height="400" src="https://code.world/run.html?mode=haskell&amp;hash=PJWfm6wWdR7J83ePoNG_e8A">
+</iframe>
+<p>Think about what happens if we switch the order of <code>resetable</code> and <code>withStartScreen</code>!</p>
+<h1 id="recursive-data-types">Recursive data types</h1>
+<p>An important concept that you will need in more complex programs (such as a proper Sokoban implementation), is recursive datatypes. These can be used to implement lists and trees and many other data structures.</p>
+<p>In our game, the boxes will have to be moved around. It is likely that we will want to manage a list of coordiates of these boxes, and clearly, this is going to be part of our state.</p>
+<p>Our code should work with any number of boxes (as various levels have various number of boxes). What type is suitable to store any number of coordiates? Or – as you would expect after we talked about polymorphism – any number of values of some arbitrary type?</p>
+<h3 id="lists">Lists</h3>
+<p>Of course, the standard library comes with a suitable data type, but let us, for the sake of learning, define it outself. Just like we used recursion in functions to replace loops, we can use recursion in types to implement lists:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">List</span> a <span class="fu">=</span> <span class="dt">Empty</span> <span class="fu">|</span> <span class="dt">Entry</span> a (<span class="dt">List</span> a)</code></pre></div>
+<p>So a value of type <code>List a</code> is either the constructor <code>Empty</code>, or there is a list entry, which is a value of type <code>a</code>, and then the remainder of the list, i.e. another value of tye <code>List a</code>.</p>
+<p>We can define a value of that type, by using the constructors, as you would expect:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">someBoxCoords ::</span> <span class="dt">List</span> <span class="dt">Coord</span>
+someBoxCoords <span class="fu">=</span> <span class="dt">Entry</span> (<span class="dt">C</span> <span class="dv">2</span> <span class="dv">2</span>) (<span class="dt">Entry</span> (<span class="dt">C</span> <span class="dv">3</span> <span class="dv">3</span>) (<span class="dt">Entry</span> (<span class="dt">C</span> (<span class="fu">-</span><span class="dv">1</span>) <span class="dv">0</span>) <span class="dt">Empty</span>))</code></pre></div>
+<p>Similarly, we can look at the elements of a list by pattern matching:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">firstBox ::</span> <span class="dt">List</span> <span class="dt">Coord</span> <span class="ot">-&gt;</span> <span class="dt">Picture</span>
+firstBox <span class="dt">Empty</span> <span class="fu">=</span> blank
+firstBox (<span class="dt">Entry</span> c _) <span class="fu">=</span> atCoord c (drawTile <span class="dt">Box</span>)
+
+<span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> drawingOf (firstBox someBoxCoords)</code></pre></div>
+<p>Now, what if we want to draw all boxes in the list? We would also start by pattern-matchin on the list, handle the empty case, and handle one entry, and then recurse on the remaining list (<a href="https://code.world/haskell#PoXPnTHilAaDgwkSoJ-SWgw">open on CodeWorld</a>):</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">pictureOfBoxes ::</span> <span class="dt">List</span> <span class="dt">Coord</span> <span class="ot">-&gt;</span> <span class="dt">Picture</span>
+pictureOfBoxes <span class="dt">Empty</span> <span class="fu">=</span> blank
+pictureOfBoxes (<span class="dt">Entry</span> c cs) <span class="fu">=</span> atCoord c (drawTile <span class="dt">Box</span>) <span class="fu">&amp;</span> boxes cs
+
+<span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> drawingOf (pictureOfBoxes someBoxCoords)</code></pre></div>
+<p>We observe that the recursion on the value level (in the function <code>pictureOfBoxes</code>) corresponds to the recursion on the type level (in the type <code>List</code>). This is a common idiom.</p>
+<p>Let us make this interactive again: We want to use the arrow keys to move <em>all</em> boxes. Here is one way of doing that:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">movingBoxes ::</span> <span class="dt">Interaction</span> (<span class="dt">List</span> <span class="dt">Coord</span>)
+movingBoxes <span class="fu">=</span> <span class="dt">Interaction</span> someBoxCoords (\_ s <span class="ot">-&gt;</span> s) handle draw
+  <span class="kw">where</span>
+    draw <span class="fu">=</span> boxes
+    handle (<span class="dt">KeyPress</span> key) s
+        <span class="fu">|</span> key <span class="fu">==</span> <span class="st">&quot;Right&quot;</span> <span class="fu">=</span> moveAllBoxes <span class="dt">R</span> s
+        <span class="fu">|</span> key <span class="fu">==</span> <span class="st">&quot;Up&quot;</span>    <span class="fu">=</span> moveAllBoxes <span class="dt">U</span> s
+        <span class="fu">|</span> key <span class="fu">==</span> <span class="st">&quot;Left&quot;</span>  <span class="fu">=</span> moveAllBoxes <span class="dt">L</span> s
+        <span class="fu">|</span> key <span class="fu">==</span> <span class="st">&quot;Down&quot;</span>  <span class="fu">=</span> moveAllBoxes <span class="dt">D</span> s
+    handle _ s      <span class="fu">=</span> s
+
+<span class="ot">moveAllBoxes ::</span> <span class="dt">Direction</span> <span class="ot">-&gt;</span> <span class="dt">List</span> <span class="dt">Coord</span> <span class="ot">-&gt;</span> <span class="dt">List</span> <span class="dt">Coord</span>
+moveAllBoxes _ <span class="dt">Empty</span> <span class="fu">=</span> <span class="dt">Empty</span>
+moveAllBoxes d (<span class="dt">Entry</span> c cs) <span class="fu">=</span> <span class="dt">Entry</span> (adjacentCoord d c) (moveAllBoxes d cs)</code></pre></div>
+<p>This works! But we are not satisfied. The function <code>moveAllBoxes</code> does a bit too much for my taste: We there have the logic of <em>both</em> moving a single box <em>and</em> traversing the list. Can we separate them? Sure we can, using higher order functions!</p>
+<h3 id="maplist">mapList</h3>
+<p>We start by writing a very general apply-a-function-to-every-element-in-a-list function:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">mapList _ <span class="dt">Empty</span> <span class="fu">=</span> <span class="dt">Empty</span>
+mapList f (<span class="dt">Entry</span> c cs) <span class="fu">=</span> <span class="dt">Entry</span> (f c) (mapList f cs)</code></pre></div>
+<p>and then we can use it in <code>handle</code> (note how partially appliying <code>adjacentCoord</code> works out so nicely here!):</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">    handle (<span class="dt">KeyPress</span> key) s
+        <span class="fu">|</span> key <span class="fu">==</span> <span class="st">&quot;Right&quot;</span> <span class="fu">=</span> mapList (adjacentCoord <span class="dt">R</span>) s
+        <span class="fu">|</span> key <span class="fu">==</span> <span class="st">&quot;Up&quot;</span>    <span class="fu">=</span> mapList (adjacentCoord <span class="dt">U</span>) s
+        <span class="fu">|</span> key <span class="fu">==</span> <span class="st">&quot;Left&quot;</span>  <span class="fu">=</span> mapList (adjacentCoord <span class="dt">L</span>) s
+        <span class="fu">|</span> key <span class="fu">==</span> <span class="st">&quot;Down&quot;</span>  <span class="fu">=</span> mapList (adjacentCoord <span class="dt">D</span>) s
+    handle _ s      <span class="fu">=</span> s</code></pre></div>
+<p>What do you think is the type signature of <code>mapList</code>?</p>
+<h3 id="combine">combine</h3>
+<p>The function <code>mapList</code> is very useful, and you will most likely want to use it in your code. In fact, it is generally recommended to use such general higher-order functions instead of writing out an explicit recursion.</p>
+<p>Where can we do a similar refactoring? In the function <code>pictureOfBoxes</code>! This function also perform two things that can be separated into smaller, more generally useful parts: For every entry in the list, it creates a <code>Picture</code>, and then it combines all these. So how about this:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">combine ::</span> <span class="dt">List</span> <span class="dt">Picture</span> <span class="ot">-&gt;</span> <span class="dt">Picture</span>
+combine <span class="dt">Empty</span> <span class="fu">=</span> blank
+combine (<span class="dt">Entry</span> p ps) <span class="fu">=</span> p <span class="fu">&amp;</span> combine ps
+
+<span class="ot">pictureOfBoxes ::</span> <span class="dt">List</span> <span class="dt">Coord</span> <span class="ot">-&gt;</span> <span class="dt">Picture</span>
+pictureOfBoxes cs <span class="fu">=</span> combine (mapList (\c <span class="ot">-&gt;</span> atCoord c (drawTile <span class="dt">Box</span>)) cs)</code></pre></div>
+<p>Granted, the code did not get much smaller. But we did gain a generally useful <code>combine</code> function. (<a href="https://code.world/haskell#PwQ-ZMRVHGA40r0MKOnO8cg">Open on CodeWorld</a>)</p>
+<h1 id="case-expressions">Case expressions</h1>
+<p>Finally, a small syntactic gimmick, that you might find useful when doing the homework.</p>
+<p>So far, the only place where we can do pattern matching is when we define a function. This is sufficient, but sometimes annoying, as it requires local functions that we might want to do without.</p>
+<p>So let us say we want to remove all boxes from the maze. We could write it like this:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">noBoxMaze ::</span> <span class="dt">Coord</span> <span class="ot">-&gt;</span> <span class="dt">Tile</span>
+noBoxMaze c <span class="fu">=</span> noBox (maze c)
+ <span class="kw">where</span>
+<span class="ot">   noBox ::</span> <span class="dt">Tile</span> <span class="ot">-&gt;</span> <span class="dt">Tile</span>
+   noBox <span class="dt">Box</span> <span class="fu">=</span> <span class="dt">Ground</span>
+   noBox t   <span class="fu">=</span> t</code></pre></div>
+<p>but what we would rather write is</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">noBoxMaze ::</span> <span class="dt">Coord</span> <span class="ot">-&gt;</span> <span class="dt">Tile</span>
+noBoxMaze c <span class="fu">=</span> <span class="kw">case</span> maze c <span class="kw">of</span>
+   <span class="dt">Box</span> <span class="ot">-&gt;</span> <span class="dt">Ground</span>
+   t   <span class="ot">-&gt;</span> t</code></pre></div>
+<p>The syntax is the keyword <code>case</code>, followed by the expression that we want to analyze (also called the scrutinee), then keyword <code>of</code>, and then, vertically aligned, any number of alternatives. The alternatives consist of a pattern, just like in a function equation, an arrow, and the expression this should evaluate to in case the pattern matches. Even guards can be used here!</p>
+    </div>
+
+    <div id="footer"><center>
+      <font size="-2">Powered
+      by <a href="http://community.haskell.org/~ndm/shake/">shake</a>,
+      <a href="http://jaspervdj.be/hakyll/index.html">hakyll</a>,
+      <a href="http://johnmacfarlane.net/pandoc/">pandoc</a>,
+      <a href="http://projects.haskell.org/diagrams">diagrams</a>,
+      and <a href="http://www.andres-loeh.de/lhs2tex/">lhs2TeX</a>.
+      </center>
+    </div>
+  </div>
+</body>
+
+
+<!-- Mirrored from cis.upenn.edu/~cis194/fall16/lectures/03-polymorphism.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 14:08:49 GMT -->
+</html>

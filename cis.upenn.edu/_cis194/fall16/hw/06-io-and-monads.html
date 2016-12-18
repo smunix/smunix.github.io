@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+
+<!-- Mirrored from cis.upenn.edu/~cis194/fall16/hw/06-io-and-monads.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 14:08:49 GMT -->
+<head>
+  <META http-equiv="Content-Type" content="text/html; charset='UTF-8'">
+  <title>CIS194</title>
+
+  <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+  <link href="../css/style.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+
+  <div id="canvas">
+    <div id="nav">
+     <p><a href="../index-2.html">CIS 194</a> | <a href="../policies.html">Policies</a> | <a href="../resources.html">Resources</a> | <a href="../final.html">Final Project</a></p>
+   </div>
+
+    
+
+    
+
+
+    <div id="content">
+      <h1 id="non-homework-6-io">Non-Homework 6: IO</h1>
+<p>CIS 194: Homework 6<br />
+This homework is optional (due to the fall brake). If you do it, you can still send your solution to the TA for feedback.</p>
+<p>The general remarks about style and submission from <a href="01-intro.html">the first week</a> still apply.</p>
+<h2 id="exercise-1-ascii-sokoban">Exercise 1: ASCII-Sokoban</h2>
+<p>The goal of this homework is to take your Sokoban game from Homework 4, and repace the CodeWorld environment with your own, text based environment.</p>
+<ul>
+<li><p>Take your code, or <a href="https://code.world/haskell#Pny8KKiYCum4pB0cM3FNvdA">this code</a> as a starting base. Remove anything not related to the sokoban game.</p></li>
+<li><p>Change the <code>Interaction</code> type to be suitable for text output:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Interaction</span> world <span class="fu">=</span> <span class="dt">Interaction</span>
+    world
+    (<span class="dt">String</span> <span class="ot">-&gt;</span> world <span class="ot">-&gt;</span> world)
+    (world <span class="ot">-&gt;</span> <span class="dt">String</span>)</code></pre></div>
+<p>The first <code>String</code> replaces the <code>Event</code> type, and contains the description of one key press. The second <code>String</code> replaces the <code>Picture</code> type and should contain the content of the screen. This string should contain 21 <code>'\n'</code>-terminated lines of 21 characters.</p></li>
+<li><p>Remove the <code>import CodeWorld</code>.</p></li>
+<li><p>Rewrite the <code>drawState</code> function to produce text output. Use suitable characters for the various things, e.g. <code>#</code> for walls and so on. There is probably little need to distinguish blank and ground.</p>
+<p>You can rewrite it from scratch, or you can actually try to recreate the API of CodeWorld so that the structure of the code changes only little.</p>
+<p>There are various ways of doing that:</p>
+<ol style="list-style-type: decimal">
+<li><p>You might define</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">Picture</span> <span class="fu">=</span> <span class="dt">Integer</span> <span class="ot">-&gt;</span> <span class="dt">Integer</span> <span class="ot">-&gt;</span> <span class="dt">Maybe</span> <span class="dt">Char</span></code></pre></div>
+<p>with, for example, <code>blank _ _ = Nothing</code>, and <code>(&amp;)</code> letting the function on the left take precedence over the function on the right, and <code>translated</code> changes the parameters appropriately.</p></li>
+<li><p>More fancy in terms of functional programming, you might want to define</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">DrawFun</span> <span class="fu">=</span> <span class="dt">Integer</span> <span class="ot">-&gt;</span> <span class="dt">Integer</span> <span class="ot">-&gt;</span> <span class="dt">Char</span>
+<span class="kw">type</span> <span class="dt">Picture</span> <span class="fu">=</span> <span class="dt">DrawFun</span> <span class="ot">-&gt;</span> <span class="dt">DrawFun</span></code></pre></div>
+<p>so that a <code>Picture</code> is actually a function that changes an existing picture. Now, <code>blank = id</code> and <code>(&amp;) = (.)</code>. For <code>translated</code> you have to shift coordinates twice<a href="#fn1" class="footnoteRef" id="fnref1"><sup>1</sup></a>.</p></li>
+</ol></li>
+<li><p>Create your own</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">runInteraction ::</span> <span class="dt">Interaction</span> s <span class="ot">-&gt;</span> <span class="dt">IO</span> ()</code></pre></div>
+<p>Initially, make sure input goes through to the program directly (and not after enter is pressed):</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">hSetBuffering stdin <span class="dt">NoBuffering</span></code></pre></div>
+<p>Then blank the screen (using <code>putStr &quot;\ESCc&quot;</code>) and render the the initial state. Now go to a recursive function <code>go</code>:</p>
+<ol style="list-style-type: decimal">
+<li>Use <code>getChar</code> to read the next character.</li>
+<li>Passes it to the handle function in the <code>Interaction</code> to get the new state.</li>
+<li>Blanks the screen using <code>putStr &quot;\ESCc&quot;</code>.</li>
+<li>Draws the state (using the draw function in the <code>Interaction</code> and <code>putStr</code>).</li>
+<li>Calls itself, with the new state.</li>
+</ol></li>
+</ul>
+<p>You can make the <code>go</code> function detect presses of <code>q</code> to quit the game. In this case, simply do not call <code>go</code> again.</p>
+<p>Handling arrow keys is a bit tricky, as pressing the “→” key actually yields the sequence <code>&quot;\ESC[C&quot;?</code>. (Simply run <code>getLine</code> in ghci, press a key and then enter to see that.), but pressing the escape key produces simply <code>&quot;\ESC&quot;</code>. That is tricky!</p>
+<p>Here is one way of handling it:</p>
+<ol style="list-style-type: decimal">
+<li><p>Create a function <code>getAllInput :: IO [Char]</code> that uses <code>getChar</code> to read a character, then uses <code>hReady stdin</code> from <code>System.IO</code> to check if there is another character to read, and so on, until all characters that are currently available are read.</p></li>
+<li><p>Pattern match on the initial segment of that list to detect <code>'\ESC':'[':'C':rest</code>, or <code>'\ESC':rest</code>, or simply <code>c:rest</code>, and act accordingly.</p></li>
+<li><p>Pass the unmatched portion of the input on to the next iteration of <code>go</code>, and prepend it to what you read from <code>readAllInput</code> before matching on it, so that no key presses are lost.</p></li>
+</ol>
+<p>If you are still bored, you can make it colorful, using <a href="https://en.wikipedia.org/wiki/ANSI_escape_code#Colors">ANSI escape sequences</a>!</p>
+<p>Enjoy your own sokoban.</p>
+<div class="footnotes">
+<hr />
+<ol>
+<li id="fn1"><p>If you like group theory: it’s a conjugate!<a href="#fnref1">↩</a></p></li>
+</ol>
+</div>
+    </div>
+
+    <div id="footer"><center>
+      <font size="-2">Powered
+      by <a href="http://community.haskell.org/~ndm/shake/">shake</a>,
+      <a href="http://jaspervdj.be/hakyll/index.html">hakyll</a>,
+      <a href="http://johnmacfarlane.net/pandoc/">pandoc</a>,
+      <a href="http://projects.haskell.org/diagrams">diagrams</a>,
+      and <a href="http://www.andres-loeh.de/lhs2tex/">lhs2TeX</a>.
+      </center>
+    </div>
+  </div>
+</body>
+
+
+<!-- Mirrored from cis.upenn.edu/~cis194/fall16/hw/06-io-and-monads.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 14:08:49 GMT -->
+</html>

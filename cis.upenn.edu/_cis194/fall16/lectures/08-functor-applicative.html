@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+
+<!-- Mirrored from cis.upenn.edu/~cis194/fall16/lectures/08-functor-applicative.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 14:08:49 GMT -->
+<head>
+  <META http-equiv="Content-Type" content="text/html; charset='UTF-8'">
+  <title>CIS194</title>
+
+  <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+  <link href="../css/style.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+
+  <div id="canvas">
+    <div id="nav">
+     <p><a href="../index-2.html">CIS 194</a> | <a href="../policies.html">Policies</a> | <a href="../resources.html">Resources</a> | <a href="../final.html">Final Project</a></p>
+   </div>
+
+    
+    <div id="topic">
+    Functor and Applicative
+    </div>
+    
+
+    
+    <div role="nav" id="toc">
+     <ul>
+<li><a href="#functor">Functor</a><ul>
+<li><a href="#type-constructors">Type constructors</a></li>
+<li><a href="#kinds">Kinds</a></li>
+<li><a href="#back-to-functor">Back to Functor</a></li>
+<li><a href="#examples">Examples</a></li>
+</ul></li>
+<li><a href="#applicative">Applicative</a><ul>
+<li><a href="#deriving">Deriving <code>&lt;*&gt;</code></a></li>
+<li><a href="#return-of-the-purity">Return of the purity</a></li>
+<li><a href="#laws">Laws</a></li>
+<li><a href="#example-instances">Example instances</a></li>
+</ul></li>
+<li><a href="#monad-applicative-functor">Monad ⊂ Applicative ⊂ Functor</a></li>
+<li><a href="#why-all-this">Why all this?</a></li>
+</ul>
+    </div>
+    
+
+
+    <div id="content">
+      <p>In your homework you were implementing the <code>Supply</code> monad, and while you did implement the necessary functionality, I provided you with the necessary boilerplate code, which was:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Functor</span> (<span class="dt">Supply</span> s) <span class="kw">where</span>
+    fmap <span class="fu">=</span> mapSupply
+
+<span class="kw">instance</span> <span class="dt">Applicative</span> (<span class="dt">Supply</span> s) <span class="kw">where</span>
+    pure <span class="fu">=</span> pureSupply
+    (<span class="fu">&lt;*&gt;</span>) <span class="fu">=</span> mapSupply2 id
+
+<span class="kw">instance</span> <span class="dt">Monad</span> (<span class="dt">Supply</span> s) <span class="kw">where</span>
+    return <span class="fu">=</span> pureSupply
+    (<span class="fu">&gt;&gt;=</span>) <span class="fu">=</span> bindSupply</code></pre></div>
+<p>We have already discussed the <code>Monad</code> type class; today I will introduce the other two.</p>
+<h1 id="functor">Functor</h1>
+<p>Remember that type classes are used when you find that a common functionality is repeated at different types. The functionality captured by the <code>Functor</code> type class is that of “applying a pure function under a type constructor”.</p>
+<h2 id="type-constructors">Type constructors</h2>
+<p>I believe this is the first time I mention the word type constructor, so let me digress for a moment. Consider this list of types:</p>
+<ul>
+<li><code>Bool</code></li>
+<li><code>Integer</code></li>
+<li><code>Maybe</code></li>
+<li><code>Stream</code></li>
+<li><code>Supply</code></li>
+</ul>
+<p>It is obvious what a <code>Bool</code> or what an <code>Integer</code> is: it describes some value at runtime, such as <code>True</code> or <code>42</code>. The same cannot be said about <code>Maybe</code>, or <code>Stream</code>. There are no values of type <code>Maybe</code>, that simply does not make sense. The type <code>Maybe</code> is not a proper type of its own, but rather it is a <em>type constructor</em>, in that if you <em>apply</em> <code>Maybe</code> to another type – such as <code>Bool</code>, then you get a proper type <code>Maybe Bool</code> that has values, such as <code>Just True</code> and <code>Nothing</code>, that you can inspect and pass around and so on.</p>
+<p>The type constructor <code>Supply</code> is even worse: <code>Supply</code> is not a proper type, but <code>Supply Bool</code> is <em>still</em> not a proper type. You need to apply <code>Supply</code> to two proper types to get something that has values. So <code>Supply</code> is a type constructor, but of a different kind than <code>Maybe</code>.</p>
+<h2 id="kinds">Kinds</h2>
+<p>Does <code>Maybe Stream</code> make sense? It does not: <code>Maybe</code> takes a proper type (like <code>Bool</code>) and turns it into a new proper type <code>Maybe Bool</code>. But since <code>Stream</code> is not a proper type itself, <code>Maybe Stream</code> does not make sense.</p>
+<p>So we have basic types and type constructors, and not all combinations make sense. This is just like with functions and values! And indeed, types and type constructors have their own, separate, type system that ensures that only sensible combinations are used. To keep things separate, the type of a type is called its <em>kind</em>, so we have a kind system.</p>
+<p>The basic kind is called <em>star</em> and written <code>*</code> (in future versions of Haskell, this will be called <code>Type</code>). <code>Bool</code> and <code>Integer</code> have kind <code>*</code>.</p>
+<p>Type constructors such as <code>Maybe</code> and <code>Stream</code> have kind <code>* -&gt; *</code>: They are functions (on the type level) that map types (of kind star) to types (of kind star).</p>
+<p>And our <code>Supply</code> type constructor has kind <code>* -&gt; * -&gt; *</code>. From this kind signature you can read that you have to apply it to two types of kind star to get a type of kind star.</p>
+<p>Another type constructor of that kind is the arrow itself:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="dt">Prelude</span><span class="fu">&gt;</span> <span class="fu">:</span>kind (<span class="ot">-&gt;</span>)
+<span class="ot">(-&gt;) ::</span> <span class="fu">*</span> <span class="ot">-&gt;</span> <span class="fu">*</span> <span class="ot">-&gt;</span> <span class="fu">*</span></code></pre></div>
+<p>Some more complicated kind signatures, such as <code>(* -&gt; *) -&gt; *</code> exist, although we did not yet see an example for that. What can you do with such a type constructor?</p>
+<p>You can ask GHCi for the kind of a type or type constructor:</p>
+<pre><code>Prelude&gt; :kind Bool
+Bool :: *
+Prelude&gt; :kind Maybe
+Maybe :: * -&gt; *</code></pre>
+<p>You can also ask for the kind of a type class:</p>
+<pre><code>Prelude&gt; :kind Eq
+Eq :: * -&gt; GHC.Prim.Constraint
+Prelude&gt; :kind Monad
+Monad :: (* -&gt; *) -&gt; GHC.Prim.Constraint</code></pre>
+<p>This tells us that the <code>Eq</code> type class has one parameter, which has to be a type of kind star, while <code>Monad</code> is a type class whose instances are type constructors of kind <code>* -&gt; *</code>. This makes sense, because in the type signatures of the methods of the Monad type class the parameter of the type class <code>m</code> is applied to a type. We can therefore not have an instance <code>Monad Bool</code>, we can have <code>Monad Maybe</code>, and we cannot have <code>Monad Supply</code>. But did we not have that in the homework? No! We defined a <code>Monad</code> instance for <code>Supply s</code> (for any type s). If you partially apply the type constructor <code>Supply</code> to one argument, you get something of kind <code>* -&gt; *</code>.</p>
+<p>All you learned about types on the term level applies here as well.</p>
+<h2 id="back-to-functor">Back to Functor</h2>
+<p>If I now say that the functionality captured by the <code>Functor</code> type class is that of “applying a pure function under a type constructor”, that hopefully means more to you.</p>
+<p>We have seen the pattern before twice:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">mapList ::</span> (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> <span class="dt">List</span> a <span class="ot">-&gt;</span> <span class="dt">List</span> b
+<span class="ot">mapSupply ::</span> (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> <span class="dt">Supply</span> s a <span class="ot">-&gt;</span> <span class="dt">Supply</span> s b</code></pre></div>
+<p>and I’m sure you would not doubt the existence and usefulness of a functions</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">mapMaybe ::</span> (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> <span class="dt">Maybe</span> a <span class="ot">-&gt;</span> <span class="dt">Maybe</span> b
+<span class="ot">mapTree ::</span> (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> <span class="dt">Tree</span> a <span class="ot">-&gt;</span> <span class="dt">Tree</span> b <span class="co">-- the tree from last homework</span></code></pre></div>
+<p>The common pattern that emerges here is</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Functor</span> f <span class="kw">where</span>
+<span class="ot">  fmap ::</span> (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> f a <span class="ot">-&gt;</span> f b</code></pre></div>
+<p>Like any good type class, this comes with a few laws:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">fmap id  <span class="fu">==</span>  id
+fmap (f <span class="fu">.</span> g)  <span class="fu">==</span>  fmap f <span class="fu">.</span> fmap g</code></pre></div>
+<p>Remember that <code>f . g</code> is the function composition of <code>f</code> and <code>g</code>.</p>
+<p>One implication of these laws is that if <code>f</code> is something with an effect of some sort (like <code>IO</code>), then applying a function via <code>fmap</code> does not <em>not</em> change the effect.</p>
+<h2 id="examples">Examples</h2>
+<p>Functor instances are usually straight-forward to implement. Here are examples:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Tree</span> a
+    <span class="fu">=</span> <span class="dt">Node</span> [<span class="dt">Tree</span> a] <span class="co">-- a different tree!</span>
+    <span class="fu">|</span> <span class="dt">Leaf</span> a
+
+<span class="kw">instance</span> <span class="dt">Functor</span> <span class="dt">Tree</span> <span class="kw">where</span>
+    fmap f (<span class="dt">Node</span> ts) <span class="fu">=</span> <span class="dt">Node</span> (map (fmap f) ts)
+    fmap f (<span class="dt">Leaf</span> x)  <span class="fu">=</span> <span class="dt">Leaf</span> (f x)
+
+<span class="kw">data</span> <span class="dt">GenTree</span> f a <span class="co">-- kind (* -&gt; *) -&gt; * -&gt; *</span>
+    <span class="fu">=</span> <span class="dt">Node</span> (f (<span class="dt">GenTree</span> f a))
+    <span class="fu">|</span> <span class="dt">Leaf</span> a
+
+<span class="kw">instance</span> <span class="dt">Functor</span> f <span class="ot">=&gt;</span> <span class="dt">Functor</span> (<span class="dt">GenTree</span> f) <span class="kw">where</span>
+    fmap f (<span class="dt">Node</span> ts) <span class="fu">=</span> <span class="dt">Node</span> (fmap (fmap f) ts)
+    fmap f (<span class="dt">Leaf</span> x)  <span class="fu">=</span> <span class="dt">Leaf</span> (f x)
+
+<span class="kw">data</span> <span class="dt">Proxy</span> a <span class="fu">=</span> <span class="dt">Proxy</span>
+<span class="kw">instance</span> <span class="dt">Functor</span> <span class="dt">Proxy</span> <span class="kw">where</span>
+    fmap _ <span class="dt">Proxy</span> <span class="fu">=</span> <span class="dt">Proxy</span></code></pre></div>
+<p>Not all type constructors can be made instances of <code>Functor</code>. Here are two examples:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Powerset</span> a <span class="fu">=</span> <span class="dt">Powerset</span> (a <span class="ot">-&gt;</span> <span class="dt">Bool</span>)
+<span class="kw">data</span> <span class="dt">Enum</span> a     <span class="fu">=</span> <span class="dt">Enum</span> (a <span class="ot">-&gt;</span> <span class="dt">Integer</span>) (<span class="dt">Integer</span> <span class="ot">-&gt;</span> a)</code></pre></div>
+<p>But the vast majority of data types can be nice functions, and it is really useful.</p>
+<p>By the way: There is the operator <code>(&lt;$&gt;)</code> that can be used instead of <code>fmap</code> in case infix is nicer. This makes the correspondence between <code>f x</code> (apply <code>f</code> to the pure value <code>x</code>) and <code>f &lt;$&gt; x</code> (apply <code>f</code> to the result of the computation <code>x</code>) clearer.</p>
+<h1 id="applicative">Applicative</h1>
+<p>The other type class that we instantiated in the homework is <code>Applicative</code>, which is a generalization of <code>Functor</code>. There are two ways of motivating the primitive <code>Applicative</code> combinator:</p>
+<h2 id="deriving">Deriving <code>&lt;*&gt;</code></h2>
+<ul>
+<li><p>Compare the types of pure function application, conveniently expressed using <code>$</code>, and <code>fmap</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">($)   ::</span>                    (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span>   a <span class="ot">-&gt;</span>   b
+<span class="ot">(&lt;$&gt;) ::</span> <span class="dt">Functor</span> f <span class="ot">=&gt;</span>       (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> f a <span class="ot">-&gt;</span> f b</code></pre></div>
+<p>We see that the argument is now hidden behind a type constructor. We reach the primitive combinator of <code>Applicative</code> if we do the same to the function:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">(&lt;*&gt;) ::</span> <span class="dt">Applicative</span> f <span class="ot">=&gt;</span> f (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> f a <span class="ot">-&gt;</span> f b</code></pre></div>
+<p>This is a real generalization, as you cannot implement that function with just a <code>Functor</code> instance.</p>
+<p>If you think of <code>f</code> describing some kind of effect (IO, failure, nondeterminism etc.), then this means that not only the argument in the (generalized) function application is obtained in an effectful way, but also the function.</p></li>
+<li><p>Looking again at the type of <code>fmap</code>, we see that it applies an unary function to a now effectfully captured argument:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">fmap<span class="ot"> ::</span>   <span class="dt">Functor</span> f <span class="ot">=&gt;</span>     (a <span class="ot">-&gt;</span> r)      <span class="ot">-&gt;</span> f a        <span class="ot">-&gt;</span> f r</code></pre></div>
+<p>We can try to generalize that to binary functions:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">liftA2 ::</span> <span class="dt">Applicative</span> f <span class="ot">=&gt;</span> (a <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> r) <span class="ot">-&gt;</span> f a <span class="ot">-&gt;</span> f b <span class="ot">-&gt;</span> f r</code></pre></div>
+<p>(The function <code>liftA2</code> is not part of the <code>Prelude</code>, but you get it if you <code>import Control.Applicative</code>.)</p>
+<p>Again we find that just using what is provided by <code>Functor</code>, we cannot implement this combinator, so this is a real generalization.</p></li>
+</ul>
+<p>Both views are equivalent. If we have <code>&lt;*&gt;</code> and <code>&lt;$&gt;</code> from <code>Functor</code>, we can get <code>liftA2</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">liftA2 f x y <span class="fu">=</span> f <span class="fu">&lt;$&gt;</span> x <span class="fu">&lt;*&gt;</span> y</code></pre></div>
+<p>We can also do the other direction:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">f <span class="fu">&lt;*&gt;</span> x <span class="fu">=</span> liftA2 id f x</code></pre></div>
+<p>What if we generalize <code>liftA2</code> again to ternary function? Do we get yet another concept? No, we do not! The applicative interface is enough to implement</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">liftA3 ::</span> <span class="dt">Applicative</span> f <span class="ot">=&gt;</span> (a <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> c <span class="ot">-&gt;</span> r) <span class="ot">-&gt;</span> f a <span class="ot">-&gt;</span> f b <span class="ot">-&gt;</span> f c <span class="ot">-&gt;</span> f r
+liftA3 f x y z <span class="fu">=</span>  f <span class="fu">&lt;$&gt;</span> x <span class="fu">&lt;*&gt;</span> y <span class="fu">&lt;*&gt;</span> z</code></pre></div>
+<p>and in fact, <code>liftA2</code> etc. are rarely used and chains of <code>&lt;$&gt;</code> and <code>&lt;*&gt;</code> are used instead in idomatic code using some applicative-based interface.</p>
+<h2 id="return-of-the-purity">Return of the purity</h2>
+<p>In order to instantiate the <code>Applicative</code> type class, besides giving a definition for <code>&lt;*&gt;</code>, we have to give a definition for</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">pure<span class="ot"> ::</span> <span class="dt">Applicative</span> f <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> f a</code></pre></div>
+<p>which injects a pure value into whatever <code>f</code> represents. This is exactly the same as the <code>return</code> that we discussed two weeks ago, so I will not dwell on it.</p>
+<h2 id="laws">Laws</h2>
+<p>The Applicative type class has laws:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">pure id <span class="fu">&lt;*&gt;</span> v <span class="fu">=</span> v                            <span class="co">-- identity</span>
+pure (<span class="fu">.</span>) <span class="fu">&lt;*&gt;</span> u <span class="fu">&lt;*&gt;</span> v <span class="fu">&lt;*&gt;</span> w <span class="fu">=</span> u <span class="fu">&lt;*&gt;</span> (v <span class="fu">&lt;*&gt;</span> w) <span class="co">-- composition</span>
+pure f <span class="fu">&lt;*&gt;</span> pure x <span class="fu">=</span> pure (f x)               <span class="co">-- homomorphism</span>
+u <span class="fu">&lt;*&gt;</span> pure y <span class="fu">=</span> pure (<span class="fu">$</span> y) <span class="fu">&lt;*&gt;</span> u              <span class="co">-- interchange</span></code></pre></div>
+<p>The main intuition here is that that <code>&lt;*&gt;</code> is associative (due to the composition law) and that <code>pure</code> really is pure, and thus can be pushed around.</p>
+<h2 id="example-instances">Example instances</h2>
+<p>Some types have only one sensible instance for <code>Applicative</code>. For example</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Applicative</span> <span class="dt">Maybe</span> <span class="kw">where</span>
+    pure <span class="fu">=</span> <span class="dt">Just</span>
+    <span class="dt">Just</span> f <span class="fu">&lt;*&gt;</span> <span class="dt">Just</span> x <span class="fu">=</span> <span class="dt">Just</span> (f x)
+    _ <span class="fu">&lt;*&gt;</span> _ <span class="fu">=</span> <span class="dt">Nothing</span></code></pre></div>
+<p>For lists there are two possible instances that come to mind. The first one corresponds to the notion of nondeterministic evaluation that we already know form its <code>Monad</code> instance, where we apply every function on the left to every argument on the right:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Applicative</span> [] <span class="kw">where</span>
+    pure x <span class="fu">=</span> [x]
+    []     <span class="fu">&lt;*&gt;</span> xs <span class="fu">=</span> []
+    (f<span class="fu">:</span>fs) <span class="fu">&lt;*&gt;</span> xs <span class="fu">=</span> map f xs <span class="fu">++</span> fs <span class="fu">&lt;*&gt;</span> x</code></pre></div>
+<p>The other one involved zipping lists. Note the peculiar choice of <code>pure</code>: it has to be that one for the identity law to hold:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Applicative</span> [] <span class="kw">where</span>
+    pure x <span class="fu">=</span> repeat x
+    (<span class="fu">&lt;*&gt;</span>) <span class="fu">=</span> zipWith (<span class="fu">$</span>)</code></pre></div>
+<p>The Haskell standard library provides the former instance. If you want the latter, you have to use the <code>ZipList</code> wrapper provided in <code>Control.Applicative</code>.</p>
+<h1 id="monad-applicative-functor">Monad ⊂ Applicative ⊂ Functor</h1>
+<p>Applicative lies inbetween <code>Functor</code> and <code>Monad</code> in the sense that when you have a <code>Monad</code> instance, you also have an <code>Applicative</code> instance, and when you have an <code>Applicative</code> instance, you have a <code>Functor</code> instance.</p>
+<p>To see this, we have to define two <code>Applicative</code> methods using the <code>Monad</code> combinators, either directly, or using <code>do</code>-notation (which might be more educating). <code>pure</code> is boring, as that is just <code>return</code>. Here is <code>&lt;*&gt;</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">f <span class="fu">&lt;*&gt;</span> x <span class="fu">=</span> f <span class="fu">&gt;&gt;=</span> (\f' <span class="ot">-&gt;</span> x <span class="fu">&gt;&gt;=</span> (\x' <span class="ot">-&gt;</span> return (f' x')))
+<span class="co">-- or</span>
+f <span class="fu">&lt;*&gt;</span> x <span class="fu">=</span> <span class="kw">do</span>
+    f' <span class="ot">&lt;-</span> f
+    x' <span class="ot">&lt;-</span> x
+    return (f' x')</code></pre></div>
+<p>And now we can define <code>fmap</code> in terms of the <code>Applicative</code> combinators:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">fmap f x <span class="fu">=</span> pure f <span class="fu">&lt;*&gt;</span> x</code></pre></div>
+<p>Using these definitions we could prove the <code>Applicative</code> laws from the <code>Monad</code> laws, and similarly the <code>Functor</code> laws from the <code>Applicative</code> laws, but we do not do that now.</p>
+<p>It is also expected, i.e. part of the laws, that these equalities hold for any type constructor that has instances of <code>Functor</code>, <code>Applicative</code> and <code>Monad</code>, although they are free to have possibly more efficient implementations.</p>
+<p>So every <code>Monad</code> is an <code>Applicative</code>. Are there <code>Applicative</code> instances that do not have a corresponding <code>Monad</code> instance? Yes there are.</p>
+<ul>
+<li><p>Here is one example:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">ConstString</span> a <span class="fu">=</span> <span class="dt">ConstString</span> <span class="dt">String</span> <span class="co">-- special case of data Const a b = Const a</span>
+<span class="kw">instance</span> <span class="dt">Applicative</span> <span class="dt">ConstString</span> <span class="kw">where</span>
+    pure x <span class="fu">=</span> <span class="dt">ConstString</span> <span class="st">&quot;&quot;</span>
+    <span class="dt">ConstString</span> s1 <span class="fu">&lt;*&gt;</span> <span class="dt">ConstString</span> s2 <span class="fu">=</span> <span class="dt">ConstString</span> (s1 <span class="fu">++</span> s2)</code></pre></div>
+<p>The monad laws require that</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">return x <span class="fu">&gt;&gt;=</span> f <span class="fu">=</span> f x</code></pre></div>
+<p>holds, in particular for <code>x = &quot;Hello&quot;</code> and <code>f = ConstString</code>. But since <code>return = pure</code> and <code>pure</code> throws away its argument, it is easy to see that no definition of <code>(&gt;&gt;=)</code> can do that.</p></li>
+<li><p>Another example is <code>ZipList</code>. Unfortunately, there is no simple argument why that is the case, but if you want you can find many posts online of people saying they found <code>Monad</code> instances, only to be told in what way their <code>Monad</code> instance does not work.</p></li>
+</ul>
+<h1 id="why-all-this">Why all this?</h1>
+<p>So what is the point of having <code>Applicative</code> if <code>Monad</code> is stronger, and you can do more with it? Because these are <em>interfaces</em>, e.g. between a library implementation and the library-using code, one side’s power is the other side’s constraint.</p>
+<p>If you look at the type signature of monadic bind it is clear that sequencing is forced there: Until the first computation has not yielded a result, the second cannot start. This is different for <code>&lt;*&gt;</code> or <code>liftM2</code>: If the effect would be “read something from the network”, then it is now clear that the implementation could choose to parallelize these requests and start with the second even before the first one ended. The power to do this optimization relies on the restraint that you put on the user of the interface. Facebook is using that with good results in their <code>HaXL</code> library.</p>
+<p>We will look in depth at an example for that power next week, and the homework sets the stage for that.</p>
+    </div>
+
+    <div id="footer"><center>
+      <font size="-2">Powered
+      by <a href="http://community.haskell.org/~ndm/shake/">shake</a>,
+      <a href="http://jaspervdj.be/hakyll/index.html">hakyll</a>,
+      <a href="http://johnmacfarlane.net/pandoc/">pandoc</a>,
+      <a href="http://projects.haskell.org/diagrams">diagrams</a>,
+      and <a href="http://www.andres-loeh.de/lhs2tex/">lhs2TeX</a>.
+      </center>
+    </div>
+  </div>
+</body>
+
+
+<!-- Mirrored from cis.upenn.edu/~cis194/fall16/lectures/08-functor-applicative.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 14:08:49 GMT -->
+</html>

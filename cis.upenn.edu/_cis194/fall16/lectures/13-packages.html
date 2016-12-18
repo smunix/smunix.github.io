@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+
+<!-- Mirrored from cis.upenn.edu/~cis194/fall16/lectures/13-packages.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 14:08:49 GMT -->
+<head>
+  <META http-equiv="Content-Type" content="text/html; charset='UTF-8'">
+  <title>CIS194</title>
+
+  <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+  <link href="../css/style.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+
+  <div id="canvas">
+    <div id="nav">
+     <p><a href="../index-2.html">CIS 194</a> | <a href="../policies.html">Policies</a> | <a href="../resources.html">Resources</a> | <a href="../final.html">Final Project</a></p>
+   </div>
+
+    
+    <div id="topic">
+    Packages
+    </div>
+    
+
+    
+    <div role="nav" id="toc">
+     <ul>
+<li><a href="#modules">Modules</a><ul>
+<li><a href="#name-and-path">Name and path</a></li>
+<li><a href="#exporting-only-what-is-required">Exporting only what is required</a></li>
+<li><a href="#where-to-put-the-types">Where to put the types?</a></li>
+</ul></li>
+<li><a href="#packages">Packages</a><ul>
+<li><a href="#a-cabal-file">A cabal file</a></li>
+<li><a href="#building-and-installing">Building and installing</a></li>
+<li><a href="#adding-an-executable">Adding an executable</a></li>
+</ul></li>
+<li><a href="#creating-documentation">Creating documentation</a></li>
+<li><a href="#creating-a-tarball">Creating a tarball</a></li>
+<li><a href="#further-reading">Further reading</a></li>
+</ul>
+    </div>
+    
+
+
+    <div id="content">
+      <p>So far in this class, we have focused “small programming”: Functions, algorithms, data structures etc. We did not talk about structuring code itself. We will do that today, by having a closer look at modules and show how to create your own packages.</p>
+<p>This is relevant for your project, as you should package your project nicely up this way, so that its dependencies are well specified</p>
+<h1 id="modules">Modules</h1>
+<p>We start with the code from last class, where we ran some statistics over some data. The module contains code that does various things:</p>
+<ul>
+<li>Code to parses the data</li>
+<li>Code to calculates statistics</li>
+<li>Code to format these statistics nicely as HTML</li>
+<li>The <code>main</code> function that combines all these.</li>
+</ul>
+<p>Obviously, this is not a good style in the long run, as the file will just grow too big. Also, it does not encourage reuse: In another project, it is likely that one wants to use the same parsing code, but then do different things with the data.</p>
+<h2 id="name-and-path">Name and path</h2>
+<p>Therefore, we will put the parsing code into a module of its own. For that, we need to come up with a module name. You have already seen the pattern: Capitalized words separated by dots. A good name might be <code>Data.Lahmann.Parser</code>.</p>
+<p>The module name dictactes the filename, with dots replaced by directory separators. We therefore take parsing code (some of which we have to rip out of the <code>main</code> function) into a file named <code>Parser.hs</code> in a directory <code>Data/Lahmann</code>, which has to start with</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">module</span> <span class="dt">Data.Lahmann.Parse</span> <span class="kw">where</span>
+…</code></pre></div>
+<p>In our main program, we can now <code>import Data.Lahmann.Parse</code> and everything works as before. A few imports can be removed, which is a good sign: The <em>user</em> of <code>Data.Lahmann.Parse</code> should not have to worry about whether the data is stored in CSV files or any other format. Using the flag <code>-fwarn-unused-imports</code> assists in finding useless imports.</p>
+<p>It make make sense to not hard-code the directory name of the files into the parsing code, but rather pass that from the main function.</p>
+<h2 id="exporting-only-what-is-required">Exporting only what is required</h2>
+<p>By saying <code>import Data.Lahmann.Parse</code> in the main file, we are importing everything that that module exports. The module currently exports everything that is defined in that module, including internal helpers such as <code>addBattingSums</code>. We can see that by firing up GHCi and looking at the output of <code>:browse Data.Lahmann.Parse</code>.</p>
+<p>This is bad style: The user of the <code>Parse</code> module should be oblivious about the internal workings of the module, and the programmer resonsible for the <code>Parse</code> module should have the freedom of adding, removing or changing any internal functions without breaking other code.</p>
+<p>Therefore, a module should always declare its <em>public interface</em> by stating which functions, types and constructors are exported. This is done via an export list that names all exported entities after the module name:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">module</span> <span class="dt">Data.Lahmann.Parse</span>
+  ( <span class="dt">PlayerId</span>         <span class="co">-- exporting a type synonym</span>
+  , <span class="dt">Batting</span>(<span class="dt">Batting</span>) <span class="co">-- exporting a type with a constructor</span>
+  , <span class="dt">Player</span>(<span class="fu">..</span>)       <span class="co">-- exporting a type with all its constructors</span>
+  , …
+  ) <span class="kw">where</span>
+…</code></pre></div>
+<h2 id="where-to-put-the-types">Where to put the types?</h2>
+<p>Let us put the statistics code into a module <code>Data.Lahmann.Stats</code>. We now run into a problem: Where do we put the type definitions (<code>data Batting</code>, <code>data Player</code>)? They currently reside in <code>Data.Lahmann.Parse</code>, but having the statistics module import that feels very wrong. AS it would if we moved the type definitions to the statistics module and import that.</p>
+<p>The only way out is to create yet another module, say, <code>Data.Lahmann.Types</code>, that defines all the common types of our project.</p>
+<p>And finally, the module <code>Data.Lahmann.Stats.HTML</code> contains code to take the data, runs the stats, and writes it to a given filename.</p>
+<h1 id="packages">Packages</h1>
+<p>We now have a bunch of modules, and a main program. But these are not completely independent artifacts, but are rather inherently connected, and we want to express this connection. A bunch of related modules is called a <em>package</em>.</p>
+<p>We have worked with packages before: We installed existing packages from Hackage using the <code>cabal</code> tool. Now we will create our own package.</p>
+<h2 id="a-cabal-file">A cabal file</h2>
+<p>To do so, we simply run <code>cabal init</code> in the current directory and answer all the questions. We start with a library package. Afterwards, we open the <code>lahmann-stats.cabal</code> file and clean it up a bit, so that it might look like this:</p>
+<pre><code>name:                lahmann-stats
+version:             0.1.0.0
+synopsis:            Baseball stats
+license:             BSD3
+license-file:        LICENSE
+author:              Joachim Breitner
+maintainer:          mail@joachim-breitner.de
+category:            Data
+build-type:          Simple
+extra-source-files:  ChangeLog.md
+cabal-version:       &gt;=1.10
+
+
+library
+  exposed-modules:
+    Data.Lahmann.Types,
+    Data.Lahmann.Parser,
+    Data.Lahmann.Stats,
+    Data.Lahmann.Stats.Html
+
+  build-depends:
+     base &gt;=4.8 &amp;&amp; &lt;4.9,
+     bytestring &gt;=0.10 &amp;&amp; &lt;0.11,
+     blaze-html &gt;=0.8 &amp;&amp; &lt;0.9,
+     cassava &gt;=0.4 &amp;&amp; &lt;0.5,
+     vector &gt;=0.11 &amp;&amp; &lt;0.12,
+     containers &gt;=0.5 &amp;&amp; &lt;0.6,
+     filepath &gt;=1.4 &amp;&amp; &lt;1.5,
+     statistics &gt;=0.13 &amp;&amp; &lt;0.14
+  default-language:    Haskell2010</code></pre>
+<p>I removed the <code>Main</code> module from <code>exposed-modules</code>, because this is not part of the library, but rather of the program.</p>
+<h2 id="building-and-installing">Building and installing</h2>
+<p>Running <code>cabal install</code> in this diretory will now build this library and install it in your local Haskell package. You can now use it from other projects. Neat.</p>
+<h2 id="adding-an-executable">Adding an executable</h2>
+<p>Our project is not only a library, but also an executable program. We can tell this to cabal as well, by adding a new <em>stanza</em> for our program:</p>
+<pre><code>executable lahmann-stats
+  main-is: Main.hs
+  build-depends:
+     base &gt;=4.8 &amp;&amp; &lt;4.9,
+     bytestring &gt;=0.10 &amp;&amp; &lt;0.11,
+     blaze-html &gt;=0.8 &amp;&amp; &lt;0.9,
+     cassava &gt;=0.4 &amp;&amp; &lt;0.5,
+     vector &gt;=0.11 &amp;&amp; &lt;0.12,
+     containers &gt;=0.5 &amp;&amp; &lt;0.6,
+     filepath &gt;=1.4 &amp;&amp; &lt;1.5,
+     statistics &gt;=0.13 &amp;&amp; &lt;0.14
+  default-language:    Haskell2010</code></pre>
+<p>For now I was lazy and simply copied the <code>build-depends</code> from above. It would also have been possible to depend on the <code>lahmann-data</code> <em>library</em> here, but then <code>Main.hs</code> would have to live in a different directory, for technical reasons (namely that <code>cabal</code> cannot tell GHC not to try to use the other modules if they are in the same directory).</p>
+<p>When we run <code>cabal install</code> now, we find the compiled program in <code>~/.cabal/bin/</code>.</p>
+<h1 id="creating-documentation">Creating documentation</h1>
+<p>Another benefit of having a package is that it is easy to create API documentation for the library. Simply run <code>cabal haddock</code> and it will create documentation that looks much like the documentation that we have seen so far.</p>
+<p>We notice that only exported functions appear in the documentation. That is good and makes sense.</p>
+<p>But we also notice that there is no text. Unfortunately, documentation does not write itself.</p>
+<p>To add documentation to a function or type, we add a comment before it which starts with a <code>|</code> (or alternatively a comment afterwards that start with a <code>^</code>):</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- | Reads the player data from a downloaded copy of Lahmann's baseball</span>
+<span class="co">-- statistics &lt;http://seanlahman.com/baseball-archive/statistics/&gt;.</span>
+<span class="co">--</span>
+<span class="co">-- The first parameter indicates the directory name where the files can</span>
+<span class="co">-- be found.</span>
+<span class="ot">readPlayerStats ::</span> FilePath <span class="ot">-&gt;</span> <span class="dt">IO</span> (<span class="dt">M.Map</span> <span class="dt">PlayerID</span> <span class="dt">Player</span>)</code></pre></div>
+<p>The tool that creates these documentation is called haddock, and you should consult the <a href="https://www.haskell.org/haddock/doc/html/ch03s08.html">haddock manual</a> for more information on the markup language you can use here, and other features of haddock.</p>
+<h1 id="creating-a-tarball">Creating a tarball</h1>
+<p>If you want to distribute your finished package, you can use the command <code>cabal sdist</code> to bundle everything require up into a <code>.tar.gz</code> file <a href="../extras/13-packages.tar.gz">such as this one</a>.</p>
+<p>Annoyingly, <code>cabal</code> does not check if you have included all necessary modules in the <code>exposed-modules</code> section, so make sure to unpack the resulting file somewhere else and try to <code>cabal build</code> it!</p>
+<h1 id="further-reading">Further reading</h1>
+<p>Cabal files can also specify test suites and benchmark suites, and have a few more features that you might want to know about. See the <a href="https://www.haskell.org/cabal/users-guide/">cabal manual</a> and also <a href="https://wiki.haskell.org/How_to_write_a_Haskell_program">the wiki page on the topic</a>.</p>
+    </div>
+
+    <div id="footer"><center>
+      <font size="-2">Powered
+      by <a href="http://community.haskell.org/~ndm/shake/">shake</a>,
+      <a href="http://jaspervdj.be/hakyll/index.html">hakyll</a>,
+      <a href="http://johnmacfarlane.net/pandoc/">pandoc</a>,
+      <a href="http://projects.haskell.org/diagrams">diagrams</a>,
+      and <a href="http://www.andres-loeh.de/lhs2tex/">lhs2TeX</a>.
+      </center>
+    </div>
+  </div>
+</body>
+
+
+<!-- Mirrored from cis.upenn.edu/~cis194/fall16/lectures/13-packages.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 14:08:49 GMT -->
+</html>

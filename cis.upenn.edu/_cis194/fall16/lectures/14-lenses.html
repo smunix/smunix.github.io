@@ -1,0 +1,296 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+
+<!-- Mirrored from cis.upenn.edu/~cis194/fall16/lectures/14-lenses.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 14:08:49 GMT -->
+<head>
+  <META http-equiv="Content-Type" content="text/html; charset='UTF-8'">
+  <title>CIS194</title>
+
+  <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+  <link href="../css/style.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+
+  <div id="canvas">
+    <div id="nav">
+     <p><a href="../index-2.html">CIS 194</a> | <a href="../policies.html">Policies</a> | <a href="../resources.html">Resources</a> | <a href="../final.html">Final Project</a></p>
+   </div>
+
+    
+    <div id="topic">
+    Lenses
+    </div>
+    
+
+    
+    <div role="nav" id="toc">
+     <ul>
+<li><a href="#getters-and-setters">Getters and Setters</a><ul>
+<li><a href="#getters">Getters</a></li>
+<li><a href="#setters">Setters</a></li>
+<li><a href="#a-simple-lens">A simple lens</a></li>
+<li><a href="#modify">Modify</a></li>
+<li><a href="#efficiency">Efficiency</a></li>
+</ul></li>
+<li><a href="#towards-van-laarhoven-lenses">Towards van Laarhoven lenses</a><ul>
+<li><a href="#io-as-motivation"><code>IO</code> as motivation</a></li>
+<li><a href="#enter-the-functor">Enter the <code>Functor</code></a></li>
+<li><a href="#getting-rid-of-over">Getting rid of <code>over</code></a></li>
+<li><a href="#getting-rid-of-view">Getting rid of <code>view</code></a></li>
+<li><a href="#lens-is-just-a-type-synonym"><code>Lens</code> is just a type synonym</a></li>
+</ul></li>
+<li><a href="#traversals">Traversals</a><ul>
+<li><a href="#generalizing-over">Generalizing <code>over</code></a></li>
+<li><a href="#non-lens-traversals">Non-Lens traversals</a></li>
+<li><a href="#getting-all-of-them">Getting all of them</a></li>
+<li><a href="#what-is-a-traversal-now">What is a <code>Traversal</code> now?</a></li>
+</ul></li>
+<li><a href="#further-reading">Further reading</a></li>
+</ul>
+    </div>
+    
+
+
+    <div id="content">
+      <p>Today’s lecture introduces <a href="https://github.com/ekmett/lens/wiki">lenses</a>, and is inspired by the <a href="https://hackage.haskell.org/package/lens-tutorial/docs/Control-Lens-Tutorial.html">lens-tutorial</a>.</p>
+<p>The lens abstraction, and related abstractions, make the concept of a field of an abstraction, a first class notion. It is a little language of its own, uses nice type trickery, and certainly has a learning curve. But when well-understood, it allows for concice, expressive code, and opens new ways of abstraction. It is worth considering in every medium-to-large sized project that handles deep structured data. It is also worth learning because some interesting libraries, such as <code>diagrams</code>, make heavy use of it.</p>
+<h1 id="getters-and-setters">Getters and Setters</h1>
+<p>Here is a product type with a bunch of fields:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Atom</span> <span class="fu">=</span> <span class="dt">Atom</span> {<span class="ot"> _element ::</span> <span class="dt">String</span>,<span class="ot"> _point ::</span> <span class="dt">Point</span> }
+<span class="kw">data</span> <span class="dt">Point</span> <span class="fu">=</span> <span class="dt">Point</span> {<span class="ot"> _x ::</span> <span class="dt">Double</span>,<span class="ot"> _y ::</span> <span class="dt">Double</span> }</code></pre></div>
+<h2 id="getters">Getters</h2>
+<p>Haskell’s record syntax makes it rather easy to reach deeply inside such a data structure. For example, if we want to get the <code>x</code>-position of an atom, we can write</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">getAtomX ::</span> <span class="dt">Atom</span> <span class="ot">-&gt;</span> <span class="dt">Double</span>
+getAtomX <span class="fu">=</span> _x <span class="fu">.</span> _point</code></pre></div>
+<p>So the record accessors serve as <em>getters</em>, and if we want to reach deeply into a data structure, we can compose these getters. Of course, this is just syntactic sugar, and if we would not have used record syntax, we could easily implement <code>_x</code> and <code>_point</code> by hand.</p>
+<h2 id="setters">Setters</h2>
+<p>Setting a value is not so easy. There is the record-update syntax that allows us to write the following (but again, the record-update is just syntactic sugar, and we could have written the same with regular pattern matching):</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">setPoint ::</span> <span class="dt">Point</span> <span class="ot">-&gt;</span> <span class="dt">Atom</span> <span class="ot">-&gt;</span> <span class="dt">Atom</span>
+setPoint p a <span class="fu">=</span> a { _point <span class="fu">=</span> p }
+<span class="ot">setElement ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Atom</span> <span class="ot">-&gt;</span> <span class="dt">Atom</span>
+setElement e a <span class="fu">=</span> a { _element <span class="fu">=</span> e }
+setX,<span class="ot"> setY::</span> <span class="dt">Double</span> <span class="ot">-&gt;</span> <span class="dt">Point</span> <span class="ot">-&gt;</span> <span class="dt">Point</span>
+setX x p <span class="fu">=</span> p { _x <span class="fu">=</span> x }
+setY y p <span class="fu">=</span> p { _y <span class="fu">=</span> y }</code></pre></div>
+<p>Unfortunately, these setters do not compose well, as we see when we want to write a function that sets the <code>x</code> of an atom:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">setAtomX ::</span> <span class="dt">Double</span> <span class="ot">-&gt;</span> <span class="dt">Atom</span> <span class="ot">-&gt;</span> <span class="dt">Atom</span>
+setAtomX x a <span class="fu">=</span> setPoint (setX x (_point a)) a</code></pre></div>
+<p>In order to compose <code>setAtomPoint</code> with <code>setPointX</code>, we also need a getter to get the point of the atom!</p>
+<p>So it seems that getters and setters are closely related, and we want to bundle them and work with them together.</p>
+<h2 id="a-simple-lens">A simple lens</h2>
+<p>So let us create an abstract data type that combines the getter and setter of a field, and let us call that a <em>lens</em>, as it “zooms into” a field:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Lens</span> a b <span class="fu">=</span> {<span class="ot"> view ::</span> a <span class="ot">-&gt;</span> b
+                ,<span class="ot"> set ::</span> b <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a
+		}</code></pre></div>
+<p>The implementations are straight forward:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">point ::</span> <span class="dt">Lens</span> <span class="dt">Atom</span> <span class="dt">Point</span>
+point <span class="fu">=</span> <span class="dt">Lens</span> _point setPoint
+<span class="ot">element ::</span> <span class="dt">Lens</span> <span class="dt">Atom</span> <span class="dt">String</span>
+element <span class="fu">=</span> <span class="dt">Lens</span> _element setElement
+x,<span class="ot"> y ::</span> <span class="dt">Lens</span> <span class="dt">Point</span> <span class="dt">Double</span>
+x <span class="fu">=</span> <span class="dt">Lens</span> _x setX
+y <span class="fu">=</span> <span class="dt">Lens</span> _y setY</code></pre></div>
+<p>In order to implement <code>setAtomX</code>, we want to compose two lenses, and we can do that using a general operator:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">comp ::</span> <span class="dt">Lens</span> a b <span class="ot">-&gt;</span> <span class="dt">Lens</span> b c <span class="ot">-&gt;</span> <span class="dt">Lens</span> a c
+comp l1 l2 <span class="fu">=</span> <span class="dt">Lens</span> (view l2 <span class="fu">.</span> view l1)
+                  (\c a <span class="ot">-&gt;</span> set l1 (set l2 c (view l1 a)) a)
+
+<span class="ot">setAtomX ::</span> <span class="dt">Double</span> <span class="ot">-&gt;</span> <span class="dt">Atom</span> <span class="ot">-&gt;</span> <span class="dt">Atom</span>
+setAtomX <span class="fu">=</span> set (point <span class="ot">`comp`</span> x)</code></pre></div>
+<h2 id="modify">Modify</h2>
+<p>In the code that we have just written, there is a very common pattern: Applying a function to a field. And clearly, we can implement that using a getter and a setter:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">over ::</span> <span class="dt">Lens</span> a b <span class="ot">-&gt;</span> (b <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> (a <span class="ot">-&gt;</span> a)
+over l f a <span class="fu">=</span> set l (f (view l a)) a</code></pre></div>
+<p>So if we want to move an atom to the right, we can simply write</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">moveAtom ::</span> <span class="dt">Atom</span> <span class="ot">-&gt;</span> <span class="dt">Atom</span>
+moveAtom <span class="fu">=</span> over (point <span class="ot">`comp`</span> x) (<span class="fu">+</span><span class="dv">1</span>)</code></pre></div>
+<p>We can also rewrite <code>comp</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">comp ::</span> <span class="dt">Lens</span> a b <span class="ot">-&gt;</span> <span class="dt">Lens</span> b c <span class="ot">-&gt;</span> <span class="dt">Lens</span> a c
+comp l1 l2 <span class="fu">=</span> <span class="dt">Lens</span> (view l2 <span class="fu">.</span> view l1)
+                  (\c <span class="ot">-&gt;</span> over l1 (set l2 c))</code></pre></div>
+<h2 id="efficiency">Efficiency</h2>
+<p>Unfortunately, this is not very efficient. Function <code>over</code> uses the lens <code>l</code> twice: Once to get the value, and once again to set it. And since <code>over</code> is used in <code>comp</code>, if we nest our lenses a few layers deep, this gets inefficient very quickly.</p>
+<p>How can we fix this? We make <code>over</code> primitive!</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Lens</span> a a <span class="fu">=</span> {<span class="ot"> view ::</span> a <span class="ot">-&gt;</span> b
+                ,<span class="ot"> set ::</span> b <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a
+		,<span class="ot"> over ::</span> (b <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> (a <span class="ot">-&gt;</span> a)
+		}</code></pre></div>
+<p>In order to update our existing primitive lenses, we implement a small helper function to derive the <code>over</code> code, instead of writing it by hand every time.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">mkLens ::</span> (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> (b <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a) <span class="ot">-&gt;</span> <span class="dt">Lens</span> a b
+mkLens view set <span class="fu">=</span> <span class="dt">Lens</span> view set over
+  <span class="kw">where</span> over a <span class="fu">=</span> set (f (view a)) a
+
+<span class="ot">point ::</span> <span class="dt">Lens</span> <span class="dt">Atom</span> <span class="dt">Point</span>
+point <span class="fu">=</span> mkLens _point setPoint
+<span class="ot">element ::</span> <span class="dt">Lens</span> <span class="dt">Atom</span> <span class="dt">Element</span>
+element <span class="fu">=</span> mkLens _element setElement
+x,<span class="ot"> y ::</span> <span class="dt">Lens</span> <span class="dt">Atom</span> <span class="dt">Double</span>
+x <span class="fu">=</span> mkLens _x setX
+y <span class="fu">=</span> mkLens _y setY</code></pre></div>
+<p>Now the composition operator uses every lens only once. Good!</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">comp ::</span> <span class="dt">Lens</span> a b <span class="ot">-&gt;</span> <span class="dt">Lens</span> b c <span class="ot">-&gt;</span> <span class="dt">Lens</span> a c
+comp l1 l2 <span class="fu">=</span> <span class="dt">Lens</span> (view l2 <span class="fu">.</span> view l1)
+                  (\c <span class="ot">-&gt;</span> over l1 (set l2 c))
+		  (over l1 <span class="fu">.</span> over l2)</code></pre></div>
+<p>In fact, with <code>over</code> as the primitive notion, there is not need for <code>set</code> any more, as that can be implemented with <code>over</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">set ::</span> <span class="dt">Lens</span> a b <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a
+set l x <span class="fu">=</span> over l (const x)</code></pre></div>
+<h1 id="towards-van-laarhoven-lenses">Towards van Laarhoven lenses</h1>
+<p>This is nice, but what if we want to do an <em>effectful</em> update? For example, this code does not typecheck:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">askX ::</span> <span class="dt">Atom</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">Atom</span>
+askX a <span class="fu">=</span> over (point <span class="ot">`comp`</span> x) askUser a
+  <span class="kw">where</span>
+<span class="ot">    askUser ::</span> <span class="dt">Double</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">Double</span>
+    askUser <span class="fu">=</span> <span class="kw">do</span>
+	putStrLn <span class="fu">$</span> <span class="st">&quot;Current position is &quot;</span> <span class="fu">++</span> show x <span class="fu">++</span> <span class="st">&quot;. New Position?&quot;</span>
+	answer <span class="ot">&lt;-</span> getLine
+	return (read answer)</code></pre></div>
+<h2 id="io-as-motivation"><code>IO</code> as motivation</h2>
+<p>Of course we could rewrite it again to use <code>view</code> before any <code>IO</code> actions, and <code>set</code> afterwards, but then we would again be traversing the data structure towards the position of interest twice.</p>
+<p>We can fix this as we did before, by allowing a variant of <code>over</code> that does <code>IO</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Lens</span> a b <span class="fu">=</span> {<span class="ot"> view ::</span> a <span class="ot">-&gt;</span> b
+		,<span class="ot"> over ::</span> (b <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> (a <span class="ot">-&gt;</span> a)
+		,<span class="ot"> overIO ::</span> (b <span class="ot">-&gt;</span> <span class="dt">IO</span> b) <span class="ot">-&gt;</span> (a <span class="ot">-&gt;</span> <span class="dt">IO</span> a)
+		}
+
+<span class="ot">mkLens ::</span> (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> (b <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a) <span class="ot">-&gt;</span> <span class="dt">Lens</span> a b
+mkLens view set <span class="fu">=</span> <span class="dt">Lens</span> view over overIO
+  <span class="kw">where</span> over a <span class="fu">=</span> set (f (view a)) a
+        overIO a <span class="fu">=</span> <span class="kw">do</span>
+	  b' <span class="ot">&lt;-</span> f (view a)
+	  return <span class="fu">$</span> set b' a
+
+
+<span class="ot">comp ::</span> <span class="dt">Lens</span> a b <span class="ot">-&gt;</span> <span class="dt">Lens</span> b c <span class="ot">-&gt;</span> <span class="dt">Lens</span> a c
+comp l1 l2 <span class="fu">=</span> <span class="dt">Lens</span> (view l2 <span class="fu">.</span> view l1)
+                  (\c <span class="ot">-&gt;</span> over l1 (set l2 c))
+		  (over l1 <span class="fu">.</span> over l2)
+		  (overIO l1 <span class="fu">.</span> overIO l2)</code></pre></div>
+<p>Fancy how composition is so simple again!</p>
+<h2 id="enter-the-functor">Enter the <code>Functor</code></h2>
+<p>But clearly, we want to do this trick not just for <code>IO</code>, but for many type constructors. Some of which might not be <code>Monads</code>. So if we look closely at the code for <code>overIO</code>, we see that all we really need is a functor instance. So let us generalize this:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Lens</span> a b <span class="fu">=</span> {<span class="ot"> view ::</span> a <span class="ot">-&gt;</span> b
+		,<span class="ot"> over ::</span> (b <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> (a <span class="ot">-&gt;</span> a)
+		,<span class="ot"> overF ::</span> forall t<span class="fu">.</span> <span class="dt">Functor</span> t <span class="ot">=&gt;</span> (b <span class="ot">-&gt;</span> t b) <span class="ot">-&gt;</span> (a <span class="ot">-&gt;</span> t a)
+		}
+
+<span class="ot">mkLens ::</span> (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> (b <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a) <span class="ot">-&gt;</span> <span class="dt">Lens</span> a b
+mkLens view set <span class="fu">=</span> <span class="dt">Lens</span> view over overF
+  <span class="kw">where</span> over a <span class="fu">=</span> set (f (view a)) a
+        overF a <span class="fu">=</span> (\b' <span class="ot">-&gt;</span> set b' a) <span class="fu">&lt;$&gt;</span> f (view a)</code></pre></div>
+<p>The <code>forall t</code> says that the function stored in the <code>overF</code> field of a <code>Lens</code> works with any functor <code>t</code> that you want to use it at.</p>
+<h2 id="getting-rid-of-over">Getting rid of <code>over</code></h2>
+<p>But look at how similar the type signatures of <code>overF</code> and <code>over</code> are. If we could somehow make the <code>t</code> go away, they would be identical, and <code>overF</code> would be enough?</p>
+<p>So we want a type constructor <code>t</code> that is equal to its argument.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">I</span> x <span class="fu">=</span> x
+<span class="kw">instance</span> <span class="dt">Functor</span> <span class="dt">I</span> <span class="kw">where</span>
+  fmap f x <span class="fu">=</span> f x</code></pre></div>
+<p>is a good start, but we cannot define a <code>Functor</code> instance for that, so we have to use a <code>newtype</code> to get the <em>identitiy functor</em>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">newtype</span> <span class="dt">I</span> x <span class="fu">=</span> <span class="dt">MkI</span> x
+
+<span class="ot">unI ::</span> <span class="dt">I</span> x <span class="ot">-&gt;</span> x
+unI (<span class="dt">MkI</span> x) <span class="fu">=</span> x
+
+<span class="kw">instance</span> <span class="dt">Functor</span> <span class="dt">F</span> <span class="kw">where</span>
+  fmap f x <span class="fu">=</span> <span class="dt">MkI</span> (f (unI x))</code></pre></div>
+<p>With this particular <code>Functor</code> instance, we can derive <code>over</code> from <code>overF</code> and remove it from the <code>Lens</code> type:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">over ::</span> <span class="dt">Lens</span> a b <span class="ot">-&gt;</span> (b <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> (a <span class="ot">-&gt;</span> a)
+over l f a <span class="fu">=</span> unI <span class="fu">$</span> overF l f' a
+  <span class="kw">where</span> f' b <span class="fu">=</span> <span class="dt">MkI</span> (f b)</code></pre></div>
+<h2 id="getting-rid-of-view">Getting rid of <code>view</code></h2>
+<p>That was nice, we are again down to two primitive operations. Can we do better? Is, maybe, in some way, <code>view</code> also an instance of <code>overF</code>?</p>
+<p>If we try to make the type match, from right to left, it might work if <code>t a</code> would somehow be <code>b</code> – then at least we would have <code>a -&gt; b</code> a the end, as desired.</p>
+<p>We would somehow have to provide a function <code>b -&gt; t b</code> though, that works in every case. Since we get to pick <code>t</code>, why not make it always <code>b</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">newtype</span> <span class="dt">C</span> b x <span class="fu">=</span> <span class="dt">MkC</span> b
+
+<span class="ot">unC ::</span> <span class="dt">C</span> b x <span class="ot">-&gt;</span> b
+unC (<span class="dt">MkC</span> b) <span class="fu">=</span> b
+
+<span class="kw">instance</span> <span class="dt">Functor</span> <span class="dt">C</span> <span class="kw">where</span>
+  fmap f (<span class="dt">MkC</span> b) <span class="fu">=</span> <span class="dt">MkC</span> b</code></pre></div>
+<p>With this <em>constant functor</em>, we can define <code>view</code> in terms of <code>overF</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">view ::</span> <span class="dt">Lens</span> a b <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> b
+view l a <span class="fu">=</span> unC <span class="fu">$</span> overF l <span class="dt">MkC</span> a</code></pre></div>
+<h2 id="lens-is-just-a-type-synonym"><code>Lens</code> is just a type synonym</h2>
+<p>But now <code>Lens</code> has become a product type with only one field. This menas that the type <code>Lens a b</code> is <em>isomporphic</em> to the type <code>forall t. Functor t =&gt; (b -&gt; t b) -&gt; (a -&gt; t a)</code>. In that case, why bother with the <code>Lens</code> constructor and the <code>overF</code> field name at all? We can get rid of them!</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">Lens</span> a b <span class="fu">=</span> forall t <span class="fu">.</span> <span class="dt">Functor</span> t <span class="ot">=&gt;</span> (b <span class="ot">-&gt;</span> t b) <span class="ot">-&gt;</span> (a <span class="ot">-&gt;</span> t a)</code></pre></div>
+<p>Interestingly, now</p>
+<pre><code>comp :: Lens a b -&gt; Lens b c -&gt; Lens a c
+comp l1 l2 = l1 . l2</code></pre>
+<p>so we can get rid of this function as well, and use plain old function composition <code>.</code>!</p>
+<h1 id="traversals">Traversals</h1>
+<p>Where there is a <code>Functor</code>, an <code>Applicative</code> cannot be far. What if we do change the constraint in the lens type:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">Traversal</span> a b <span class="fu">=</span> forall t <span class="fu">.</span> <span class="dt">Applicative</span> t <span class="ot">=&gt;</span> (b <span class="ot">-&gt;</span> t b) <span class="ot">-&gt;</span> (a <span class="ot">-&gt;</span> t a)</code></pre></div>
+<p>The name <code>Traversal</code> will become clear later. The first thing we notice is that every <code>lens</code> is a traversal, becauase every <code>Applicative</code> is a <code>Functor</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">lensToTraversal ::</span> <span class="dt">Lens</span> a b <span class="ot">-&gt;</span> <span class="dt">Traversal</span> a b
+lensToTraversal l <span class="fu">=</span> l</code></pre></div>
+<p>I wrote this function only to show you that the types check, but we can just use a lens as a traversal directly!</p>
+<p>The other direction does not work, because not every <code>Functor</code> is an <code>Applicative</code>.</p>
+<h2 id="generalizing-over">Generalizing <code>over</code></h2>
+<p>So whatever a <code>Traversal</code> is, it is more general than a <code>Lens</code>. Thus, if we can change some of our functions to take a <code>Traversal</code> instead of a <code>Functor</code>, then the world is strictly a better place.</p>
+<p>Can we change the type of <code>over</code> as follows?</p>
+<pre><code>over :: Traversal a b -&gt; (b -&gt; b) -&gt; (a -&gt; a)
+over l f a = unI $ l f' a
+  where f' b = MkI f b</code></pre>
+<p>Yes we can! Well, almost, the compiler wants us to provide an <code>Applicative</code> instance for <code>I</code>. Fine with me:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Applicative</span> <span class="dt">I</span> <span class="kw">where</span>
+  pure x <span class="fu">=</span> <span class="dt">MkI</span> x
+  f <span class="fu">&lt;$&gt;</span> x <span class="fu">=</span> <span class="dt">MkI</span> <span class="fu">$</span> (unI f) (unI x)</code></pre></div>
+<p>Since <code>set</code> is just defined in terms over <code>over</code>, we can now also relax the type signature of <code>set</code> to use <code>Traversal</code>.</p>
+<h2 id="non-lens-traversals">Non-Lens traversals</h2>
+<p>Can we do the same thing with <code>view</code>? No, we cannot! The constant functor is not applicative (there is no way of implementing <code>pure :: a -&gt; C b a</code>).</p>
+<p>So a <code>Traversal a b</code> describes how one can (possibly effectful) set or update values of type <code>b</code> in <code>a</code> (like <code>Lens</code>), but not get a value of type <code>b</code> (unlike <code>Lens</code>). If we try to think of concrete <code>a</code> where that is the case, what come to mind?</p>
+<p>For example <code>Maybe b</code>! We certainly can apply a function to the contained thing, if it is there, and maybe even with effect:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">this ::</span> <span class="dt">Traversal</span> (<span class="dt">Maybe</span> a) a
+this f <span class="dt">Nothing</span>  <span class="fu">=</span> pure <span class="dt">Nothing</span>
+this f (<span class="dt">Just</span> x) <span class="fu">=</span> <span class="dt">Just</span> <span class="fu">&lt;$&gt;</span> f x</code></pre></div>
+<p>Here, we cannot expect to have a <code>view</code> because not every <code>Maybe a</code> has an <code>a</code>.</p>
+<p>Another example would be lists:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">elems ::</span> <span class="dt">Traversal</span> [a] a
+elems f []     <span class="fu">=</span> pure <span class="dt">Nothing</span>
+elems f (x<span class="fu">:</span>xs) <span class="fu">=</span> (<span class="fu">:</span>) <span class="fu">&lt;$&gt;</span> f x <span class="fu">&lt;*&gt;</span> elems f xs</code></pre></div>
+<p>Here we cannot expect to have a useful <code>view</code> because a <code>[a]</code> might not have an <code>a</code>, but also because it might have many.</p>
+<h2 id="getting-all-of-them">Getting all of them</h2>
+<p>So we cannot have <code>view</code> because the structure might have zero or more than one elements. Well, then at least we should be able to get a list of them?</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">listOf ::</span> <span class="dt">Traversal</span> a b <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> [a]</code></pre></div>
+<p>Again, we can try to implement that using a suitable <code>Functor</code>. We compare the desired type with the type of a <code>Traversal</code> and find that we again need a constant functor, this time, though, storing a list of <code>b</code>s:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">newtype</span> <span class="dt">CL</span> b x <span class="fu">=</span> <span class="dt">MkC</span> [b]
+
+<span class="ot">unCL ::</span> <span class="dt">CL</span> b x <span class="ot">-&gt;</span> [b]
+unCL (<span class="dt">MkCL</span> b) <span class="fu">=</span> b
+
+<span class="kw">instance</span> <span class="dt">Functor</span> <span class="dt">CL</span> <span class="kw">where</span>
+  fmap f (<span class="dt">MkCL</span> b) <span class="fu">=</span> <span class="dt">MkCL</span> (map f b)
+
+<span class="kw">instance</span> <span class="dt">Applicative</span> <span class="dt">CL</span> <span class="kw">where</span>
+  pure _ <span class="fu">=</span> <span class="dt">MkCL</span> []
+  <span class="dt">MkCL</span> bs1 <span class="fu">&lt;*&gt;</span> <span class="dt">MkCL</span> bs2 <span class="fu">=</span> <span class="dt">MkCL</span> (bs1 <span class="fu">++</span> bs2)</code></pre></div>
+<p>With this <em>constant functor</em>, we can define <code>view</code> in terms of <code>overF</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">listOf l a <span class="fu">=</span> unCL <span class="fu">$</span> overF l <span class="dt">MkCL</span> a</code></pre></div>
+<p>(In reality one would use <code>Const [b] x</code> here with the <code>Applicative</code> instance for <code>Const</code> with the <code>Monoid</code> constraint on the first argument of <code>Const</code>, but since we did not discuss <code>Monoid</code> in this class, we do it by hand here.)</p>
+<h2 id="what-is-a-traversal-now">What is a <code>Traversal</code> now?</h2>
+<p>Similar to <code>Lens</code> is one position in a data structure (and precisely one, and one that is always there), <code>Traversal</code> describes many position in a data structure.</p>
+<p>And since <code>Lens</code> and <code>Traversal</code> compose so nicely, you can describe pretty complex “pointer” well. For example with <a href="https://github.com/fumieval/xml-lens">xml-lens</a>, this <code>Traversal</code> extracts the title of all books with a specific category from an XML fragment.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">root <span class="fu">.</span> el <span class="st">&quot;books&quot;</span> <span class="fu">./</span> el <span class="st">&quot;book&quot;</span> <span class="fu">.</span> attributeIs <span class="st">&quot;category&quot;</span> <span class="st">&quot;Textbooks&quot;</span> <span class="fu">./</span> el <span class="st">&quot;title&quot;</span> <span class="fu">.</span> text</code></pre></div>
+<h1 id="further-reading">Further reading</h1>
+<p>The story presented here is rather simple. If you look at the <a href="http://hackage.haskell.org/package/lens">lens libray</a> you see more abstractions (<code>Prism</code>, <code>Iso</code>, etc.). This library also comes with a large number of concrete lenses, traversals etc for many data structures, and has cool tricks so that <code>_2</code> for example is a lens for the second element of a tuple, for any tupel size.</p>
+<p>In that package, what we called <code>Lens</code> and <code>Traversal</code> is actually called <code>Lens'</code> and <code>Traversal'</code>, and the version without quote allows <code>over</code> to change the type of the thing pointed at.</p>
+<p>But note that even in the <code>lens</code> library, all these notions are just type synonyms, so you can define lenses as we did, without using a library, and you are still compatible with these libraries! Also see <a href="http://hackage.haskell.org/package/microlens"><code>microlens</code></a> for a library, compatible with <code>lens</code>, but smaller, less dependencies and better documented.</p>
+    </div>
+
+    <div id="footer"><center>
+      <font size="-2">Powered
+      by <a href="http://community.haskell.org/~ndm/shake/">shake</a>,
+      <a href="http://jaspervdj.be/hakyll/index.html">hakyll</a>,
+      <a href="http://johnmacfarlane.net/pandoc/">pandoc</a>,
+      <a href="http://projects.haskell.org/diagrams">diagrams</a>,
+      and <a href="http://www.andres-loeh.de/lhs2tex/">lhs2TeX</a>.
+      </center>
+    </div>
+  </div>
+</body>
+
+
+<!-- Mirrored from cis.upenn.edu/~cis194/fall16/lectures/14-lenses.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 14:08:49 GMT -->
+</html>

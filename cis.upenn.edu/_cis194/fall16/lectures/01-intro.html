@@ -1,0 +1,395 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+
+<!-- Mirrored from cis.upenn.edu/~cis194/fall16/lectures/01-intro.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 14:08:49 GMT -->
+<head>
+  <META http-equiv="Content-Type" content="text/html; charset='UTF-8'">
+  <title>CIS194</title>
+
+  <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+  <link href="../css/style.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+
+  <div id="canvas">
+    <div id="nav">
+     <p><a href="../index-2.html">CIS 194</a> | <a href="../policies.html">Policies</a> | <a href="../resources.html">Resources</a> | <a href="../final.html">Final Project</a></p>
+   </div>
+
+    
+    <div id="topic">
+    Haskell Basics: Functions and Pictures
+    </div>
+    
+
+    
+    <div role="nav" id="toc">
+     <ul>
+<li><a href="#prelude">Prelude</a><ul>
+<li><a href="#what-is-haskell">What is Haskell?</a><ul>
+<li><a href="#functional">Functional</a></li>
+<li><a href="#pure">Pure</a></li>
+<li><a href="#lazy">Lazy</a></li>
+<li><a href="#statically-typed">Statically typed</a></li>
+</ul></li>
+<li><a href="#themes">Themes</a><ul>
+<li><a href="#types">Types</a></li>
+<li><a href="#abstraction">Abstraction</a></li>
+<li><a href="#wholemeal-programming">Wholemeal programming</a></li>
+</ul></li>
+<li><a href="#programming-environment">Programming environment</a></li>
+</ul></li>
+<li><a href="#basic-haskell">Basic Haskell</a><ul>
+<li><a href="#declarations-and-variables">Declarations and variables</a></li>
+<li><a href="#picture-types-and-functions">Picture Types and Functions</a><ul>
+<li><a href="#primitive-pictures">Primitive pictures</a></li>
+<li><a href="#modifying-pictures">Modifying Pictures</a></li>
+<li><a href="#composing-pictures">Composing Pictures</a></li>
+</ul></li>
+<li><a href="#defining-functions">Defining functions</a></li>
+<li><a href="#animations">Animations</a></li>
+<li><a href="#numerical-types">Numerical Types</a></li>
+</ul></li>
+<li><a href="#recursion">Recursion</a></li>
+<li><a href="#code-comments">Code Comments</a></li>
+<li><a href="#a-word-about-error-messages">A word about error messages</a></li>
+</ul>
+    </div>
+    
+
+
+    <div id="content">
+      <div class="figure">
+<img src="../images/haskell-logo-small.png" alt="The Haskell Logo" />
+<p class="caption">The Haskell Logo</p>
+</div>
+<h1 id="prelude">Prelude</h1>
+<h2 id="what-is-haskell">What is Haskell?</h2>
+<p>Haskell is a <em>lazy, functional</em> programming language created in the late 1980’s by a committee of academics. There were a plethora of lazy functional languages around, everyone had their favorite, and it was hard to communicate ideas. So a bunch of people got together and designed a new language, taking some of the best ideas from existing languages (and a few new ideas of their own). Haskell was born.</p>
+<p>So what is Haskell like? Haskell is:</p>
+<h3 id="functional">Functional</h3>
+<div class="figure">
+<img src="../images/function-machine.png" alt="Function composition" class="floatright" width="200" />
+<p class="caption">Function composition</p>
+</div>
+<p>There is no precise, accepted meaning for the term “functional”. But when we say that Haskell is a <em>functional</em> language, we usually have in mind two things:</p>
+<ul>
+<li><p>Functions are <em>first-class</em>, that is, functions are values which can be used in exactly the same ways as any other sort of value.</p></li>
+<li><p>The meaning of Haskell programs is centered around <em>evaluating expressions</em> rather than <em>executing instructions</em>.</p></li>
+</ul>
+<p>Taken together, these result in an entirely different way of thinking about programming. Much of our time this semester will be spent exploring this way of thinking.</p>
+<h3 id="pure">Pure</h3>
+<div class="figure">
+<img src="../images/pure.jpg" alt="Not this kind of purity" class="floatright" width="200" />
+<p class="caption">Not this kind of purity</p>
+</div>
+<p>Haskell expressions are always <em>referentially transparent</em>, that is:</p>
+<ul>
+<li><p>No mutation! Everything (variables, data structures…) is <em>immutable</em>.</p></li>
+<li><p>Expressions never have “side effects” (like updating global variables or printing to the screen).</p></li>
+<li><p>Calling the same function with the same arguments results in the same output every time. Programs are <em>deterministic</em>.</p></li>
+</ul>
+<p>This may sound crazy at this point. How is it even possible to get anything done without mutation or side effects? Well, it certainly requires a shift in thinking (if you’re used to an imperative or object-oriented paradigm). But once you’ve made the shift, there are a number of wonderful benefits:</p>
+<ul>
+<li><p><em>Equational reasoning and refactoring</em>: In Haskell one can always “replace equals by equals”, just like you learned in algebra class.</p></li>
+<li><p><em>Parallelism</em>: Evaluating expressions in parallel is easy when they are guaranteed not to affect one another.</p></li>
+<li><p><em>Fewer headaches</em>: Simply put, unrestricted effects and action-at-a-distance makes for programs that are hard to debug, maintain, and reason about.</p></li>
+</ul>
+<h3 id="lazy">Lazy</h3>
+<div class="figure">
+<img src="../images/relax.jpg" alt="Not this kind of laziness" class="floatright" width="200" />
+<p class="caption">Not this kind of laziness</p>
+</div>
+<p>In Haskell, expressions are <em>not evaluated until their results are actually needed</em>. This is a simple decision with far-reaching consequences, which we will explore throughout the semester. Some of the consequences include:</p>
+<ul>
+<li><p>It is easy to define a new <em>control structure</em> just by defining a function.</p></li>
+<li><p>It is possible to define and work with <em>infinite data structures</em>.</p></li>
+<li><p>It enables a more compositional programming style (see <em>wholemeal programming</em> below).</p></li>
+<li><p>One major downside, however, is that reasoning about time and space usage becomes much more complicated!</p></li>
+</ul>
+<h3 id="statically-typed">Statically typed</h3>
+<div class="figure">
+<img src="../images/static.jpg" alt="Not this kind of static" class="floatright" width="200" />
+<p class="caption">Not this kind of static</p>
+</div>
+<p>Every Haskell expression has a type, and types are all checked at <em>compile-time</em>. Programs with type errors will not even compile, much less run.</p>
+<h2 id="themes">Themes</h2>
+<p>Throughout this course, we will focus on three main themes.</p>
+<h3 id="types">Types</h3>
+<p>Static type systems can seem annoying. In fact, in languages like C++ and Java, they <em>are</em> annoying. But this isn’t because static type systems <em>per se</em> are annoying; it’s because C++ and Java’s type systems are insufficiently expressive! This semester we’ll take a close look at Haskell’s type system, which</p>
+<ul>
+<li><p><em>Helps clarify thinking and express program structure</em></p>
+<p>The first step in writing a Haskell program is usually to <em>write down all the types</em>. Because Haskell’s type system is so expressive, this is a non-trivial design step and is an immense help in clarifying one’s thinking about the program.</p></li>
+<li><p><em>Serves as a form of documentation</em></p>
+<p>Given an expressive type system, just looking at a function’s type tells you a lot about what the function might do and how it can be used, even before you have read a single word of written documentation.</p>
+<p>And it goes the other way: If you are using existing code, such as a library, and you are searching for a specific functionality, you often anticipate the type of the function you need, and you can find it based on that.</p></li>
+<li><p><em>Turns run-time errors into compile-time errors</em></p>
+<p>It’s much better to be able to fix errors up front than to just test a lot and hope for the best. “If it compiles, it must be correct” is mostly facetious (it’s still quite possible to have errors in logic even in a type-correct program), but you will have this experience much more likely in Haskell than in other languages.</p></li>
+</ul>
+<h3 id="abstraction">Abstraction</h3>
+<p>“Don’t Repeat Yourself” is a mantra often heard in the world of programming. Also known as the “Abstraction Principle”, the idea is that nothing should be duplicated: every idea, algorithm, and piece of data should occur exactly once in your code. Taking similar pieces of code and factoring out their commonality is known as the process of <em>abstraction</em>.</p>
+<p>Haskell is very good at abstraction: features like parametric polymorphism, higher-order functions, and type classes all aid in the fight against repetition. Our journey through Haskell this semester will in large part be a journey from the specific to the abstract.</p>
+<h3 id="wholemeal-programming">Wholemeal programming</h3>
+<p>Another theme we will explore is <em>wholemeal programming</em>. A quote from Ralf Hinze:</p>
+<blockquote>
+<p>“Functional languages excel at wholemeal programming, a term coined by Geraint Jones. Wholemeal programming means to think big: work with an entire list, rather than a sequence of elements; develop a solution space, rather than an individual solution; imagine a graph, rather than a single path. The wholemeal approach often offers new insights or provides new perspectives on a given problem. It is nicely complemented by the idea of projective programming: first solve a more general problem, then extract the interesting bits and pieces by transforming the general program into more specialised ones.”</p>
+</blockquote>
+<p>For example, consider this pseudocode in a C/Java-ish sort of language:</p>
+<div class="sourceCode"><pre class="sourceCode c"><code class="sourceCode c"><span class="dt">int</span> acc = <span class="dv">0</span>;
+<span class="cf">for</span> ( <span class="dt">int</span> i = <span class="dv">0</span>; i &lt; lst.length; i++ ) {
+  acc = acc + <span class="dv">3</span> * lst[i];
+}</code></pre></div>
+<p>This code suffers from what Richard Bird refers to as “indexitis”: it has to worry about the low-level details of iterating over an array by keeping track of a current index. It also mixes together what can more usefully be thought of as two separate operations: multiplying every item in a list by 3, and summing the results.</p>
+<p>In Haskell, we can just write</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">sum (map (<span class="dv">3</span><span class="fu">*</span>) lst)</code></pre></div>
+<p>This semester we’ll explore the shift in thinking represented by this way of programming, and examine how and why Haskell makes it possible.</p>
+<p><!-- Removed in Fall 2016
+
+Literate Haskell
+----------------
+
+This file is a "literate Haskell document": only lines preceded by
+\> and a space (see below) are code; everything else (like this
+paragraph) is a comment. Your programming assignments do not have
+to be literate Haskell, although they may be if you like. Literate
+Haskell documents have an extension of `.lhs`, whereas non-literate Haskell
+source files use `.hs`.
+--></p>
+<h2 id="programming-environment">Programming environment</h2>
+<p>In this class, we start working within a programming environment called CodeWorld, which you can access at <a href="http://code.world/haskell" class="uri">http://code.world/haskell</a> (the <code>/haskell</code> is important). This has the advantages that</p>
+<ul>
+<li>we can start right ahead, and take care of local installation later</li>
+<li>with the integrated support for displaying graphical output, we can have nice, visual, examples and initial tasks.</li>
+</ul>
+<p>We will switch to compiling programs locally later during the course. If you want to work locally already now, there are instructions on the course website.</p>
+<h1 id="basic-haskell">Basic Haskell</h1>
+<p>So let us see some Haskell code. On CodeWorld, we generally start with this code (<a href="https://code.world/haskell#PvoZv8n9Mtp5kOMGDszKEcQ">open on CodeWorld</a>):</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">{-# LANGUAGE OverloadedStrings #-}</span>
+<span class="kw">import </span><span class="dt">CodeWorld</span>
+
+<span class="ot">ourPicture ::</span> <span class="dt">Picture</span>
+ourPicture <span class="fu">=</span> blank
+
+<span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> drawingOf ourPicture</code></pre></div>
+<p>Most of these lines are not interesting initially, and will be understood fully later on. If we run this, using the green “Run” button, or alternatively pressing <em>Ctrl-Enter</em>, we see … nothing.</p>
+<h2 id="declarations-and-variables">Declarations and variables</h2>
+<p>Not very surprising, since our picture is <code>blank</code>. So let us change this line to something that we can see:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">ourPicture <span class="fu">=</span> solidCircle <span class="dv">1</span></code></pre></div>
+<p>We now see a solid black circle of radius 1:</p>
+<p><iframe width="400" height="400" src="https://code.world/run.html?mode=haskell&amp;hash=PGPxJJHfirP0_D8y8lOrQLw"></iframe></p>
+<p>What happens here? This code declares a variable with name <code>ourPicture</code> with type <code>Picture</code> (“<code>::</code>” is pronounced “has type”), and defines its value to be <code>circle 1</code>.</p>
+<p>Note that <em>this will be the value of <code>ourPicture</code> forever</em> (at least, in this particular program). The value of <code>ourPicture</code> cannot be changed later.</p>
+<p>If we would try to write something like</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">ourPicture <span class="fu">=</span> solidCircle <span class="dv">1</span>
+ourPicture <span class="fu">=</span> solidCircle <span class="dv">2</span></code></pre></div>
+<p>then we get an error message complaining about <code>Multiple declarations of ‘ourPicture’</code>.</p>
+<p>In Haskell, <em>variables are not mutable boxes</em>; they are just names for values!</p>
+<p>Put another way, <code>=</code> does <em>not</em> denote “assignment” like it does in many other languages. Instead, <code>=</code> denotes <em>definition</em>, like it does in mathematics. That is, <code>ourPicture = solidCircle 1</code> should not be read as “<code>ourPicture</code> gets <code>solidCircle 1</code>” or “assign <code>solidCircle 1</code> to <code>ourPicture</code>”, but as “<code>ourPicture</code> is <em>defined to be</em> <code>solidCircle 1</code>”.</p>
+<p>What do you think this code means?</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">y ::</span> <span class="dt">Integer</span>
+y <span class="fu">=</span> y <span class="fu">+</span> <span class="dv">1</span></code></pre></div>
+<h2 id="picture-types-and-functions">Picture Types and Functions</h2>
+<p>In contrast to a classical intro into Haskell, we do not start with numbers, booleans, tuples, lists and strings, but we start with pictures. These are of course library-defined (hence the <code>input CodeWorld</code>) and not part of “the language”. But that does not make them less interesting, and in fact, even the basic boolean type is library defined – it just happens to be the standard library.</p>
+<h3 id="primitive-pictures">Primitive pictures</h3>
+<p>Every picture is a value of type, well, <code>Picture</code>. We have seen two such values so far: <code>blank</code> and <code>solidCircle 1</code>. There are many more primitive pictures, for rectangles, polygons, lines, arcs and text. To get an overview, see the Help button on CodeWorld: From there you can reach the documentation of the <code>CodeWorld</code> API.</p>
+<p>If we look at the documentation for <code>solidCircle</code>, it says</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">solidCircle ::</span> <span class="dt">Double</span> <span class="ot">-&gt;</span> <span class="dt">Picture</span></code></pre></div>
+<p>The arrow (<code>-&gt;</code>) indicates that <code>solidCircle</code> itself is a <em>function</em>, turning a value of type <code>Double</code> – i.e. a floating point number – into a picture. Now <code>1</code> happens to be a real number, therefore <code>solidCircle 1</code> is a <code>Picture</code>.</p>
+<p>You can see that function application in Haskell works without parentheses, you just write the argument after the function. But if the argument itself is more complex than just one number of variable name, you have to put parentheses around it:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">ourPicture <span class="fu">=</span> solidCircle (<span class="dv">1</span><span class="fu">+</span><span class="dv">1</span>)</code></pre></div>
+<p><!-- maybe not yet here
+
+Another interesting function is `text`, which text into a picture:
+
+> ourPicture = text "Hello World"
+
+If you forget the line `{-# LANGUAGE OverloadedStrings #-}` you will get this
+error message when working with text:
+
+    Couldn't match expected type ‘Data.Text.Internal.Text’
+                with actual type ‘[Char]’
+    In the first argument of ‘text’, namely ‘"Hello World"’
+    In the expression: text "Hello World"
+    In an equation for ‘ourPicture’: ourPicture = text "Hello World"
+--></p>
+<h3 id="modifying-pictures">Modifying Pictures</h3>
+<p>Let us bring some color into the picture. In the documentation, we see this function</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">colored ::</span> <span class="dt">Color</span> <span class="ot">-&gt;</span> <span class="dt">Picture</span> <span class="ot">-&gt;</span> <span class="dt">Picture</span></code></pre></div>
+<p>There are two arrows! What do we make of that? This means that <code>colored</code> is a function expecting two arguments, namely a color and a picture, and then returns a – presumably colored – picture. There are many colors defined, so we can write</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">ourPicture <span class="fu">=</span> colored green (solidCircle <span class="dv">1</span>)</code></pre></div>
+<p>As you see, even multiple arguments are just written after the function, separated by a space, and complex arguments need to be enclosed in parentheses.</p>
+<p>So what is the deal with two two arrows? Why not just <code>Color Picture -&gt; Picture</code>? It might seem strage to you now, but there is a very deep and beautiful reason, to which we will get in a few weeks; for now you just have to take my word for it!</p>
+<h3 id="composing-pictures">Composing Pictures</h3>
+<p>By now we are tired of seeing single circles. We want more! So we need a way to draw more than one thing. So what we are looking for is a function that takes two pictures, and combines them to one. You should agree with me that such a function likely would have type <code>Picture -&gt; Picture -&gt; Picture</code>.</p>
+<p>And now we are expericing one of the advantages of a good type system: We can search for a type! Indeed, there is only function in the documentation that has this type</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">(&amp;) ::</span> <span class="dt">Picture</span> <span class="ot">-&gt;</span> <span class="dt">Picture</span> <span class="ot">-&gt;</span> <span class="dt">Picture</span></code></pre></div>
+<p>That is a strange name for a function, but it is indeed one name for it, and we could use <code>(&amp;)</code> as a normal function, putting the arguments to its right. But, as you migh have guessed, we can use <code>&amp;</code> (without the parentheses) as an operator, and put it in between two pictures.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">ourPicture <span class="fu">=</span> colored green (solidCircle <span class="dv">1</span>) <span class="fu">&amp;</span> solidCircle <span class="dv">2</span></code></pre></div>
+<p>From the resulting picture we can learn a few things</p>
+<ul>
+<li>The <code>&amp;</code> operator combines two pictures, but puts them in the same spot, with the picture given as the left argument on top of the picture given as the right argument.</li>
+<li><p>The function <code>colored green</code> applied only to <code>(solidCircle 1)</code>, and <em>not</em> to <code>(solidCircle 1) &amp; solidCircle 2</code> (otherwise, both circles would be green). From this we deduce an important fact about Haskell syntax that you should remember well:</p>
+<p><em>Function application binds tighter than any binary operators.</em></p></li>
+</ul>
+<p>In order to create nicer pictures, we need to be able to place our pictures somewhere else than just the middle. For this, we use the function</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">translated ::</span> <span class="dt">Double</span> <span class="ot">-&gt;</span> <span class="dt">Double</span> <span class="ot">-&gt;</span> <span class="dt">Picture</span> <span class="ot">-&gt;</span> <span class="dt">Picture</span></code></pre></div>
+<p>which shoves a picture around. So here we go:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">ourPicture <span class="fu">=</span> colored green (translated <span class="dv">0</span> (<span class="fu">-</span><span class="fl">1.5</span>) (solidCircle <span class="dv">1</span>)) <span class="fu">&amp;</span> colored red (translated <span class="dv">0</span> (<span class="fl">1.5</span>) (solidCircle <span class="dv">1</span>))</code></pre></div>
+<p>Now we are getting somewhere. The parentheses around <code>-1.5</code> are necessary as otherwise the compiler would think we want to use the binary subtraction operator.</p>
+<p>Our code line got too long, so let us name some of the components and give them their own names, and while we are at it, draw a frame around our traffic light (<a href="https://code.world/haskell#PghsHgwl_rJUmdcCvOPAR-w">open on CodeWorld</a>):</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">botCircleGreen <span class="fu">=</span> colored green (translated <span class="dv">0</span> (<span class="fu">-</span><span class="fl">1.5</span>) (solidCircle <span class="dv">1</span>))
+topCircleRed   <span class="fu">=</span> colored red   (translated <span class="dv">0</span>   <span class="fl">1.5</span>  (solidCircle <span class="dv">1</span>))
+frame <span class="fu">=</span> rectangle <span class="fl">2.5</span> <span class="fl">5.5</span>
+trafficLight <span class="fu">=</span> botCircleGreen <span class="fu">&amp;</span> topCircleRed <span class="fu">&amp;</span> frame
+
+<span class="ot">ourPicture ::</span> <span class="dt">Picture</span>
+ourPicture <span class="fu">=</span> trafficLight</code></pre></div>
+<p><iframe width="400" height="400" src="https://code.world/run.html?mode=haskell&amp;hash=PghsHgwl_rJUmdcCvOPAR-w"></iframe></p>
+<h2 id="defining-functions">Defining functions</h2>
+<p>We have seen how to use functions, but we also want define our own. And in a way, we have been defining functions all the time when we wrote <code>something = this and that</code>; this defined a function <code>something</code>, which just happend to not take any argument. If we want it to take any arguments, we just write give their names on the left:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">botCircle c <span class="fu">=</span> colored c (translated <span class="dv">0</span> (<span class="fu">-</span><span class="fl">1.5</span>) (solidCircle <span class="dv">1</span>))
+topCircle c <span class="fu">=</span> colored c (translated <span class="dv">0</span>   <span class="fl">1.5</span>  (solidCircle <span class="dv">1</span>))
+frame <span class="fu">=</span> rectangle <span class="fl">2.5</span> <span class="fl">5.5</span>
+trafficLight <span class="fu">=</span> botCircle green <span class="fu">&amp;</span> topCircle red <span class="fu">&amp;</span> frame
+
+<span class="ot">ourPicture ::</span> <span class="dt">Picture</span>
+ourPicture <span class="fu">=</span> trafficLight</code></pre></div>
+<p>A normal traffic light never shows red and green at the same time. So let us turn <code>trafficLight</code> into a function that shows either a green or a red light. So the argument is going to be a boolean value of type <code>Bool</code>, which can be either <code>True</code> or <code>False</code>. And as a matter of fact, we can write define <code>trafficLight</code> by handling these two cases:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">trafficLight <span class="dt">True</span>  <span class="fu">=</span> botCircle green <span class="fu">&amp;</span> topCircle black <span class="fu">&amp;</span> frame
+trafficLight <span class="dt">False</span> <span class="fu">=</span> botCircle black <span class="fu">&amp;</span> topCircle red   <span class="fu">&amp;</span> frame
+ourPicture <span class="fu">=</span> trafficLight <span class="dt">True</span></code></pre></div>
+<p>We could, and we should, also write down the type of <code>trafficLight</code>. Not that the compiler needs us to do that – it is smart enough to figure that out by itself. But it helps us to understand the code better, to confirm that what we wrote is actually what we intended, and to narrow down bugs in the code. Conveniently, the compiler tells us about the correct signture, so we can just copy that:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">trafficLight ::</span> <span class="dt">Bool</span> <span class="ot">-&gt;</span> <span class="dt">Picture</span></code></pre></div>
+<p>Here we have applied a very important method in programming in general, and one that is even more powerful in functional programming (for reasons you will learn to appreciate later): We <strong>abstracted</strong> our code, by making the <code>topCircle</code> function <em>abstract</em> in the color, and the <code>trafficLight</code> function <em>abstract</em> in the state it is in.</p>
+<h2 id="animations">Animations</h2>
+<p>Now the traffic light is green, but we want it to switch to red every now and then. The CodeWorld API not only allows us to draw drawings, but also to run animations. What is an animation? It is a picture that changes over time, where time can conveniently be understood as the number of seconds since the start of the animation.</p>
+<p>In imperative language, one would probably have a <code>getCurrentTime()</code> function and call that from somewhere in our drawing generating. This is not possible nor desirable in a pure functional language, as it would be a <em>hidden side effect</em>. Instead, the time is provided as a parameter.</p>
+<p>So here this codes makes the traffic light switch every three seconds:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">trafficController ::</span> <span class="dt">Double</span> <span class="ot">-&gt;</span> <span class="dt">Picture</span>
+trafficController t
+  <span class="fu">|</span> round (t<span class="fu">/</span><span class="dv">3</span>) <span class="ot">`mod`</span> <span class="dv">2</span> <span class="fu">==</span> <span class="dv">0</span> <span class="fu">=</span> trafficLight <span class="dt">True</span>
+  <span class="fu">|</span> otherwise                <span class="fu">=</span> trafficLight <span class="dt">False</span>
+
+<span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> animationOf trafficController</code></pre></div>
+<p>From looking at the code (<a href="https://code.world/haskell#Ph3vruxsOVmcnYG0D2NGG0Q">open on CodeWorld</a>) we notice</p>
+<ul>
+<li>Instead of <code>drawingOf</code> we use <code>animationOf</code> in the main entry point of the program. Its parameter is no longer simply a value of type <code>Picture</code>, but rather a <em>function</em> of type <code>Double -&gt; Picture</code>. This function will be given the current time, and return the picture for that time.</li>
+<li>We again define a function by multiple cases, but this time using a <em>guard</em> to select the case. When called, the conditions of the guards are tried in that order until one evaluates to <code>True</code>. Then this code is taken.</li>
+<li><code>otherwise</code> happens to be a defined to be <code>True</code>. It just reads better than writing <code>True</code> here.</li>
+<li>There is a function called <code>round</code> and <code>mod</code>. <code>round</code> is used in the normal, infix way, but we turned <code>mod</code> into an operator by putting backticks around it (<code>`mod`</code>). You can do that two any function called with two arguments.</li>
+<li>We are now working with numbers here, so let us take a quick detour into Haskell’s numeric types.</li>
+</ul>
+<iframe width="400" height="400" src="https://code.world/run.html?mode=haskell&amp;hash=Ph3vruxsOVmcnYG0D2NGG0Q">
+</iframe>
+<h2 id="numerical-types">Numerical Types</h2>
+<p>There are three number-related types we should know about for now: <code>Int</code>, <code>Integer</code> and <code>Double</code>.</p>
+<ul>
+<li><p><code>Int</code> are machine-sized integers.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">i ::</span> <span class="dt">Int</span>
+i <span class="fu">=</span> <span class="fu">-</span><span class="dv">42</span></code></pre></div>
+<p><code>Int</code>s are guaranteed by the Haskell language standard to accommodate values at least up to \(\pm 2^{29}\), but the exact size depends on your architecture. For example, on my 64-bit machine the range is \(\pm 2^{63}\).</p></li>
+<li><p>The <code>Integer</code> type, on the other hand, is limited only by the amount of memory on your machine.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">n ::</span> <span class="dt">Integer</span>
+n <span class="fu">=</span> <span class="dv">1234567890987654321987340982334987349872349874534</span>
+
+<span class="ot">reallyBig ::</span> <span class="dt">Integer</span>
+reallyBig <span class="fu">=</span> <span class="dv">2</span><span class="fu">^</span>(<span class="dv">2</span><span class="fu">^</span>(<span class="dv">2</span><span class="fu">^</span>(<span class="dv">2</span><span class="fu">^</span><span class="dv">2</span>)))
+
+<span class="ot">numDigits ::</span> <span class="dt">Int</span>
+numDigits <span class="fu">=</span> length (show reallyBig)</code></pre></div>
+<p>In the code above, <code>numDigits</code> is <code>19729</code>, so the integer type has no problems handling numbers with thousands of digits.</p></li>
+<li><p>For (double-precision) floating-point numbers, there is <code>Double</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">d1,<span class="ot"> d2 ::</span> <span class="dt">Double</span>
+d1 <span class="fu">=</span> <span class="fl">4.5387</span>
+d2 <span class="fu">=</span> <span class="fl">6.2831e-4</span></code></pre></div>
+<p>There is also a single-precision floating point number type, <code>Float</code>, in case you wonder.</p></li>
+</ul>
+<p>Together with these functions, there are a bunch of operations, as you would expect:</p>
+<ul>
+<li><p><code>(+)</code>, <code>(-)</code> and <code>(*)</code> work for all numerical types.</p>
+<p>(If you see <code>Num a =&gt;</code> in front of a type in the documentation or in the output of <a href="http://tryhaskell.org/" class="uri">http://tryhaskell.org/</a> or your local interpreter session, just read that as “<code>a</code> is one of the numerical types” for now).</p></li>
+<li><p><code>(/)</code> only works for <code>Double</code></p></li>
+<li><p>For integer division, there is <code>div</code> and <code>mod</code>.</p></li>
+<li><p>The usual functions like <code>sin</code>, <code>cos</code>, <code>log</code>, <code>sqrt</code> etc. all exist.</p></li>
+</ul>
+<p>You cannot mix different types in the same operation, e.g. you cannot directly add <code>d1 + i</code>. If you want to do that, you have to explicitly convert</p>
+<ul>
+<li><p><code>fromIntegral</code>: converts from any integral type (<code>Int</code> or <code>Integer</code>) to any other numeric type.</p></li>
+<li><p><code>round</code>, <code>floor</code>, <code>ceiling</code>: convert floating-point numbers to <code>Int</code> or <code>Integer</code>.</p></li>
+</ul>
+<p>If you are used to other languages which do implicit conversion of numeric types, this can all seem rather prudish and annoying at first. However, I promise you’ll get used to it – and in time you may even come to appreciate it. Implicit numeric conversion encourages sloppy thinking about numeric code.</p>
+<p>In the code above, we also used <code>(==)</code>. This compares two values of the same type for equality. It does work on most types (more on that later). It even works on floating point numbers, but really, it should not be used there (why? see <a href="http://docs.oracle.com/cd/E19957-01/806-3568/ncg_goldberg.html">this article</a>). The test for inequality is <code>(/=)</code>.</p>
+<p>There is also <code>(&lt;)</code>, <code>(&gt;)</code>, <code>(&lt;=)</code>, <code>(&gt;=)</code> for comparisons and <code>min</code> and <code>max</code> to take the minimum or maximum of two values.</p>
+<h1 id="recursion">Recursion</h1>
+<p>The last topic for today is recursion. Recursion is when a function calls itself again. Or, more general, if multiple functions call each other.</p>
+<p>Recursion is, like abstraction, a very powerful method in functional programming and once you are done with this course, thinking about recursion is going to be the most natural thing in the world.</p>
+<p>So lets say we want to put multiple traffic lights next to each other. We could do it this way (<a href="https://code.world/haskell#PNApyEJW7C_zshSxdde3eIw">open on CodeWorld</a>):</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">lights ::</span> <span class="dt">Integer</span> <span class="ot">-&gt;</span> <span class="dt">Picture</span>
+lights <span class="dv">0</span> <span class="fu">=</span> blank
+lights n <span class="fu">=</span> trafficLight <span class="dt">True</span> <span class="fu">&amp;</span> translated <span class="dv">3</span> <span class="dv">0</span> (lights (n<span class="fu">-</span><span class="dv">1</span>))
+
+ourPicture <span class="fu">=</span> lights <span class="dv">3</span>
+
+main <span class="fu">=</span> drawingOf ourPicture</code></pre></div>
+<iframe width="400" height="400" src="https://code.world/run.html?mode=haskell&amp;hash=PNApyEJW7C_zshSxdde3eIw">
+</iframe>
+<p>The function <code>lights</code> is again defined over multiple cases, by pattern-matching on the number of lights to draw. If we should draw no light, we do not draw anything. Otherwise, we draw one light, and the remaining lights shifted to the right.</p>
+<p>This is a typical form of recursion: We have a base case, which does not itself use the recursive function any more, and we have the recursive cases, which do.</p>
+<p>What happens if I try to draw <code>lights (-1)</code>? What if I swap the arguments to <code>(&amp;)</code>?</p>
+<p>Of course, there is a lot of logic involved in <code>lights</code> that that is not specific to traffic lights, so this does call out for some abstraction. We will abstract out both the picture to draw, and how far we shift to the right in every step (<a href="https://code.world/haskell#Pb3XJ3yim9fyIbLeIoaLMDw">open on CodeWorld</a>):</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">spread ::</span> <span class="dt">Picture</span> <span class="ot">-&gt;</span> <span class="dt">Double</span> <span class="ot">-&gt;</span> <span class="dt">Integer</span> <span class="ot">-&gt;</span> <span class="dt">Picture</span>
+spread pic dx <span class="dv">0</span> <span class="fu">=</span> blank
+spread pic dx n <span class="fu">=</span> pic <span class="fu">&amp;</span> translated dx <span class="dv">0</span> (spread pic dx (n<span class="fu">-</span><span class="dv">1</span>))
+
+ourPicture <span class="fu">=</span> spread (trafficLight <span class="dt">True</span>) <span class="dv">3</span> <span class="dv">4</span></code></pre></div>
+<p>Side remark: With this code, the compiler warns about unused variables <code>pic</code> and <code>dx</code>. This is a helpful warning, as more often than not if you do not use a value that you named, then that is a bug. If it is not, like in this case, replace the binding by <code>_</code>, indicating that you do not want to name this parameter.</p>
+<p>A recursive function may call itself more than once, and this allows for nice drawings <a href="https://code.world/haskell#Pt35LixP8QB5edtSH06YjAA">open on CodeWorld</a>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">tree ::</span> <span class="dt">Integer</span> <span class="ot">-&gt;</span> <span class="dt">Picture</span>
+tree <span class="dv">0</span> <span class="fu">=</span> blank
+tree n <span class="fu">=</span> path [(<span class="dv">0</span>,<span class="dv">0</span>),(<span class="dv">0</span>,<span class="dv">1</span>)] <span class="fu">&amp;</span> translated <span class="dv">0</span> <span class="dv">1</span> (
+    rotated (pi<span class="fu">/</span><span class="dv">10</span>) (tree (n<span class="fu">-</span><span class="dv">1</span>)) <span class="fu">&amp;</span> rotated (<span class="fu">-</span> pi<span class="fu">/</span><span class="dv">10</span>) (tree (n<span class="fu">-</span><span class="dv">1</span>)))
+
+main <span class="fu">=</span> drawingOf (tree <span class="dv">8</span>)</code></pre></div>
+<p>We will get to the meaning of the lists with brackets and the pairs with parentheses next lession, for now just consider this a way of drawing a line from one point to another.</p>
+<iframe width="400" height="400" src="https://code.world/run.html?mode=haskell&amp;hash=Pt35LixP8QB5edtSH06YjAA">
+</iframe>
+<p>(Do you want to see the tree folding and unfolding? Requires only minor changes to the code… check out <a href="https://code.world/haskell#PrrDoZkX8T-a3E9x0rXVydQ">this animation</a>.)</p>
+<h1 id="code-comments">Code Comments</h1>
+<p>Not very exciting, but good to know: You can have comments in Haskell code in one of two formats:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- Two hyphens, until the end of the line</span>
+<span class="co">{- or enclosed</span>
+<span class="co">   in curly brace/hyphen pairs, which may span multiple lines</span>
+<span class="co"> -}</span></code></pre></div>
+<h1 id="a-word-about-error-messages">A word about error messages</h1>
+<p>Actually, six:</p>
+<p><strong>Don’t be scared of error messages!</strong></p>
+<p>GHC’s error messages can be rather long and (seemingly) scary. However, usually they’re long not because they are obscure, but because they contain a lot of useful information! Here’s an example:</p>
+<pre><code>Prelude&gt; 'x' ++ &quot;foo&quot;
+
+&lt;interactive&gt;:1:1:
+    Couldn't match expected type `[a0]' with actual type `Char'
+    In the first argument of `(++)', namely 'x'
+    In the expression: 'x' ++ &quot;foo&quot;
+    In an equation for `it': it = 'x' ++ &quot;foo&quot;</code></pre>
+<p>First we are told “Couldn’t match expected type <code>[a0]</code> with actual type <code>Char</code>”. This means that <em>something</em> was expected to have a list type, but actually had type <code>Char</code>. What something? The next line tells us: it’s the first argument of <code>(++)</code> which is at fault, namely, <code>'x'</code>. The next lines go on to give us a bit more context. Now we can see what the problem is: clearly <code>'x'</code> has type <code>Char</code>, as the first line said. Why would it be expected to have a list type? Well, because it is used as an argument to <code>(++)</code>, which takes a list as its first argument.</p>
+<p>When you get a huge error message, resist your initial impulse to run away; take a deep breath; and read it carefully. You won’t necessarily understand the entire thing, but you will probably learn a lot, and you may just get enough information to figure out what the problem is.</p>
+    </div>
+
+    <div id="footer"><center>
+      <font size="-2">Powered
+      by <a href="http://community.haskell.org/~ndm/shake/">shake</a>,
+      <a href="http://jaspervdj.be/hakyll/index.html">hakyll</a>,
+      <a href="http://johnmacfarlane.net/pandoc/">pandoc</a>,
+      <a href="http://projects.haskell.org/diagrams">diagrams</a>,
+      and <a href="http://www.andres-loeh.de/lhs2tex/">lhs2TeX</a>.
+      </center>
+    </div>
+  </div>
+</body>
+
+
+<!-- Mirrored from cis.upenn.edu/~cis194/fall16/lectures/01-intro.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 14:08:49 GMT -->
+</html>

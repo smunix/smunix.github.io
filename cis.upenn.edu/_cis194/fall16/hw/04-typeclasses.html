@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+
+<!-- Mirrored from cis.upenn.edu/~cis194/fall16/hw/04-typeclasses.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 14:08:49 GMT -->
+<head>
+  <META http-equiv="Content-Type" content="text/html; charset='UTF-8'">
+  <title>CIS194</title>
+
+  <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+  <link href="../css/style.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+
+  <div id="canvas">
+    <div id="nav">
+     <p><a href="../index-2.html">CIS 194</a> | <a href="../policies.html">Policies</a> | <a href="../resources.html">Resources</a> | <a href="../final.html">Final Project</a></p>
+   </div>
+
+    
+
+    
+
+
+    <div id="content">
+      <h1 id="homework-4-graph-algorithms">Homework 4: Graph algorithms</h1>
+<p>CIS 194: Homework 4<br />
+Due Tuesday, September 27</p>
+<p>The general remarks about style and submittion from <a href="01-intro.html">the first week</a> still apply.</p>
+<h2 id="exercise-0-import-the-list-of-mazes">Exercise 0: Import the list of mazes</h2>
+<p>We have collected your submitted mazes from last week. You can download <a href="../extras/Mazes.hs">the code of the mazes</a>. It contains a list of mazes (<code>mazes</code>) and a longer list including broken mazes (<code>extraMazes</code>). Paste them into your file, at the very end.</p>
+<p>Because the starting position is relevant, we added a data type to go along with the maze:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Maze</span> <span class="fu">=</span> <span class="dt">Maze</span> <span class="dt">Coord</span> (<span class="dt">Coord</span> <span class="ot">-&gt;</span> <span class="dt">Tile</span>) 
+<span class="ot">mazes ::</span> <span class="dt">List</span> <span class="dt">Maze</span>
+mazes <span class="fu">=</span> …
+<span class="ot">extraMazes ::</span> <span class="dt">List</span> <span class="dt">Maze</span>
+extraMazes <span class="fu">=</span> …</code></pre></div>
+<h2 id="exercise-1-more-polymorphic-list-function">Exercise 1: More polymorphic list function</h2>
+<p>Implement these generally useful functions:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">elemList ::</span> <span class="dt">Eq</span> a <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">List</span> a <span class="ot">-&gt;</span> <span class="dt">Bool</span>
+<span class="ot">appendList ::</span> <span class="dt">List</span> a <span class="ot">-&gt;</span> <span class="dt">List</span> a <span class="ot">-&gt;</span> <span class="dt">List</span> a
+<span class="ot">listLength ::</span> <span class="dt">List</span> a <span class="ot">-&gt;</span> <span class="dt">Integer</span>
+<span class="ot">filterList ::</span> (a <span class="ot">-&gt;</span> <span class="dt">Bool</span>) <span class="ot">-&gt;</span> <span class="dt">List</span> a <span class="ot">-&gt;</span> <span class="dt">List</span> a
+<span class="ot">nth ::</span> <span class="dt">List</span> a <span class="ot">-&gt;</span> <span class="dt">Integer</span> <span class="ot">-&gt;</span> a</code></pre></div>
+<p>These should do what their name and types imply:</p>
+<ul>
+<li><code>elemList x xs</code> is <code>True</code> if and only if at least one entry in <code>xs</code> equals to <code>x</code>.</li>
+<li><code>appendList xs ys</code> should be the list containing the entries of <code>xs</code> followed by those of <code>ys</code>, in that order.</li>
+<li><code>listLength xs</code> should be the number of entries in <code>xs</code>.</li>
+<li><code>filterList p xs</code> should be the list containing those entries <code>x</code> of <code>xs</code> for which <code>p x</code> is true.</li>
+<li><code>nths xs n</code> extracts the <span class="math inline">\(n\)</span>th entry of the list (start counting with 1). If <span class="math inline">\(n\)</span> is too large, you may abort the program (by writing <code>error &quot;list too short&quot;</code>, which is an expression that can be used at any type). This is not good style, but shall do for now.</li>
+</ul>
+<h2 id="exercise-2-graph-search">Exercise 2: Graph search</h2>
+<p>(Read exercise 3 first, to have understand why this is an interesting function.)</p>
+<p>The algorithm you have to implement below can be phrased very generally, and we want it to be general. So implement a function</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">isGraphClosed ::</span> <span class="dt">Eq</span> a <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> (a <span class="ot">-&gt;</span> <span class="dt">List</span> a) <span class="ot">-&gt;</span> (a <span class="ot">-&gt;</span> <span class="dt">Bool</span>) <span class="ot">-&gt;</span> <span class="dt">Bool</span></code></pre></div>
+<p>so that in a call <code>isGraphClosed initial adjacent isOk</code>, where the parameters are</p>
+<ul>
+<li><code>initial</code>, an initial node,</li>
+<li><code>adjacent</code>, a function that for every node lists all walkable adjacent nodes and</li>
+<li><code>isOk</code>, which checks if the node is ok to have in the graph,</li>
+</ul>
+<p>the function returns <code>True</code> if all reachable nodes are “ok” and <code>False</code> otherwise.</p>
+<p>Note that the graph described by <code>adjacent</code> can have circles, and you do not want your program to keep running in circles. So you will have to remember what nodes you have already visted.</p>
+<p>The algorithm follows quite naturally from handling the various cases in a local helper function <code>go</code> that takes two arguments, namely a list of seen nodes and a list of nodes that need to be handled. If the latter list is empty, you are done. If it is not empty, look at the first entry. Ignore it if you have seen it before. Otherwise, if it is not ok, you are also donw. Otherwise, add its adjacent elements to the list of nodes to look ak.</p>
+<p>You might find it helpful to define a list <code>allDirections :: List Direction</code> and use <code>mapList</code> and <code>filterList</code> when implementing <code>adjacent</code>.</p>
+<h2 id="exercise-3-check-closedness-of-mazes">Exercise 3: Check closedness of mazes</h2>
+<p>Write a function</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">isClosed ::</span> <span class="dt">Maze</span> <span class="ot">-&gt;</span> <span class="dt">Bool</span></code></pre></div>
+<p>that checks whether the maze is closed. A maze is closed if</p>
+<ul>
+<li>the starting position is either <code>Ground</code> or <code>Storage</code> and</li>
+<li>every reachable tile is either <code>Ground</code>, <code>Storage</code> or <code>Box</code>.</li>
+</ul>
+<p>Use <code>isGraphClosed</code> to do the second check. Implement <code>adjacent</code> so that <code>isGraphClosed</code> walks everywhere where there is not a <code>Wall</code> (including <code>Blank</code>). Implement <code>isOk</code> so that <code>Blank</code> tiles are not ok.</p>
+<p>With the following function you can visualize a list of booleans:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">pictureOfBools ::</span> <span class="dt">List</span> <span class="dt">Bool</span> <span class="ot">-&gt;</span> <span class="dt">Picture</span>
+pictureOfBools xs <span class="fu">=</span> translated (<span class="fu">-</span>fromIntegral k <span class="fu">/</span><span class="dv">2</span>) (fromIntegral k) (go <span class="dv">0</span> xs)
+  <span class="kw">where</span> n <span class="fu">=</span> listLength xs
+        k <span class="fu">=</span> findK <span class="dv">0</span> <span class="co">-- k is the integer square of n</span>
+        findK i <span class="fu">|</span> i <span class="fu">*</span> i <span class="fu">&gt;=</span> n <span class="fu">=</span> i
+                <span class="fu">|</span> otherwise  <span class="fu">=</span> findK (i<span class="fu">+</span><span class="dv">1</span>)
+        go _ <span class="dt">Empty</span> <span class="fu">=</span> blank
+        go i (<span class="dt">Entry</span> b bs) <span class="fu">=</span>
+          translated (fromIntegral (i <span class="ot">`mod`</span> k))
+                     (<span class="fu">-</span>fromIntegral (i <span class="ot">`div`</span> k))
+                     (pictureOfBool b)
+          <span class="fu">&amp;</span> go (i<span class="fu">+</span><span class="dv">1</span>) bs
+
+        pictureOfBool <span class="dt">True</span> <span class="fu">=</span>  colored green (solidCircle <span class="fl">0.4</span>)
+        pictureOfBool <span class="dt">False</span> <span class="fu">=</span> colored red   (solidCircle <span class="fl">0.4</span>)</code></pre></div>
+<p>Let <code>exercise3 :: IO ()</code> be the visualization of <code>isClosed</code> applied to every element of <code>extraMazes</code>. Obviously, <code>mapList</code> wants to be used here.</p>
+<iframe width="400" height="400" src="https://code.world/run.html?mode=haskell&amp;dhash=DcmaPotzuWThcbL2VAHBRMw">
+</iframe>
+<h2 id="exercise-4-multi-level-sokoban">Exercise 4: Multi-Level Sokoban</h2>
+<p>Extend your game from last week (or the <a href="https://code.world/haskell#PZ2vR0V_ZaWGU8XKe-54seA">code from the lecture</a>) to implement multi-level sokoban.</p>
+<ul>
+<li>Extend the <code>State</code> with a field of type <code>Integer</code>, to indicate the current level (start counting at 1).</li>
+<li>The initial state should start with level 1. The initial coordinate is obtained read from the entry in <code>maze</code>.</li>
+<li><p>Your <code>handle</code> and <code>draw</code> functions will now need to take an additional argument, the current maze, of type <code>Coord -&gt; Tile</code>, instead of refering to a top-level <code>maze</code> function. Any helper functions (e.g. <code>noBoxMaze</code>) will also have to take this as an argument. This requires many, but straight-forward changes to the code: You can mostly, without much thinking:</p>
+<ul>
+<li>Check the compier errors for an affected function, say <code>foo</code>.</li>
+<li>Add <code>(Coord -&gt; Tile) -&gt;</code> to the front of <code>foo</code>’s type signature, .</li>
+<li>Add a new first parameter <code>maze</code> to <code>foo</code></li>
+<li>Everywhere where <code>foo</code> is called, add <code>maze</code> as an argument.</li>
+<li>Repeat.</li>
+</ul>
+<p>To get the current maze, use <code>nth</code> from exercise 1. Of course, make sure you never use <code>nth</code> with a too-short list. A variant <code>nthMaze :: Integer -&gt; (Coord -&gt; Tile)</code> that gets the maze component of the corresponding entry in <code>mazes</code> will also be handy whenever you have the <code>State</code>, but need a <code>maze :: Coord -&gt; Tile</code>.</p></li>
+<li><p>If the level is solved and the current level is not the last (use <code>listLength</code> from above) the space bar should load the next level.</p>
+There is some code to be shared with the calculation of the initial state! Maybe the same function <code>loadLevel :: Integer -&gt; State</code> can be used in both situations.</li>
+<li><p>If the level is solved and the current leve is the last, show a differnt message (e.g. “All done” instead of “You won”).</p></li>
+</ul>
+<p>Let <code>exercise4 :: IO ()</code> be this interaction, wrapped in <code>withUndo</code>, <code>withStartScreen</code> and <code>resetable</code>.</p>
+<iframe width="400" height="400" src="https://code.world/run.html?mode=haskell&amp;dhash=DdNo_jMX1jJPXOKC62pdVyg">
+</iframe>
+    </div>
+
+    <div id="footer"><center>
+      <font size="-2">Powered
+      by <a href="http://community.haskell.org/~ndm/shake/">shake</a>,
+      <a href="http://jaspervdj.be/hakyll/index.html">hakyll</a>,
+      <a href="http://johnmacfarlane.net/pandoc/">pandoc</a>,
+      <a href="http://projects.haskell.org/diagrams">diagrams</a>,
+      and <a href="http://www.andres-loeh.de/lhs2tex/">lhs2TeX</a>.
+      </center>
+    </div>
+  </div>
+</body>
+
+
+<!-- Mirrored from cis.upenn.edu/~cis194/fall16/hw/04-typeclasses.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 14:08:49 GMT -->
+</html>

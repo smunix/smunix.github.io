@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+
+<!-- Mirrored from cis.upenn.edu/~cis194/fall16/hw/09-more-applicative.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 14:08:49 GMT -->
+<head>
+  <META http-equiv="Content-Type" content="text/html; charset='UTF-8'">
+  <title>CIS194</title>
+
+  <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+  <link href="../css/style.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+
+  <div id="canvas">
+    <div id="nav">
+     <p><a href="../index-2.html">CIS 194</a> | <a href="../policies.html">Policies</a> | <a href="../resources.html">Resources</a> | <a href="../final.html">Final Project</a></p>
+   </div>
+
+    
+
+    
+
+
+    <div id="content">
+      <h1 id="homework-9-more-parsergrammer">Homework 9: More Parser/Grammer</h1>
+<p>CIS 194: Homework 9<br />
+Due Tuesday, November 1</p>
+<p>This is only half a homework assignment (10 points). Your other task this week is to write your <a href="../final.html">final project</a> proposal, also due on November 1st.</p>
+<h2 id="exercise-1">Exercise 1</h2>
+<p>Start with <a href="09-more-applicative.hs">this code</a>, which roughly corresponds to the result of the code developed during this week’s lecture.</p>
+<p>Your task is to write a combined parser/grammar generator for EBNF</p>
+<pre><code>parseBNF :: Descr f =&gt; f BNF</code></pre>
+<h2 id="bnf-in-bnf">BNF in BNF</h2>
+<p>Here is a BNF for BNF:</p>
+<pre><code>identifier = letter, {letter | digit | '-'};
+spaces = {' ' | newline};
+quoted-char = non-quote-or-backslash | '\\', '\\' | '\\', '\'';
+terminal = '\'', {quoted-char}, '\'', spaces;
+non-terminal = identifier, spaces;
+option = '[', spaces, rhs, spaces, ']', spaces;
+repetition = '{', spaces, rhs, spaces, '}', spaces;
+group = '(', spaces, rhs, spaces, ')', spaces;
+atom = terminal | non-terminal | option | repetition | group;
+sequence = atom, {spaces, ',', spaces, atom}, spaces;
+choice = sequence, {spaces, '|', spaces, sequence}, spaces;
+rhs = choice;
+production = identifier, spaces, '=', spaces, rhs, ';', spaces;
+bnf = production, {production};</code></pre>
+<p>This grammar is set up so that the precedence of <code>,</code> and <code>|</code> is correctly implemented: <code>a , b | c</code> will parse as <code>(a, b) | c</code>.</p>
+<p>In this syntax for BNF, terminal characters are quoted, i.e. inside <code>'…'</code>, a <code>'</code> is replaced by <code>\'</code> and a <code>\</code> is replaced by <code>\\</code>. Also see the function <code>quote</code> in <code>ppRHS</code>.</p>
+<p>If something is unclear about the grammar, please ask!</p>
+<h2 id="recursion">Recursion</h2>
+<p>You will notice that, in contrast to the grammars in class, this is recursive: Many productions refer to <code>rhs</code>, and <code>rhs</code> itself refers to these productions. With plain recursion on the Haskell level, and the implementation of <code>Grammar</code> in class, this will not work.</p>
+<p>Therefore, you will find a new function</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">recNonTerminal ::</span> <span class="dt">Descr</span> f <span class="ot">=&gt;</span> <span class="dt">String</span> <span class="ot">-&gt;</span> (f a <span class="ot">-&gt;</span> f a) <span class="ot">-&gt;</span> f a</code></pre></div>
+<p>in the provided file that makes the recursion explicit, and hence allows the grammar generator to inspect and it and make sense of it.</p>
+<p>You use <code>recNonTerminal &quot;foo&quot;</code> to define a non-terminal symbol <code>foo</code>. The second argument of <code>recNonTerminal</code> is a function that returns the right-hand side of the production. The argument given to that function is a description to be used whenever <code>foo</code> is referenced.</p>
+<p>So instead of the naively recursive (and non-functional) variant</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">aList ::</span> <span class="dt">Descr</span> f <span class="ot">=&gt;</span> f [<span class="dt">Item</span>]
+aList <span class="fu">=</span> nonTerminal <span class="st">&quot;list&quot;</span> <span class="fu">$</span>
+    ((<span class="fu">:</span>) <span class="fu">&lt;$&gt;</span> anItem <span class="fu">&lt;*&gt;</span> aList) <span class="ot">`orElse`</span> pure []</code></pre></div>
+<p>you would encode that as</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">aList ::</span> <span class="dt">Descr</span> f <span class="ot">=&gt;</span> f [<span class="dt">Item</span>]
+aList <span class="fu">=</span> recNonTerminal <span class="st">&quot;list&quot;</span> <span class="fu">$</span> \list <span class="ot">-&gt;</span>
+    ((<span class="fu">:</span>) <span class="fu">&lt;$&gt;</span> anItem <span class="fu">&lt;*&gt;</span> list) <span class="ot">`orElse`</span> pure []</code></pre></div>
+<h2 id="larger-example">Larger example</h2>
+<p>The following is an example that shows how to use <code>recNonTerminal</code> and is otherwise also similar to your exercise. You can use it as an template.</p>
+<p>In this example, we have a parser and a grammar generator for simple arithmetic expressions with addition, multiplication and constant integers.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Expr</span> <span class="fu">=</span> <span class="dt">Plus</span> <span class="dt">Expr</span> <span class="dt">Expr</span> <span class="fu">|</span> <span class="dt">Mult</span> <span class="dt">Expr</span> <span class="dt">Expr</span> <span class="fu">|</span> <span class="dt">Const</span> <span class="dt">Integer</span>
+    <span class="kw">deriving</span> <span class="dt">Show</span>
+
+<span class="ot">mkPlus ::</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> [<span class="dt">Expr</span>] <span class="ot">-&gt;</span> <span class="dt">Expr</span>
+mkPlus <span class="fu">=</span> foldl <span class="dt">Plus</span>
+
+<span class="ot">mkMult ::</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> [<span class="dt">Expr</span>] <span class="ot">-&gt;</span> <span class="dt">Expr</span>
+mkMult <span class="fu">=</span> foldl <span class="dt">Mult</span>
+
+<span class="ot">parseExpr ::</span> <span class="dt">Descr</span> f <span class="ot">=&gt;</span> f <span class="dt">Expr</span>
+parseExpr <span class="fu">=</span> recNonTerminal <span class="st">&quot;expr&quot;</span> <span class="fu">$</span> \ exp <span class="ot">-&gt;</span>
+    ePlus exp
+
+<span class="ot">ePlus ::</span> <span class="dt">Descr</span> f <span class="ot">=&gt;</span> f <span class="dt">Expr</span> <span class="ot">-&gt;</span> f <span class="dt">Expr</span>
+ePlus exp <span class="fu">=</span> nonTerminal <span class="st">&quot;plus&quot;</span> <span class="fu">$</span>
+    mkPlus <span class="fu">&lt;$&gt;</span> eMult exp
+           <span class="fu">&lt;*&gt;</span> many (spaces <span class="fu">*&gt;</span>  char <span class="ch">'+'</span> <span class="fu">*&gt;</span>  spaces <span class="fu">*&gt;</span> eMult exp)
+           <span class="fu">&lt;*</span>  spaces
+
+<span class="ot">eMult ::</span> <span class="dt">Descr</span> f <span class="ot">=&gt;</span> f <span class="dt">Expr</span> <span class="ot">-&gt;</span> f <span class="dt">Expr</span>
+eMult exp <span class="fu">=</span> nonTerminal <span class="st">&quot;mult&quot;</span> <span class="fu">$</span>
+    mkPlus <span class="fu">&lt;$&gt;</span> eAtom exp
+           <span class="fu">&lt;*&gt;</span> many (spaces <span class="fu">*&gt;</span>  char <span class="ch">'*'</span> <span class="fu">*&gt;</span>  spaces <span class="fu">*&gt;</span> eAtom exp)
+           <span class="fu">&lt;*</span>  spaces
+
+<span class="ot">eAtom ::</span> <span class="dt">Descr</span> f <span class="ot">=&gt;</span> f <span class="dt">Expr</span> <span class="ot">-&gt;</span> f <span class="dt">Expr</span>
+eAtom exp <span class="fu">=</span> nonTerminal <span class="st">&quot;atom&quot;</span> <span class="fu">$</span>
+    aConst <span class="ot">`orElse`</span> eParens exp
+
+<span class="ot">aConst ::</span> <span class="dt">Descr</span> f <span class="ot">=&gt;</span> f <span class="dt">Expr</span>
+aConst <span class="fu">=</span> nonTerminal <span class="st">&quot;const&quot;</span> <span class="fu">$</span> <span class="dt">Const</span> <span class="fu">.</span> read <span class="fu">&lt;$&gt;</span> many1 digit
+
+<span class="ot">eParens ::</span> <span class="dt">Descr</span> f <span class="ot">=&gt;</span> f a <span class="ot">-&gt;</span> f a
+eParens inner <span class="fu">=</span>
+    id <span class="fu">&lt;$</span>  char <span class="ch">'('</span>
+       <span class="fu">&lt;*</span>  spaces
+       <span class="fu">&lt;*&gt;</span> inner
+       <span class="fu">&lt;*</span>  spaces
+       <span class="fu">&lt;*</span>  char <span class="ch">')'</span>
+       <span class="fu">&lt;*</span>  spaces</code></pre></div>
+<h2 id="bnf-helper-functions">BNF helper functions</h2>
+<p>Note the functions</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">mkChoices ::</span> <span class="dt">RHS</span> <span class="ot">-&gt;</span> [<span class="dt">RHS</span>] <span class="ot">-&gt;</span> <span class="dt">RHS</span>
+<span class="ot">mkSequences ::</span> <span class="dt">RHS</span> <span class="ot">-&gt;</span> [<span class="dt">RHS</span>] <span class="ot">-&gt;</span> <span class="dt">RHS</span></code></pre></div>
+<p>in the provided code. They might be useful in when parsing the <code>sequence</code> and <code>choice</code> productions (just as <code>mkPlus</code> and <code>mkMult</code> in the example).</p>
+<h2 id="testing-and-debugging-your-code">Testing and debugging your code</h2>
+<ul>
+<li><p>If you write many small functions, maybe one for each production, on the top level, you can easily test them in GHCi:</p>
+<pre><code>*Main&gt; parse aProduction  &quot;identifier = letter, {letter | digit | '-'};&quot;
+Just (&quot;identifier&quot;,Sequence (NonTerminal &quot;letter&quot;)
+(Repetition (Choice (Choice (NonTerminal &quot;letter&quot;) (NonTerminal &quot;digit&quot;)) (Terminal &quot;-&quot;))))</code></pre>
+<p>(linebrake added manually by me)</p></li>
+<li><p>If you run</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="fu">*</span><span class="dt">Main</span><span class="fu">&gt;</span> putStr <span class="fu">$</span> ppGrammar <span class="st">&quot;bnf&quot;</span> parseBNF</code></pre></div>
+<p>you should get the grammar above</p></li>
+<li><p>You should be able to round-trip with the pretty-printer, i.e. parse back what it wrote:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="fu">*</span><span class="dt">Main</span><span class="fu">&gt;</span> <span class="kw">let</span> bnf1 <span class="fu">=</span> runGrammer <span class="st">&quot;expr&quot;</span> parseExpr
+<span class="fu">*</span><span class="dt">Main</span><span class="fu">&gt;</span> <span class="kw">let</span> bnf2 <span class="fu">=</span> runGrammer <span class="st">&quot;expr&quot;</span> parseBNF
+<span class="fu">*</span><span class="dt">Main</span><span class="fu">&gt;</span> <span class="kw">let</span> f <span class="fu">=</span> Data.Maybe.fromJust <span class="fu">.</span> parse parseBNF<span class="fu">.</span> ppBNF
+<span class="fu">*</span><span class="dt">Main</span><span class="fu">&gt;</span> f bnf1 <span class="fu">==</span> bnf1
+<span class="dt">True</span>
+<span class="fu">*</span><span class="dt">Main</span><span class="fu">&gt;</span> f bnf2 <span class="fu">==</span> bnf2
+<span class="dt">True</span></code></pre></div>
+<p>The last line is quite meta: You are unsing <code>parseBNF</code> as a parser on the pretty-printed grammar produced from interpreting <code>parseBNF</code> as a grammar.</p></li>
+</ul>
+<h1 id="optional-exercise-a-better-recursion">Optional exercise: A better recursion</h1>
+<p>This is not part of the homework, but if find this brain food yummy, feel free to implement it.</p>
+<p>There is a way to get around defining <code>recNonTerminal</code> and explicitly passing around the recursive call (i.e. the <code>exp</code> in the example), if we adjust our <code>Grammar</code> type as follows:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">newtype</span> <span class="dt">Grammar</span> a <span class="fu">=</span> <span class="dt">G</span> ([<span class="dt">String</span>] <span class="ot">-&gt;</span> (<span class="dt">BNF</span>, <span class="dt">RHS</span>))</code></pre></div>
+<p>The idea is that the list of strings is those non-terminals that we are currently defining. So in <code>nonTerminal</code>, we check if the non-terminal to be introduced is currently in the process of being defined, and then simply ignore the body. This way, the recursion is stopped automatically:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">nonTerminalG ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> (<span class="dt">Grammar</span> a) <span class="ot">-&gt;</span> <span class="dt">Grammar</span> a
+nonTerminalG name (<span class="dt">G</span> g) <span class="fu">=</span> <span class="dt">G</span> <span class="fu">$</span> \seen <span class="ot">-&gt;</span>
+    <span class="kw">if</span> name <span class="ot">`elem`</span> seen
+    <span class="kw">then</span> ([], <span class="dt">NonTerminal</span> name)
+    <span class="kw">else</span> <span class="kw">let</span> (prods, rhs) <span class="fu">=</span> g (name <span class="fu">:</span> seen)
+         <span class="kw">in</span> (prods <span class="fu">++</span> [(name, rhs)], <span class="dt">NonTerminal</span> name)</code></pre></div>
+<p>Adjust the other primitives on <code>Grammar</code> to type-check again, and observe that this parser/grammar generator for expressions, with genuine recursion, works now:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">parseExp ::</span> <span class="dt">Descr</span> f <span class="ot">=&gt;</span> f <span class="dt">Expr</span>
+parseExp <span class="fu">=</span> nonTerminal <span class="st">&quot;expr&quot;</span> <span class="fu">$</span>
+    ePlus
+
+<span class="ot">ePlus ::</span> <span class="dt">Descr</span> f <span class="ot">=&gt;</span> f <span class="dt">Expr</span>
+ePlus <span class="fu">=</span> nonTerminal <span class="st">&quot;plus&quot;</span> <span class="fu">$</span>
+    mkPlus <span class="fu">&lt;$&gt;</span> eMult
+           <span class="fu">&lt;*&gt;</span> many (spaces <span class="fu">*&gt;</span>  char <span class="ch">'+'</span> <span class="fu">*&gt;</span>  spaces <span class="fu">*&gt;</span> eMult)
+           <span class="fu">&lt;*</span>  spaces
+
+<span class="ot">eMult ::</span> <span class="dt">Descr</span> f <span class="ot">=&gt;</span> f <span class="dt">Expr</span>
+eMult <span class="fu">=</span> nonTerminal <span class="st">&quot;mult&quot;</span> <span class="fu">$</span>
+    mkPlus <span class="fu">&lt;$&gt;</span> eAtom
+           <span class="fu">&lt;*&gt;</span> many (spaces <span class="fu">*&gt;</span>  char <span class="ch">'*'</span> <span class="fu">*&gt;</span>  spaces <span class="fu">*&gt;</span> eAtom)
+           <span class="fu">&lt;*</span>  spaces
+
+<span class="ot">eAtom ::</span> <span class="dt">Descr</span> f <span class="ot">=&gt;</span> f <span class="dt">Expr</span>
+eAtom <span class="fu">=</span> nonTerminal <span class="st">&quot;atom&quot;</span> <span class="fu">$</span>
+    aConst <span class="ot">`orElse`</span> eParens parseExp</code></pre></div>
+    </div>
+
+    <div id="footer"><center>
+      <font size="-2">Powered
+      by <a href="http://community.haskell.org/~ndm/shake/">shake</a>,
+      <a href="http://jaspervdj.be/hakyll/index.html">hakyll</a>,
+      <a href="http://johnmacfarlane.net/pandoc/">pandoc</a>,
+      <a href="http://projects.haskell.org/diagrams">diagrams</a>,
+      and <a href="http://www.andres-loeh.de/lhs2tex/">lhs2TeX</a>.
+      </center>
+    </div>
+  </div>
+</body>
+
+
+<!-- Mirrored from cis.upenn.edu/~cis194/fall16/hw/09-more-applicative.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 14:08:49 GMT -->
+</html>

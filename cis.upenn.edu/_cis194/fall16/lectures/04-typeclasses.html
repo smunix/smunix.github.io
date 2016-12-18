@@ -1,0 +1,230 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+
+<!-- Mirrored from cis.upenn.edu/~cis194/fall16/lectures/04-typeclasses.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 14:08:49 GMT -->
+<head>
+  <META http-equiv="Content-Type" content="text/html; charset='UTF-8'">
+  <title>CIS194</title>
+
+  <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+  <link href="../css/style.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+
+  <div id="canvas">
+    <div id="nav">
+     <p><a href="../index-2.html">CIS 194</a> | <a href="../policies.html">Policies</a> | <a href="../resources.html">Resources</a> | <a href="../final.html">Final Project</a></p>
+   </div>
+
+    
+    <div id="topic">
+    Type classes
+    </div>
+    
+
+    
+    <div role="nav" id="toc">
+     <ul>
+<li><a href="#type-classes">Type classes</a><ul>
+<li><a href="#the-eq-type-class">The Eq type class</a></li>
+<li><a href="#the-eq-coord-instanace">The <code>Eq Coord</code> instanace</a></li>
+<li><a href="#default-implementations">Default implementations</a></li>
+<li><a href="#the-eq-tile-instance">The <code>Eq Tile</code> instance</a></li>
+<li><a href="#equality-is-not-for-everyone">Equality is not for everyone</a></li>
+<li><a href="#benefits-of-type-classes">Benefits of type classes</a><ul>
+<li><a href="#overloading-of-names">Overloading of names</a></li>
+<li><a href="#laws">Laws!</a></li>
+<li><a href="#generic-algorithms">Generic algorithms</a></li>
+<li><a href="#instance-resolution">Instance resolution</a></li>
+<li><a href="#coherence">Coherence</a></li>
+</ul></li>
+<li><a href="#use-case-undo-stacks">Use case: Undo stacks</a></li>
+<li><a href="#type-classes-vs.object-oriented-classes">Type classes vs. object-oriented classes</a></li>
+<li><a href="#other-type-classes-you-should-know-about">Other type classes you should know about</a></li>
+</ul></li>
+</ul>
+    </div>
+    
+
+
+    <div id="content">
+      <p>This class brings equality to the <code>world</code>.</p>
+<h1 id="type-classes">Type classes</h1>
+<p>In last week’s homework, you have developed a working implementation of Sokoban. The resulting code might look like <a href="https://code.world/haskell#PubDDSw-wNxzTsQt1SxJ6GA">this example solution</a>.</p>
+<p>While implementing it, some of you might have wished to be able to use the equality operator (<code>(==)</code>) on your own data types, such as <code>Coord</code> or <code>Tile</code>. But you could not and had to work around it using <code>case</code> expressions, helper functions or functions like <code>eqCoord</code>.</p>
+<p>But you may have already observed that <code>(==)</code> can be used not just types: <code>Integer</code>, <code>Double</code>, <code>Bool</code> (although you should not use it with <code>Double</code>!). And I claimed that <code>Bool</code> is not special. So there must be a way of using <code>(==)</code> with, say, <code>Coord</code>.</p>
+<p>Maybe the error message that we see if we try to use it, can shed some light on this:</p>
+<pre><code>No instance for (Eq Coord) arising from a use of ‘==’</code></pre>
+<p>It seems that we need some kind of instance. Before we talk about instances, though, we have to talk about classes.</p>
+<p>I’ll use the Haskell interpreter to do a bit exploration. I would have used the online docs, but a <a href="https://github.com/haskell/haddock/issues/549">bug</a> in the tool that generates the documentation unfortunately gets in the way right now. You will learn about the Haskell interpreter eventually as well.</p>
+<p>I can ask for the type of <code>(==)</code>:</p>
+<pre><code>Prelude&gt; :t (==)
+(==) :: Eq a =&gt; a -&gt; a -&gt; Bool</code></pre>
+<p>On the right of the <code>=&gt;</code> arrow, we have the function type that we know: The operator takes two arguments of some type, and returns a boolean. On the left of the <code>=&gt;</code> arrow, we have a <em>type class constraint</em>. This says that <code>(==)</code> can only be used on types that are members of this type class.</p>
+<h2 id="the-eq-type-class">The Eq type class</h2>
+<p>We can find out more about this <code>Eq</code>, using the interpreter:</p>
+<pre><code>Prelude&gt; :info Eq
+class Eq a where
+  (==) :: a -&gt; a -&gt; Bool
+  (/=) :: a -&gt; a -&gt; Bool
+	-- Defined in ‘GHC.Classes’
+instance Eq Integer
+  -- Defined in ‘integer-gmp-1.0.0.0:GHC.Integer.Type’
+instance (Eq a, Eq b) =&gt; Eq (Either a b)
+  -- Defined in ‘Data.Either’
+instance Eq a =&gt; Eq [a] -- Defined in ‘GHC.Classes’
+instance Eq Word -- Defined in ‘GHC.Classes’
+…</code></pre>
+<p>We have to scroll up to get to the interesting bits:</p>
+<ul>
+<li><p>The first three lines are the definition of the <code>Eq</code> class, as you would write them in your code, if you would define your own type class. Here is a rough overview of the components.</p>
+<p>A type class definition gives the class a name (here <code>Eq</code>), applied to to a type variable. It then contains any number of <em>methods</em>. Methods are given with <em>just</em> their type signature – the implementation will be in the class instances. Also, the type is given without the <code>Eq</code> constraint in the type signature; this is added automatically.</p>
+<p>We see that the <code>Eq</code> type class has two methods: <code>(==)</code> and <code>(/=)</code>.</p></li>
+<li><p>Then, a number of lines starting with <code>instance</code> are printed. These tell us what instances already exists: For example for <code>Integer</code>, as expeced. These are not the complete instances, because instances come with code.</p></li>
+</ul>
+<h2 id="the-eq-coord-instanace">The <code>Eq Coord</code> instanace</h2>
+<p>Now that we know what method the class as, we can write our own instance for <code>Coord</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Eq</span> <span class="dt">Coord</span> <span class="kw">where</span>
+  <span class="dt">C</span> x1 y1 <span class="fu">==</span> <span class="dt">C</span> x2 y2 <span class="fu">=</span> x1 <span class="fu">==</span> x2 <span class="fu">&amp;&amp;</span> y1 <span class="fu">==</span> y2
+  c1 <span class="fu">/=</span> c2 <span class="fu">=</span> not (c1 <span class="fu">==</span> c2)</code></pre></div>
+<p>So after the <code>instance</code> keyword, we name the type class that we want to instantiate and the type for which we want to define an instance. Then, after <code>where</code> and indented, we give function definitions for the methods. We can use multiple patterns, guards, and all that as usual. We do <em>not</em> give a type signature, becuase the type of these methods is already determined by the class definition and the <em>instance head</em>.</p>
+<p>Now our code compiles again.</p>
+<h2 id="default-implementations">Default implementations</h2>
+<p>Note that I was lazy and did not really implement <code>(/=)</code>; I just refered to the implementation of <code>(==)</code>. Obvoiusly, that is fair game for <em>every</em> instance of <code>Eq</code> that one might want to implement.</p>
+<p>Therefore, the <code>Eq</code> class already comes with a <em>default implementation</em> of <code>(/=)</code> in terms of <code>(==)</code> and we can simply skip the definition in our code.</p>
+<p>How do we know that we can leave out <code>(/=)</code>? We can try (the compiler will warn us about missing instances), or we can check out <a href="http://hackage.haskell.org/package/base-4.8.2.0/docs/Prelude.html#t:Eq">the documentation</a> or <a href="http://hackage.haskell.org/package/ghc-prim-0.4.0.0/docs/src/GHC-Classes.html">the source</a> (which are a bit harder to find for <code>Eq</code> because it is so basic).</p>
+<p>By making a function a method of the class with an default implementation, the authors of an instance have the option of implementing it (for example if a more efficient implementation is possible), but they do not have to.</p>
+<h2 id="the-eq-tile-instance">The <code>Eq Tile</code> instance</h2>
+<p>So great: We can now use <code>==</code> on <code>Coords</code>. We also want it on <code>Tiles</code>. That is easy to write:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Eq</span> <span class="dt">Tile</span> <span class="kw">where</span>
+  <span class="dt">Wall</span> <span class="fu">==</span> <span class="dt">Wall</span> <span class="fu">=</span> <span class="dt">True</span>
+  <span class="dt">Ground</span> <span class="fu">==</span> <span class="dt">Ground</span> <span class="fu">=</span> <span class="dt">True</span>
+  <span class="dt">Storage</span> <span class="fu">==</span> <span class="dt">Storage</span> <span class="fu">=</span> <span class="dt">True</span>
+  <span class="dt">Box</span> <span class="fu">==</span> <span class="dt">Box</span> <span class="fu">=</span> <span class="dt">True</span>
+  <span class="dt">Blank</span> <span class="fu">==</span> <span class="dt">Blank</span> <span class="fu">=</span> <span class="dt">True</span>
+  _ <span class="fu">==</span> _ <span class="fu">=</span> <span class="dt">False</span></code></pre></div>
+<p>Now that works, but I am sure you can immediatelly tell me why this is not satisfying: That is a lot of code to write, it is repetetive, and if we add another constructor to <code>Tile</code>, the code will be wrong.</p>
+<p>Luckily, at least for some of the basic type classes, the compiler can write the instance for us.We just have to instruct it to:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Tile</span> <span class="fu">=</span> <span class="dt">Wall</span> <span class="fu">|</span> <span class="dt">Ground</span> <span class="fu">|</span> <span class="dt">Storage</span> <span class="fu">|</span> <span class="dt">Box</span> <span class="fu">|</span> <span class="dt">Blank</span> <span class="kw">deriving</span> <span class="dt">Eq</span></code></pre></div>
+<p>(If are are playing around with this locally, then pass <code>-ddump-deriv</code> to the compiler to see that it actually creates the same code that we wrote above.)</p>
+<h2 id="equality-is-not-for-everyone">Equality is not for everyone</h2>
+<p>So great, we get to use <code>(==)</code> on all our types! All our types? Unfortunately not. Last week we defined the type <code>Interaction</code>. Some fields of this data type are functions, and equality on functios is, in general, undecidable. If we tried to use <code>deriving Eq</code> on <code>Interaction</code>, we would get the error message</p>
+<pre><code>No instance for (Eq (world -&gt; Picture))</code></pre>
+<h2 id="benefits-of-type-classes">Benefits of type classes</h2>
+<p>So great, we get to use <code>(==)</code> on almost all our types! This is also called <em>overloading</em>, and is a nice feature of type classes, but not the only and probably not the most important one. The important features are:</p>
+<h3 id="overloading-of-names">Overloading of names</h3>
+<p>As just discussed.</p>
+<h3 id="laws">Laws!</h3>
+<p>When you see <code>(==)</code> and <code>(/=)</code>, you immediately assume that <code>a /= b</code> is <code>True</code> if and only if <code>a == b</code> is <code>False</code>. By convention, every instance of <code>(==)</code> fulfills this law, and the derived instances do as well. For other type classes, the laws are more intering and we will discuss them in depth later.</p>
+<p>Note that such laws are not checked by the compiler (it cannot do that, in general), and nothing is stopping you from implementing a bogus instance. But if you do, do not complain if things break in weird ways.</p>
+<h3 id="generic-algorithms">Generic algorithms</h3>
+<p>Have a look at the definition of <code>moveFromTo</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">moveFromTo ::</span> <span class="dt">Coord</span> <span class="ot">-&gt;</span> <span class="dt">Coord</span> <span class="ot">-&gt;</span> <span class="dt">Coord</span> <span class="ot">-&gt;</span> <span class="dt">Coord</span>
+moveFromTo c1 c2 c <span class="fu">|</span> c1 <span class="fu">==</span> c   <span class="fu">=</span> c2
+                   <span class="fu">|</span> otherwise <span class="fu">=</span> c</code></pre></div>
+<p>There is nothing <code>Coord</code>-specific going on any more! And indeed, if we remove the type signature, and let the compiler propose one to us, we get the suggestion to write</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">moveFromTo ::</span> <span class="dt">Eq</span> a <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a
+moveFromTo c1 c2 c <span class="fu">|</span> c1 <span class="fu">==</span> c   <span class="fu">=</span> c2
+                   <span class="fu">|</span> otherwise <span class="fu">=</span> c</code></pre></div>
+<p>This means that <code>moveFromTo</code> is a very generally usable function. We only write it once and can use it with many different types.</p>
+<p>Now, this function is not very impressive, but can implement very complex functionality in a generic and reusable way this way, especially when the type class in question comes with laws (see above).</p>
+<h3 id="instance-resolution">Instance resolution</h3>
+<p>When using overloaded functions, the compiler has to find the relevant instance for the type you are using it. With polymorphic types, this instance might require another one (as we will see shortly). With some trickery and/or some language extensions supported by GHC this <em>instance resolution</em> process can be a powerful machinery that not only relieves you from writing some tedious code, but can actually solve some puzzling problems for you. In a way, it is a small logic programming language embedded in the type system.</p>
+<p>I will demonstrate this in a moment, but let’s continue with the general remarks first.</p>
+<h3 id="coherence">Coherence</h3>
+<p>Haskell guarantees that for a particular type and a particular type class, there is at most one instance. If we would try to define <code>instance Eq Coord</code> again, the compiler will bark at us.</p>
+<p>This means that the meaning of an overloaded function depends only on the concret type it is used with, but not in what context it is used. This is used by the library implementation of search trees, which uses the <code>Ord</code> instance of the type of keys to build the tree, and this would go horribly wrong if you build the tree with one particular ordering, and then search in it using a completely different ordering.</p>
+<h2 id="use-case-undo-stacks">Use case: Undo stacks</h2>
+<p>Let us demonstrate how we can make use of instance resolution, by implementing generic undo functionality. When testing your homework, you surely moved your box onto the wall and wished you did not have to start over again. So let us implement this, in generic way, as a <code>Interaction</code>-modifying function:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">WithUndo</span> a <span class="fu">=</span> <span class="dt">WithUndo</span> a (<span class="dt">List</span> a)
+
+<span class="ot">withUndo ::</span> <span class="dt">Interaction</span> a <span class="ot">-&gt;</span> <span class="dt">Interaction</span> (<span class="dt">WithUndo</span> a)
+withUndo (<span class="dt">Interaction</span> state0 step handle draw)
+  <span class="fu">=</span> <span class="dt">Interaction</span> state0' step' handle' draw'
+  <span class="kw">where</span>
+    state0' <span class="fu">=</span> <span class="dt">WithUndo</span> state0 <span class="dt">Empty</span>
+
+    step' t (<span class="dt">WithUndo</span> s stack) <span class="fu">=</span> <span class="dt">WithUndo</span> (step t s) stack
+
+    handle' (<span class="dt">KeyPress</span> key) (<span class="dt">WithUndo</span> s stack) <span class="fu">|</span> key <span class="fu">==</span> <span class="st">&quot;U&quot;</span>
+      <span class="fu">=</span> <span class="kw">case</span> stack <span class="kw">of</span> <span class="dt">Entry</span> s' stack' <span class="ot">-&gt;</span> <span class="dt">WithUndo</span> s' stack'
+                      <span class="dt">Empty</span>           <span class="ot">-&gt;</span> <span class="dt">WithUndo</span> s <span class="dt">Empty</span>
+    handle' e              (<span class="dt">WithUndo</span> s stack)
+       <span class="fu">=</span> <span class="dt">WithUndo</span> (handle e s) (<span class="dt">Entry</span> s stack)
+
+    draw' (<span class="dt">WithUndo</span> s _) <span class="fu">=</span> draw s</code></pre></div>
+<p>This code (<a href="https://code.world/haskell#PE2_h1f2oVa3WhCl8Lq0TGA">open on CodeWorld</a>) looks good, but if we we use it (by adding <code>withUndo</code> in <code>main</code>), it does not seem to work. What went wrong?</p>
+<p>The problem is that we push the state to the stack on every event. That includes mouse moves, that includes button releases. What we really would like to do is push a change only on to the stack if the event actually had an effect!</p>
+<p>So we need to check thatin the <code>handle'</code> function, before we push a new state onto the stack:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">    handle' (<span class="dt">KeyPress</span> key) (<span class="dt">WithUndo</span> s stack) <span class="fu">|</span> key <span class="fu">==</span> <span class="st">&quot;U&quot;</span>
+      <span class="fu">=</span> <span class="kw">case</span> stack <span class="kw">of</span> <span class="dt">Entry</span> s' stack' <span class="ot">-&gt;</span> <span class="dt">WithUndo</span> s' stack'
+                      <span class="dt">Empty</span>           <span class="ot">-&gt;</span> <span class="dt">WithUndo</span> s <span class="dt">Empty</span>
+    handle' e              (<span class="dt">WithUndo</span> s stack)
+       <span class="fu">|</span> s' <span class="fu">==</span> s <span class="fu">=</span> <span class="dt">WithUndo</span> s stack
+       <span class="fu">|</span> otherwise <span class="fu">=</span> <span class="dt">WithUndo</span> (handle e s) (<span class="dt">Entry</span> s stack)
+      <span class="kw">where</span> s' <span class="fu">=</span> handle e s</code></pre></div>
+<p>This does not work yet, the compiler complains:</p>
+<pre><code>No instance for (Eq a) arising from a use of ‘==’</code></pre>
+<p>which makes sense: In order to compare the state of the interaction we are wrapping, the state needs to be comparable! So we have to extend the type signature:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">withUndo ::</span> <span class="dt">Eq</span> a <span class="ot">=&gt;</span> <span class="dt">Interaction</span> a <span class="ot">-&gt;</span> <span class="dt">Interaction</span> (<span class="dt">WithUndo</span> a)</code></pre></div>
+<p>But the compiler is still not satisfied:</p>
+<pre><code>No instance for (Eq State) arising from a use of ‘withUndo’</code></pre>
+<p>We have not yet defined an <code>Eq</code> instance for <code>State</code>! But we know how to do that quickly: Using <code>deriving Eq</code>. This will, as one might expect, also ask for <code>Eq</code> instances for <code>Direction</code> and <code>List</code>, which we give the same way.</p>
+<p>Yay, that works (<a href="https://code.world/haskell#PI8Rd7guupXOJc-76-bF32A">open on CodeWorld</a>):</p>
+<iframe width="400" height="400" src="https://code.world/run.html?mode=haskell&amp;hash=PI8Rd7guupXOJc-76-bF32A">
+</iframe>
+<p>Now what if we swap the use of <code>withUndo</code> and <code>withStartScreen</code>? We get an error message saying</p>
+<pre><code>No instance for (Eq (SSState State))</code></pre>
+<p>So we should give an <code>Eq</code> instance for <code>SSState</code>. We could use <code>deriving</code>, but lets do it by hand to learn something.</p>
+<p>We have introduced <code>withStartScreen</code>, and hence <code>SSState</code>, to be polymorphic and work with any possible wrapped state. So likewise, we do not want to write an instance just for <code>SSState State</code>, but rather <code>SSState s</code> for any type <code>s</code>. So lets write that:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Eq</span> (<span class="dt">SSState</span> s) <span class="kw">where</span>
+  <span class="dt">StartScreen</span> <span class="fu">==</span> <span class="dt">StartScreen</span> <span class="fu">=</span> <span class="dt">True</span>
+  <span class="dt">Running</span> s <span class="fu">==</span> <span class="dt">Running</span> s' <span class="fu">=</span> s <span class="fu">==</span> s'
+  _ <span class="fu">==</span> _ <span class="fu">=</span> <span class="dt">False</span></code></pre></div>
+<p>This does not work yet, we get an error message:</p>
+<pre><code>No instance for (Eq s) arising from a use of ‘==’</code></pre>
+<p>This makes sense: If the underlying state type does not support equality, then the extended type cannot do it either. But where do we add the constraint that this <code>Eq</code> instance does only work if <code>s</code> itself is a member of the <code>Eq</code> typeclass? We add this to the instance head:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Eq</span> s <span class="ot">=&gt;</span> <span class="dt">Eq</span> (<span class="dt">SSState</span> s) <span class="kw">where</span>
+  <span class="dt">StartScreen</span> <span class="fu">==</span> <span class="dt">StartScreen</span> <span class="fu">=</span> <span class="dt">True</span>
+  <span class="dt">Running</span> s <span class="fu">==</span> <span class="dt">Running</span> s' <span class="fu">=</span> s <span class="fu">==</span> s'
+  _ <span class="fu">==</span> _ <span class="fu">=</span> <span class="dt">False</span></code></pre></div>
+<p>This works, and now pressing U gets us back to the start screen.</p>
+<p>What is happening here? As we compose functions that transform <code>Interaction</code>s, the type of the state of these interactions grows. And then, when there is a function like <code>withUndo</code> that has an <code>Eq</code> constraint, the compiler uses the existing instances of <code>Eq</code> to break this complex type down again, and this way constructs, on the spot, a way to equate values of this complex type.</p>
+<p>Naturally, this example has been very small, but I hope it gave you an impression at what might be possible.</p>
+<!-- this state: https://code.world/haskell#PZ2vR0V_ZaWGU8XKe-54seA -->
+<p><strong>Question</strong>: Are there other designs that do not require an explicit equality check to implement undo? Which one would you prefer?</p>
+<h2 id="type-classes-vs.object-oriented-classes">Type classes vs. object-oriented classes</h2>
+<p>Many of you might have experience with object-oriented programming languages like Java. You are in danger! Do not fall in the trap of confusing type classes (in Haskell) with classes (in Java)! They are not very similar, and you do not use them to solve the same problems.</p>
+<p>If anything, type classes correspond to <em>interfaces</em> in Java: Both contain methods without implementation and their type signatures, and instances provide the implementation.</p>
+<p>Classes and objects as in Java do not have a direct correspondence in Haskell, and that is ok, because problems are approached differently. But the <code>Interaction</code> type that we defined last week is, in some sense, an approximation of a class. The concrete <code>Interaction</code>s that we defined are instances of this class, and functions like <code>withStartScreen</code> relate to inheritance (or maybe ot the decorator pattern).</p>
+<h2 id="other-type-classes-you-should-know-about">Other type classes you should know about</h2>
+<p>Besides <code>Eq</code>, you should know about these type classes:</p>
+<ul>
+<li><a href="http://hackage.haskell.org/package/base-4.8.2.0/docs/Prelude.html#t:Ord"><code>Ord</code></a>, with methods like <code>(&lt;=)</code>, <code>min</code> and others, for types that can be (totally) ordered. Can be derived.</li>
+<li>Many numeric type classes:
+<ul>
+<li><a href="http://hackage.haskell.org/package/base-4.8.2.0/docs/Prelude.html#t:Num"><code>Num</code></a>, with methods like <code>(+)</code>, <code>(*)</code>, <code>abs</code> and <code>fromInteger</code>, for basic numeric types. Speaking mathematically, this type class captures the operations of a <em>ring</em>. Cannot be derived. Instances for <code>Int</code>, <code>Integer</code>, <code>Double</code> and others.</li>
+<li><a href="http://hackage.haskell.org/package/base-4.8.2.0/docs/Prelude.html#t:Integral"><code>Integral</code></a> with methods like <code>div</code> and <code>mod</code>, for integral types that allow these operations. Instances for <code>Int</code>, <code>Integer</code>, and others.</li>
+<li><a href="http://hackage.haskell.org/package/base-4.8.2.0/docs/Prelude.html#t:Fractional"><code>Fractional</code></a> with method <code>(/)</code> for anything that can properly be devided. In particular, <code>Double</code>.</li>
+<li><a href="http://hackage.haskell.org/package/base-4.8.2.0/docs/Prelude.html#t:Floating"><code>Floating</code></a> with methods like <code>pi</code>, <code>exp</code>, <code>sin</code>, <code>(**)</code> which require floating point numbers. Instance for <code>Double</code>.</li>
+<li><a href="http://hackage.haskell.org/package/base-4.8.2.0/docs/Prelude.html#t:RealFrac"><code>RealFrac</code></a> with methods like <code>round</code>, <code>truncate</code> etc. that convert from floating point numbers to integral numbers.</li>
+</ul></li>
+</ul>
+    </div>
+
+    <div id="footer"><center>
+      <font size="-2">Powered
+      by <a href="http://community.haskell.org/~ndm/shake/">shake</a>,
+      <a href="http://jaspervdj.be/hakyll/index.html">hakyll</a>,
+      <a href="http://johnmacfarlane.net/pandoc/">pandoc</a>,
+      <a href="http://projects.haskell.org/diagrams">diagrams</a>,
+      and <a href="http://www.andres-loeh.de/lhs2tex/">lhs2TeX</a>.
+      </center>
+    </div>
+  </div>
+</body>
+
+
+<!-- Mirrored from cis.upenn.edu/~cis194/fall16/lectures/04-typeclasses.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 14:08:49 GMT -->
+</html>
