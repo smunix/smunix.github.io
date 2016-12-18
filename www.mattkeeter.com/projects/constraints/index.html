@@ -1,0 +1,370 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','http://www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA-63779101-1', 'auto');
+  ga('send', 'pageview');
+</script>
+
+
+<!-- Mirrored from www.mattkeeter.com/projects/constraints/ by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 11:02:32 GMT -->
+<head>
+<link rel="stylesheet" href="https://www.mattkeeter.com/style.css"/>
+<link rel="stylesheet" href="https://www.mattkeeter.com/font/css/icons.css">
+<link href="https://www.mattkeeter.com/atom.xml" type="application/atom+xml" rel="alternate" title="Atom feed"/>
+<meta http-equiv="content-type" content="text/html; charset=utf-8">
+<title>Constraint Solver</title>
+</head>
+
+<body>
+<div id="header">
+<h1><a href="https://www.mattkeeter.com/">Matt Keeter</a> // Constraint Solver</h1>
+
+<div>
+<ul id="navlist">
+<li><a href="https://www.mattkeeter.com/projects/">projects</a></li>
+<li><a href="https://www.mattkeeter.com/research/">research</a></li>
+<li><a href="https://www.mattkeeter.com/blog/">blog</a></li>
+<li><a href="https://www.mattkeeter.com/about">about</a></li>
+<li><a href="https://www.mattkeeter.com/links">links</a></li>
+<li><a href="https://www.mattkeeter.com/atom.xml"><span class="icon">&#xe805;</span> feed</a></li>
+</ul>
+</div>
+</div>
+
+<div id="content">
+<!-- End header -->
+<link rel="stylesheet" href="https://www.mattkeeter.com/scripts/highlight/obsidian.css">
+<script src="https://www.mattkeeter.com/scripts/highlight/highlight.js"></script>
+<script>hljs.initHighlightingOnLoad();</script>
+<script type="text/javascript"
+  src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+<script src="https://www.mattkeeter.com/scripts/d3/d3.min.js" charset="utf-8"></script>
+<link rel="stylesheet" type="text/css" href="vis.css">
+<h2>Motivation</h2>
+<p>In CAD software, we often want to express constraints, e.g.</p>
+<ul>
+<li>Point <strong>a</strong> is 10 cm from point <strong>b</strong></li>
+<li>Line <strong>g</strong> is perpendicular to line <strong>h</strong></li>
+<li>Line <strong>t</strong> is tangent to arc <strong>c</strong></li>
+</ul>
+<p>Drag points in the systems below and see what constraints are obeyed:</p>
+<p><svg id="arm"></svg><svg id="tangent"></svg><svg id="perp"></svg></p>
+<p>In general, constraints can be expressed as systems of equations.</p>
+<p>Given a system of equations, e.g.</p>
+<p>$$ (2x + 3y) \times  (x - y) = 2 $$
+$$ 3x + y = 5 $$</p>
+<p>How would we go about solving it?</p>
+<p>One option is to use a computer algebra system like <a href="http://www.sagemath.org/">sage</a>,
+which performs symbolic manipulation to give exact-form solutions:</p>
+<pre><code class="language-python">sage: solve([(2*x + 3*y) * (x - y) == 2, 3*x + y == 5], x,y)
+[[x == -1/56*sqrt(401) + 95/56, y ==  3/56*sqrt(401) - 5/56],
+ [x ==  1/56*sqrt(401) + 95/56, y == -3/56*sqrt(401) - 5/56]]
+</code></pre>
+<p>However, this scales poorly with huge systems of many equations and variables.
+Instead, we'll approach the problem numerically.</p>
+<p>Move your mouse around the graph below.  The arrow at your cursor points to
+a nearby solution: see if you can find it.</p>
+<p><svg id="search" width="600" height="400"></svg></p>
+<p>There are two possible solutions to this system of equations:</p>
+<ul>
+<li>\( x = 1.34 \), \( y = 0.983 \)</li>
+<li>\( x = 2.05 \), \( y = -1.16 \)</li>
+</ul>
+<p>(which are equal to the closed-form solutions found above)</p>
+<p>You probably used the strategy of following the arrow &quot;downhill&quot; towards a
+solution.  We will formalize this technique (known as
+<a href="https://en.wikipedia.org/wiki/Gradient_descent">gradient descent</a>) as a
+numeric solver for arbitrary systems of equations.</p>
+<h2>Representing equations</h2>
+<h3>Intuition</h3>
+<p>To start, we need some way of representing sets of variables and systems
+of equations.</p>
+<p>We'd like a way to evaluate \( f(x,y) \) at a given point \( (x,y) \).
+Since we're using gradient descent, we'd also like to know all of
+its <a href="https://en.wikipedia.org/wiki/Partial_derivative">partial derivatives</a>
+\( \partial f/\partial x \), \( \partial f/\partial y \),
+at that point.</p>
+<p>We'll use a technique known as <a href="https://en.wikipedia.org/wiki/Automatic_differentiation">automatic differentiation</a>,
+which involves keeping track of both the result and its derivatives at every
+step of a calculation.</p>
+<p>Consider the equation \( f(x,y) = (x + 5) \times (x + y) \).  If we want to
+evaluate it at \( x = 2 \), \( y = 3 \), we'll end up with the following
+computation tree:</p>
+<p><img src="graphs/eval.png" alt="Computation tree" /></p>
+<p>In this tree, derivatives are computed with <a href="https://en.wikipedia.org/wiki/Sum_rule_in_differentiation">sum</a>
+and  <a href="https://en.wikipedia.org/wiki/Product_rule">product</a> rules.</p>
+<p>Now that we know what we want, let's work out an implementation.
+As in most of my recent recreational coding, we'll be using <a href="http://xkcd.com/1270/">Haskell</a>.</p>
+<h3>Implementation</h3>
+<p>We'll represent variables (with associated values) as a <code>Data.Map</code>.</p>
+<pre><code class="language-haskell">type Vars a = Map.Map a Double
+</code></pre>
+<p>The set of variables-and-values \( x=1\), \(y=3\) is represented by<br />
+<code>Map.fromList [('x', 1), ('y', 3)]</code></p>
+<p>An <code>Equation</code> has a single function <code>eval</code>.  When called, <code>eval</code>
+returns a value and first derivatives with respect to each variable:</p>
+<pre><code class="language-haskell">newtype Equation a = Equation {eval :: Vars a -&gt; (Double, Vars a)}
+</code></pre>
+<p>Note the function-fu here: an <code>Equation</code> only returns a value when
+activated with <code>eval</code> and a map of variable IDs to values.</p>
+<p>The simplest equation is a single variable.  When called, its value is found
+in the <code>Map</code> and its derivative is set to 1:</p>
+<pre><code class="language-haskell">var :: Ord a =&gt; a -&gt; Equation a
+var tag = Equation $ \vars -&gt; (Map.findWithDefault 0 tag vars,
+                               Map.singleton tag 1)
+</code></pre>
+<p>We can test this out with <code>eval</code>:</p>
+<pre><code class="language-haskell">λ&gt; eval (var 'x') $ Map.fromList [('x', 3.0)]
+(3.0, fromList [('x',1.0)])
+</code></pre>
+<p>As expected, we get back the same value and a partial derivative of 1.</p>
+<p>The system is polymorphic in tag types.  Above, we used a <code>Char</code>, but
+we could also use <code>Strings</code> (or anything of typeclass <code>Ord</code>):</p>
+<pre><code class="language-haskell">λ&gt; eval (var &quot;distance&quot;) $ Map.fromList [(&quot;distance&quot;, 3.0)]
+(3.0, fromList [(&quot;distance&quot;,1.0)])
+</code></pre>
+<p>We'd like to do math on equations, e.g.:</p>
+<pre><code class="language-haskell">λ&gt; let z = var 'x' + var 'y'
+</code></pre>
+<p>How can we implement this?</p>
+<p>The function <code>(+)</code> has type <code>Num a =&gt; a -&gt; a -&gt; a</code>, which means we'll need
+to make our <code>Equation</code> class an instance of <a href="https://hackage.haskell.org/package/base-4.8.1.0/docs/Prelude.html#t:Num"><code>Num</code></a>.
+We'll also make it an instance of <a href="https://hackage.haskell.org/package/base-4.8.1.0/docs/Prelude.html#t:Fractional"><code>Fractional</code></a>;
+between these two typeclasses, we'll be able to do all kinds of arithmetic
+on our equations.</p>
+<p>As discussed above, we'll also be tracking partial derivatives with respect
+to each variable.  Look closely and you'll spot implementations of the
+<a href="https://en.wikipedia.org/wiki/Sum_rule_in_differentiation">sum</a>,
+<a href="https://en.wikipedia.org/wiki/Product_rule">product</a>, and
+<a href="https://en.wikipedia.org/wiki/Quotient_rule">quotient</a>
+rules for differentiation:</p>
+<pre><code class="language-haskell">instance Ord a =&gt; Num (Equation a) where
+    a + b = Equation $ \vars -&gt;
+        let (ra, das) = eval a vars
+            (rb, dbs) = eval b vars
+         in (ra + rb, Map.unionWith (+) das dbs)
+    a * b = Equation $ \vars -&gt;
+        let (ra, das) = eval a vars
+            (rb, dbs) = eval b vars
+         in (ra * rb, Map.unionWith (+) (Map.map (*rb) das)
+                                        (Map.map (*ra) dbs))
+    abs a = Equation $ \vars -&gt;
+        let (r, ds) = eval a vars
+         in (abs r, Map.map (* signum r) ds)
+    negate a = Equation $ \vars -&gt;
+        let (r, ds) = eval a vars
+         in (negate r, Map.map negate ds)
+    signum a = Equation $ \vars -&gt;
+        let (r, _) = eval a vars
+         in (signum r, Map.empty)
+    fromInteger a = Equation $ const (fromInteger a, Map.empty)
+
+instance Ord a =&gt; Fractional (Equation a) where
+    a / b = Equation $ \vars -&gt;
+        let (ra, das) = eval a vars
+            (rb, dbs) = eval b vars
+         in (ra / rb, Map.map (/rb**2) $
+                      Map.unionWith (+)
+                          (Map.map (*rb) das)
+                          (Map.map (negate . (*ra)) dbs))
+    fromRational a = Equation $ const (fromRational a, Map.empty)
+</code></pre>
+<p>With these typesclass instances defined, we get arithmetic!<br />
+Let's check our math from the example above:</p>
+<pre><code class="language-haskell">λ&gt; let x = var 'x'
+λ&gt; let y = var 'y'
+λ&gt; eval ((x + 5)*(x + y)) $ Map.fromList [('x', 2), ('y', 3)]
+(35.0,fromList [('x',12.0),('y',7.0)])
+</code></pre>
+<h2>Gradient descent</h2>
+<p>Now, let's focus on the mechanics of gradient descent.</p>
+<p>We start at some point \([x_0,y_0,z_0,...]\) in \(n\)-dimensional space
+(where \(n\) is the number of variables in the system).
+Our goal is to find \([x,y,z,...]\) such that a particular function
+\(f(x,y,z,...)\) is zero.</p>
+<hr />
+<p>We'll move through \(n\)-dimensional space until a terminating condition is met.
+The three terminating conditions are as follows:</p>
+<p>The cost function is below some threshold</p>
+<p>$$ f(x,y,z,...) &lt; \epsilon$$</p>
+<p>All partial derivatives are close to zero (indicating a local minima)</p>
+<p>$$ \left|\frac{\partial f}{\partial x}\right| &lt; \epsilon \text{ and }
+\left|\frac{\partial f}{\partial y}\right| &lt; \epsilon \text{ and }
+\left|\frac{\partial f}{\partial z}\right| &lt; \epsilon \text{ and ...} $$</p>
+<p>The solver fails to converge</p>
+<p>$$ \left| f(x_n,y_n,z_n,...) - f(x_{n+1},y_{n+1},z_{n+1},...) \right| &lt; \epsilon$$</p>
+<hr />
+<p>The direction of the step is given by the systems' gradient, i.e.
+$$ \nabla f(x,y,z,...) = \left[\frac{\partial f}{\partial x}\vec{x},
+\frac{\partial f}{\partial y}\vec{y},
+\frac{\partial f}{\partial z}\vec{z},...\right]$$
+where \(\vec{x}\), \(\vec{y}\), \(\vec{z}\) are unit vectors along
+that dimension.</p>
+<p>The logic of our <code>step</code> function is as follows:</p>
+<ul>
+<li>Check for convergence using the conditions above</li>
+<li>If we've converged, return <code>Nothing</code></li>
+<li>Otherwise, use a <a href="https://en.wikipedia.org/wiki/Backtracking_line_search">backtracking line search</a> to pick the next point</li>
+<li>Return it as <code>Just nextPoint</code></li>
+</ul>
+<p>Here's our implementation:</p>
+<pre><code class="language-haskell">epsilon :: Double
+epsilon = 1e-12
+
+-- Solves a single step of gradient descent,
+-- using a backtracking line search.
+--
+-- Returns Nothing if the descent has converged,
+-- otherwise Just nextPoint
+step :: Ord a =&gt; Equation a -&gt; Vars a -&gt; Maybe (Vars a)
+step eqn vars =
+    if r &lt; epsilon || all ((&lt; epsilon) . abs) ds || converged
+    then Nothing
+    else Just next
+    where (r, ds) = eval eqn vars
+          (next, converged) = backtrack 1
+          threshold = 0.5 * (sum $ Map.map (^2) ds)
+          backtrack stepSize =
+              if r - r' &gt;= stepSize * threshold
+              then (vars', abs (r - r') &lt; epsilon)
+              else backtrack (stepSize * 0.5)
+              where vars' = Map.unionWith (-) vars $
+                            Map.map (*stepSize) ds
+                    r' = fst (eval eqn vars')
+</code></pre>
+<p>We can repeat this over and over again until we get <code>Nothing</code> back, indicating
+that the solver has converged.  Because <code>step</code> returns a <code>Maybe</code>, we use
+the reversed <code>bind</code> operator (<a href="https://hackage.haskell.org/package/base-4.8.1.0/docs/Control-Monad.html"><code>=&lt;&lt;</code></a>)
+to chain function calls:</p>
+<pre><code class="language-haskell">-- Find a local minima from an Equation and a starting point
+minimize :: Ord a =&gt; Equation a -&gt; Vars a -&gt; Vars a
+minimize eqn vars =
+    fromJust $ last $ takeWhile isJust
+             $ iterate (step eqn =&lt;&lt;) (return vars)
+</code></pre>
+<p>The grid below contains the same function you tried to solve earlier,
+but shows the solver's path instead of the local gradient:</p>
+<p><svg id="solver" width="600" height="400"></svg></p>
+<p>Notice that the solver converges to different solutions depending on its
+starting point.  This is actually desirable behavior for a CAD constraint
+system: given multiple valid solutions, it should pick the one that's closest
+to the existing state of the drawing.</p>
+<h2>Solving systems of equations</h2>
+<p>We've been glossing over how the solver actually solves a
+system of equations.</p>
+<p>We've written a tool that minimizes a single equation then used it to satisfy
+multiple constraints – how does that work?</p>
+<p>The answer: sum-of-squares cost functions.</p>
+<p>In our example, we're trying to solve
+$$ (2x + 3y) \times  (x - y) = 2 $$
+$$ 3x + y = 5 $$</p>
+<p>First, we rephrase them as cost functions:
+$$ \left((2x + 3y) \times  (x - y)\right) - 2 $$
+$$ (3x + y) - 5 $$</p>
+<p>For ease-of-use, we define an infix operator <code>===</code>:</p>
+<pre><code class="language-haskell">infixl 5 ===
+(===) :: Ord a =&gt; Equation a -&gt; Equation a -&gt; Equation a
+(===) = (-)
+</code></pre>
+<p>This allows us to construct equations that <em>look</em> like equality expressions
+but are in fact cost functions, e.g. <code>var &quot;x&quot; === 5</code> is actually <code>var &quot;x&quot; - 5</code></p>
+<p>Now that we can express cost functions, let's combine a set of them by
+summing their squares.  The result is a function that's always \( \geq 0\);
+it's only equal to zero when all of the constraints are met:
+$$ \left(\left((2x + 3y) \times  (x - y)\right) - 2\right)^2 +
+\left((3x + y) - 5\right)^2$$</p>
+<p><em>This</em> is the function that we put into our minimizer.</p>
+<p>The simplest solver is thus</p>
+<pre><code class="language-haskell">\eqns vars -&gt; minimize (sum $ map (^2) eqns) vars
+</code></pre>
+<p>However, this solver is not robust against overconstrainted systems:<br />
+If you ask it to solve <code>var 'x' === 3</code> and <code>var 'x' === 5</code>, it will give
+you an answer somewhere in between and fail to satisfy <em>both</em> constraints.</p>
+<p>We'd like the solver to satisfy as many constraints as possible; in the
+example above, it should pick either \(x=3\) or \(x=5\).</p>
+<p>Here's one implementation strategy:</p>
+<pre><code class="language-haskell">-- Returns a list of booleans indicating constraint
+-- satisfaction and a  map of resulting variable values.
+solveSystem :: Ord a =&gt; [Equation a] -&gt; Vars a -&gt; ([Bool], Vars a)
+solveSystem eqns vars =
+    if and satisfied
+    then (satisfied, vars')
+    else -- If not all constraints are satisfied, drop
+         -- an unsatisfied constraint and recurse
+        let index = fromJust $ elemIndex False satisfied
+            (front, back) = splitAt index eqns
+            (satisfied', out) =
+                solveSystem (front ++ (drop 1 back)) vars'
+            (a, b) = splitAt index satisfied'
+        in (a ++ False:b, out)
+    where vars' = minimize (sum $ map (^2) eqns) vars
+          scores = map (\eqn -&gt; (fst $ eval eqn vars')^2) eqns
+          satisfied = map (&lt; sqrt epsilon) scores
+</code></pre>
+<p>If a constraint is not satisfied, we throw it out and try again.  The function
+returns both a solution and a list of which constraints were satisfied:</p>
+<pre><code class="language-haskell">λ&gt; let x = var 'x'
+λ&gt; solveSystem [x === 5, x === 3] $ Map.fromList [('x', 2)]
+([False,True],fromList [('x',3.0)])
+</code></pre>
+<h2>Constraint solving</h2>
+<p>With all of this explained, we can now understand the earlier interactive
+examples.  Each one defines a set of constraints-as-equations then uses
+gradient descent to minimize the total sum-of-squares cost function.</p>
+<p>We apply an extra constraint to the dragged point, setting it equal to the
+cursor's position.  This constraint is the first to be discarded if infeasible.</p>
+<p>Here's one more for the road – thanks for following along!</p>
+<div>
+<p style="float: right;"><svg id="demo"></svg></p>
+<div style="width: 30%">
+<br>
+$$ a_x^2 + a_y^2 = 1 $$
+$$ (a_x - b_x)^2 + (a_y - b_y) ^2 = 2 $$
+$$ b_y = c_y = 0 $$
+$$ c_x - b_x = 1 $$
+</div>
+</div>
+<br>
+<hr />
+<h2>About the visualizations</h2>
+<p>The interactive visualizations are running Haskell code that was
+cross-compiled into Javascript with <a href="http://haste-lang.org/">Haste</a>.
+I looked at both Haste and <a href="https://github.com/ghcjs/ghcjs">GHCJS</a>; the latter
+didn't have a good way to make Haskell functions available from Javascript,
+so it wasn't a suitable choice.</p>
+<p>I've been impressed by Haste: it worked out-of-the-box and exporting functions
+is a single call.  However, there's a significant performance penalty: all of
+these simulations are instantaneous on the desktop, but you'll see a bit of lag
+when moving points around the diagrams.</p>
+<p>The graphics are made with <a href="http://d3js.org/">d3.js</a>
+and lots of amaturish (actual) Javascript.</p>
+<p>Fun fact: the solver is 30% less code than the graphics<br />
+(146 lines vs. 212, as reported by <code>cloc</code>).</p>
+<hr />
+<p>Thanks to <a href="http://www.mit.edu/~calisch/">Sam Calisch</a>,
+<a href="http://ng.cba.mit.edu/">Neil Gershenfeld</a>,
+and <a href="http://jelv.is/">Tikhon Jelvis</a>
+for feedback on a draft of this article;
+props to Chaoya Li for catching a bug in my implementation of division.</p>
+<!-- Load the visualization script now, after the SVG objects are defined -->
+<script src="vis.js" charset="utf-8" type="text/javascript"></script>
+
+<!-- Begin footer -->
+</div>
+<div id="copyright">
+<p>© 2010-2016 Matthew Keeter</p>
+</div>
+<script type="text/javascript" src="https://www.mattkeeter.com/scripts/retina.js"></script>
+</body>
+
+
+<!-- Mirrored from www.mattkeeter.com/projects/constraints/ by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 11:02:32 GMT -->
+</html>

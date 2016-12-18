@@ -1,0 +1,858 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<!-- Mirrored from chimera.labs.oreilly.com/books/1230000000929/ch13.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 11:04:16 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head><script type="text/javascript">var NREUMQ=NREUMQ||[];NREUMQ.push(["mark","firstbyte",new Date().getTime()]);</script>
+	<title>Parallel and Concurrent Programming in Haskell</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<link href="http://dwn0odqttrkhc.cloudfront.net/assets/book-f1caceafd9c9f3a6ff72d40c54d173ab.css" media="screen" rel="stylesheet" type="text/css" />
+	<link href="http://dwn0odqttrkhc.cloudfront.net/assets/default-24583441b4f47382b8932338cd56ed23.css" media="screen" rel="stylesheet" type="text/css" />
+	<script src="http://dwn0odqttrkhc.cloudfront.net/assets/application-47d6ffb0c77b868d29a43eb65e940505.js" type="text/javascript"></script>
+	<script src="http://dwn0odqttrkhc.cloudfront.net/assets/book-756862b9ed04d945ca53de5b8f106a83.js" type="text/javascript"></script>
+	<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+	<link href="http://dwn0odqttrkhc.cloudfront.net/assets/janrain-53eb5abed55992e21943b9d3373923e8.css" media="all" rel="stylesheet" type="text/css" />
+	<meta content="authenticity_token" name="csrf-param" />
+<meta content="WQ02oEFDbvBG99rmf8rwvGssMqcy27cCD64yZVVTcMY=" name="csrf-token" />
+	<script type="text/javascript" charset="utf-8">
+  	
+		app.data = new classes.Data({"controller":{"controller":"books","action":"html"},"capturable":{"capture_server":"https://oreilly.janraincapture.com","client_id":"6n5q2k9vesqgn93k3mhevka6c3c3rsre","app_url":"https://login.oreilly.com","app_id":"xsnca5wmqe9vxv97ygh5vfejkd","load_js":"d16s8pqtk4uodx.cloudfront.net/login.oreilly.com/load.js"},"user":{"id":null,"account":"LoggedOutAccount","email":"","name":null,"gravatar_url":"http://www.gravatar.com/avatar/d41d8cd98f00b204e9800998ecf8427e?s=40&d=identicon"},"book":{"isbn":"1230000000929","chapter":"ch13.html","toc_url":"/books/1230000000929/toc_html","metadata_url":"http://d4bb7yl96lyl1.cloudfront.net/1230000000929/metadata/metadata_9b2ac4d71a3220a7d463d8d4c80f9113048bb194.json"},"abilities":{"can_destroy_all_comments":false,"can_create_comments":false},"advertisement":{"body":"<style>      \r\n.ad-profile-image {\r\n  padding: 0;\r\n  margin: 0;\r\n  max-height: 30px;\r\n }\r\n\r\n.top-banner {\r\n  position: absolute;\r\n  right: 0;\r\n  top: 34px;\r\n  z-index: 99999;\r\n}\r\n\r\np.banner-text {\r\n  margin: 0;\r\n  text-align: center;\r\n  padding-right: 10px;\r\n  width: 450px;\r\n}\r\n\r\n@media screen and (max-width: 600px) {\r\n   p.banner-text {\r\n     width: 100%;\r\n     text-align: center;\r\n  }\r\n}\r\n\r\nspan.ebook-advantage {\r\n  font-size: smaller;\r\n  display: block;\r\n}\r\n\r\ndiv.banner-container {\r\n  margin: 0 auto;\r\n}\r\n\r\ndiv.banner-container ul {\r\n  margin: 0 auto;\r\n}\r\n\r\ndiv.topad { padding-bottom: 5px; }\r\n\r\ndiv.banner-container ul li {\r\n  display: inline-block;\r\n  vertical-align: middle;\r\n}\r\n\r\ndiv.banner-container li p {\r\n  padding-top: 0;\r\n  margin-top: 0;\r\n}\r\n\r\ndiv.banner-container li.sponsor {\r\n  border-right: 1px solid rgb(125, 154, 180);\r\n  margin-right: 5px;\r\n  padding-right: 10px;\r\n}\r\n\r\ndiv.banner-container .webbutton {\r\n  background-color: #3994b6;\r\n  display: inline-block;\r\n  padding: 10px;\r\n  -webkit-border-radius: 5px;\r\n  -moz-border-radius: 5px;\r\n  border-radius: 5px;\r\n  color: #FFF;\r\n  text-align: center;\r\n  text-decoration: none;\r\n  font-size: 12px;\r\n  font-weight: bold;\r\n}\r\n\r\n</style>\r\n   \r\n<div style=\"color: rgb(125, 154, 180);\">\r\n\r\n<div class=\"banner-container\">\r\n\r\n<ul>\r\n\r\n<li class=\"sponsor\">\r\n<!--CONFERENCE SPONSOR IMAGE-->\r\n<a href=\"http://www.oscon.com/oscon2013\">\r\n<!--<img src=\"http://orm-other.s3.amazonaws.com/fluent_logo.png\" class=\"ad-profile-image\"/>-->\r\n<img src=\"http://orm-other.s3.amazonaws.com/oscon_logo.png\" class=\"ad-profile-image\"/>\r\n<!--<img src=\"http://orm-other.s3.amazonaws.com/strata_logo.png\" class=\"ad-profile-image\"/>\r\n<img src=\"http://orm-other.s3.amazonaws.com/StrataRx_logo.png\" class=\"ad-profile-image\"/>\r\n<img src=\"http://orm-other.s3.amazonaws.com/velocity_logo.png\" class=\"ad-profile-image\"/>-->\r\n</a>\r\n</li>\r\n\r\n<li>\r\n<!--AD TEXT, 2 LINES, REPLACE LINK URL AS WELL-->\r\n<p class=\"banner-text\">Enjoy this online version of <em>Parallel and Concurrent Programming in Haskell</em>. Purchase and download the DRM-free ebook on <a href=\"http://shop.oreilly.com/product/0636920026365.do\">oreilly.com</a>.<span class=\"ebook-advantage\">Learn more about the O’Reilly <a href=\"http://shop.oreilly.com/category/ebooks.do\">Ebook Advantage</a>.</span></p>\r\n</li>\r\n\r\n<li>\r\n<!--BUY BUTTON-->\r\n<a class=\"webbutton\" href=\"http://shop.oreilly.com/product/0636920026365.do\">Buy the Ebook</a>\r\n</li> \r\n\r\n</ul>\r\n\r\n</div>\r\n\r\n<!--CORNER BANNER (IF NEEDED)-->\r\n<!--<a href=\"http://shop.oreilly.com/product/0636920026365.do\" class=\"top-banner\"><img src=\"http://orm-other.s3.amazonaws.com/banner.png\" /></a>-->\r\n\r\n</div>"}});
+
+		/* Janrain setup */
+  	var janrainModal = new JanrainView();
+  	$("head").append(janrainModal.render().el);
+
+  	/* segment.io setup */
+  	var analytics=analytics||[];analytics.load=function(e){var t=document.createElement("script");t.type="text/javascript",t.async=!0,t.src=("https:"===document.location.protocol?"https://":"http://")+"d2dq2ahtl5zl1z.cloudfront.net/analytics.js/v1/"+e+"/analytics.min.js";var n=document.getElementsByTagName("script")[0];n.parentNode.insertBefore(t,n);var r=function(e){return function(){analytics.push([e].concat(Array.prototype.slice.call(arguments,0)))}},i=["identify","track","trackLink","trackForm","trackClick","trackSubmit","pageview","ab","alias","ready"];for(var s=0;s<i.length;s++)analytics[i[s]]=r(i[s])};
+  	
+  	analytics.load("hg9h6b9pae");
+
+  	$(function() {
+			app.bookapp = new BookApp();
+		});
+	
+	</script>
+</head>
+<body>
+	<div id="menu">
+	
+		<ul id="menu-left">
+			<li id="home-link"><a href="http://chimera.labs.oreilly.com/"><i class="icon-house"></i></a></li>
+			<li><a href="http://chimera.labs.oreilly.com/books/1230000000929">Parallel and Concurrent Programming in Haskell</a></li>
+			<div class="clear"></div>
+		</ul>
+	
+		<ul id="menu-right">
+			<li id="comments-link"><a>&nbsp;</a></li>
+			<li>
+				<a href="#" class="dropdown-toggle" data-toggle="dropdown">Chapters</a>
+				<div id="toc-popup" class="dropdown-menu"></div>
+			</li>
+				<li><a href="#" class="capture_modal_open" id="capture_signin_link">Log In / Sign Up</a></li>
+			<li id="search-li">
+				<form accept-charset="UTF-8" action="http://chimera.labs.oreilly.com/searches" id="search-form" method="get"><div style="margin:0;padding:0;display:inline"><input name="utf8" type="hidden" value="&#x2713;" /></div>
+	<input name='search[q]' type="text" placeholder="Search book..." id="book-search" />
+
+	<input id="search_bookId" name="search[bookId]" type="hidden" value="1230000000929" />
+	
+	<div style='display:none'>
+		sorted by: 
+		<select name='search[sort]' >
+			<option value='relevance'>Relevance</option>
+			<option value='authors'>Author(s)</option>
+			<option value='title'>Title</option>
+		</select>
+		returning
+		<select name='search[limit]' >
+			<option value='5'>5</option>
+			<option value='10'>10</option>
+			<option value='20'>20</option>
+			<option selected="selected" value='50'>50</option>
+			<option value='100'>100</option>
+		</select>
+		values at a time.
+	</div>
+</form>
+			</li>
+			<div class="clear"></div>
+		</ul>
+		<div class="clear"></div>
+	
+</div>
+	<header><div class="navheader">
+<table style="width: 100%; ">
+<tr><td style="text-align: center; " colspan="3">Chapter 13. Parallel Programming Using Threads</td></tr>
+<tr>
+<td style="width: 20%; text-align: left; ">
+<a accesskey="p" href="ch12.html">Prev</a> </td>
+<td style="width: 60%; text-align: center; ">Part II. Concurrent Haskell</td>
+<td style="width: 20%; text-align: right; "> <a accesskey="n" href="ch14.html">Next</a>
+</td>
+</tr>
+</table>
+<hr>
+</div></header><section class="chapter" data-original-filename="ch13_conc-par.asciidoc" id="sec_conc-par"><div class="titlepage"><div><div><h2 class="title">Chapter 13. Parallel Programming Using Threads</h2></div></div></div>
+<p id="parallelismwe_h"><a id="ix_ch13_conc-par-txt0" class="indexterm"></a>We have been discussing concurrency as a means to <a id="id484812" class="indexterm"></a>modularize programs
+with multiple interactions. For instance,
+concurrency allows a network server to interact with a multitude of clients
+simultaneously while letting you separately write and maintain code that deals with only a single client at a
+time.  Sometimes these interactions are batch-like operations that we
+want to overlap, such as when downloading multiple URLs
+simultaneously.  There the goal was to speed up the program by
+overlapping the I/O, but it is not true parallelism because we don’t
+need multiple processors to achieve a speedup; the speedup was
+obtained by overlapping the time spent waiting for multiple web
+servers to respond.</p>
+<p id="conc-par_00000000">But concurrency can also be used to achieve true parallelism.  In
+this book, we have tried to emphasize the use of the parallel
+programming models—<code class="literal">Eval</code>, Strategies, the <code class="literal">Par</code> monad, and so on—for
+parallelism where possible, but there are some problems for which
+these pure parallel programming models cannot be used.  These are the two main
+classes of problem:</p>
+<div class="itemizedlist" id="conc-par_00000001"><ul class="itemizedlist">
+<li class="listitem">
+Problems where the work involves doing some I/O
+</li>
+<li class="listitem">
+Algorithms that rely on some nondeterminism internally
+</li>
+</ul></div>
+<p id="conc-par_00000003">Having side effects does not necessarily rule out the use of
+parallel programming models because Haskell has the <code class="literal">ST</code> monad for
+encapsulating side-effecting computations.  However, it is typically
+difficult to use parallelism <span class="emphasis"><em>within</em></span> the <code class="literal">ST</code> <a id="id484897" class="indexterm"></a>monad, and in that case
+probably the only solution is to drop down to concurrency unless your
+problem fits into the Repa model (<a class="xref" href="ch05.html" title="Chapter 5. Data Parallel Programming with Repa">Chapter 5</a>).</p>
+<div class="sect1" data-original-filename="ch13_conc-par.asciidoc" id="conc-par_00000004">
+<div class="titlepage"><div><div><h2 class="title">How to Achieve Parallelism with Concurrency</h2></div></div></div>
+<p id="conc-par_00000005"><a id="ix_ch13_conc-par-txt1" class="indexterm"></a><a id="ix_ch13_conc-par-txt2" class="indexterm"></a><a id="ix_ch13_conc-par-txt3" class="indexterm"></a><a id="ix_ch13_conc-par-txt4" class="indexterm"></a><a id="ix_ch13_conc-par-txt5" class="indexterm"></a>In many cases, you can achieve parallelism by <a id="id484993" class="indexterm"></a>forking a few
+threads to do the work.  The <code class="literal">Async</code> <a id="id485009" class="indexterm"></a>API can help by propagating
+errors appropriately and cleaning up threads.  As with the parallel
+programs we saw in <a class="xref" href="pt01.html" title="Part I. Parallel Haskell">Part I</a>, you need to do two things to run
+a program on multiple cores:</p>
+<div class="itemizedlist" id="conc-par_00000006"><ul class="itemizedlist">
+<li class="listitem">
+Compile the program with <code class="literal">-threaded</code>.
+</li>
+<li class="listitem">
+Run the program with <code class="literal">+RTS -N</code><em class="replaceable"><code>cores</code></em> where
+<em class="replaceable"><code>cores</code></em> is the number of cores to
+use, e.g., <code class="literal">+RTS -N2</code> to use two cores.  Alternatively, use <code class="literal">+RTS -N</code> to
+use all the cores in your machine.
+</li>
+</ul></div>
+<p id="conc-par_00000008">When <a id="id485077" class="indexterm"></a>multiple cores are available, the GHC runtime system
+automatically migrates threads between cores so that no cores are left
+idle.  Its load-balancing algorithm isn’t very sophisticated, though,
+so don’t expect the scheduling policy to be fair, although it does try
+to ensure that threads do not get starved.</p>
+<p id="conc-par_00000009">Many of the issues that we saw in <a class="xref" href="pt01.html" title="Part I. Parallel Haskell">Part I</a> also arise when
+using concurrency to program parallelism; for example, static
+versus dynamic partitioning, and granularity.  Forking a <a id="id485105" class="indexterm"></a>fixed number of
+threads will gain only a fixed amount of parallelism, so instead you
+probably want to fork plenty of threads to ensure that the program
+scales beyond a small number of cores.  On the other hand, forking too many threads
+creates overhead that we want to avoid. The next section tackles these issues in
+the context of a concrete example.<a id="id485117" class="indexterm"></a><a id="id485127" class="indexterm"></a><a id="id485137" class="indexterm"></a><a id="id485147" class="indexterm"></a><a id="id485157" class="indexterm"></a></p>
+</div>
+<div class="sect1" data-original-filename="ch13_conc-par.asciidoc" id="sec_conc-find">
+<div class="titlepage"><div><div><h2 class="title">Example: Searching for Files</h2></div></div></div>
+<p id="conc-par_00000010">We start by considering how to parallelize a simple program that
+searches the <a id="id485184" class="indexterm"></a>filesystem for files with a particular name.  The program
+takes a filename to search for and the root directory for the search
+as arguments, and prints either <code class="literal">Just p</code> if the file was found with
+pathname <code class="literal">p</code> or <code class="literal">Nothing</code> if it was not found.</p>
+<p id="conc-par_00000011">This problem may be either I/O-bound <a id="id485216" class="indexterm"></a><a id="id485222" class="indexterm"></a>or compute-bound, depending on
+whether the filesystem metadata is already cached in memory or not,
+but luckily the same solution will allow us to parallelize the work in
+both cases.</p>
+<div class="sect2" id="conc-par_00000012">
+<div class="titlepage"><div><div><h3 class="title">Sequential Version</h3></div></div></div>
+<p id="conc-par_00000013"><a id="ix_ch13_conc-par-txt6" class="indexterm"></a>The search is implemented in a recursive function <code class="literal">find</code>, which takes
+the string to search for and the directory to start searching from,
+respectively, and returns a <code class="literal">Maybe FilePath</code> indicating whether the
+file was found (and its path) or not.  The algorithm is a recursive
+walk over the filesystem, using the functions <code class="literal">getDirectoryContents</code>
+and <code class="literal">doesDirectoryExist</code> from <code class="literal">System.Directory</code>:</p>
+<p id="conc-par_00000014" class="caption"><span class="emphasis"><em>findseq.hs</em></span>
+</p>
+<pre class="programlisting" data-language="haskell" id="find__string__id1"><code class="nf">find</code> <code class="ow">::</code> <code class="kt">String</code> <code class="ow">-&gt;</code> <code class="kt">FilePath</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="p">(</code><code class="kt">Maybe</code> <code class="kt">FilePath</code><code class="p">)</code>
+<code class="nf">find</code> <code class="n">s</code> <code class="n">d</code> <code class="ow">=</code> <code class="kr">do</code>
+  <code class="n">fs</code> <code class="ow">&lt;-</code> <code class="n">getDirectoryContents</code> <code class="n">d</code>                         <code class="c1">-- </code><span id="CO46-1"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1"></span>
+  <code class="kr">let</code> <code class="n">fs'</code> <code class="ow">=</code> <code class="n">sort</code> <code class="o">$</code> <code class="n">filter</code> <code class="p">(`</code><code class="n">notElem</code><code class="p">`</code> <code class="p">[</code><code class="s">"."</code><code class="p">,</code><code class="s">".."</code><code class="p">])</code> <code class="n">fs</code>    <code class="c1">-- </code><span id="CO46-2"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/2.png" alt="2"></span>
+  <code class="kr">if</code> <code class="n">any</code> <code class="p">(</code><code class="o">==</code> <code class="n">s</code><code class="p">)</code> <code class="n">fs'</code>                                    <code class="c1">-- </code><span id="CO46-3"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/3.png" alt="3"></span>
+     <code class="kr">then</code> <code class="n">return</code> <code class="p">(</code><code class="kt">Just</code> <code class="p">(</code><code class="n">d</code> <code class="o">&lt;/&gt;</code> <code class="n">s</code><code class="p">))</code>
+     <code class="kr">else</code> <code class="n">loop</code> <code class="n">fs'</code>                                     <code class="c1">-- </code><span id="CO46-4"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/4.png" alt="4"></span>
+ <code class="kr">where</code>
+  <code class="n">loop</code> <code class="kt">[]</code> <code class="ow">=</code> <code class="n">return</code> <code class="kt">Nothing</code>                             <code class="c1">-- </code><span id="CO46-5"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/5.png" alt="5"></span>
+  <code class="n">loop</code> <code class="p">(</code><code class="n">f</code><code class="kt">:</code><code class="n">fs</code><code class="p">)</code>  <code class="ow">=</code> <code class="kr">do</code>
+    <code class="kr">let</code> <code class="n">d'</code> <code class="ow">=</code> <code class="n">d</code> <code class="o">&lt;/&gt;</code> <code class="n">f</code>                                   <code class="c1">-- </code><span id="CO46-6"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/6.png" alt="6"></span>
+    <code class="n">isdir</code> <code class="ow">&lt;-</code> <code class="n">doesDirectoryExist</code> <code class="n">d'</code>                     <code class="c1">-- </code><span id="CO46-7"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/7.png" alt="7"></span>
+    <code class="kr">if</code> <code class="n">isdir</code>
+       <code class="kr">then</code> <code class="kr">do</code> <code class="n">r</code> <code class="ow">&lt;-</code> <code class="n">find</code> <code class="n">s</code> <code class="n">d'</code>                          <code class="c1">-- </code><span id="CO46-8"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/8.png" alt="8"></span>
+               <code class="kr">case</code> <code class="n">r</code> <code class="kr">of</code>
+                 <code class="kt">Just</code> <code class="kr">_</code>  <code class="ow">-&gt;</code> <code class="n">return</code> <code class="n">r</code>                   <code class="c1">-- </code><span id="CO46-9"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/9.png" alt="9"></span>
+                 <code class="kt">Nothing</code> <code class="ow">-&gt;</code> <code class="n">loop</code> <code class="n">fs</code>                    <code class="c1">-- </code><span id="CO46-10"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/10.png" alt="10"></span>
+       <code class="kr">else</code> <code class="n">loop</code> <code class="n">fs</code>                                    <code class="c1">-- </code><span id="CO46-11"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/11.png" alt="11"></span></pre>
+<div class="calloutlist" id="conc-par_00000015"><table style="border: 0; ">
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO46-1"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="read_the_list_o">
+Read the list of filenames in the directory <code class="literal">d</code>.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO46-2"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/2.png" alt="2"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="filter_out__">
+Filter out <code class="literal">"."</code> and <code class="literal">".."</code> (the two special entries
+corresponding to the current and the parent directory, respectively).
+We also <code class="literal">sort</code> the list so that the search is deterministic.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO46-3"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/3.png" alt="3"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="if_the_filename_id1">
+If the filename we are looking for is in the current directory,
+then return the result: <code class="literal">d &lt;/&gt; s</code> is the filename constructed by
+appending the filename <code class="literal">s</code> to the directory <code class="literal">d</code>.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO46-4"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/4.png" alt="4"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="if_the_filename_id2">
+If the filename was not found, then loop over the filenames in the
+directory <code class="literal">d</code>, recursively searching each one that is a
+subdirectory.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO46-5"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/5.png" alt="5"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="in_the_loop_if">
+In the loop, if we reach the end of the list, then we did not find the
+file. Return <code class="literal">Nothing</code>.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO46-6"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/6.png" alt="6"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="for_a_filename_">
+For a filename <code class="literal">f</code>, construct the full path <code class="literal">d &lt;/&gt; f</code>.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO46-7"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/7.png" alt="7"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="ask_whether_thi">
+Ask whether this pathname corresponds to a directory.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO46-8"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/8.png" alt="8"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="if_it_does_the">
+If it does, then make a recursive call to <code class="literal">find</code> to search the
+subdirectory.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO46-9"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/9.png" alt="9"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="if_the_file_was">
+If the file was found in this subdirectory, then return the name.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO46-10"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/10.png" alt="10"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="otherwise_loop">
+Otherwise, loop to search the rest of the subdirectories.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO46-11"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/11.png" alt="11"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="if_the_name_was">
+If the name was not a directory, then loop again to search the
+rest.
+</p></td>
+</tr>
+</table></div>
+<p id="conc-par_00000026">The <code class="literal">main</code> function that wraps <code class="literal">find</code> into a program expects two command-line arguments and passes them as the arguments to <code class="literal">find</code>:</p>
+<pre class="programlisting" data-language="haskell" id="main__io__m_id8"><code class="nf">main</code> <code class="ow">::</code> <code class="kt">IO</code> <code class="nb">()</code>
+<code class="nf">main</code> <code class="ow">=</code> <code class="kr">do</code>
+  <code class="p">[</code><code class="n">s</code><code class="p">,</code><code class="n">d</code><code class="p">]</code> <code class="ow">&lt;-</code> <code class="n">getArgs</code>
+  <code class="n">r</code> <code class="ow">&lt;-</code> <code class="n">find</code> <code class="n">s</code> <code class="n">d</code>
+  <code class="n">print</code> <code class="n">r</code></pre>
+<p id="conc-par_00000028">To search a tree consisting of about 7 GB of source code on
+my computer, this program takes 1.14s when all the metadata is
+in the cache.<a href="#ftn.id486310" class="footnote"><sup class="footnote" id="id486310">[47]</sup></a>  The program isn’t as efficient as it could be. The
+system <code class="literal">find</code> program is about four times faster, mainly because the
+Haskell program is using the notoriously inefficient <code class="literal">String</code> type
+and <a id="id486331" class="indexterm"></a><a id="id486337" class="indexterm"></a>doing Unicode conversion.  If you were optimizing this program for real, it would obviously be important to fix these inefficiencies before trying to parallelize it, but we gloss over that here.<a id="id486345" class="indexterm"></a></p>
+</div>
+<div class="sect2" id="conc-par_00000029">
+<div class="titlepage"><div><div><h3 class="title">Parallel Version</h3></div></div></div>
+<p id="conc-par_00000030"><a id="ix_ch13_conc-par-txt7" class="indexterm"></a>Parallelizing this program is not entirely straightforward because
+doing it naively could waste a lot of work; if we search multiple
+subdirectories <a id="id486384" class="indexterm"></a>concurrently and we find the file in one subdirectory,
+then we would like to stop searching the others as soon as possible.
+Moreover, if an error is encountered at any point, then we need to
+propagate the exception correctly.  We must be careful to keep the
+deterministic behavior of the sequential version, too. If we encounter
+an error while searching a subtree, then the error should not prevent the
+return of a correct result if the sequential program would have done
+so.</p>
+<p id="conc-par_00000031">To implement this, we’re going to use the <code class="literal">Async</code> <a id="id486408" class="indexterm"></a>API with its
+<code class="literal">withAsync</code> facility for creating threads and automatically cancelling
+them later.  This is just what we need for spawning threads to search
+subtrees: the search threads should be automatically cancelled as soon
+as we have a result for a subtree.</p>
+<p id="conc-par_00000032">Recall the type of <code class="literal">withAsync</code>:</p>
+<pre class="programlisting" data-language="haskell" id="withasync__io_id2"><code class="nf">withAsync</code> <code class="ow">::</code> <code class="kt">IO</code> <code class="n">a</code> <code class="ow">-&gt;</code> <code class="p">(</code><code class="kt">Async</code> <code class="n">a</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="n">b</code><code class="p">)</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="n">b</code></pre>
+<p id="conc-par_00000034">It takes the inner computation as its second argument.  So to set off
+several searches in parallel, we have to nest multiple calls <a id="id486530" class="indexterm"></a><a id="id486538" class="indexterm"></a><a id="id486546" class="indexterm"></a>of
+<code class="literal">withAsync</code>.  This implies a fold of some kind, and furthermore we
+need to collect up the <code class="literal">Async</code> values so we can wait for the
+results.  The function we are going to fold is this:</p>
+<pre class="programlisting" data-language="haskell" id="subfind__stri_id1"><code class="nf">subfind</code> <code class="ow">::</code> <code class="kt">String</code> <code class="ow">-&gt;</code> <code class="kt">FilePath</code>
+        <code class="ow">-&gt;</code> <code class="p">([</code><code class="kt">Async</code> <code class="p">(</code><code class="kt">Maybe</code> <code class="kt">FilePath</code><code class="p">)]</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="p">(</code><code class="kt">Maybe</code> <code class="kt">FilePath</code><code class="p">))</code>
+        <code class="ow">-&gt;</code>  <code class="p">[</code><code class="kt">Async</code> <code class="p">(</code><code class="kt">Maybe</code> <code class="kt">FilePath</code><code class="p">)]</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="p">(</code><code class="kt">Maybe</code> <code class="kt">FilePath</code><code class="p">)</code>
+
+<code class="nf">subfind</code> <code class="n">s</code> <code class="n">p</code> <code class="n">inner</code> <code class="n">asyncs</code> <code class="ow">=</code> <code class="kr">do</code>
+  <code class="n">isdir</code> <code class="ow">&lt;-</code> <code class="n">doesDirectoryExist</code> <code class="n">p</code>
+  <code class="kr">if</code> <code class="n">not</code> <code class="n">isdir</code>
+     <code class="kr">then</code> <code class="n">inner</code> <code class="n">asyncs</code>
+     <code class="kr">else</code> <code class="n">withAsync</code> <code class="p">(</code><code class="n">find</code> <code class="n">s</code> <code class="n">p</code><code class="p">)</code> <code class="o">$</code> <code class="nf">\</code><code class="n">a</code> <code class="ow">-&gt;</code> <code class="n">inner</code> <code class="p">(</code><code class="n">a</code><code class="kt">:</code><code class="n">asyncs</code><code class="p">)</code></pre>
+<p id="conc-par_00000037">The <code class="literal">subfind</code> function takes the string to search for, <code class="literal">s</code>, the path
+to search, <code class="literal">p</code>, the inner <code class="literal">IO</code> computation, <code class="literal">inner</code>, and the list of
+<code class="literal">Async</code>s, <code class="literal">asyncs</code>.  If the path corresponds to a directory, we
+create a new <code class="literal">Async</code> to search it using <code class="literal">withAsync</code>, and inside
+<code class="literal">withAsync</code> we call <code class="literal">inner</code>, passing the original list of <code class="literal">Async</code>s
+with the new one prepended.  If the pathname is not a directory, then we
+simply invoke the <code class="literal">inner</code> computation without creating a new <code class="literal">Async</code>.</p>
+<p id="conc-par_00000038">Using this piece, we can now update the <code class="literal">find</code> <a id="id487014" class="indexterm"></a>function to create a
+new <code class="literal">Async</code> for each subdirectory:</p>
+<p id="conc-par_00000039" class="caption"><span class="emphasis"><em>findpar.hs</em></span>
+</p>
+<pre class="programlisting" data-language="haskell" id="find__string__id2"><code class="nf">find</code> <code class="ow">::</code> <code class="kt">String</code> <code class="ow">-&gt;</code> <code class="kt">FilePath</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="p">(</code><code class="kt">Maybe</code> <code class="kt">FilePath</code><code class="p">)</code>
+<code class="nf">find</code> <code class="n">s</code> <code class="n">d</code> <code class="ow">=</code> <code class="kr">do</code>
+  <code class="n">fs</code> <code class="ow">&lt;-</code> <code class="n">getDirectoryContents</code> <code class="n">d</code>
+  <code class="kr">let</code> <code class="n">fs'</code> <code class="ow">=</code> <code class="n">sort</code> <code class="o">$</code> <code class="n">filter</code> <code class="p">(`</code><code class="n">notElem</code><code class="p">`</code> <code class="p">[</code><code class="s">"."</code><code class="p">,</code><code class="s">".."</code><code class="p">])</code> <code class="n">fs</code>
+  <code class="kr">if</code> <code class="n">any</code> <code class="p">(</code><code class="o">==</code> <code class="n">s</code><code class="p">)</code> <code class="n">fs'</code>
+     <code class="kr">then</code> <code class="n">return</code> <code class="p">(</code><code class="kt">Just</code> <code class="p">(</code><code class="n">d</code> <code class="o">&lt;/&gt;</code> <code class="n">s</code><code class="p">))</code>
+     <code class="kr">else</code> <code class="kr">do</code>
+       <code class="kr">let</code> <code class="n">ps</code> <code class="ow">=</code> <code class="n">map</code> <code class="p">(</code><code class="n">d</code> <code class="o">&lt;/&gt;</code><code class="p">)</code> <code class="n">fs'</code>         <code class="c1">-- </code><span id="CO47-1"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1"></span>
+       <code class="n">foldr</code> <code class="p">(</code><code class="n">subfind</code> <code class="n">s</code><code class="p">)</code> <code class="n">dowait</code> <code class="n">ps</code> <code class="kt">[]</code>   <code class="c1">-- </code><span id="CO47-2"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/2.png" alt="2"></span>
+ <code class="kr">where</code>
+   <code class="n">dowait</code> <code class="n">as</code> <code class="ow">=</code> <code class="n">loop</code> <code class="p">(</code><code class="n">reverse</code> <code class="n">as</code><code class="p">)</code>        <code class="c1">-- </code><span id="CO47-3"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/3.png" alt="3"></span>
+
+   <code class="n">loop</code> <code class="kt">[]</code> <code class="ow">=</code> <code class="n">return</code> <code class="kt">Nothing</code>
+   <code class="n">loop</code> <code class="p">(</code><code class="n">a</code><code class="kt">:</code><code class="n">as</code><code class="p">)</code> <code class="ow">=</code> <code class="kr">do</code>                     <code class="c1">-- </code><span id="CO47-4"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/4.png" alt="4"></span>
+      <code class="n">r</code> <code class="ow">&lt;-</code> <code class="n">wait</code> <code class="n">a</code>
+      <code class="kr">case</code> <code class="n">r</code> <code class="kr">of</code>
+        <code class="kt">Nothing</code> <code class="ow">-&gt;</code> <code class="n">loop</code> <code class="n">as</code>
+        <code class="kt">Just</code> <code class="n">a</code>  <code class="ow">-&gt;</code> <code class="n">return</code> <code class="p">(</code><code class="kt">Just</code> <code class="n">a</code><code class="p">)</code></pre>
+<p id="conc-par_00000041">The differences from the previous <code class="literal">find</code> are as follows:</p>
+<div class="calloutlist" id="conc-par_00000042"><table style="border: 0; ">
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO47-1"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="create_the_list">
+Create the list of pathnames by prepending <code class="literal">d</code> to each filename.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO47-2"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/2.png" alt="2"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="fold_subfind_ov">
+Fold <code class="literal">subfind</code> over the list of pathnames, creating the
+nested sequence of <code class="literal">withAsync</code> calls to create the child threads.  The
+inner computation is the function <code class="literal">dowait</code>, defined next.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO47-3"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/3.png" alt="3"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="dowait_enters_a">
+<code class="literal">dowait</code> enters a loop to wait for each <code class="literal">Async</code> to finish, but
+first we must reverse the list. The fold generated the list in reverse
+order, and to make sure we retain the same behavior as the sequential
+version, we must check the results in the same order.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO47-4"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/4.png" alt="4"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="the_loop_async_">
+The <code class="literal">loop</code> <a id="id487763" class="indexterm"></a>function loops over the list of <code class="literal">Async</code>s and calls
+<code class="literal">wait</code> for each one.  If any of the <code class="literal">Async</code>s returns a <code class="literal">Just</code>
+result, then <code class="literal">loop</code> immediately returns it.  Returning from here will
+cause all the <code class="literal">Async</code>s to be cancelled, as we return up through the
+nest of <code class="literal">withAsync</code> calls.  Similarly, if an error occurs inside any
+of the <code class="literal">Async</code> computations, then the exception will propagate from the
+<code class="literal">wait</code> and cancel all the other <code class="literal">Async</code>s.<a id="id487832" class="indexterm"></a>
+</p></td>
+</tr>
+</table></div>
+</div>
+<div class="sect2" id="conc-par_00000046">
+<div class="titlepage"><div><div><h3 class="title">Performance and Scaling</h3></div></div></div>
+<p id="conc-par_00000047"><a id="ix_ch13_conc-par-txt8" class="indexterm"></a><a id="ix_ch13_conc-par-txt9" class="indexterm"></a>You might wonder whether creating a thread for every subdirectory is
+expensive, both in terms of time and space.  Let’s compare <code class="literal">findseq</code>
+<a id="id487893" class="indexterm"></a><a id="id487901" class="indexterm"></a>and <code class="literal">findpar</code> on the same 7 GB tree of source code, searching for a file that does not exist so that the search is forced to traverse the whole tree:</p>
+<pre class="screen" id="conc-par_00000048">$ ./findseq nonexistent ~/code +RTS -s
+Nothing
+   2,392,886,680 bytes allocated in the heap
+      76,466,184 bytes copied during GC
+       1,179,224 bytes maximum residency (26 sample(s))
+          37,744 bytes maximum slop
+               4 MB total memory in use (0 MB lost due to fragmentation)
+
+  MUT     time    1.05s  (  1.06s elapsed)
+  GC      time    0.07s  (  0.07s elapsed)
+  Total   time    1.13s  (  1.13s elapsed)</pre>
+<pre class="screen" id="conc-par_00000050">$ ./findpar nonexistent ~/code +RTS -s
+Nothing
+   2,523,910,384 bytes allocated in the heap
+     601,596,552 bytes copied during GC
+      34,332,168 bytes maximum residency (21 sample(s))
+       1,667,048 bytes maximum slop
+              80 MB total memory in use (0 MB lost due to fragmentation)
+
+  MUT     time    1.28s  (  1.29s elapsed)
+  GC      time    1.16s  (  1.16s elapsed)
+  Total   time    2.44s  (  2.45s elapsed)</pre>
+<p id="conc-par_00000052">The parallel version does indeed take about twice as long, and it
+needs a lot more <a id="id487946" class="indexterm"></a>memory (80 MB compared to 4 MB).  But let’s see how
+well it scales, first with two processors:</p>
+<pre class="screen" id="conc-par_00000053">$ ./findpar nonexistent ~/code +RTS -s -N2
+Nothing
+   2,524,242,200 bytes allocated in the heap
+     458,186,848 bytes copied during GC
+      26,937,968 bytes maximum residency (21 sample(s))
+       1,242,184 bytes maximum slop
+              62 MB total memory in use (0 MB lost due to fragmentation)
+
+  MUT     time    1.28s  (  0.65s elapsed)
+  GC      time    0.86s  (  0.43s elapsed)
+  Total   time    2.15s  (  1.08s elapsed)</pre>
+<p id="conc-par_00000055">We were lucky. This program scales super-linearly (better than double
+performance with two cores), and just about beats the sequential
+version when using <code class="literal">-N2</code>.  The reason for <a id="id487983" class="indexterm"></a>super-linear performance may
+be because running in parallel allowed some of the data structures to
+be garbage-collected earlier than they were when running sequentially. Note the lower GC time compared with <code class="literal">findseq</code> and the lower memory use compared with the single-processor <code class="literal">findpar</code>.  Running with <code class="literal">-N4</code>
+shows the good scaling continue:</p>
+<pre class="screen" id="conc-par_00000056">$ ./findpar nonexistent ~/code +RTS -s -N4
+Nothing
+   2,524,666,176 bytes allocated in the heap
+     373,621,096 bytes copied during GC
+      23,306,264 bytes maximum residency (23 sample(s))
+       1,084,456 bytes maximum slop
+              55 MB total memory in use (0 MB lost due to fragmentation)
+
+  MUT     time    1.42s  (  0.36s elapsed)
+  GC      time    0.83s  (  0.21s elapsed)
+  Total   time    2.25s  (  0.57s elapsed)</pre>
+<p id="conc-par_00000058">Relative to the sequential program, this is a <a id="id488028" class="indexterm"></a>speedup of two on four cores. Not bad, but we ought to be able to do better.<a id="id488038" class="indexterm"></a><a id="id488048" class="indexterm"></a></p>
+</div>
+<div class="sect2" id="sec_conc-par-overhead">
+<div class="titlepage"><div><div><h3 class="title">Limiting the Number of Threads with a Semaphore</h3></div></div></div>
+<p id="conc-par_00000060"><a id="ix_ch13_conc-par-txt10" class="indexterm"></a><a id="ix_ch13_conc-par-txt11" class="indexterm"></a><a id="ix_ch13_conc-par-txt13" class="indexterm"></a>The <code class="literal">findpar</code> program is scaling quite nicely, which indicates that there is plenty of parallelism available.  Indeed, a quick glance at a
+ThreadScope profile confirms this (<a class="xref" href="ch13.html#findpar_profile" title="Figure 13-1. findpar ThreadScope profile">Figure 13-1</a>).</p>
+<div class="figure" id="findpar_profile">
+<div class="figure-contents"><div class="mediaobject"><img src="http://orm-chimera-prod.s3.amazonaws.com/1230000000929/images/pcph_1301.png" alt="findpar ThreadScope profile"></div></div>
+<div class="figure-title">Figure 13-1. findpar ThreadScope profile</div>
+</div>
+<p id="conc-par_00000062">So the reason for the lack of speedup relative to the sequential
+version is the extra overhead in the parallel program.
+To improve performance, therefore, we need to focus on reducing the overhead.</p>
+<p id="conc-par_00000063">The obvious target is the creation of an <code class="literal">Async</code>, and therefore a thread, for every single subdirectory.  This is a classic <a id="id488166" class="indexterm"></a>granularity problem—the granularity is too fine.</p>
+<p id="conc-par_00000064">One solution to granularity is <a id="id488183" class="indexterm"></a><a id="id488191" class="indexterm"></a><a id="id488199" class="indexterm"></a>chunking, where we increase the grain size by making larger chunks of work (we used this technique with the
+K-Means example in <a class="xref" href="ch03.html#sec_par-kmeans-parallel" title="Parallelizing K-Means">“Parallelizing K-Means”</a>).  However, here the
+computation is tree-shaped, so we can’t easily chunk.  A depth
+threshold is more appropriate for divide-and-conquer algorithms, as we
+saw in <a class="xref" href="ch04.html#sec_par-monad-timetable" title="Example: A Conference Timetable">“Example: A Conference Timetable”</a>, but here the problem is that the
+tree shape is dependent on the <a id="id488225" class="indexterm"></a>filesystem structure and is therefore
+not naturally balanced.  The tree could be <span class="emphasis"><em>very</em></span> unbalanced—most of
+the work might be concentrated in one deep subdirectory.  (The reader
+is invited to try adding a depth threshold to the program and
+experiment to see how well it works.)</p>
+<p id="conc-par_00000065">So here we will try a different approach.  Remember that what we are
+trying to do is limit the number of threads created so we have
+just the right amount to keep all the cores busy.  So let’s program
+that behavior explicitly: keep a shared counter representing the
+number of threads we are allowed to create, and if the counter reaches
+zero we stop creating new ones and switch to the <a id="id488252" class="indexterm"></a>sequential algorithm.
+When a thread finishes, it increases the counter so that another
+thread can be created.</p>
+<p id="conc-par_00000066">A counter used in this way is often called a <span class="emphasis"><em>semaphore</em></span>. A semaphore
+contains a number of units of a resource and has two operations:
+acquire a unit of the resource or release one. Typically, acquiring a
+unit of the resource would <span class="emphasis"><em>block</em></span> if there are no units available,
+but in our case we want something simpler. If there are no units
+available, then the program will do something different (fall back to the
+sequential algorithm).  There are of course semaphore implementations
+for Concurrent Haskell available on Hackage, but since we only need a
+nonblocking <a id="id488278" class="indexterm"></a><a id="id488284" class="indexterm"></a>semaphore, the implementation is quite straightforward, so
+we will write our own.  Furthermore, we will need to tinker with the
+semaphore implementation later.</p>
+<p id="conc-par_00000067">The nonblocking semaphore is <a id="id488301" class="indexterm"></a>called <code class="literal">NBSem</code>:</p>
+<p id="conc-par_00000068" class="caption"><span class="emphasis"><em>findpar2.hs</em></span>
+</p>
+<pre class="programlisting" data-language="haskell" id="newtype_nbsem__id1"><code class="kr">newtype</code> <code class="kt">NBSem</code> <code class="ow">=</code> <code class="kt">NBSem</code> <code class="p">(</code><code class="kt">MVar</code> <code class="kt">Int</code><code class="p">)</code>
+
+<code class="nf">newNBSem</code> <code class="ow">::</code> <code class="kt">Int</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="kt">NBSem</code>
+<code class="nf">newNBSem</code> <code class="n">i</code> <code class="ow">=</code> <code class="kr">do</code>
+  <code class="n">m</code> <code class="ow">&lt;-</code> <code class="n">newMVar</code> <code class="n">i</code>
+  <code class="n">return</code> <code class="p">(</code><code class="kt">NBSem</code> <code class="n">m</code><code class="p">)</code>
+
+<code class="nf">tryAcquireNBSem</code> <code class="ow">::</code> <code class="kt">NBSem</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="kt">Bool</code>
+<code class="nf">tryAcquireNBSem</code> <code class="p">(</code><code class="kt">NBSem</code> <code class="n">m</code><code class="p">)</code> <code class="ow">=</code>
+  <code class="n">modifyMVar</code> <code class="n">m</code> <code class="o">$</code> <code class="nf">\</code><code class="n">i</code> <code class="ow">-&gt;</code>
+    <code class="kr">if</code> <code class="n">i</code> <code class="o">==</code> <code class="mi">0</code>
+       <code class="kr">then</code> <code class="n">return</code> <code class="p">(</code><code class="n">i</code><code class="p">,</code> <code class="kt">False</code><code class="p">)</code>
+       <code class="kr">else</code> <code class="kr">let</code> <code class="o">!</code><code class="n">z</code> <code class="ow">=</code> <code class="n">i</code><code class="o">-</code><code class="mi">1</code> <code class="kr">in</code> <code class="n">return</code> <code class="p">(</code><code class="n">z</code><code class="p">,</code> <code class="kt">True</code><code class="p">)</code>
+
+<code class="nf">releaseNBSem</code> <code class="ow">::</code> <code class="kt">NBSem</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="nb">()</code>
+<code class="nf">releaseNBSem</code> <code class="p">(</code><code class="kt">NBSem</code> <code class="n">m</code><code class="p">)</code> <code class="ow">=</code>
+  <code class="n">modifyMVar</code> <code class="n">m</code> <code class="o">$</code> <code class="nf">\</code><code class="n">i</code> <code class="ow">-&gt;</code>
+    <code class="kr">let</code> <code class="o">!</code><code class="n">z</code> <code class="ow">=</code> <code class="n">i</code><code class="o">+</code><code class="mi">1</code> <code class="kr">in</code> <code class="n">return</code> <code class="p">(</code><code class="n">z</code><code class="p">,</code> <code class="nb">()</code><code class="p">)</code></pre>
+<p id="conc-par_00000072">We used an <code class="literal">MVar</code> to <a id="id488868" class="indexterm"></a><a id="id488876" class="indexterm"></a><a id="id488882" class="indexterm"></a>implement the <code class="literal">NBSem</code>, with straightforward <code class="literal">tryAcquireNBSem</code> and <code class="literal">releaseNBSem</code> operations to acquire a unit and
+release a unit of the resource, respectively.  The implementation uses
+things we have seen before, e.g., <code class="literal">modifyMVar</code> for operating on the <code class="literal">MVar</code>.</p>
+<p id="conc-par_00000073">We will use the semaphore in <code class="literal">subfind</code>, which is where we implement the new decision about whether to create a new <code class="literal">Async</code> or not:</p>
+<pre class="programlisting" data-language="haskell" id="subfind__nbse"><code class="nf">subfind</code> <code class="ow">::</code> <code class="kt">NBSem</code> <code class="ow">-&gt;</code> <code class="kt">String</code> <code class="ow">-&gt;</code> <code class="kt">FilePath</code>
+        <code class="ow">-&gt;</code> <code class="p">([</code><code class="kt">Async</code> <code class="p">(</code><code class="kt">Maybe</code> <code class="kt">FilePath</code><code class="p">)]</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="p">(</code><code class="kt">Maybe</code> <code class="kt">FilePath</code><code class="p">))</code>
+        <code class="ow">-&gt;</code>  <code class="p">[</code><code class="kt">Async</code> <code class="p">(</code><code class="kt">Maybe</code> <code class="kt">FilePath</code><code class="p">)]</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="p">(</code><code class="kt">Maybe</code> <code class="kt">FilePath</code><code class="p">)</code>
+
+<code class="nf">subfind</code> <code class="n">sem</code> <code class="n">s</code> <code class="n">p</code> <code class="n">inner</code> <code class="n">asyncs</code> <code class="ow">=</code> <code class="kr">do</code>
+  <code class="n">isdir</code> <code class="ow">&lt;-</code> <code class="n">doesDirectoryExist</code> <code class="n">p</code>
+  <code class="kr">if</code> <code class="n">not</code> <code class="n">isdir</code>
+     <code class="kr">then</code> <code class="n">inner</code> <code class="n">asyncs</code>
+     <code class="kr">else</code> <code class="kr">do</code>
+       <code class="n">q</code> <code class="ow">&lt;-</code> <code class="n">tryAcquireNBSem</code> <code class="n">sem</code>         <code class="c1">-- </code><span id="CO48-1"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1"></span>
+       <code class="kr">if</code> <code class="n">q</code>
+          <code class="kr">then</code> <code class="kr">do</code>
+            <code class="kr">let</code> <code class="n">dofind</code> <code class="ow">=</code> <code class="n">find</code> <code class="n">sem</code> <code class="n">s</code> <code class="n">p</code> <code class="p">`</code><code class="n">finally</code><code class="p">`</code> <code class="n">releaseNBSem</code> <code class="n">sem</code> <code class="c1">-- </code><span id="CO48-2"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/2.png" alt="2"></span>
+            <code class="n">withAsync</code> <code class="n">dofind</code> <code class="o">$</code> <code class="nf">\</code><code class="n">a</code> <code class="ow">-&gt;</code> <code class="n">inner</code> <code class="p">(</code><code class="n">a</code><code class="kt">:</code><code class="n">asyncs</code><code class="p">)</code>
+          <code class="kr">else</code> <code class="kr">do</code>
+            <code class="n">r</code> <code class="ow">&lt;-</code> <code class="n">find</code> <code class="n">sem</code> <code class="n">s</code> <code class="n">p</code>           <code class="c1">-- </code><span id="CO48-3"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/3.png" alt="3"></span>
+            <code class="kr">case</code> <code class="n">r</code> <code class="kr">of</code>
+              <code class="kt">Nothing</code> <code class="ow">-&gt;</code> <code class="n">inner</code> <code class="n">asyncs</code>
+              <code class="kt">Just</code> <code class="kr">_</code>  <code class="ow">-&gt;</code> <code class="n">return</code> <code class="n">r</code></pre>
+<div class="calloutlist" id="conc-par_00000076"><table style="border: 0; ">
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO48-1"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="when_we_encount">
+When we encounter a subdirectory, first try to acquire a unit of the semaphore.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO48-2"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/2.png" alt="2"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="if_we_successfu">
+If we successfully grabbed a unit, then create an <code class="literal">Async</code> as
+before, but now the computation in the <code class="literal">Async</code> has an additional
+<code class="literal"><code class="literal">finally</code></code> call to <code class="literal">releaseNBSem</code>, which releases the unit of the
+semaphore when this <code class="literal">Async</code> has completed.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO48-3"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/3.png" alt="3"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="if_we_didnt_ge">
+If we didn’t get a unit of the semaphore, then we do a synchronous
+call to <code class="literal">find</code> instead of an asynchronous one.  If this <code class="literal">find</code> returns
+an answer, then we can return it; otherwise, we continue to perform the
+<code class="literal">inner</code> action.
+</p></td>
+</tr>
+</table></div>
+<p id="conc-par_00000079">The changes to the <code class="literal">find</code> <a id="id489632" class="indexterm"></a><a id="id489637" class="indexterm"></a>function are straightforward, just pass around the <code class="literal">NBSem</code>.  In <code class="literal">main</code>, we need to create the <code class="literal">NBSem</code>, and the
+main question is how many units to give it to start with.  For now, we
+defer that question and make the number of units into a command-line
+parameter:</p>
+<p id="conc-par_00000080" class="caption"><span class="emphasis"><em>findpar2.hs</em></span>
+</p>
+<pre class="programlisting" data-language="haskell" id="main__do_ns"><code class="nf">main</code> <code class="ow">=</code> <code class="kr">do</code>
+  <code class="p">[</code><code class="n">n</code><code class="p">,</code><code class="n">s</code><code class="p">,</code><code class="n">d</code><code class="p">]</code> <code class="ow">&lt;-</code> <code class="n">getArgs</code>
+  <code class="n">sem</code> <code class="ow">&lt;-</code> <code class="n">newNBSem</code> <code class="p">(</code><code class="n">read</code> <code class="n">n</code><code class="p">)</code>
+  <code class="n">find</code> <code class="n">sem</code> <code class="n">s</code> <code class="n">d</code> <code class="o">&gt;&gt;=</code> <code class="n">print</code></pre>
+<p id="conc-par_00000081">Let’s see how well this performs.  First, set <code class="literal">n</code> to zero so we never
+create any <code class="literal">Async</code>s, and this will tell us whether the <code class="literal">NBSem</code> has
+any impact on performance compared to the plain sequential version:</p>
+<pre class="screen" id="conc-par_00000082">$ ./findpar2 0 nonexistent ~/code +RTS -N1 -s
+Nothing
+   2,421,849,416 bytes allocated in the heap
+      84,264,920 bytes copied during GC
+       1,192,352 bytes maximum residency (34 sample(s))
+          33,536 bytes maximum slop
+               4 MB total memory in use (0 MB lost due to fragmentation)
+
+  MUT     time    1.09s  (  1.10s elapsed)
+  GC      time    0.08s  (  0.08s elapsed)
+  Total   time    1.18s  (  1.18s elapsed)</pre>
+<p id="conc-par_00000084">This ran in 1.18s, which is close to the 1.14s that the sequential
+program took, so the <code class="literal">NBSem</code> impacts performance by around 4% (these
+numbers are quite stable over several runs).</p>
+<p id="conc-par_00000085">Now to see how well it scales.  Remember that the value we choose for
+<code class="literal">n</code> is the number of <span class="emphasis"><em>additional</em></span> <a id="id489880" class="indexterm"></a>threads that the program will use, aside from the main thread.  So choosing <code class="literal">n == 1</code> gives us 2 threads,
+for example.  With <code class="literal">n == 1</code> and <code class="literal">+RTS -N2</code>:</p>
+<pre class="screen" id="conc-par_00000086">$ ./findpar2 1 nonexistent ~/code +RTS -N2 -s
+Nothing
+   2,426,329,800 bytes allocated in the heap
+      90,600,280 bytes copied during GC
+       2,399,960 bytes maximum residency (40 sample(s))
+          80,088 bytes maximum slop
+               6 MB total memory in use (0 MB lost due to fragmentation)
+
+  MUT     time    1.23s  (  0.65s elapsed)
+  GC      time    0.16s  (  0.08s elapsed)
+  Total   time    1.38s  (  0.73s elapsed)</pre>
+<p id="conc-par_00000088">If you experiment a little, you might find that setting <code class="literal">n == 2</code> is
+slightly better.  We seem to be doing better <a id="id489933" class="indexterm"></a>than <code class="literal">findpar</code>, which ran
+in 1.08s with <code class="literal">-N2</code>.</p>
+<p id="conc-par_00000089">I then increased the number of cores to <code class="literal">-N4</code>, with <code class="literal">n == 8</code>, and this
+is a typical run on my computer:</p>
+<pre class="screen" id="findpar__">
+$ ./findpar2 8 nonexistent ~/code +RTS -N4 -s
+Nothing
+   2,464,097,424 bytes allocated in the heap
+     121,144,952 bytes copied during GC
+       3,770,936 bytes maximum residency (47 sample(s))
+          94,608 bytes maximum slop
+              10 MB total memory in use (0 MB lost due to fragmentation)
+
+  MUT     time    1.55s  (  0.47s elapsed)
+  GC      time    0.37s  (  0.09s elapsed)
+  Total   time    1.92s  (  0.56s elapsed)
+</pre>
+<p id="conc-par_00000092">The results vary a lot but hover around this value.  The original
+<code class="literal">findpar</code> ran in about 0.57s with <code class="literal">-N4</code>; so the advantage of
+<code class="literal">findpar2</code> at <code class="literal">-N2</code> has evaporated at <code class="literal">-N4</code>.  Furthermore,
+experimenting with values of <code class="literal">n</code> doesn’t seem to help much.</p>
+<p id="conc-par_00000093">Where is the <a id="id490036" class="indexterm"></a>bottleneck?  We can take a look at the ThreadScope
+profile; for example, <a class="xref" href="ch13.html#findpar_profile_2" title="Figure 13-2. findpar2 ThreadScope profile">Figure 13-2</a> is a typical section:</p>
+<div class="figure" id="findpar_profile_2">
+<div class="figure-contents"><div class="mediaobject"><img src="http://orm-chimera-prod.s3.amazonaws.com/1230000000929/images/pcph_1302.png" alt="findpar2 ThreadScope profile"></div></div>
+<div class="figure-title">Figure 13-2. findpar2 ThreadScope profile</div>
+</div>
+<p id="conc-par_00000095">Things look quite erratic, with threads often blocked.  Looking at the
+raw events in ThreadScope shows that threads are getting blocked on
+<code class="literal">MVar</code>s, and that is the clue: there is high contention for the
+<code class="literal">MVar</code> in the <code class="literal">NBSem</code>.</p>
+<p id="conc-par_00000096">So how can we improve the <code class="literal">NBSem</code> implementation to behave better when
+there is <a id="id490106" class="indexterm"></a><a id="id490111" class="indexterm"></a><a id="id490117" class="indexterm"></a><a id="id490125" class="indexterm"></a><a id="id490134" class="indexterm"></a>contention?  One solution would be to use STM because STM
+transactions do not block, they just re-execute repeatedly.  In fact
+STM does work here, but instead we will introduce a different way to
+solve the problem, one that has less overhead than STM.  The idea is
+to use an ordinary <code class="literal">IORef</code> to store the semaphore value and operate
+on it using <code class="literal">atomicModifyIORef</code>:</p>
+<pre class="programlisting" data-language="haskell" id="atomicmodifyior"><code class="nf">atomicModifyIORef</code> <code class="ow">::</code> <code class="kt">IORef</code> <code class="n">a</code> <code class="ow">-&gt;</code> <code class="p">(</code><code class="n">a</code> <code class="ow">-&gt;</code> <code class="p">(</code><code class="n">a</code><code class="p">,</code> <code class="n">b</code><code class="p">))</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="n">b</code></pre>
+<p id="conc-par_00000098">The <code class="literal">atomicModifyIORef</code> function modifies the contents of an <code class="literal">IORef</code>
+by applying a function to it.  The function returns a pair of the new
+value to be stored in the <code class="literal">IORef</code> and a value to be returned by
+<code class="literal">atomicModifyIORef</code>.  You should think of <code class="literal">atomicModifyIORef</code> as a
+very limited version of STM; it performs a transaction on a single
+mutable cell.  Because it is much more limited, it has less <a id="id490285" class="indexterm"></a>overhead
+than STM.</p>
+<p id="conc-par_00000099">Using <code class="literal">atomicModifyIORef</code>, the <code class="literal">NBSem</code> implementation looks like this:</p>
+<p id="conc-par_00000100" class="caption"><span class="emphasis"><em>findpar3.hs</em></span>
+</p>
+<pre class="programlisting" data-language="haskell" id="newtype_nbsem__id2"><code class="kr">newtype</code> <code class="kt">NBSem</code> <code class="ow">=</code> <code class="kt">NBSem</code> <code class="p">(</code><code class="kt">IORef</code> <code class="kt">Int</code><code class="p">)</code>
+
+<code class="nf">newNBSem</code> <code class="ow">::</code> <code class="kt">Int</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="kt">NBSem</code>
+<code class="nf">newNBSem</code> <code class="n">i</code> <code class="ow">=</code> <code class="kr">do</code>
+  <code class="n">m</code> <code class="ow">&lt;-</code> <code class="n">newIORef</code> <code class="n">i</code>
+  <code class="n">return</code> <code class="p">(</code><code class="kt">NBSem</code> <code class="n">m</code><code class="p">)</code>
+
+<code class="nf">tryWaitNBSem</code> <code class="ow">::</code> <code class="kt">NBSem</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="kt">Bool</code>
+<code class="nf">tryWaitNBSem</code> <code class="p">(</code><code class="kt">NBSem</code> <code class="n">m</code><code class="p">)</code> <code class="ow">=</code> <code class="kr">do</code>
+  <code class="n">atomicModifyIORef</code> <code class="n">m</code> <code class="o">$</code> <code class="nf">\</code><code class="n">i</code> <code class="ow">-&gt;</code>
+    <code class="kr">if</code> <code class="n">i</code> <code class="o">==</code> <code class="mi">0</code>
+       <code class="kr">then</code> <code class="p">(</code><code class="n">i</code><code class="p">,</code> <code class="kt">False</code><code class="p">)</code>
+       <code class="kr">else</code> <code class="kr">let</code> <code class="o">!</code><code class="n">z</code> <code class="ow">=</code> <code class="n">i</code><code class="o">-</code><code class="mi">1</code> <code class="kr">in</code> <code class="p">(</code><code class="n">z</code><code class="p">,</code> <code class="kt">True</code><code class="p">)</code>
+
+<code class="nf">signalNBSem</code> <code class="ow">::</code> <code class="kt">NBSem</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="nb">()</code>
+<code class="nf">signalNBSem</code> <code class="p">(</code><code class="kt">NBSem</code> <code class="n">m</code><code class="p">)</code> <code class="ow">=</code>
+  <code class="n">atomicModifyIORef</code> <code class="n">m</code> <code class="o">$</code> <code class="nf">\</code><code class="n">i</code> <code class="ow">-&gt;</code>
+    <code class="kr">let</code> <code class="o">!</code><code class="n">z</code> <code class="ow">=</code> <code class="n">i</code><code class="o">+</code><code class="mi">1</code> <code class="kr">in</code> <code class="p">(</code><code class="n">z</code><code class="p">,</code> <code class="nb">()</code><code class="p">)</code></pre>
+<p id="conc-par_00000104">Note that we are careful to evaluate the new value of <code class="literal">i</code> inside
+<code class="literal">atomicModifyIORef</code>, using a <a id="id490861" class="indexterm"></a>bang-pattern.  This is a standard trick
+to avoid building up a large expression inside the <code class="literal">IORef</code>: <code class="literal">1 + 1 + 1
++ ...</code>.</p>
+<p id="conc-par_00000105">The rest of the implementation is the same as <span class="emphasis"><em>findpar2.hs</em></span>, except that we
+added some logic in <code class="literal">main</code> to initialize the number of units in the
+<code class="literal">NBSem</code> automatically:</p>
+<p id="conc-par_00000106" class="caption"><span class="emphasis"><em>findpar3.hs</em></span>
+</p>
+<pre class="programlisting" data-language="haskell" id="main__do_sd_id1"><code class="nf">main</code> <code class="ow">=</code> <code class="kr">do</code>
+  <code class="p">[</code><code class="n">s</code><code class="p">,</code><code class="n">d</code><code class="p">]</code> <code class="ow">&lt;-</code> <code class="n">getArgs</code>
+  <code class="n">n</code> <code class="ow">&lt;-</code> <code class="n">getNumCapabilities</code>
+  <code class="n">sem</code> <code class="ow">&lt;-</code> <code class="n">newNBSem</code> <code class="p">(</code><code class="kr">if</code> <code class="n">n</code> <code class="o">==</code> <code class="mi">1</code> <code class="kr">then</code> <code class="mi">0</code> <code class="kr">else</code> <code class="n">n</code> <code class="o">*</code> <code class="mi">4</code><code class="p">)</code>
+  <code class="n">find</code> <code class="n">sem</code> <code class="n">s</code> <code class="n">d</code> <code class="o">&gt;&gt;=</code> <code class="n">print</code></pre>
+<p id="conc-par_00000107">The function <code class="literal">getNumCapabilities</code> comes from <code class="literal">GHC.Conc</code> and returns
+the value passed to <code class="literal">+RTS -N</code>, which is the number of cores that the
+program is using.  This <a id="id491125" class="indexterm"></a><a id="id491131" class="indexterm"></a>value can actually be changed while the
+program is running, by calling <code class="literal">setNumCapabilities</code> from the same
+module.</p>
+<p id="conc-par_00000108">If the program is running on multiple <a id="id491151" class="indexterm"></a>cores, then we initialize the
+semaphore to <code class="literal">n * 4</code>, which experimentation suggests to be a
+reasonable value.</p>
+<p id="conc-par_00000109">The results with <code class="literal">-N4</code> look like this:</p>
+<pre class="screen" id="conc-par_00000110">$ ./findpar3 nonexistent ~/code +RTS -s -N4
+Nothing
+   2,495,362,472 bytes allocated in the heap
+     138,071,544 bytes copied during GC
+       4,556,704 bytes maximum residency (50 sample(s))
+         141,160 bytes maximum slop
+              12 MB total memory in use (0 MB lost due to fragmentation)
+
+  MUT     time    1.38s  (  0.36s elapsed)
+  GC      time    0.35s  (  0.09s elapsed)
+  Total   time    1.73s  (  0.44s elapsed)</pre>
+<p id="conc-par_00000112">This represents a <a id="id491198" class="indexterm"></a>speedup of about 2.6—our best yet, but in the next
+section we will improve on this a bit more.<a id="id491209" class="indexterm"></a><a id="id491218" class="indexterm"></a><a id="id491228" class="indexterm"></a></p>
+</div>
+<div class="sect2" id="sec_conc-monad-par-io">
+<div class="titlepage"><div><div><h3 class="title">The ParIO monad</h3></div></div></div>
+<p id="conc-par_00000124"><a id="ix_ch13_conc-par-txt14" class="indexterm"></a><a id="ix_ch13_conc-par-txt15" class="indexterm"></a>In <a class="xref" href="ch04.html" title="Chapter 4. Dataflow Parallelism: The Par Monad">Chapter 4</a>, we encountered the <code class="literal">Par</code> monad, a simple API for programming deterministic parallelism as a dataflow graph.  There is
+another version of the <code class="literal">Par</code> <a id="id491295" class="indexterm"></a>monad called <code class="literal">ParIO</code>, provided by the module
+<code class="literal">Control.Monad.Par.IO</code> with two important differences from <code class="literal">Par</code>:<a href="#ftn.id491322" class="footnote"><sup class="footnote" id="id491322">[48]</sup></a></p>
+<div class="itemizedlist" id="conc-par_00000125"><ul class="itemizedlist">
+<li class="listitem">
+<code class="literal">IO</code> operations are <a id="id491349" class="indexterm"></a><a id="id491357" class="indexterm"></a><a id="id491363" class="indexterm"></a>allowed inside <code class="literal">ParIO</code>.  To inject an <code class="literal">IO</code>
+  operation into a <code class="literal">ParIO</code> computation, use <code class="literal">liftIO</code> from the
+  <code class="literal">MonadIO</code> class.
+</li>
+<li class="listitem">
+<p id="for_this_reason" class="simpara">
+For this reason, the pure <code class="literal">runPar</code> is not available for
+  <code class="literal">ParIO</code>. Instead, a parallel computation is performed by the following:
+</p>
+<pre class="programlisting" data-language="haskell" id="runpario__par"><code class="nf">runParIO</code> <code class="ow">::</code> <code class="kt">ParIO</code> <code class="n">a</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="n">a</code></pre>
+</li>
+</ul></div>
+<p id="conc-par_00000127">Of course, unlike <code class="literal">Par</code>, <code class="literal">ParIO</code> computations are not guaranteed to be
+deterministic.  Nevertheless, the full power of the <code class="literal">Par</code> framework is
+available: very lightweight tasks, multicore scheduling, and the same
+dataflow API based on <code class="literal">IVar</code>s.  <code class="literal">ParIO</code> is ideal for parallel
+programming in the <code class="literal">IO</code> monad, albeit with one caveat that we will
+discuss shortly.</p>
+<p id="conc-par_00000128">Let’s look at the filesystem-searching <a id="id491518" class="indexterm"></a>program using <code class="literal">ParIO</code>.  The
+structure will be identical to the <code class="literal">Async</code> version; we just need to
+change a few lines.  First, <code class="literal">subfind</code>:</p>
+<p id="conc-par_00000129" class="caption"><span class="emphasis"><em>findpar4.hs</em></span>
+</p>
+<pre class="programlisting" data-language="haskell" id="subfind__stri_id2"><code class="nf">subfind</code> <code class="ow">::</code> <code class="kt">String</code> <code class="ow">-&gt;</code> <code class="kt">FilePath</code>
+        <code class="ow">-&gt;</code> <code class="p">([</code><code class="kt">IVar</code> <code class="p">(</code><code class="kt">Maybe</code> <code class="kt">FilePath</code><code class="p">)]</code> <code class="ow">-&gt;</code> <code class="kt">ParIO</code> <code class="p">(</code><code class="kt">Maybe</code> <code class="kt">FilePath</code><code class="p">))</code>
+        <code class="ow">-&gt;</code>  <code class="p">[</code><code class="kt">IVar</code> <code class="p">(</code><code class="kt">Maybe</code> <code class="kt">FilePath</code><code class="p">)]</code> <code class="ow">-&gt;</code> <code class="kt">ParIO</code> <code class="p">(</code><code class="kt">Maybe</code> <code class="kt">FilePath</code><code class="p">)</code>
+
+<code class="nf">subfind</code> <code class="n">s</code> <code class="n">p</code> <code class="n">inner</code> <code class="n">ivars</code> <code class="ow">=</code> <code class="kr">do</code>
+  <code class="n">isdir</code> <code class="ow">&lt;-</code> <code class="n">liftIO</code> <code class="o">$</code> <code class="n">doesDirectoryExist</code> <code class="n">p</code>
+  <code class="kr">if</code> <code class="n">not</code> <code class="n">isdir</code>
+     <code class="kr">then</code> <code class="n">inner</code> <code class="n">ivars</code>
+     <code class="kr">else</code> <code class="kr">do</code> <code class="n">v</code> <code class="ow">&lt;-</code> <code class="n">new</code>                   <code class="c1">-- </code><span id="CO49-1"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1"></span>
+             <code class="n">fork</code> <code class="p">(</code><code class="n">find</code> <code class="n">s</code> <code class="n">p</code> <code class="o">&gt;&gt;=</code> <code class="n">put</code> <code class="n">v</code><code class="p">)</code>  <code class="c1">-- </code><span id="CO49-2"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/2.png" alt="2"></span>
+             <code class="n">inner</code> <code class="p">(</code><code class="n">v</code> <code class="kt">:</code> <code class="n">ivars</code><code class="p">)</code>          <code class="c1">-- </code><span id="CO49-3"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/3.png" alt="3"></span></pre>
+<p id="conc-par_00000131">Note that instead of a list of <code class="literal">Async</code>s, we now collect a list of
+<code class="literal">IVar</code>s that will hold the results of searching each subdirectory.</p>
+<div class="calloutlist" id="conc-par_00000132"><table style="border: 0; ">
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO49-1"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="create_a_new_iv">
+Create a new <code class="literal">IVar</code> for this subdirectory.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO49-2"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/2.png" alt="2"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="fork_the_comput_id2">
+<code class="literal">fork</code> the computation to search the subdirectory, putting the result into the <code class="literal">IVar</code>.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO49-3"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/3.png" alt="3"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="perform_the_inn">
+Perform the <code class="literal">inner</code> computation, adding the <code class="literal">IVar</code> we just created to the list.
+</p></td>
+</tr>
+</table></div>
+<p id="conc-par_00000133">I’ve omitted the definition of <code class="literal">find</code>, <a id="id492058" class="indexterm"></a>which has only one difference
+compared with the <code class="literal">Async</code> version: we call the <code class="literal">Par</code> monad’s <code class="literal">get</code>
+function to get the result of an <code class="literal">IVar</code>, instead of <code class="literal">Async</code>'s
+<code class="literal">wait</code>.</p>
+<p id="conc-par_00000134">In <code class="literal">main</code>, we need to call <code class="literal">runParIO</code> to start the parallel computation:</p>
+<p id="conc-par_00000135" class="caption"><span class="emphasis"><em>findpar4.hs</em></span>
+</p>
+<pre class="programlisting" data-language="haskell" id="main__do_sd_id2"><code class="nf">main</code> <code class="ow">=</code> <code class="kr">do</code>
+  <code class="p">[</code><code class="n">s</code><code class="p">,</code><code class="n">d</code><code class="p">]</code> <code class="ow">&lt;-</code> <code class="n">getArgs</code>
+  <code class="n">runParIO</code> <code class="p">(</code><code class="n">find</code> <code class="n">s</code> <code class="n">d</code><code class="p">)</code> <code class="o">&gt;&gt;=</code> <code class="n">print</code></pre>
+<p id="conc-par_00000136">That’s it.  Let’s see how well it performs, at <code class="literal">-N4</code>:</p>
+<pre class="screen" id="conc-par_00000137">$ ./findpar4 nonexistent ~/code +RTS -s -N4
+Nothing
+   2,460,545,952 bytes allocated in the heap
+     102,831,928 bytes copied during GC
+       1,721,200 bytes maximum residency (44 sample(s))
+          78,456 bytes maximum slop
+               7 MB total memory in use (0 MB lost due to fragmentation)
+
+  MUT     time    1.26s  (  0.32s elapsed)
+  GC      time    0.27s  (  0.07s elapsed)
+  Total   time    1.53s  (  0.39s elapsed)</pre>
+<p id="conc-par_00000139">In fact, this version beats our carefully coded <code class="literal">NBSem</code> implementation,
+achieving a speedup of 2.92 on 4 cores.  Why is that?  Well, one
+reason is that we didn’t have to consult
+some shared state and choose whether to <code class="literal">fork</code> or continue
+our operation in the current thread, because <code class="literal">fork</code> is very cheap in <code class="literal">Par</code> and <code class="literal">ParIO</code>
+(note the low-memory overhead in the results above).  Another reason
+is that the <code class="literal">Par</code> monad has a carefully tuned<a id="id492306" class="indexterm"></a> work-stealing scheduler
+implementation that is designed to achieve good parallel
+speedup.<a href="#ftn.id492313" class="footnote"><sup class="footnote" id="id492313">[49]</sup></a></p>
+<p id="conc-par_00000140">However, we cheated slightly here.  <code class="literal">ParIO</code> has no <a id="id492335" class="indexterm"></a>error
+handling: exceptions raised by an <code class="literal">IO</code> computation might (or might not)
+be silently dropped, depending on which thread the <code class="literal">Par</code> monad
+scheduler happens to be using to run the computation.  It <span class="emphasis"><em>is</em></span>
+possible to fix this; if you enjoy a programming puzzle, why not have a
+go at finding a good way yourself—preferably one that requires few
+changes to the application code?  My attempt can be found in
+<span class="emphasis"><em>findpar5.hs</em></span>.<a id="id492368" class="indexterm"></a><a id="id492378" class="indexterm"></a><a id="id492388" class="indexterm"></a></p>
+</div>
+</div>
+<div class="footnotes">
+<br><hr style="width: 100; align: left;">
+<div id="ftn.id486310" class="footnote"><p><a href="#id486310" class="simpara"><sup class="simpara">[47] </sup></a>The performance characteristics of this program depend to some extent on the structure of the filesystem used as a benchmark, so don’t be too surprised if the results are a bit different on your system.</p></div>
+<div id="ftn.id491322" class="footnote"><p><a href="#id491322" class="simpara"><sup class="simpara">[48] </sup></a>In <code class="literal">monad-par-0.3.3</code> and later.</p></div>
+<div id="ftn.id492313" class="footnote"><p><a href="#id492313" class="simpara"><sup class="simpara">[49] </sup></a>In fact, the <code class="literal">Par</code> monad implementation is built
+using nothing more than the concurrency APIs that we have seen so far
+in this book.</p></div>
+</div></section><footer><div class="navfooter">
+<hr>
+<table style="width: 100%; ">
+<tr>
+<td style="width: 40%; text-align: left; ">
+<a accesskey="p" href="ch12.html">Prev</a> </td>
+<td style="width: 20%; text-align: center; "><a accesskey="u" href="pt02.html">Up</a></td>
+<td style="width: 40%; text-align: right; "> <a accesskey="n" href="ch14.html">Next</a>
+</td>
+</tr>
+<tr>
+<td style="width: 40%; text-align: left; vertical-align: top; ">Chapter 12. Concurrent Network Servers </td>
+<td style="width: 20%; text-align: center; "><a accesskey="h" href="index.html">Home</a></td>
+<td style="width: 40%; text-align: right; vertical-align: top; "> Chapter 14. Distributed Programming</td>
+</tr>
+</table>
+</div></footer>
+
+
+	<div class="extra-footer">
+		<p>© 2013, O’Reilly Media, Inc.</p>
+		<ul>
+			<li><a href="http://oreilly.com/terms/">Terms of Service</a></li>
+			<li><a href="http://oreilly.com/oreilly/privacy.csp">Privacy Policy</a></li>
+			<li>Interested in <a href="mailto:scordesse@oreilly.com">sponsoring content?</a></li>
+		</ul>
+	</div>
+<script type="text/javascript">if (!NREUMQ.f) { NREUMQ.f=function() {
+NREUMQ.push(["load",new Date().getTime()]);
+var e=document.createElement("script");
+e.type="text/javascript";
+e.src=(("http:"===document.location.protocol)?"http:":"https:") + "//" +
+  "js-agent.newrelic.com/nr-100.js";
+document.body.appendChild(e);
+if(NREUMQ.a)NREUMQ.a();
+};
+NREUMQ.a=window.onload;window.onload=NREUMQ.f;
+};
+NREUMQ.push(["nrfj","bam.nr-data.net","3e361aebcf","2194180","IApbRUBZXg1WEEoHDAwORh5aQl8N",8,25,new Date().getTime(),"","","","",""]);</script></body>
+
+<!-- Mirrored from chimera.labs.oreilly.com/books/1230000000929/ch13.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 11:04:16 GMT -->
+</html>

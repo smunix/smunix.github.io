@@ -1,0 +1,523 @@
+
+<!-- Mirrored from www.cse.chalmers.se/~rjmh/QuickCheck/manual_body.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 11:04:16 GMT -->
+<body bgcolor="#FFFFFF">
+<a name="1"><h2> Contents</h2></a>
+<ul><li><a href="manual_body.html#1" target="body"> Contents</a><li><a href="manual_body.html#2" target="body"> What is QuickCheck?</a><li><a href="manual_body.html#3" target="body"> A Simple Example</a><li><a href="manual_body.html#4" target="body"> Using QuickCheck</a><li><a href="manual_body.html#5" target="body"> Properties</a><li><a href="manual_body.html#6" target="body"> Conditional Properties</a><li><a href="manual_body.html#7" target="body"> Quantified Properties</a><li><a href="manual_body.html#8" target="body"> Observing Test Case Distribution</a><li><a href="manual_body.html#9" target="body"> Counting Trivial Cases</a><li><a href="manual_body.html#10" target="body"> Classifying Test Cases</a><li><a href="manual_body.html#11" target="body"> Collecting Data Values</a><li><a href="manual_body.html#12" target="body"> Combining Observations</a><li><a href="manual_body.html#13" target="body"> Test Data Generators: The Type <tt>Gen</tt></a><li><a href="manual_body.html#14" target="body"> Choosing Between Alternatives</a><li><a href="manual_body.html#15" target="body"> The Size of Test Data</a><li><a href="manual_body.html#16" target="body"> Generating Recursive Data Types</a><li><a href="manual_body.html#17" target="body"> Useful Generator Combinators</a><li><a href="manual_body.html#18" target="body"> Class <tt>Arbitrary</tt></a><li><a href="manual_body.html#19" target="body"> Properties of Functions</a><li><a href="manual_body.html#20" target="body"> Tip: Using <strong>newtype</strong></a></ul>
+
+<a name="2"><h2> What is QuickCheck?</h2></a>
+
+QuickCheck is a tool for testing Haskell programs automatically. The
+programmer provides a <i>specification</i> of the program, in the form of
+properties which functions should satisfy, and QuickCheck then tests that the
+properties hold in a large number of randomly generated cases. Specifications
+are expressed in Haskell, using combinators defined in the QuickCheck
+library. QuickCheck provides combinators to define properties, observe the
+distribution of test data, and define test data generators.
+<p>
+<a target="note" href="manual_notes/1.html"> Why Should I Use QuickCheck?</a>
+
+<a name="3"><h2> A Simple Example</h2></a>
+
+A simple example of a property definition is
+<pre>
+prop_RevRev xs = reverse (reverse xs) == xs
+  where types = xs::[Int]
+</pre>
+To check the property, we load this definition in to hugs and then invoke
+<pre>
+Main> quickCheck prop_RevRev
+OK, passed 100 tests.
+</pre>
+When a property fails, QuickCheck displays a counter-example. For example, if
+we define 
+<pre>
+prop_RevId xs = reverse xs == xs
+  where types = xs::[Int]
+</pre>
+then checking it results in
+<pre>
+Main> quickCheck prop_RevId
+Falsifiable, after 1 tests:
+[-3,15]
+</pre>
+
+<a name="4"><h2> Using QuickCheck</h2></a>
+
+To use QuickCheck, you must download the module <a
+href="http://www.md.chalmers.se/~rjmh/QuickCheck/QuickCheck.hs"><tt>QuickCheck.hs</tt></a>,
+and preferably the script <a href="quickCheck"><tt>quickCheck</tt></a>
+also. Import module <tt>QuickCheck</tt> into every module containing
+specifications or test data generators. You can then test properties by
+loading the module they are defined in into hugs, and calling
+<pre>
+quickCheck &lt;property-name>
+</pre>
+or by running the script
+<pre>
+> quickCheck &lt;options> &lt;file names>
+</pre>
+which checks every property defined in the modules given. You can use the same ommand line options as for hugs.
+<p>
+You need not use hugs to check properties: any Haskell 98 implementation ought
+to suffice. However, the <tt>quickCheck</tt> script assumes that hugs is
+installed on your system. You will probably need to edit the script to insert
+the location of runhugs.
+
+<h3>How can I tell which property is being tested?</h3>
+
+Some versions of hugs display the expression to be evaluated before evaluating
+it; thus you can see which property is being checked at any time, and which
+property failed. If your version of hugs does not do so, give
+<tt>quickCheck</tt> the flag <tt>+names</tt>,
+<pre>
+> quickCheck +names &lt;options> &lt;file names>
+</pre>
+which will print each property name before checking it.
+
+<h3>What do I do if a test loops or encounters an error?</h3>
+
+In this case we know that the property does not hold, but <tt>quickCheck</tt>
+does not display the counter-example. There is another testing function
+provided for this situation. Repeat the test using
+<pre>
+verboseCheck &lt;property-name>
+</pre>
+which displays each test case before running the test: the last test case
+displayed is thus the one in which the loop or error arises.
+
+<a name="5"><h2> Properties</h2></a>
+
+Properties are expressed as Haskell function definitions, with names beginning
+with <tt>prop_</tt>. Properties are universally quantified over their
+parameters, so 
+<pre>
+prop_RevRev xs = reverse (reverse xs) == xs
+  where types = xs::[Int]
+</pre>
+means that the equality holds for <i>all</i> lists <tt>xs</tt>.
+<a target="note" href="manual_notes/2.html"> Technical note.</a>
+<p>
+Properties must have <i>monomorphic</i> types. `Polymorphic' properties, such
+as the one above, must be restricted to a particular type to be used for
+testing. It is convenient to do so by stating the types of one or more
+arguments in a
+<pre>
+  where types = (x1 :: t1, x2 :: t2, ...)
+</pre>
+clause. Note that <tt>types</tt> is not a keyword; this is just a local
+declaration which provides a convenient place to restrict the types of
+<tt>x1</tt>, <tt>x2</tt> etc.
+<p>
+The result type of a property should be <tt>Bool</tt>, unless the property is
+defined using other combinators below.
+
+<a name="6"><h2> Conditional Properties</h2></a>
+
+Properties may take the form
+<pre>
+	&lt;condition> ==> &lt;property>
+</pre>
+For example,
+<pre>
+ordered xs = and (zipWith (<=) xs (drop 1 xs))
+insert x xs = takeWhile (&lt;x) xs++[x]++dropWhile (&lt;x) xs
+
+prop_Insert x xs = ordered xs ==> ordered (insert x xs)
+  where types = x::Int
+</pre>
+
+Such a property holds if the property after <tt>==></tt> holds whenever the
+condition does.
+<p>
+Testing discards test cases which do not satisfy the condition. Test case
+generation continues until 100 cases which do satisfy the condition have been
+found, or until an overall limit on the number of test cases is reached (to
+avoid looping if the condition never holds). In this case a message such as
+<pre>
+Arguments exhausted after 97 tests.
+</pre>
+indicates that 97 test cases satisfying the condition were found, and that the
+property held in those 97 cases.
+
+<a name="7"><h2> Quantified Properties</h2></a>
+
+Properties may take the form
+<pre>
+	forAll &lt;generator> $ \&lt;pattern> -> &lt;property>
+</pre>
+For example,
+<pre>
+prop_Insert2 x = forAll orderedList $ \xs -> ordered (insert x xs)
+  where types = x::Int </pre> The first argument of <tt>forAll</tt> is a
+<i>test data generator</i>; by supplying a custom generator, instead of using
+the default generator for that type, it is possible to control the
+distribution of test data. In the example, by supplying a custom generator for
+ordered lists, rather than filtering out test cases which are not ordered, we
+guarantee that 100 test cases can be generated without reaching the overall
+limit on test cases. Combinators for defining generators are described below.
+
+<a name="8"><h2> Observing Test Case Distribution</h2></a>
+
+It is important to be aware of the distribution of test cases: if test data is
+not well distributed then conclusions drawn from the test results may be
+invalid. In particular, the <tt>==&gt;</tt> operator can skew the distribution
+of test data badly, since only test data which satisfies the given condition
+is used.  
+
+<p> QuickCheck provides several ways to observe the distribution of test
+data. Code for making observations is incorporated into the statement of
+properties, each time the property is actually tested the observation is made,
+and the collected observations are then summarised when testing is complete.
+
+<a name="9"><h2> Counting Trivial Cases</h2></a>
+
+A property may take the form
+<pre>
+	&lt;condition> `trivial` &lt;property>
+</pre>
+For example,
+<pre>
+prop_Insert x xs = ordered xs ==> null xs `trivial` ordered (insert x xs)
+  where types = x::Int
+</pre>
+Test cases for which the condition is <tt>True</tt> are classified as trivial,
+and the proportion of trivial test cases in the total is reported.
+In this example, testing produces
+<pre>
+Main> quickCheck prop_Insert
+OK, passed 100 tests (58% trivial).
+</pre>
+
+<a name="10"><h2> Classifying Test Cases</h2></a>
+
+A property may take the form
+<pre>
+	classify &lt;condition> &lt;string>$ &lt;property>
+</pre>
+For example,
+<pre>
+prop_Insert x xs = 
+	ordered xs ==> 
+		classify (ordered (x:xs)) "at-head"$
+ 		classify (ordered (xs++[x])) "at-tail"$
+		ordered (insert x xs)
+  where types = x::Int
+</pre>
+Test cases satisfying the condition are assigned the classification given, and
+the distribution of classifications is reported after testing. In this case
+the result is
+<pre>
+Main> quickCheck prop_Insert
+OK, passed 100 tests.
+58% at-head, at-tail.
+22% at-tail.
+4% at-head.
+</pre>
+Note that a test case may fall into more than one classification.
+
+<a name="11"><h2> Collecting Data Values</h2></a>
+
+A property may take the form
+<pre>
+	collect &lt;expression>$ &lt;property>
+</pre>
+For example,
+<pre>
+prop_Insert x xs = 
+	ordered xs ==> collect (length xs)$
+		       ordered (insert x xs)
+  where types = x::Int
+</pre>
+The argument of <tt>collect</tt> is evaluated in each test case, and the
+distribution of values is reported. The type of this argument must be in class
+<tt>Show</tt>. In the example above, the output is
+<pre>
+Main> quickCheck prop_Insert
+OK, passed 100 tests.
+58% 0.
+26% 1.
+13% 2.
+3% 3.
+</pre>
+
+<a name="12"><h2> Combining Observations</h2></a>
+
+The observations described here may be combined in any way. All the
+observations of each test case are combined, and the distribution of these
+combinations is reported. For example, testing the property
+<pre>
+prop_Insert x xs = 
+	ordered xs ==> 
+		collect (length xs)$
+		classify (ordered (x:xs)) "at-head"$
+ 		classify (ordered (xs++[x])) "at-tail"$
+		ordered (insert x xs)
+  where types = x::Int
+</pre>
+produces
+<pre>
+Main> quickCheck prop_Insert
+OK, passed 100 tests.
+58% 0, at-head, at-tail.
+22% 1, at-tail.
+13% 2.
+4% 1, at-head.
+3% 3.
+</pre>
+from which we see that insertion at the beginning or end of a list has not
+been tested for lists longer than one element.
+
+<a name="13"><h2> Test Data Generators: The Type <tt>Gen</tt></h2></a>
+
+Test data is produced by <i>test data generators</i>. QuickCheck defines
+default generators for most types, but you can use your own with
+<tt>forAll</tt>, and will need to define your own generators for any new types
+you introduce.
+<p>
+Generators have types of the form <tt>Gen a</tt>; this is a generator for
+values of type <tt>a</tt>. The type <tt>Gen</tt> is a monad, so Haskell's
+<b>do</b>-syntax and standard monadic functions can be used to define
+generators.
+<p>
+Generators are built up on top of the function
+<pre>
+choose :: Random a => (a, a) -> Gen a
+</pre>
+which makes a random choice of a value from an interval, with a uniform
+distribution. For example, to make a random choice between the elements of a
+list, use
+<pre>
+do i&lt;-choose (0,length xs-1)
+   return (xs!!i)
+</pre>
+
+<a name="14"><h2> Choosing Between Alternatives</h2></a>
+
+A generator may take the form
+<pre>
+	oneof &lt;list of generators>
+</pre>
+which chooses among the generators in the list with equal probability. For
+example,
+<pre>
+oneof [return True, return False]
+</pre>
+generates a random boolean which is true with probability one half.
+<p>
+We can control the distribution of results using the function
+<pre>
+	frequency :: [(Int, Gen a)] -> Gen a
+</pre>
+instead. Frequency chooses a generator from the list randomly, but weights the
+probability of choosing each alternative by the factor given. For example,
+<pre>
+frequency [(2,return True), (1,return False)]
+</pre>
+generates <tt>True</tt> two thirds of the time.
+
+<a name="15"><h2> The Size of Test Data</h2></a>
+
+Test data generators have an implicit <i>size</i> parameter;
+<tt>quickCheck</tt> begins by generating small test cases, and gradually
+increases the size as testing progresses. Different test data generators
+interpret the size parameter in different ways: some ignore it, while the list
+generator, for example, interprets it as an upper bound on the length of
+generated lists. You are free to use it as you wish to control your own test
+data generators.
+
+<p>
+You can obtain the value of the size parameter using
+<pre>
+	sized :: (Int -> Gen a) -> Gen a
+</pre>
+<tt>sized g</tt> calls <tt>g</tt>, passing it the current size as a
+parameter. For example, to generate natural numbers in the range 0 to size,
+use
+<pre>
+sized $ \n -> choose (0, n)
+</pre>
+
+<p>
+The purpose of size control is to ensure that test cases are large enough to
+reveal errors, while remaining small enough to test fast. Sometimes the
+default size control does not achieve this. For example, towards the end of a
+test run arbitrary lists may have up to 50 elements, so arbitrary lists of
+lists may have up to 2500, which is too large for efficient testing. In such
+cases it can be useful to modify the size parameter explicitly. You can do
+using
+<pre>
+	resize :: Int -> Gen a -> Gen a
+</pre>
+
+<tt>resize n g</tt> invokes generator <tt>g</tt> with size parameter
+<tt>n</tt>. The size parameter should never be negative. For example, to
+generate a random matrix it might be appropriate to take the square root of
+the original size:
+
+<pre>
+matrix = sized $ \n -> resize (round (sqrt n)) arbitrary
+</pre>
+
+<a name="16"><h2> Generating Recursive Data Types</h2></a>
+
+Generators for recursive data types are easy to express using <tt>oneof</tt>
+or <tt>frequency</tt> to choose between constructors, and Haskell's standard
+monadic combinators to form a generator for each case. For example, if the
+type of trees is defined by
+<pre>
+data Tree = Leaf Int | Branch Tree Tree
+</pre>
+then a generator for trees might be defined by
+<pre>
+tree = oneof [liftM Leaf arbitrary,
+	      liftM2 Branch tree tree]
+</pre>
+However, there is always a risk that a recursive generator like this may fail
+to terminate, or produce very large results. To avoid this, recursive
+generators should always use the size control mechanism. For example,
+<pre>
+tree = sized tree'
+tree' 0 = liftM Leaf arbitrary
+tree' n | n>0 = 
+	oneof [liftM Leaf arbitrary,
+	       liftM2 Branch subtree subtree]
+  where subtree = tree' (n `div` 2)
+</pre>
+Note that
+<ul>
+<li>We guarantee termination by forcing the result to be a leaf when the size
+is zero.
+<li>We halve the size at each recursion, so that the size gives an upper bound
+on the number of nodes in the tree. We are free to interpret the size as we
+will.
+<li>The fact that we share the subtree generator between the two branches of a
+<tt>Branch</tt> does not, of course, mean that we generate the same tree in
+each case.
+</ul>
+
+<a name="17"><h2> Useful Generator Combinators</h2></a>
+
+If <tt>g</tt> is a generator for type <tt>t</tt>, then
+<ul>
+<li><tt>two g</tt> generates a pair of <tt>t</tt>s,
+<li><tt>three g</tt> generates a triple of <tt>t</tt>s,
+<li><tt>four g</tt> generates a quadruple of <tt>t</tt>s,
+<li><tt>vector n g</tt> generates a list of <tt>n</tt> <tt>t</tt>s.
+</ul>
+If <tt>xs</tt> is a list, then <tt>elements xs</tt> generates an arbitrary
+element of <tt>xs</tt>.
+
+<a name="18"><h2> Class <tt>Arbitrary</tt></h2></a>
+
+QuickCheck uses Haskell's overloading mechanism to define a default test data
+generator for each type. This is done using the class
+<pre>
+class Arbitrary a where
+  arbitrary   :: Gen a
+  coarbitrary :: a -> Gen b -> Gen b
+</pre>
+QuickCheck defines instances for the types <tt>()</tt>,
+<tt>Bool</tt>, <tt>Int</tt>, <tt>Integer</tt>, <tt>Float</tt>,
+<tt>Double</tt>, pairs, triples, quadruples, lists, and functions.
+
+<p> The class method <tt>arbitrary</tt> is the default generator for type
+<tt>a</tt>.  You can provide a default generator for any other type by
+declaring an instance of class <tt>Arbitrary</tt> that implements the
+<tt>arbitrary</tt> method.
+
+<p>
+Class method <tt>coarbitrary</tt> is used to generate random function values:
+the implementation of <tt>arbitrary</tt> for a type <tt>a->b</tt> uses
+<tt>coarbitrary</tt> for type <tt>a</tt>. If you only want to generate random
+values of a type, you need only define method <tt>arbitrary</tt> for that
+type, while if you want to generate random functions over the type also, then
+you should define both class methods.
+
+<p>
+The <tt>coarbitrary</tt> method interprets a value of type <tt>a</tt> as a
+<i>generator transformer</i>. It should be defined so that different values
+are interpreted as independent generator transformers. These can be programmed using
+the function
+<pre>
+	variant :: Int -> Gen a -> Gen a
+</pre>
+
+For different natural numbers <tt>i</tt> and <tt>j</tt>, <tt>variant i g</tt>
+and <tt>variant j g</tt> are independent generator transformers. The argument
+of <tt>variant</tt> must be non-negative, and, for efficiency, should be
+small. Instances of <tt>coarbitrary</tt> can be defined by composing together
+generator transformers constructed with <tt>variant</tt>.
+
+<p>
+For example, if the type <tt>Tree</tt> is defined by
+<pre>
+data Tree = Leaf Int | Branch Tree Tree
+</pre>
+then a suitable instance of <tt>Arbitrary</tt> could be defined by
+<pre>
+instance Arbitrary Tree where
+  arbitrary = sized tree'
+    where tree' 0 = liftM Leaf arbitrary
+	  tree' n | n>0 = 
+		oneof [liftM Leaf arbitrary,
+	          liftM2 Branch subtree subtree]
+  	    where subtree = tree' (n `div` 2)
+  coarbitrary (Leaf n) = 
+	variant 0 . coarbitrary n
+  coarbitrary (Branch t1 t2) = 
+	variant 1 . coarbitrary t1 . coarbitrary t2
+</pre>
+
+
+<hr>
+
+<a name="19"><h2> Properties of Functions</h2></a>
+
+QuickCheck can generate random function values, and thereby check properties
+of functions. For example, we can check associativity of function composition
+as follows:
+<pre>
+prop_ComposeAssoc f g h x =
+  ((f . g) . h) x == (f . (g . h)) x
+  where types = [f, g, h] :: [Int->Int]
+</pre>
+
+However, before we can <i>test</i> such a property, we must see to it that
+function values can be printed (in case a counter-example is found). That is,
+function types must be instances of class <tt>Show</tt>. To arrange this, you
+must import module <tt>ShowFunctions</tt> into every module containing
+higher-order properties of this kind. If a counter-example is found, function
+values will be displayed as <tt>"&lt;function>"</tt>.
+
+<a target="note" href="manual_notes/3.html"> Problems Can Arise</a>
+<hr>
+<a name="20"><h2> Tip: Using <strong>newtype</strong></h2></a>
+
+QuickCheck makes it easy to associate a test data generator with each type,
+but sometimes you will want a different distribution. For example, suppose you
+are testing a program which manipulates syntax trees, with a constructor for
+variables:
+<pre>
+data Expr = Var String | ...
+</pre>
+Although the variable names are represented as strings, it's unlikely that teh
+default test data generator for strings will produce a good distribution for
+variable names. For example, if you're generating random expressions, you may
+want name clashes to occur sometimes in your test data, but two randomly
+generated strings (such as "p}v(\231\156A.") are very unlikely to clash.
+<p>
+Of course, you can write a custom test data generator for variable names,
+maybe choosing randomly from a small set, and try to remember to use it
+wherever a string plays the role of a name. But this is error prone. Much
+better is to define a new <i>type</i> of names, isomorphic to String, and make
+your custom generator the default for it. For example,
+<pre>
+newtype Name = Name String
+
+instance Arbitrary Name where
+  arbitrary = oneof ["a", "b", "c", "d", "e"]
+</pre>
+If you are careful to use the type Name wherever you <i>mean</i> a name, then
+your properties will be both easier to write and more often correct!
+
+</body>

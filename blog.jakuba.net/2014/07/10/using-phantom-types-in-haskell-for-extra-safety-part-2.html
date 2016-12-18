@@ -1,0 +1,195 @@
+<!DOCTYPE html><html>
+<!-- Mirrored from blog.jakuba.net/2014/07/10/using-phantom-types-in-haskell-for-extra-safety-part-2.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 11:03:45 GMT -->
+<head><title>Using Phantom Types in Haskell for Extra Safety - Part 2 -  Jakub Arnold Blog</title><meta charset="utf-8" /><meta content="C-7ZK-UEyHdN7MWkiZy4QWGfdErxcu3evJTENXdFHAY" name="google-site-verification" /><link href="http://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/2.3.2/css/bootstrap.min.css" rel="stylesheet" /><link href="http://cdnjs.cloudflare.com/ajax/libs/font-awesome/3.2.1/css/font-awesome.min.css" rel="stylesheet" /><script src="http://cdnjs.cloudflare.com/ajax/libs/jquery/2.0.0/jquery.js"></script><link href="http://blog.jakuba.net/stylesheets/application.css" rel="stylesheet" /><link href="http://blog.jakuba.net/images/favicon.ico" rel="shortcut icon" type="image/vnd.microsoft.icon" /><script src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML" type="text/javascript"></script><script type="text/x-mathjax-config">MathJax.Hub.Config({tex2jax: {inlineMath: [['$','$']], displayedMath: [['$$', '$$']]}});</script><link href="http://blog.jakubarnold.cz/feed.xml" rel="alternate" title="ATOM" type="application/atom+xml" /></head><body><div class="header"><div class="container"><section class="name"><a href="http://blog.jakuba.net/">Jakub <strong>Arnold</strong></a></section></div></div><div class="container"><div class="row"><div class="span8"><div class="index-post"><div class="post-title"><h1><a href="using-phantom-types-in-haskell-for-extra-safety-part-2.html">Using Phantom Types in Haskell for Extra Safety - Part 2</a><span class="when">Jul 10, 2014</span></h1></div><p>I&rsquo;ve received <strong>a lot of reactions to the <a href="http://blog.jakubarnold.cz/2014/07/08/using-phantom-types-for-extra-safety.html">previous blog post about Phantom
+Types</a></strong>
+over the past two days, which is why I&rsquo;ve decided to summarize what I&rsquo;ve
+learned in another blog post.</p>
+
+<p>First, here&rsquo;s a summarized problem from the previous post. We have a <code>Message</code>
+which can be either <code>PlainText</code> or <code>Encrypted</code>. We&rsquo;ve used Phantom Types to
+enforce this in the type system:</p>
+<pre class="highlight haskell"><code><span class="kr">data</span> <span class="kt">Message</span> <span class="n">a</span> <span class="o">=</span> <span class="kt">Message</span> <span class="kt">String</span>
+
+<span class="kr">data</span> <span class="kt">PlainText</span>
+<span class="kr">data</span> <span class="kt">Encrypted</span>
+
+<span class="n">send</span> <span class="o">::</span> <span class="kt">Message</span> <span class="kt">Encrypted</span> <span class="o">-&gt;</span> <span class="kt">IO</span> <span class="nb">()</span>
+<span class="n">encrypt</span> <span class="o">::</span> <span class="kt">Message</span> <span class="kt">PlainText</span> <span class="o">-&gt;</span> <span class="kt">Message</span> <span class="kt">Encrypted</span>
+<span class="n">decrypt</span> <span class="o">::</span> <span class="kt">Message</span> <span class="kt">Encrypted</span> <span class="o">-&gt;</span> <span class="kt">Message</span> <span class="kt">PlainText</span>
+</code></pre>
+
+<h2>Can newtype do the same?</h2>
+
+<p>Many people mentioned that we could use the Haskell&rsquo;s <code>newtype</code> to do the same,
+here&rsquo;s how that would look.</p>
+<pre class="highlight haskell"><code><span class="kr">data</span> <span class="kt">Message</span> <span class="o">=</span> <span class="kt">Message</span> <span class="kt">String</span>
+<span class="kr">newtype</span> <span class="kt">PlainTextMessage</span> <span class="o">=</span> <span class="kt">PlainTextMessage</span> <span class="kt">Message</span>
+<span class="kr">newtype</span> <span class="kt">EncryptedMessage</span> <span class="o">=</span> <span class="kt">EncryptedMessage</span> <span class="kt">Message</span>
+
+<span class="n">send</span> <span class="o">::</span> <span class="kt">EncryptedMessage</span> <span class="o">-&gt;</span> <span class="kt">IO</span> <span class="nb">()</span>
+<span class="n">encrypt</span> <span class="o">::</span> <span class="kt">PlainTextMessage</span> <span class="o">-&gt;</span> <span class="kt">EncryptedMessage</span>
+<span class="n">decrypt</span> <span class="o">::</span> <span class="kt">EncryptedMessage</span> <span class="o">-&gt;</span> <span class="kt">PlainTextMessage</span>
+</code></pre>
+
+<p>This example would work perfectly fine, and it&rsquo;s how you&rsquo;d probably solve this
+in a statically typed language with no option for representing Phantom Types.</p>
+
+<p>But there&rsquo;s one downside to this solution. Our new <code>PlainTextMessage</code> and
+<code>EncryptedMessage</code> are no longer related, which means we can&rsquo;t write a function
+that operates on both of them. Why would we need that? I&rsquo;m glad you asked!
+Here&rsquo;s how a simple <code>length</code> function would look in Haskell.</p>
+<pre class="highlight haskell"><code><span class="n">length</span> <span class="o">::</span> <span class="p">[</span><span class="n">a</span><span class="p">]</span> <span class="o">-&gt;</span> <span class="kt">Int</span>
+<span class="n">length</span> <span class="kt">[]</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="n">length</span> <span class="p">(</span><span class="n">x</span><span class="o">:</span><span class="n">xs</span><span class="p">)</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">length</span> <span class="n">xs</span>
+</code></pre>
+
+<p>In order to calculate the length of a list, we do not care what is in the list.
+The same way if we wanted to calculate a <code>messageLength</code>, we don&rsquo;t care if the
+message has been encrypted or not, we just want to count the characters. This
+is dead simple if we had Phantom Types, but it would be very hard using the
+<code>newtype</code> solution, since <code>PlainTextMessage</code> and <code>EncryptedMessage</code> are
+parametrically (is that even a word?) not the same thing.</p>
+<pre class="highlight haskell"><code><span class="n">messageLength</span> <span class="o">::</span> <span class="kt">Message</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="kt">Int</span>
+<span class="n">messageLength</span> <span class="p">(</span><span class="kt">Message</span> <span class="n">m</span><span class="p">)</span> <span class="o">=</span> <span class="n">length</span> <span class="n">m</span>
+</code></pre>
+
+<p>As you can see, we simply ignore the type parameter <code>a</code> of the <code>Message</code> type
+and calculate the length of the inner <code>String</code>.</p>
+
+<p>We could achieve the same in the <code>newtype</code> solution using type classes, but it
+would be unnecessarily more complicated. Phantom types just fit this solution
+more naturally.</p>
+
+<h1>GADTs</h1>
+
+<p>Some people have noted that we could achieve the same thing using <code>GADTs</code>
+(Generalised Algebraic Data Types), which is an extension to the Haskell&rsquo;s type
+system. I didn&rsquo;t want to dive into this at first, since GADTs are much harder
+to understand for non-Haskell programmers, but let&rsquo;s show a simple
+implementation of this example.</p>
+<pre class="highlight haskell"><code><span class="kr">data</span> <span class="kt">Encrypted</span>
+<span class="kr">data</span> <span class="kt">PlainText</span>
+
+<span class="kr">data</span> <span class="kt">Message</span> <span class="n">a</span> <span class="kr">where</span>
+  <span class="kt">EncryptedMessage</span> <span class="o">::</span> <span class="kt">String</span> <span class="o">-&gt;</span> <span class="kt">Message</span> <span class="kt">Encrypted</span>
+  <span class="kt">PlainTextMessage</span> <span class="o">::</span> <span class="kt">String</span> <span class="o">-&gt;</span> <span class="kt">Message</span> <span class="kt">PlainText</span>
+</code></pre>
+
+<p>The difference here is that we&rsquo;re basically creating typed value constructors
+which automatically enforce the resulting type of the <code>Message</code>. For example if
+we do <code>EncryptedMessage &quot;hello&quot;</code>, it will automatically have the type of
+<code>Message Encrypted</code>. This might seem the same as the <code>newtype</code> solution
+mentioned above, but by using <code>GADTs</code> we can still write a generic
+<code>messageLength</code> function, exactly as we did previously.</p>
+<pre class="highlight haskell"><code><span class="n">messageLength</span> <span class="o">::</span> <span class="kt">Message</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="kt">Int</span>
+<span class="n">messageLength</span> <span class="p">(</span><span class="kt">EncryptedMessage</span> <span class="n">m</span><span class="p">)</span> <span class="o">=</span> <span class="n">length</span> <span class="n">m</span>
+<span class="n">messageLength</span> <span class="p">(</span><span class="kt">PlainTextMessage</span> <span class="n">m</span><span class="p">)</span> <span class="o">=</span> <span class="n">length</span> <span class="n">m</span>
+</code></pre>
+
+<p>The difference here is, that we need to pattern match on both of the
+constructors. An implementation fo the <code>send</code> function might look something
+like this.</p>
+<pre class="highlight haskell"><code><span class="n">send</span> <span class="o">::</span> <span class="kt">Message</span> <span class="kt">Encrypted</span> <span class="o">-&gt;</span> <span class="kt">IO</span> <span class="nb">()</span>
+<span class="n">send</span> <span class="p">(</span><span class="kt">EncryptedMessage</span> <span class="n">m</span><span class="p">)</span> <span class="o">=</span> <span class="c1">-- some magic</span>
+</code></pre>
+
+<p>If you&rsquo;re familiar a bit with Haskell, you might be thinking that this function
+is not total and could produce a non-exhaustive pattern match error. But in
+fact it can&rsquo;t, because it expects it&rsquo;s argument of the type <code>Message
+Encrypted</code>. If you try to call it with a <code>PlainText</code> message it would be a type
+error.</p>
+<pre class="highlight haskell"><code><span class="n">send</span> <span class="p">(</span><span class="kt">PlainTextMessage</span> <span class="s">"hello"</span><span class="p">)</span> <span class="c1">-- type error</span>
+</code></pre>
+
+<p>This is one of the beauties of <code>GADTs</code>. If you&rsquo;re interested in learning more
+about them, I recommend reading <a href="http://www.haskell.org/haskellwiki/Generalised_algebraic_datatype">the Haskell Wiki
+page</a> as
+well as <a href="http://www.haskell.org/haskellwiki/GADTs_for_dummies">many</a>
+<a href="http://en.wikibooks.org/wiki/Haskell/GADT">others</a>. I&rsquo;ll probably write
+another followup article that explains just <code>GADTs</code>, just because they&rsquo;re such
+a rich feature.</p>
+
+<h1>Tell don&rsquo;t ask™</h1>
+
+<p><a href="http://patrickdlogan.blogspot.cz/2014/07/being-safer-in-dynamic-languages.html">Patrick Dlogan actually took the time to write an article as a reaction to
+mine</a>,
+where he shows a solution in which messages know how to encrypt themselves,
+which allows you to get rid of the <code>if</code> check in a dynamic language. Here&rsquo;s
+also a similar response from <a href="https://lobste.rs/s/5ekbap/using_phantom_types_in_haskell_for_extra_safety">comments on
+Lobste.rs</a>.</p>
+<pre class="highlight ruby"><code><span class="no">Message</span> <span class="o">=</span> <span class="no">Struct</span><span class="p">.</span><span class="nf">new</span><span class="p">(</span><span class="ss">:text</span><span class="p">)</span> <span class="k">do</span>
+  <span class="k">def</span> <span class="nf">ciphertext</span>
+    <span class="vi">@ciphertext</span> <span class="o">||=</span> <span class="c1"># encrypt plain text logic</span>
+  <span class="k">end</span>
+<span class="k">end</span>
+
+<span class="k">def</span> <span class="nf">send_message</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+  <span class="c1"># send using message.ciphertext</span>
+<span class="k">end</span>
+</code></pre>
+
+<p>We could label both of these solutions as a kind of <em>tell don&rsquo;t ask™</em>
+principle. Basically what it means is that instead of performing the encryption
+first, and then sending the message out, the encryption step is being run
+directly when sending the message.</p>
+
+<p>Here&rsquo;s how something similar might look in Haskell. We&rsquo;re simply doing the
+encryption when sending the message.</p>
+<pre class="highlight haskell"><code><span class="n">send</span> <span class="o">::</span> <span class="kt">Message</span> <span class="o">-&gt;</span> <span class="kt">IO</span> <span class="nb">()</span>
+<span class="n">send</span> <span class="p">(</span><span class="kt">Message</span> <span class="n">m</span><span class="p">)</span> <span class="o">=</span> <span class="n">someMagic</span> <span class="p">(</span><span class="n">encrypt</span> <span class="n">m</span><span class="p">)</span>
+</code></pre>
+
+<p>Now this might make sense in some cases, but what if there is more than one
+place where a message can get encrypted? We could solve that by making
+<code>encrypt</code> do nothing for already encrypted messages, but there are downsides to
+doing that.</p>
+
+<p>First of all it&rsquo;s important to realize that this is restructuring how the
+program works. If <code>encrypt</code> is something that can fail we&rsquo;ve effectively moved
+that failure to a different place. If <code>encrypt</code> was throwing an exception that
+had to be handled, now that error handling needs to happen in the place of the
+caller of <code>send</code> (assuming it&rsquo;s not something we can deal right in place.)</p>
+
+<p>Another more important reason why this wouldn&rsquo;t always be possible is that the
+code for constructing messages might be outside of our control. Say that all of
+the logic is hidden in a library which you can&rsquo;t change for various reason, or
+these are just some data types you&rsquo;re receiving from an API.</p>
+
+<p>The library could still make use of Phantom Types to safely tag the values on
+the type level, while you wouldn&rsquo;t be able to apply this <em>tell don&rsquo;t ask</em>
+approach, since the <code>encrypt</code> logic is not in your control.</p>
+
+<p>I guess the TL;DR here is that by using the type system in a smart way we can
+add additional checks that are verified at compile time, that increase the
+safety of our programs. It&rsquo;s not a technique for re-structuring or re-designing
+a portion of the codebase.</p>
+<div class="form-box"><div class="left"><h1>Want to hear about my upcoming book,<br><strong>Haskell by Example</strong>?</h1><img alt="Haskell by Example Book" src="http://blog.jakuba.net/images/book.png" width="120" /><p>Subscribe to receive updates and free content from the book. You'll also get a discount when the final version of the book is released.</p></div><div class="right mailchimp-signup-form"><div class="col second"><form action="http://sensible.us7.list-manage.com/subscribe/post?u=e0956e52b1c70e11e3e473abd&amp;id=a251f4e777" class="form" method="post" name="mc-embedded-subscribe-form" novalidate="" target="_blank"><div class="form-group"><label for="mce-FNAME"> First Name</label><input class="form-control" name="FNAME" type="text" value="" /></div><div class="form-group"><label for="mce-EMAIL"> Email Address</label><input class="form-control" name="EMAIL" type="email" value="" /></div><!--real people should not fill this in and expect good things - do not remove this or risk form bot signups--><div style="position: absolute; left: -5000px;"><input name="b_e0956e52b1c70e11e3e473abd_a251f4e777" type="text" value="" /></div><div class="clear"><button class="btn btn-subscribe" name="subscribe" type="submit">Keep me updated</button></div></form></div></div></div></div><div id="disqus_thread"></div><script type="text/javascript">var disqus_shortname = 'jakubarnoldblog';
+
+(function() {
+    var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+    dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+    (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+})();</script></div><div class="span4"><div class="right-panel-box"><h3>Recent articles</h3><ul><li><a href="http://blog.jakuba.net/2015/08/08/fibonacci-numbers.html">Fibonacci Numbers</a></li><li><a href="http://blog.jakuba.net/2014/08/10/parsing-css-with-parsec.html">Parsing CSS with Parsec</a></li><li><a href="http://blog.jakuba.net/2014/08/06/lens-tutorial-stab-traversal-part-2.html">Lens Tutorial - Stab & Traversal (Part 2)</a></li><li><a href="http://blog.jakuba.net/2014/07/30/foldable-and-traversable.html">Foldable and Traversable</a></li><li><a href="../22/building-monad-transformers-part-1.html">Building Monad Transformers - Part 1</a></li><li><a href="../20/mutable-state-in-haskell.html">Mutable State in Haskell</a></li><li><a href="http://blog.jakuba.net/2014/07/14/lens-tutorial-introduction-part-1.html">Lens Tutorial - Introduction (part 1)</a></li><li><a href="using-phantom-types-in-haskell-for-extra-safety-part-2.html">Using Phantom Types in Haskell for Extra Safety - Part 2</a></li><li><a href="../08/using-phantom-types-for-extra-safety.html">Using Phantom Types for Extra Safety</a></li><li><a href="http://blog.jakuba.net/2014/06/23/evil-mode-how-to-switch-from-vim-to-emacs.html">Evil Mode: How I Switched From VIM to Emacs</a></li></ul><h3>Tags</h3><ul><li><a href="http://blog.jakuba.net/tags/clojure.html">clojure (1)</a></li><li><a href="http://blog.jakuba.net/tags/testing.html">testing (1)</a></li><li><a href="http://blog.jakuba.net/tags/rspec.html">rspec (1)</a></li><li><a href="http://blog.jakuba.net/tags/ruby.html">ruby (1)</a></li><li><a href="http://blog.jakuba.net/tags/refactoring.html">refactoring (1)</a></li><li><a href="http://blog.jakuba.net/tags/haskell.html">haskell (9)</a></li><li><a href="http://blog.jakuba.net/tags/emacs.html">emacs (1)</a></li><li><a href="http://blog.jakuba.net/tags/lens.html">lens (2)</a></li><li><a href="http://blog.jakuba.net/tags/algorithms.html">algorithms (1)</a></li></ul><h3>Archives</h3><ul><li><a href="http://blog.jakuba.net/2015.html">2015 (1)</a></li><li><a href="http://blog.jakuba.net/2014.html">2014 (13)</a></li><li><a href="http://blog.jakuba.net/2013.html">2013 (3)</a></li></ul><a href="https://plus.google.com/+JakubArnold?rel=author">Google+</a></div></div></div></div><script type="text/javascript">(function() {
+  var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+  po.src = 'https://apis.google.com/js/platform.js';
+  var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+})();</script><script type="text/javascript">!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="https://platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}}(document,"script","twitter-wjs");</script><script type="text/javascript">(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+(i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+})(window,document,'script','http://www.google-analytics.com/analytics.js','ga');
+
+ga('create', 'UA-44251100-2', 'blog.jakubarnold.cz');
+ga('send', 'pageview');</script><script type="text/javascript">var _gauges = _gauges || [];
+(function() {
+  var t   = document.createElement('script');
+  t.type  = 'text/javascript';
+  t.async = true;
+  t.id    = 'gauges-tracker';
+  t.setAttribute('data-site-id', '5325685a8bfdf76a52000c9b');
+  t.src = 'http://secure.gaug.es/track.js';
+  var s = document.getElementsByTagName('script')[0];
+  s.parentNode.insertBefore(t, s);
+})();</script><script src="http://jakubarnold.cz:9000/js/client.js"></script><script type="text/javascript">cat.init("3e4d686b-8b75-4c4b-ae2f-f05c6b7b5fce", "jakubarnold.cz", 9000);
+cat.broadcast("darthdeus", "someone is reading " + document.title);</script></body>
+<!-- Mirrored from blog.jakuba.net/2014/07/10/using-phantom-types-in-haskell-for-extra-safety-part-2.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 11:03:45 GMT -->
+</html>

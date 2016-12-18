@@ -1,0 +1,902 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<!-- Mirrored from chimera.labs.oreilly.com/books/1230000000929/ch15.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 11:04:16 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head><script type="text/javascript">var NREUMQ=NREUMQ||[];NREUMQ.push(["mark","firstbyte",new Date().getTime()]);</script>
+	<title>Parallel and Concurrent Programming in Haskell</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<link href="http://dwn0odqttrkhc.cloudfront.net/assets/book-f1caceafd9c9f3a6ff72d40c54d173ab.css" media="screen" rel="stylesheet" type="text/css" />
+	<link href="http://dwn0odqttrkhc.cloudfront.net/assets/default-24583441b4f47382b8932338cd56ed23.css" media="screen" rel="stylesheet" type="text/css" />
+	<script src="http://dwn0odqttrkhc.cloudfront.net/assets/application-47d6ffb0c77b868d29a43eb65e940505.js" type="text/javascript"></script>
+	<script src="http://dwn0odqttrkhc.cloudfront.net/assets/book-756862b9ed04d945ca53de5b8f106a83.js" type="text/javascript"></script>
+	<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+	<link href="http://dwn0odqttrkhc.cloudfront.net/assets/janrain-53eb5abed55992e21943b9d3373923e8.css" media="all" rel="stylesheet" type="text/css" />
+	<meta content="authenticity_token" name="csrf-param" />
+<meta content="WQ02oEFDbvBG99rmf8rwvGssMqcy27cCD64yZVVTcMY=" name="csrf-token" />
+	<script type="text/javascript" charset="utf-8">
+  	
+		app.data = new classes.Data({"controller":{"controller":"books","action":"html"},"capturable":{"capture_server":"https://oreilly.janraincapture.com","client_id":"6n5q2k9vesqgn93k3mhevka6c3c3rsre","app_url":"https://login.oreilly.com","app_id":"xsnca5wmqe9vxv97ygh5vfejkd","load_js":"d16s8pqtk4uodx.cloudfront.net/login.oreilly.com/load.js"},"user":{"id":null,"account":"LoggedOutAccount","email":"","name":null,"gravatar_url":"http://www.gravatar.com/avatar/d41d8cd98f00b204e9800998ecf8427e?s=40&d=identicon"},"book":{"isbn":"1230000000929","chapter":"ch15.html","toc_url":"/books/1230000000929/toc_html","metadata_url":"http://d4bb7yl96lyl1.cloudfront.net/1230000000929/metadata/metadata_9b2ac4d71a3220a7d463d8d4c80f9113048bb194.json"},"abilities":{"can_destroy_all_comments":false,"can_create_comments":false},"advertisement":{"body":"<style>      \r\n.ad-profile-image {\r\n  padding: 0;\r\n  margin: 0;\r\n  max-height: 30px;\r\n }\r\n\r\n.top-banner {\r\n  position: absolute;\r\n  right: 0;\r\n  top: 34px;\r\n  z-index: 99999;\r\n}\r\n\r\np.banner-text {\r\n  margin: 0;\r\n  text-align: center;\r\n  padding-right: 10px;\r\n  width: 450px;\r\n}\r\n\r\n@media screen and (max-width: 600px) {\r\n   p.banner-text {\r\n     width: 100%;\r\n     text-align: center;\r\n  }\r\n}\r\n\r\nspan.ebook-advantage {\r\n  font-size: smaller;\r\n  display: block;\r\n}\r\n\r\ndiv.banner-container {\r\n  margin: 0 auto;\r\n}\r\n\r\ndiv.banner-container ul {\r\n  margin: 0 auto;\r\n}\r\n\r\ndiv.topad { padding-bottom: 5px; }\r\n\r\ndiv.banner-container ul li {\r\n  display: inline-block;\r\n  vertical-align: middle;\r\n}\r\n\r\ndiv.banner-container li p {\r\n  padding-top: 0;\r\n  margin-top: 0;\r\n}\r\n\r\ndiv.banner-container li.sponsor {\r\n  border-right: 1px solid rgb(125, 154, 180);\r\n  margin-right: 5px;\r\n  padding-right: 10px;\r\n}\r\n\r\ndiv.banner-container .webbutton {\r\n  background-color: #3994b6;\r\n  display: inline-block;\r\n  padding: 10px;\r\n  -webkit-border-radius: 5px;\r\n  -moz-border-radius: 5px;\r\n  border-radius: 5px;\r\n  color: #FFF;\r\n  text-align: center;\r\n  text-decoration: none;\r\n  font-size: 12px;\r\n  font-weight: bold;\r\n}\r\n\r\n</style>\r\n   \r\n<div style=\"color: rgb(125, 154, 180);\">\r\n\r\n<div class=\"banner-container\">\r\n\r\n<ul>\r\n\r\n<li class=\"sponsor\">\r\n<!--CONFERENCE SPONSOR IMAGE-->\r\n<a href=\"http://www.oscon.com/oscon2013\">\r\n<!--<img src=\"http://orm-other.s3.amazonaws.com/fluent_logo.png\" class=\"ad-profile-image\"/>-->\r\n<img src=\"http://orm-other.s3.amazonaws.com/oscon_logo.png\" class=\"ad-profile-image\"/>\r\n<!--<img src=\"http://orm-other.s3.amazonaws.com/strata_logo.png\" class=\"ad-profile-image\"/>\r\n<img src=\"http://orm-other.s3.amazonaws.com/StrataRx_logo.png\" class=\"ad-profile-image\"/>\r\n<img src=\"http://orm-other.s3.amazonaws.com/velocity_logo.png\" class=\"ad-profile-image\"/>-->\r\n</a>\r\n</li>\r\n\r\n<li>\r\n<!--AD TEXT, 2 LINES, REPLACE LINK URL AS WELL-->\r\n<p class=\"banner-text\">Enjoy this online version of <em>Parallel and Concurrent Programming in Haskell</em>. Purchase and download the DRM-free ebook on <a href=\"http://shop.oreilly.com/product/0636920026365.do\">oreilly.com</a>.<span class=\"ebook-advantage\">Learn more about the O’Reilly <a href=\"http://shop.oreilly.com/category/ebooks.do\">Ebook Advantage</a>.</span></p>\r\n</li>\r\n\r\n<li>\r\n<!--BUY BUTTON-->\r\n<a class=\"webbutton\" href=\"http://shop.oreilly.com/product/0636920026365.do\">Buy the Ebook</a>\r\n</li> \r\n\r\n</ul>\r\n\r\n</div>\r\n\r\n<!--CORNER BANNER (IF NEEDED)-->\r\n<!--<a href=\"http://shop.oreilly.com/product/0636920026365.do\" class=\"top-banner\"><img src=\"http://orm-other.s3.amazonaws.com/banner.png\" /></a>-->\r\n\r\n</div>"}});
+
+		/* Janrain setup */
+  	var janrainModal = new JanrainView();
+  	$("head").append(janrainModal.render().el);
+
+  	/* segment.io setup */
+  	var analytics=analytics||[];analytics.load=function(e){var t=document.createElement("script");t.type="text/javascript",t.async=!0,t.src=("https:"===document.location.protocol?"https://":"http://")+"d2dq2ahtl5zl1z.cloudfront.net/analytics.js/v1/"+e+"/analytics.min.js";var n=document.getElementsByTagName("script")[0];n.parentNode.insertBefore(t,n);var r=function(e){return function(){analytics.push([e].concat(Array.prototype.slice.call(arguments,0)))}},i=["identify","track","trackLink","trackForm","trackClick","trackSubmit","pageview","ab","alias","ready"];for(var s=0;s<i.length;s++)analytics[i[s]]=r(i[s])};
+  	
+  	analytics.load("hg9h6b9pae");
+
+  	$(function() {
+			app.bookapp = new BookApp();
+		});
+	
+	</script>
+</head>
+<body>
+	<div id="menu">
+	
+		<ul id="menu-left">
+			<li id="home-link"><a href="http://chimera.labs.oreilly.com/"><i class="icon-house"></i></a></li>
+			<li><a href="http://chimera.labs.oreilly.com/books/1230000000929">Parallel and Concurrent Programming in Haskell</a></li>
+			<div class="clear"></div>
+		</ul>
+	
+		<ul id="menu-right">
+			<li id="comments-link"><a>&nbsp;</a></li>
+			<li>
+				<a href="#" class="dropdown-toggle" data-toggle="dropdown">Chapters</a>
+				<div id="toc-popup" class="dropdown-menu"></div>
+			</li>
+				<li><a href="#" class="capture_modal_open" id="capture_signin_link">Log In / Sign Up</a></li>
+			<li id="search-li">
+				<form accept-charset="UTF-8" action="http://chimera.labs.oreilly.com/searches" id="search-form" method="get"><div style="margin:0;padding:0;display:inline"><input name="utf8" type="hidden" value="&#x2713;" /></div>
+	<input name='search[q]' type="text" placeholder="Search book..." id="book-search" />
+
+	<input id="search_bookId" name="search[bookId]" type="hidden" value="1230000000929" />
+	
+	<div style='display:none'>
+		sorted by: 
+		<select name='search[sort]' >
+			<option value='relevance'>Relevance</option>
+			<option value='authors'>Author(s)</option>
+			<option value='title'>Title</option>
+		</select>
+		returning
+		<select name='search[limit]' >
+			<option value='5'>5</option>
+			<option value='10'>10</option>
+			<option value='20'>20</option>
+			<option selected="selected" value='50'>50</option>
+			<option value='100'>100</option>
+		</select>
+		values at a time.
+	</div>
+</form>
+			</li>
+			<div class="clear"></div>
+		</ul>
+		<div class="clear"></div>
+	
+</div>
+	<header><div class="navheader">
+<table style="width: 100%; ">
+<tr><td style="text-align: center; " colspan="3">Chapter 15. Debugging, Tuning, and Interfacing with Foreign Code</td></tr>
+<tr>
+<td style="width: 20%; text-align: left; ">
+<a accesskey="p" href="ch14.html">Prev</a> </td>
+<td style="width: 60%; text-align: center; ">Part II. Concurrent Haskell</td>
+<td style="width: 20%; text-align: right; "> <a accesskey="n" href="ix01.html">Next</a>
+</td>
+</tr>
+</table>
+<hr>
+</div></header><section class="chapter" data-original-filename="ch15_conc-debugging-tuning.asciidoc" id="sec_conc-debugging-tuning"><div class="titlepage"><div><div><h2 class="title">Chapter 15. Debugging, Tuning, and Interfacing with Foreign Code</h2></div></div></div>
+<div class="sect1" data-original-filename="ch15_conc-debugging-tuning.asciidoc" id="_debugging_concurrent_programs">
+<div class="titlepage"><div><div><h2 class="title">Debugging Concurrent Programs</h2></div></div></div>
+<p id="concurrencydebu"><a id="ix_ch15_conc-debugging-tuning-txt0" class="indexterm"></a><a id="ix_ch15_conc-debugging-tuning-txt1" class="indexterm"></a>In this section, I’ve collected a few tricks and techniques that you might find useful when
+debugging Concurrent Haskell programs.</p>
+<div class="sect2" id="_inspecting_the_status_of_a_thread">
+<div class="titlepage"><div><div><h3 class="title">Inspecting the Status of a Thread</h3></div></div></div>
+<p id="debuggingthread"><a id="ix_ch15_conc-debugging-tuning-txt2" class="indexterm"></a><a id="ix_ch15_conc-debugging-tuning-txt3" class="indexterm"></a><a id="ix_ch15_conc-debugging-tuning-txt4" class="indexterm"></a>The <code class="literal">threadStatus</code> function (from <code class="literal">GHC.Conc</code>) returns the current
+state of a thread:</p>
+<pre class="programlisting" data-language="haskell" id="threadstatus_"><code class="nf">threadStatus</code> <code class="ow">::</code> <code class="kt">ThreadId</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="kt">ThreadStatus</code></pre>
+<p id="here_threadsta">Here, <code class="literal">ThreadStatus</code> is defined as follows:</p>
+<pre class="programlisting" data-language="haskell" id="data_threadstat"><code class="kr">data</code> <code class="kt">ThreadStatus</code>
+  <code class="ow">=</code> <code class="kt">ThreadRunning</code>                    <code class="c1">-- </code><span id="CO53-1"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1"></span>
+  <code class="o">|</code> <code class="kt">ThreadFinished</code>                   <code class="c1">-- </code><span id="CO53-2"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/2.png" alt="2"></span>
+  <code class="o">|</code> <code class="kt">ThreadBlocked</code>  <code class="kt">BlockReason</code>       <code class="c1">-- </code><span id="CO53-3"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/3.png" alt="3"></span>
+  <code class="o">|</code> <code class="kt">ThreadDied</code>                       <code class="c1">-- </code><span id="CO53-4"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/4.png" alt="4"></span>
+  <code class="kr">deriving</code> <code class="p">(</code><code class="kt">Eq</code><code class="p">,</code> <code class="kt">Ord</code><code class="p">,</code> <code class="kt">Show</code><code class="p">)</code></pre>
+<div class="calloutlist"><table style="border: 0; ">
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO53-1"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="the_thread_is_c">
+The thread is currently running (or runnable).
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO53-2"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/2.png" alt="2"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="the_thread_has_">
+The thread has finished.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO53-3"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/3.png" alt="3"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="the_thread_is_b">
+The thread is blocked (the <code class="literal">BlockReason</code> type is explained shortly).
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO53-4"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/4.png" alt="4"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="the_exception_h">
+The <a id="id509880" class="indexterm"></a><a id="id509888" class="indexterm"></a><a id="id509896" class="indexterm"></a>thread died because an exception was raised but not caught.
+This should never happen under normal circumstances because <code class="literal">forkIO</code> includes a default exception handler that catches and prints exceptions.
+</p></td>
+</tr>
+</table></div>
+<p id="the_blockreason">The <code class="literal">BlockReason</code> type<a id="id509926" class="indexterm"></a> gives more information about why a thread is
+blocked and is self-explanatory:</p>
+<pre class="programlisting" data-language="haskell" id="data_blockreaso"><code class="kr">data</code> <code class="kt">BlockReason</code>
+  <code class="ow">=</code> <code class="kt">BlockedOnMVar</code>
+  <code class="o">|</code> <code class="kt">BlockedOnBlackHole</code>
+  <code class="o">|</code> <code class="kt">BlockedOnException</code>
+  <code class="o">|</code> <code class="kt">BlockedOnSTM</code>
+  <code class="o">|</code> <code class="kt">BlockedOnForeignCall</code>
+  <code class="o">|</code> <code class="kt">BlockedOnOther</code>
+  <code class="kr">deriving</code> <code class="p">(</code><code class="kt">Eq</code><code class="p">,</code> <code class="kt">Ord</code><code class="p">,</code> <code class="kt">Show</code><code class="p">)</code></pre>
+<p id="heres_an_examp">Here’s an example in GHCi:</p>
+<pre class="screen" id="t__forkio_">&gt; t &lt;- forkIO (threadDelay 3000000)
+&gt; GHC.Conc.threadStatus t
+ThreadBlocked BlockedOnMVar
+&gt; -- wait a few seconds
+&gt; GHC.Conc.threadStatus t
+ThreadFinished
+&gt;</pre>
+<p id="while_threadsta">While <code class="literal">threadStatus</code> can be very useful for debugging, don’t use
+it for normal control flow in your program.  One reason
+is that it breaks abstractions. For instance, in the previous example, it showed us
+that <code class="literal">threadDelay</code> is implemented using <code class="literal">MVar</code> (at least in this
+version of GHC). Another reason is that the result of
+<code class="literal">threadStatus</code> is out of date as soon as <code class="literal">threadStatus</code> returns,
+because the thread may now be in a different state.<a id="id510112" class="indexterm"></a><a id="id510123" class="indexterm"></a><a id="id510133" class="indexterm"></a></p>
+</div>
+<div class="sect2" id="sec_conc_eventlogging">
+<div class="titlepage"><div><div><h3 class="title">Event Logging and ThreadScope</h3></div></div></div>
+<p id="debuggingevent_"><a id="ix_ch15_conc-debugging-tuning-txt5" class="indexterm"></a><a id="ix_ch15_conc-debugging-tuning-txt6" class="indexterm"></a><a id="ix_ch15_conc-debugging-tuning-txt7" class="indexterm"></a><a id="ix_ch15_conc-debugging-tuning-txt8" class="indexterm"></a>While we should never underestimate the usefulness of <a id="id510210" class="indexterm"></a><a id="id510218" class="indexterm"></a><a id="id510226" class="indexterm"></a>adding
+<code class="literal">putStrLn</code> calls to our programs to debug them, sometimes this isn’t
+quite lightweight enough. <code class="literal">putStrLn</code> can introduce some extra
+contention for the <code class="literal">stdout</code> <code class="literal">Handle</code>, which might perturb the
+concurrency in the program you’re trying to debug.  So in this section,
+we’ll look at another way to investigate the behavior of a concurrent
+program at runtime.</p>
+<p id="weve_used_thre">We’ve used ThreadScope a lot to diagnose performance problems in
+this book.  ThreadScope generates its graphs from the
+information in the <code class="literal">.eventlog</code> file that is produced when we run a
+program with the <code class="literal">+RTS -l</code> option.  This file is a mine of information
+about what was happening behind the scenes when the program ran, and
+we can use it for debugging our programs, too.</p>
+<p id="you_thread_numb">You <a id="id510290" class="indexterm"></a><a id="id510295" class="indexterm"></a><a id="id510303" class="indexterm"></a>may have noticed that ThreadScope identifies threads by their
+number.  For debugging, it helps a lot to know which thread in the
+program corresponds to which thread number; this connection can be
+made using <code class="literal">labelThread</code>:</p>
+<pre class="programlisting" data-language="haskell" id="labelthread__"><code class="nf">labelThread</code> <code class="ow">::</code> <code class="kt">ThreadId</code> <code class="ow">-&gt;</code> <code class="kt">String</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="nb">()</code>
+  <code class="c1">-- defined in GHC.Conc</code></pre>
+<p id="the_labelthread">The <code class="literal">labelThread</code> function<a id="id510389" class="indexterm"></a> has no effect on the running of the
+program but causes the program to emit a special event into the event log.</p>
+<p id="there_are_also_">There are also a couple of ways to put your own information in the
+<code class="literal">eventlog</code> file:</p>
+<pre class="programlisting" data-language="haskell" id="traceevent__s"><code class="nf">traceEvent</code>   <code class="ow">::</code> <code class="kt">String</code> <code class="ow">-&gt;</code> <code class="n">a</code> <code class="ow">-&gt;</code> <code class="n">a</code>
+<code class="nf">traceEventIO</code> <code class="ow">::</code> <code class="kt">String</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="nb">()</code>
+  <code class="c1">-- defined in Debug.Trace</code></pre>
+<p id="heres_a_simple_id2">Here’s a simple program to demonstrate <code class="literal">labelThread</code> and
+<code class="literal">traceEventIO</code> in <a id="id510511" class="indexterm"></a><a id="id510517" class="indexterm"></a>action:</p>
+<p id="mvarhs_code"><span class="emphasis"><em>mvar4.hs</em></span>
+</p>
+<pre class="programlisting" data-language="haskell" id="main__do_t__"><code class="nf">main</code> <code class="ow">=</code> <code class="kr">do</code>
+  <code class="n">t</code> <code class="ow">&lt;-</code> <code class="n">myThreadId</code>
+  <code class="n">labelThread</code> <code class="n">t</code> <code class="s">"main"</code>
+  <code class="n">m</code> <code class="ow">&lt;-</code> <code class="n">newEmptyMVar</code>
+  <code class="n">t</code> <code class="ow">&lt;-</code> <code class="n">forkIO</code> <code class="o">$</code> <code class="n">putMVar</code> <code class="n">m</code> <code class="sc">'a'</code>
+  <code class="n">labelThread</code> <code class="n">t</code> <code class="s">"a"</code>
+  <code class="n">t</code> <code class="ow">&lt;-</code> <code class="n">forkIO</code> <code class="o">$</code> <code class="n">putMVar</code> <code class="n">m</code> <code class="sc">'b'</code>
+  <code class="n">labelThread</code> <code class="n">t</code> <code class="s">"b"</code>
+  <code class="n">traceEventIO</code> <code class="s">"before takeMVar"</code>
+  <code class="n">takeMVar</code> <code class="n">m</code>
+  <code class="n">takeMVar</code> <code class="n">m</code></pre>
+<p id="this_program_fo">This program forks two threads.  Each of the threads puts a value into
+an <code class="literal">MVar</code>, and then the main thread calls <code class="literal">takeMVar</code> on the <code class="literal">MVar</code>
+twice.</p>
+<p id="compile_the_pro_id2">Compile the program with <code class="literal">-eventlog</code> and run it with <code class="literal">+RTS -l</code>:</p>
+<pre class="screen" id="ghc_mvarhs_">$ ghc mvar4.hs -threaded -eventlog
+$ ./mvar4 +RTS -l</pre>
+<p id="this_ghcevents">This <a id="id510808" class="indexterm"></a>generates the file <span class="emphasis"><em>mvar4.eventlog</em></span>, which is a space-efficient binary representation of the sequence of events that occurred in the runtime system when the program ran. You need a program to display the
+contents of a <code class="literal">.eventlog</code> file; ThreadScope of course is one such
+tool, but you can also just display the raw event stream using
+the <code class="literal">ghc-events</code> program:<a href="#ftn.id510833" class="footnote"><sup class="footnote" id="id510833">[64]</sup></a></p>
+<pre class="screen" id="ghcevents_sh">$ ghc-events show mvar4.eventlog</pre>
+<p id="as_you_might_ex">As you might expect, there is a lot of implementation detail in the
+event stream, but with the help of <code class="literal">labelThread</code> and <code class="literal">traceEventIO</code>, you
+can sort through it to find the interesting bits.  Note that if you
+try this program yourself, you might not see exactly the same event
+log; such is the nature of implementation details.</p>
+<p id="we_labeled_the_">We labeled the main thread <code class="literal">"main"</code>, so searching for <code class="literal">main</code> in the
+log finds this section:</p>
+<pre class="screen" id="cap__">   912458: cap 0: running thread 3
+   950678: cap 0: thread 3 has label "main"                  -- <span id="CO54-1"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1"></span>
+   953569: cap 0: creating thread 4                          -- <span id="CO54-2"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/2.png" alt="2"></span>
+   956227: cap 0: thread 4 has label "a"                     -- <span id="CO54-3"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/3.png" alt="3"></span>
+   957001: cap 0: creating thread 5                          -- <span id="CO54-4"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/4.png" alt="4"></span>
+   958450: cap 0: thread 5 has label "b"
+   960835: cap 0: stopping thread 3 (thread yielding)        -- <span id="CO54-5"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/5.png" alt="5"></span>
+   997067: cap 0: running thread 4                           -- <span id="CO54-6"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/6.png" alt="6"></span>
+  1007167: cap 0: stopping thread 4 (thread finished)
+  1008066: cap 0: running thread 5                           -- <span id="CO54-7"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/7.png" alt="7"></span>
+  1010022: cap 0: stopping thread 5 (blocked on an MVar)
+  1045297: cap 0: running thread 3                           -- <span id="CO54-8"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/8.png" alt="8"></span>
+  1064248: cap 0: before takeMVar                            -- <span id="CO54-9"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/9.png" alt="9"></span>
+  1066973: cap 0: waking up thread 5 on cap 0                -- <span id="CO54-10"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/10.png" alt="10"></span>
+  1067747: cap 0: stopping thread 3 (thread finished)        -- <span id="CO54-11"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/11.png" alt="11"></span></pre>
+<div class="calloutlist"><table style="border: 0; ">
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO54-1"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="this_event_was_">
+This event was generated by <code class="literal">labelThread</code>.  GHC needs some threads
+for its own purposes, so it turns out that in this case the main
+thread is thread 3.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO54-2"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/2.png" alt="2"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="this_is_the_fir">
+This is the first <code class="literal">forkIO</code> executed by the main thread, creating
+thread 4.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO54-3"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/3.png" alt="3"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="the_main_thread_id1">
+The main thread labels thread 4 as <code class="literal">a</code>.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO54-4"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/4.png" alt="4"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="the_second_fork">
+The second <code class="literal">forkIO</code> creates thread 5, which is then labeled as <code class="literal">b</code>.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO54-5"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/5.png" alt="5"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="next_theyields">
+Next, the<a id="id511074" class="indexterm"></a> main thread "yields."  This means it stops running to
+give another thread a chance to run.  This happens at regular
+intervals during execution due to pre-emption.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO54-6"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/6.png" alt="6"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="the_next_thread">
+The next thread to run is thread 4, which is <code class="literal">a</code>.  This thread will put a value
+into the <code class="literal">MVar</code> and then finish.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO54-7"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/7.png" alt="7"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="next_thread__">
+Next, thread 5 (<code class="literal">b</code>) runs.  It also puts in the <code class="literal">MVar</code> but gets
+blocked because the <code class="literal">MVar</code> is already full.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO54-8"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/8.png" alt="8"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="the_main_thread_id2">
+The main thread runs again.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO54-9"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/9.png" alt="9"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="this_is_the_eff">
+This is the effect of the call to <code class="literal">traceEventIO</code> in the main
+thread; it helps us to know where in the code we’re currently
+executing.  Be careful with <code class="literal">traceEventIO</code> and <code class="literal">traceEvent</code>, though. They have to convert <code class="literal">String</code> values into raw bytes to put in the
+event log and can be expensive, so use them only to annotate things
+that don’t happen too often.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO54-10"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/10.png" alt="10"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="when_the_main_t">
+When the main thread calls <code class="literal">takeMVar</code>, this has the effect of
+waking up thread 5 (<code class="literal">b</code>), which was blocked in <code class="literal">putMVar</code>.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO54-11"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/11.png" alt="11"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="the_main_thread_id3">
+The main thread has finished, so the program exits.
+</p></td>
+</tr>
+</table></div>
+<p id="so_from_this_ev">So from this event log we can see the sequence of actions that
+happened at runtime, including which threads got blocked when, and
+some information about why they got blocked.  These clues can often be
+enough to point you to the cause of a problem.<a id="id511235" class="indexterm"></a><a id="id511246" class="indexterm"></a><a id="id511256" class="indexterm"></a><a id="id511266" class="indexterm"></a><a id="id511276" class="indexterm"></a><a id="id511286" class="indexterm"></a></p>
+</div>
+<div class="sect2" id="sec_deadlock">
+<div class="titlepage"><div><div><h3 class="title">Detecting Deadlock</h3></div></div></div>
+<p id="concurrencydead"><a id="ix_ch15_conc-debugging-tuning-txt9" class="indexterm"></a><a id="ix_ch15_conc-debugging-tuning-txt10" class="indexterm"></a><a id="ix_ch15_conc-debugging-tuning-txt11" class="indexterm"></a><a id="ix_ch15_conc-debugging-tuning-txt12" class="indexterm"></a>As I mentioned<a id="id511365" class="indexterm"></a><a id="id511370" class="indexterm"></a><a id="id511379" class="indexterm"></a><a id="id511387" class="indexterm"></a> briefly in <a class="xref" href="ch07.html#sec_mvars" title="Communication: MVars">“Communication: MVars”</a>, the GHC runtime system can
+detect when a thread has become deadlocked and send it the
+<code class="literal">BlockedIndefinitelyOnMVar</code> exception.  How exactly does this work?
+Well, in GHC both threads and <code class="literal">MVar</code>s are objects on the heap, just
+like other data values.  An <code class="literal">MVar</code> that has blocked threads is
+represented by a heap object that points to a list of the blocked
+threads.  Heap objects are managed by the garbage
+collector, which traverses the heap starting from the <span class="emphasis"><em>roots</em></span> to
+discover all the live objects.  The set of roots consists of the
+running threads and the stack associated with each of these threads.
+Any thread that is not <span class="emphasis"><em>reachable</em></span> from the roots is definitely
+deadlocked. The runtime system cannot ever find these threads by
+following pointers, so they can never become runnable again.</p>
+<p id="for_example_if">For example, if<a id="id511437" class="indexterm"></a><a id="id511445" class="indexterm"></a> a thread is blocked in <code class="literal">takeMVar</code> on an <code class="literal">MVar</code> that is
+not referenced by any other thread, then both the <code class="literal">MVar</code> that it is
+blocked on and the thread itself will be <span class="keep-together">unreachable</span>.  When a thread
+is found to be unreachable, it is sent the <code class="literal">BlockedIndefinitelyOnMVar</code>
+exception (there is also a <code class="literal">BlockedIndefinitelyOnSTM</code> exception for
+when a thread is blocked in an STM transaction).  The exception gives
+the thread a chance to clean up any resources it may have been
+holding and also allows the program to quit with an error message
+rather than hanging in the event of a deadlock.</p>
+<p id="the_conceptdead">The concept<a id="id511500" class="indexterm"></a><a id="id511509" class="indexterm"></a><a id="id511517" class="indexterm"></a> extends to mutual deadlock between a group of
+threads. Suppose we create two threads that deadlock on each other
+like this:</p>
+<pre class="programlisting" data-language="haskell" id="a__newemptymv"><code class="nf">a</code> <code class="ow">&lt;-</code> <code class="n">newEmptyMVar</code>
+<code class="nf">b</code> <code class="ow">&lt;-</code> <code class="n">newEmptyMVar</code>
+<code class="nf">forkIO</code> <code class="p">(</code><code class="kr">do</code> <code class="n">takeMVar</code> <code class="n">a</code><code class="p">;</code> <code class="n">putMVar</code> <code class="n">b</code> <code class="nb">()</code><code class="p">)</code>
+<code class="nf">forkIO</code> <code class="p">(</code><code class="kr">do</code> <code class="n">takeMVar</code> <code class="n">b</code><code class="p">;</code> <code class="n">putMVar</code> <code class="n">a</code> <code class="nb">()</code><code class="p">)</code>
+<code class="o">...</code></pre>
+<p id="then_both_threa">Then both threads are blocked, each on an <code class="literal">MVar</code> that is reachable
+from the other.  As far as the garbage collector is concerned, both
+threads and the <code class="literal">MVar</code>s <code class="literal">a</code> and <code class="literal">b</code> are unreachable (assuming the
+rest of the program does not refer to <code class="literal">a</code> or <code class="literal">b</code>).  When there are
+multiple unreachable threads, they are all sent the
+<code class="literal">BlockedIndefinitelyOnMVar</code> exception at the same time.</p>
+<p id="this_all_seems_">This all seems quite reasonable, but you should be aware of some
+consequences that might not be immediately obvious.  Here’s an
+example:<a href="#ftn.id511727" class="footnote"><sup class="footnote" id="id511727">[65]</sup></a></p>
+<p id="deadlockhs__id1" class="caption"><span class="emphasis"><em>deadlock1.hs</em></span>
+</p>
+<pre class="programlisting" data-language="haskell" id="main__do_lock__id1"><code class="nf">main</code> <code class="ow">=</code> <code class="kr">do</code>
+  <code class="n">lock</code> <code class="ow">&lt;-</code> <code class="n">newEmptyMVar</code>
+  <code class="n">complete</code> <code class="ow">&lt;-</code> <code class="n">newEmptyMVar</code>
+  <code class="n">forkIO</code> <code class="o">$</code> <code class="n">takeMVar</code> <code class="n">lock</code> <code class="p">`</code><code class="n">finally</code><code class="p">`</code> <code class="n">putMVar</code> <code class="n">complete</code> <code class="nb">()</code>
+  <code class="n">takeMVar</code> <code class="n">complete</code></pre>
+<p id="study_the_progr">Study the program for a moment and think about what you expect to
+happen.</p>
+<p id="the_threadsdead">The <a id="id511879" class="indexterm"></a><a id="id511887" class="indexterm"></a><a id="id511895" class="indexterm"></a>child thread is clearly deadlocked, and so it should receive the
+<code class="literal">Blocked</code><code class="literal">IndefinitelyOnMVar</code> exception.  This will cause the <code class="literal">finally</code>
+action to run, which performs <code class="literal">putMVar complete ()</code>, which will in
+turn unblock the main thread.  However, this is not what happens. At
+the point where the child thread is deadlocked, <span class="emphasis"><em>the main thread is also deadlocked</em></span>.  The runtime system has no idea that sending the
+exception to the child thread will cause the main thread to become
+unblocked, so the behavior when there is a group of deadlocked
+threads is to send them all the exception at the same time.  Hence the
+main thread also receives the <code class="literal">BlockedIndefinitelyOnMVar</code> exception,
+and the program prints an error message.</p>
+<p id="the_second_cons">The second consequence is that the runtime can’t always
+prove that a thread is deadlocked even if it seems obvious to you.
+Here’s another example:</p>
+<p id="deadlockhs__id2" class="caption"><span class="emphasis"><em>deadlock2.hs</em></span>
+</p>
+<pre class="programlisting" data-language="haskell" id="main__do_lock__id2"><code class="nf">main</code> <code class="ow">=</code> <code class="kr">do</code>
+  <code class="n">lock</code> <code class="ow">&lt;-</code> <code class="n">newEmptyMVar</code>
+  <code class="n">forkIO</code> <code class="o">$</code> <code class="kr">do</code> <code class="n">r</code> <code class="ow">&lt;-</code> <code class="n">try</code> <code class="p">(</code><code class="n">takeMVar</code> <code class="n">lock</code><code class="p">);</code> <code class="n">print</code> <code class="p">(</code><code class="n">r</code> <code class="ow">::</code> <code class="kt">Either</code> <code class="kt">SomeException</code> <code class="nb">()</code><code class="p">)</code>
+  <code class="n">threadDelay</code> <code class="mi">1000000</code>
+  <code class="n">print</code> <code class="p">(</code><code class="n">lock</code> <code class="o">==</code> <code class="n">lock</code><code class="p">)</code></pre>
+<p id="we_might_expect">We might expect the child thread to be detected as deadlocked here because it is clear that nothing is ever going to put into the <code class="literal">lock</code>
+<code class="literal">MVar</code>.  But the child thread never receives an exception, and the
+program completes printing <code class="literal">True</code>.  The reason the deadlock is not
+detected here is that the main thread is holding a reference to the
+<code class="literal">MVar</code> <code class="literal">lock</code> because it is used in the (slightly contrived)
+expression <code class="literal">(lock == lock)</code> on the last line.  Deadlock detection
+works using garbage collection, which is necessarily a conservative
+approximation to the true future behavior of the program.</p>
+<p id="suppose_that_in">Suppose that instead of the last line, we had written this:</p>
+<pre class="programlisting" data-language="haskell" id="if_isprime__t">  <code class="kr">if</code> <code class="n">isPrime</code> <code class="mi">43</code> <code class="kr">then</code> <code class="n">return</code> <code class="nb">()</code> <code class="kr">else</code> <code class="n">putMVar</code> <code class="n">lock</code> <code class="nb">()</code></pre>
+<p id="provided_that_t">Provided that the <a id="id512262" class="indexterm"></a>compiler optimizes away <code class="literal">isPrime 43</code>, we would get a
+deadlock exception.  You can’t in general know how clever the compiler
+is going to be, so <span class="emphasis"><em>you should not rely on deadlock detection for the correct working of your program</em></span>.  Deadlock detection is a debugging
+feature; in the event of a deadlock, you get an exception rather than a
+silent hang, but you should aim to never have any deadlocks in your
+program.<a id="id512285" class="indexterm"></a><a id="id512296" class="indexterm"></a><a id="id512306" class="indexterm"></a><a id="id512315" class="indexterm"></a></p>
+</div>
+</div>
+<div class="sect1" data-original-filename="ch15_conc-debugging-tuning.asciidoc" id="sec_conc-tuning">
+<div class="titlepage"><div><div><h2 class="title">Tuning Concurrent (and Parallel) Programs</h2></div></div></div>
+<p id="concurrencytuni"><a id="ix_ch15_conc-debugging-tuning-txt13" class="indexterm"></a><a id="ix_ch15_conc-debugging-tuning-txt14" class="indexterm"></a><a id="ix_ch15_conc-debugging-tuning-txt15" class="indexterm"></a>In this section, I’ll cover a few tips and techniques for improving the
+performance of concurrent programs.  The standard principles apply
+here, just as much as in ordinary sequential programming:</p>
+<div class="itemizedlist" id="avoid_optimizat_id1"><ul class="itemizedlist">
+<li class="listitem">
+Avoid <a id="id512423" class="indexterm"></a>premature optimization.  Don’t overoptimize code until you
+   know there’s a problem.  That said, "avoiding premature
+   optimization" is not an excuse for writing awful code. For example,
+   don’t use wildly inappropriate data structures if using the right
+   one is just a matter of importing a library.  I like to "write code
+   with efficiency in mind": know the complexity of your algorithms,
+   and if you find yourself using something worse than <span class="emphasis"><em>O</em></span>(<span class="emphasis"><em>n</em></span>log<span class="emphasis"><em>n</em></span>),
+   think about whether it might present a problem down the road.  The
+   more of this you do, the better your code will cope with larger and larger problems.
+</li>
+<li class="listitem">
+Don’t waste time optimizing code that doesn’t contribute much to overall runtime.  Profile your program so that you can focus your
+   efforts on the important parts.  GHC has a reasonable space and
+   time profiler that should point out at least where the inner loops
+   of your code are.  In concurrent programs, the problem can often be
+   I/O or contention, in which case using ThreadScope together with
+   <code class="literal">labelThread</code> and <code class="literal">traceEvent</code> can help track down the
+   culprits (see <a class="xref" href="ch15.html#sec_conc_eventlogging" title="Event Logging and ThreadScope">“Event Logging and ThreadScope”</a>).
+</li>
+</ul></div>
+<div class="sect2" id="sec_conc-efficiency">
+<div class="titlepage"><div><div><h3 class="title">Thread Creation and MVar Operations</h3></div></div></div>
+<p id="efficiencyof_co"><a id="ix_ch15_conc-debugging-tuning-txt17" class="indexterm"></a><a id="ix_ch15_conc-debugging-tuning-txt18" class="indexterm"></a><a id="ix_ch15_conc-debugging-tuning-txt19" class="indexterm"></a><a id="ix_ch15_conc-debugging-tuning-txt20" class="indexterm"></a><a id="ix_ch15_conc-debugging-tuning-txt21" class="indexterm"></a>GHC strives to provide an extremely efficient implementation of
+threads.  This section explores the performance of a couple of
+very simple concurrent programs to give you a feel for the efficiency
+of the basic concurrency operations and how to inspect the
+performance of your programs.</p>
+<p id="the_first_progr">The first program creates 1,000,000 threads, has each of them put a
+token into the same <code class="literal">MVar</code>, and then reads the 1,000,000 tokens from
+the <code class="literal">MVar</code>:</p>
+<p id="threadperfhs__id1" class="caption"><span class="emphasis"><em>threadperf1.hs</em></span>
+</p>
+<pre class="programlisting" data-language="haskell" id="numthreads___id1"><code class="nf">numThreads</code> <code class="ow">=</code> <code class="mi">1000000</code>
+
+<code class="nf">main</code> <code class="ow">=</code> <code class="kr">do</code>
+  <code class="n">m</code> <code class="ow">&lt;-</code> <code class="n">newEmptyMVar</code>
+  <code class="n">replicateM_</code> <code class="n">numThreads</code> <code class="o">$</code> <code class="n">forkIO</code> <code class="p">(</code><code class="n">putMVar</code> <code class="n">m</code> <code class="nb">()</code><code class="p">)</code>
+  <code class="n">replicateM_</code> <code class="n">numThreads</code> <code class="o">$</code> <code class="n">takeMVar</code> <code class="n">m</code></pre>
+<p id="this_memoryover">This <a id="id512752" class="indexterm"></a><a id="id512760" class="indexterm"></a><a id="id512768" class="indexterm"></a>program should give us an indication of the memory overhead for
+threads because all the threads will be resident in memory at once.
+To find out the memory cost, we can run the program with <code class="literal">+RTS -s</code>
+(the output is abbreviated slightly here):</p>
+<pre class="screen" id="threadperf_id1">$ ./threadperf1 +RTS -s
+   1,048,049,144 bytes allocated in the heap
+   3,656,054,520 bytes copied during GC
+     799,504,400 bytes maximum residency (10 sample(s))
+     146,287,144 bytes maximum slop
+           1,768 MB total memory in use (0 MB lost due to fragmentation)
+
+  INIT    time    0.00s  (  0.00s elapsed)
+  MUT     time    0.75s  (  0.76s elapsed)
+  GC      time    2.21s  (  2.22s elapsed)
+  EXIT    time    0.18s  (  0.18s elapsed)
+  Total   time    3.14s  (  3.16s elapsed)</pre>
+<p id="so_about__gb_w">So about 1 GB was allocated, although the total memory required by
+the program was 1.7 GB.  The amount of allocated memory tells us that
+threads require approximately <span class="keep-together">1 KB</span> each, and the extra memory used by the program is due to copying GC overheads.  In fact, it is possible to
+tune the amount of memory given to a thread when it is allocated,
+using the <code class="literal">+RTS -k&lt;size&gt;</code> option; here is the same program using
+400-byte threads:</p>
+<pre class="screen" id="threadperf_id2">$ ./threadperf1 +RTS -s -k400
+     424,081,144 bytes allocated in the heap
+   1,587,567,240 bytes copied during GC
+     387,551,912 bytes maximum residency (9 sample(s))
+      87,195,664 bytes maximum slop
+             902 MB total memory in use (0 MB lost due to fragmentation)
+
+  INIT    time    0.00s  (  0.00s elapsed)
+  MUT     time    0.59s  (  0.59s elapsed)
+  GC      time    1.60s  (  1.61s elapsed)
+  EXIT    time    0.13s  (  0.13s elapsed)
+  Total   time    2.32s  (  2.33s elapsed)</pre>
+<p id="a_thread_will_a">A thread will allocate more memory for its stack on demand, so whether
+it is actually a good idea to use <code class="literal">+RTS -k400</code> will depend on your
+program. In this case, the threads were doing very little before
+exiting, so it did help the overall performance.</p>
+<p id="the_second_exam">The second example also creates 1,000,000 threads, but this time we
+create a separate <code class="literal">MVar</code> for each thread to put a token into and then
+take all the <code class="literal">MVar</code>s in the main thread before exiting:</p>
+<p id="threadperfhs__id2" class="caption"><span class="emphasis"><em>threadperf2.hs</em></span>
+</p>
+<pre class="programlisting" data-language="haskell" id="numthreads___id2"><code class="nf">numThreads</code> <code class="ow">=</code> <code class="mi">1000000</code>
+
+<code class="nf">main</code> <code class="ow">=</code> <code class="kr">do</code>
+  <code class="n">ms</code> <code class="ow">&lt;-</code> <code class="n">replicateM</code> <code class="n">numThreads</code> <code class="o">$</code> <code class="kr">do</code>
+          <code class="n">m</code> <code class="ow">&lt;-</code> <code class="n">newEmptyMVar</code>
+          <code class="n">forkIO</code> <code class="p">(</code><code class="n">putMVar</code> <code class="n">m</code> <code class="nb">()</code><code class="p">)</code>
+          <code class="n">return</code> <code class="n">m</code>
+  <code class="n">mapM_</code> <code class="n">takeMVar</code> <code class="n">ms</code></pre>
+<p id="this_program_ha">This program has quite different performance characteristics:</p>
+<pre class="screen" id="threadperf_id3">$ ./threadperf2 +RTS -s
+   1,153,017,744 bytes allocated in the heap
+     267,061,032 bytes copied during GC
+      62,962,152 bytes maximum residency (8 sample(s))
+       4,662,808 bytes maximum slop
+             121 MB total memory in use (0 MB lost due to fragmentation)
+
+  INIT    time    0.00s  (  0.00s elapsed)
+  MUT     time    0.70s  (  0.72s elapsed)
+  GC      time    0.50s  (  0.50s elapsed)
+  EXIT    time    0.02s  (  0.02s elapsed)
+  Total   time    1.22s  (  1.24s elapsed)</pre>
+<p id="although_it_all">Although it allocated a similar amount of memory, the total memory in use
+by the program at any one time was only 121 MB.  This is because each
+thread can run to completion independently, unlike the previous
+example where all the threads were present and blocked on the same
+<code class="literal">MVar</code>.  So while the main thread is busy creating more threads, the
+threads it has already created can run, complete, and be garbage-collected, leaving behind only the <code class="literal">MVar</code> for the main thread to take later.</p>
+<p id="note_that_the_g">Note that the GC overheads of this program are much lower than the
+first example.  The total time gives us a rough indication of the time
+it takes to create an <code class="literal">MVar</code> and a thread, and for the thread to run,
+put into the <code class="literal">MVar</code>, complete, and be garbage-collected.  We did this
+1,000,000 times in about 1.2s, so the time per thread is about 1.2
+microseconds.</p>
+<p id="the_conclusionc">The conclusion<a id="id513097" class="indexterm"></a><a id="id513103" class="indexterm"></a> is that threads are cheap in GHC, in both creation
+time and memory overhead.  Context-switch performance is also
+efficient, as it does not require a kernel round-trip, although we
+haven’t measured that here.  The memory used by threads is
+automatically recovered when the thread completes, and because thread
+stacks are movable in GHC, you don’t have to worry about memory
+fragmentation or running out of address space, as you do with OS threads.  The
+number of threads we can have is limited only by the amount of memory.</p>
+<p id="we_covered_k_">We covered <a id="id513127" class="indexterm"></a><a id="id513132" class="indexterm"></a>one trick here: the <code class="literal">+RTS -k&lt;size&gt;</code> option, which tunes the
+initial stack size of a thread.  If you have a lot of very tiny
+threads, it might be worth tweaking this option from its default <code class="literal">1k</code>
+to see if it makes any difference.<a id="id513153" class="indexterm"></a><a id="id513164" class="indexterm"></a><a id="id513174" class="indexterm"></a><a id="id513183" class="indexterm"></a><a id="id513193" class="indexterm"></a></p>
+</div>
+<div class="sect2" id="sec_concurrent-data">
+<div class="titlepage"><div><div><h3 class="title">Shared Concurrent Data Structures</h3></div></div></div>
+<p id="concurrencydata"><a id="ix_ch15_conc-debugging-tuning-txt22" class="indexterm"></a><a id="ix_ch15_conc-debugging-tuning-txt23" class="indexterm"></a><a id="ix_ch15_conc-debugging-tuning-txt24" class="indexterm"></a><a id="ix_ch15_conc-debugging-tuning-txt25" class="indexterm"></a>We’ve encountered shared data structures a few times so far: the
+phonebook example in <a class="xref" href="ch07.html#sec_conc-phonebook" title="MVar as a Container for Shared State">“MVar as a Container for Shared State”</a>, the window-manager in
+<a class="xref" href="ch10.html" title="Chapter 10. Software Transactional Memory">Chapter 10</a>, and the semaphore in <a class="xref" href="ch13.html#sec_conc-par-overhead" title="Limiting the Number of Threads with a Semaphore">“Limiting the Number of Threads with a Semaphore”</a>, not to
+mention various versions of channels.  Those examples covered most of the important
+techniques to use with shared data structures, but we haven’t
+compared the various choices directly.  In this section, I’ll briefly
+summarize the options for shared state, with a focus on the
+performance implications of the different choices.</p>
+<p id="typically_the_">Typically, the best approach when you want some shared state is to take
+an existing pure data structure, such as a list or a <code class="literal">Map</code>, and store
+it in a mutable container.  Not only is this straightforward to
+accomplish, but there are a wide range of well-tuned pure data
+structures to choose from, and using a pure data structure means that
+reads and writes are automatically concurrent.</p>
+<p id="there_evaluatio">There <a id="id513342" class="indexterm"></a><a id="id513350" class="indexterm"></a><a id="id513358" class="indexterm"></a>are a couple of subtle performance issues to be aware of, though.
+The first is the effect of lazy evaluation when writing a new value
+into the container, which we covered in <a class="xref" href="ch07.html#sec_conc-phonebook" title="MVar as a Container for Shared State">“MVar as a Container for Shared State”</a>.  The
+second is the choice of mutable container itself, which exposes some
+subtle performance trade-offs.  There are three choices:</p>
+<div class="variablelist" id="mvar_we_found_i"><dl class="variablelist">
+<dt><span class="term">
+<code class="literal">MVar</code>
+</span></dt>
+<dd>
+  We found in <a class="xref" href="ch13.html#sec_conc-par-overhead" title="Limiting the Number of Threads with a Semaphore">“Limiting the Number of Threads with a Semaphore”</a> that using an <code class="literal">MVar</code> to keep a
+  shared counter did not perform well under high contention.  This is
+  a consequence of the fairness guarantee that <code class="literal">MVar</code> offers: if a
+  thread relinquishes an <code class="literal">MVar</code> and there is another thread waiting,
+  it <span class="emphasis"><em>must</em></span> then hand over to the waiting thread; it cannot continue
+  running and take the <code class="literal">MVar</code> again.
+</dd>
+<dt><span class="term">
+<code class="literal">TVar</code>
+</span></dt>
+<dd>
+  Using<a id="id513446" class="indexterm"></a> a <code class="literal">TVar</code> sometimes performs better than <code class="literal">MVar</code> under
+  contention and has the advantage of being composable with other STM
+  operations.  However, be aware of the other performance pitfalls
+  with STM described in <a class="xref" href="ch10.html#sec_stm-cost" title="Performance">“Performance”</a>.
+</dd>
+<dt><span class="term">
+<code class="literal">IORef</code>
+</span></dt>
+<dd>
+<p id="using_atomicmod" class="simpara">
+  Using <a id="id513491" class="indexterm"></a><a id="id513497" class="indexterm"></a>an <code class="literal">IORef</code> together with <code class="literal">atomicModifyIORef</code> is often a good
+  choice for performance, as we saw in <a class="xref" href="ch13.html#sec_conc-par-overhead" title="Limiting the Number of Threads with a Semaphore">“Limiting the Number of Threads with a Semaphore”</a>. The
+  main pitfall here is lazy evaluation; getting enough strictness when
+  using <code class="literal">atomicModifyIORef</code> is quite tricky.  This is a good pattern to follow:
+</p>
+<pre class="programlisting" data-language="haskell" id="b__atomicmodi">    <code class="n">b</code> <code class="ow">&lt;-</code> <code class="n">atomicModifyIORef</code> <code class="n">ref</code>
+            <code class="p">(</code><code class="nf">\</code><code class="n">x</code> <code class="ow">-&gt;</code> <code class="kr">let</code> <code class="p">(</code><code class="n">a</code><code class="p">,</code> <code class="n">b</code><code class="p">)</code> <code class="ow">=</code> <code class="n">f</code> <code class="n">x</code>
+                   <code class="kr">in</code> <code class="p">(</code><code class="n">a</code><code class="p">,</code> <code class="n">a</code> <code class="p">`</code><code class="n">seq</code><code class="p">`</code> <code class="n">b</code><code class="p">))</code>
+    <code class="n">b</code> <code class="p">`</code><code class="n">seq</code><code class="p">`</code> <code class="n">return</code> <code class="n">b</code></pre>
+<p id="the_seq_call_on" class="simpara">The <code class="literal">seq</code> call on the last line forces the second component of the
+pair, which itself is a <code class="literal">seq</code> call that forces <code class="literal">a</code>, which in turn
+forces the call to <code class="literal">f</code>.  All of this ensures that both the value stored
+inside the <code class="literal">IORef</code> and the return value are evaluated strictly, and no
+chains of thunks are built up.<a id="id513737" class="indexterm"></a><a id="id513748" class="indexterm"></a><a id="id513758" class="indexterm"></a><a id="id513768" class="indexterm"></a></p>
+</dd>
+</dl></div>
+</div>
+<div class="sect2" id="sec_rts-options">
+<div class="titlepage"><div><div><h3 class="title">RTS Options to Tweak</h3></div></div></div>
+<p id="runtime_system"><a id="ix_ch15_conc-debugging-tuning-txt26" class="indexterm"></a><a id="ix_ch15_conc-debugging-tuning-txt27" class="indexterm"></a>GHC has plenty of options to tune the behavior of the runtime system (RTS). For <span class="keep-together">full details</span>, see the <a class="ulink" href="http://www.haskell.org/ghc/docs/latest/html/users_guide/" target="_top">GHC User’s Guide</a>.  Here, I’ll highlight a few of the options that are good targets for tuning concurrent and parallel programs.</p>
+<p id="rts_options_sho">RTS options should be placed between <code class="literal">+RTS</code> and <code class="literal">-RTS</code>, but the <code class="literal">-RTS</code>
+can be omitted if it would be at the end of the command line.</p>
+<div class="variablelist" id="ncores_defa"><dl class="variablelist">
+<dt><span class="term">
+<code class="literal">-N[</code><em class="replaceable"><code>cores</code></em><code class="literal">]</code>
+</span></dt>
+<dd>
+<p id="default__we" class="simpara">
+  (Default: 1) We <a id="id513886" class="indexterm"></a>encountered <code class="literal">-N</code> many times throughout
+  <a class="xref" href="pt01.html" title="Part I. Parallel Haskell">Part I</a>.  But what value should you pass?  GHC can
+  automatically determine the number of processors in your machine if
+  you use <code class="literal">-N</code> without an argument, but that might not always be the
+  best choice.  The GHC runtime system scales well when it has
+  exclusive access to the number of processors specified with <code class="literal">-N</code>,
+  but performance can degrade quite rapidly if there is contention for
+  some of those cores with other processes on the machine.
+</p>
+<p id="should_hyperthr" class="simpara">Should <a id="id513926" class="indexterm"></a>you include hyperthreaded cores in the count?  Anecdotal
+evidence suggests that using hyperthreaded cores often gives a small
+performance boost, but obviously not as much as a full core.  On the
+other hand, it might be wise to leave the hyperthreaded cores alone in order
+to provide some insulation against any contention arising from
+other processes.  Be aware that using <code class="literal">-N</code> alone normally includes
+hyperthreaded cores.</p>
+</dd>
+<dt><span class="term">
+<code class="literal">-qa</code>
+</span></dt>
+<dd>
+  (Default: off) Enables <a id="id513959" class="indexterm"></a>the use of <span class="emphasis"><em>processor affinity</em></span>, which locks
+  the Haskell program to specific cores.  Normally the operating
+  system is free to migrate the threads that run the Haskell program
+  around the cores in the machine in response to other activity, but
+  using <code class="literal">-qa</code> prevents it from doing so.  This can improve
+  performance or degrade it, depending on the scheduling
+  behavior of your operating system and the demands of the program.
+</dd>
+<dt><span class="term">
+<code class="literal">-A</code><em class="replaceable"><code>size</code></em>
+</span></dt>
+<dd>
+<p id="default_k" class="simpara">
+  (Default: <code class="literal">512k</code>) This<a id="id514003" class="indexterm"></a> option controls the size of the memory
+  allocation area for each core.  A good rule of thumb is to keep this
+  around the size of the L2 cache <span class="emphasis"><em>per core</em></span> on your machine.  Cache
+  sizes vary a lot and are often shared between cores, and sometimes there
+  is even an L3 cache, too.  So setting the <code class="literal">-A</code> value is not an exact
+  science.
+</p>
+<p id="there_are_two_o" class="simpara">There are two opposing factors at play here: using more memory means
+we run the garbage collector less, but using less memory means we
+use the caches more. The sweet spot depends on the
+characteristics of the program and the hardware, so the only
+consistent advice is to try various values and see what helps.</p>
+</dd>
+<dt><span class="term">
+<code class="literal">-I</code><em class="replaceable"><code>seconds</code></em>
+</span></dt>
+<dd>
+(Default: 0.3) This <a id="id514049" class="indexterm"></a>option affects deadlock detection
+  (<a class="xref" href="ch15.html#sec_deadlock" title="Detecting Deadlock">“Detecting Deadlock”</a>).  The runtime needs to perform a full garbage
+  collection in order to detect deadlocked threads.  When the
+  program is idle, the runtime doesn’t know whether a thread will wake
+  up again, or the program is deadlocked and the garbage collector
+  should be run to detect the deadlock. The compromise is to wait until the
+  program has been idle for a short period of time before running the
+  garbage collector, which by default is 0.3 seconds.  This might be a
+  bad idea if a full GC takes a long time (because your program has
+  lots of data) and it regularly goes idle for short periods of time,
+  in which case you might want to tune this value higher.
+</dd>
+<dt><span class="term">
+<code class="literal">-C[</code><em class="replaceable"><code>seconds</code></em><code class="literal">]</code>
+</span></dt>
+<dd>
+  (Default 0.02) This <a id="id514092" class="indexterm"></a>option sets the context-switch interval, which
+  determines how often the scheduler interrupts the current thread to
+  run the next thread on the run queue.  The scheduler switches
+  between runnable threads in a round-robin fashion.  As a rule of
+  thumb, this option should not be set too low because frequent
+  context switches harm performance, and should not be set too high
+  because that can cause jerkiness and stuttering in interactive
+  threads.<a id="id514103" class="indexterm"></a><a id="id514114" class="indexterm"></a><a id="id514124" class="indexterm"></a><a id="id514134" class="indexterm"></a><a id="id514144" class="indexterm"></a>
+</dd>
+</dl></div>
+</div>
+</div>
+<div class="sect1" data-original-filename="ch15_conc-debugging-tuning.asciidoc" id="sec_conc-ffi">
+<div class="titlepage"><div><div><h2 class="title">Concurrency and the Foreign Function Interface</h2></div></div></div>
+<p id="concurrencyffi_"><a id="id514170" class="indexterm"></a><a id="id514178" class="indexterm"></a>Haskell<a id="id514185" class="indexterm"></a><a id="id514191" class="indexterm"></a> has a <span class="emphasis"><em>foreign function interface</em></span> (FFI) that allows
+Haskell code to call, and be called by, foreign language code
+(primarily C).  Foreign languages also have their
+own threading models—in C, there are POSIX and Win32 threads, for
+example—so we need to specify how Concurrent Haskell interacts
+with the threading models of foreign code.</p>
+<p id="all_of_the_foll">All of the following assumes the use of GHC’s <code class="literal">-threaded</code> option.
+Without <code class="literal">-threaded</code>, the Haskell process uses a single OS thread only,
+and multithreaded foreign calls are not supported.</p>
+<div class="sect2" id="sec_conc-ffi-outcall">
+<div class="titlepage"><div><div><h3 class="title">Threads and Foreign Out-Calls</h3></div></div></div>
+<p id="ffi_foreign_fu_id1"><a id="ix_ch15_conc-debugging-tuning-txt28" class="indexterm"></a><a id="ix_ch15_conc-debugging-tuning-txt29" class="indexterm"></a><a id="ix_ch15_conc-debugging-tuning-txt30" class="indexterm"></a><a id="ix_ch15_conc-debugging-tuning-txt31" class="indexterm"></a>An <span class="emphasis"><em>out-call</em></span> is a call made from Haskell to a foreign language.  At the
+present time, the FFI supports only calls to C, so that’s all we
+describe here.  In the following, we refer to threads in C (i.e., POSIX
+or Win32 threads) as “OS threads” to distinguish them from the Haskell
+threads created with <code class="literal">forkIO</code>.</p>
+<p id="as_an_example_">As an example, consider making the <a id="id514320" class="indexterm"></a><a id="id514325" class="indexterm"></a>POSIX C function <code class="literal">read()</code> callable
+from Haskell:</p>
+<pre class="screen" id="foreign_import_"><code class="kr">foreign import ccall</code> <code class="s">"read"</code>
+   <code class="n">c_read</code> <code class="ow">::</code> <code class="kt">CInt</code>      <code class="c1">-- file descriptor</code>
+          <code class="ow">-&gt;</code> <code class="kt">Ptr</code> <code class="kt">Word8</code> <code class="c1">-- buffer for data</code>
+          <code class="ow">-&gt;</code> <code class="kt">CSize</code>     <code class="c1">-- size of buffer</code>
+          <code class="ow">-&gt;</code> <code class="kt">CSSize</code>    <code class="c1">-- bytes read, or -1 on error</code></pre>
+<p id="this_declares_a">This declares a Haskell function <code class="literal">c_read</code> that can be used to call the
+C function <code class="literal">read()</code>.  Full details on the syntax of <code class="literal">foreign</code>
+declarations and the relationship between C and Haskell types can be
+found in the <a class="ulink" href="http://www.haskell.org/onlinereport/haskell2010/" target="_top">Haskell
+2010 Language Report</a>.</p>
+<p id="just_as_haskell">Just as Haskell threads run concurrently with one another, when a
+Haskell thread makes a foreign call, that foreign call runs
+concurrently with the other Haskell threads, and indeed with any other
+active foreign calls. The only way that two C calls can be
+running concurrently is if they are running in two separate OS
+threads, so that is exactly what happens; if several Haskell threads
+call <code class="literal">c_read</code> and they all block waiting for data to be read, there
+will be one OS thread per call blocked in <code class="literal">read()</code>.</p>
+<p id="this_has_to_wor">This has to work even though Haskell threads are not
+normally mapped one to one with OS threads; in GHC, Haskell threads
+are lightweight and managed in user space by the runtime system.  So
+to handle concurrent foreign calls, the runtime system has to create
+more OS threads, and in fact it does this on demand.  When a Haskell
+thread makes a foreign call, another OS thread is created (if
+necessary), and the responsibility for running the remaining Haskell
+threads is handed over to the new OS thread, while the current OS
+thread makes the foreign call.</p>
+<p id="the_implication">The implication of this design is that a foreign call may be executed
+in <span class="emphasis"><em>any</em></span> OS thread, and subsequent calls may even be executed in
+different OS threads. In most cases, this isn’t a problem, but
+sometimes it is; some foreign code must be called by a <span class="emphasis"><em>particular</em></span>
+OS thread.  There are two situations where this happens:</p>
+<div class="itemizedlist" id="libraries_that__id1"><ul class="itemizedlist">
+<li class="listitem">
+Libraries that allow only one OS thread to use their API.  <a id="id514526" class="indexterm"></a><a id="id514532" class="indexterm"></a>GUI
+  libraries often fall into this category. Not only must the library
+  be called by only one OS thread, but it must often be one
+  particular thread (e.g., the main thread).  The Win32 GUI APIs
+  are an example of this.
+</li>
+<li class="listitem">
+APIs <a id="id514551" class="indexterm"></a>that use internal thread-local state.  The best known
+  example of this is<a id="id514558" class="indexterm"></a> OpenGL, which supports multithreaded use but
+  stores state between API calls in thread-local storage.  Hence,
+  subsequent calls must be made in the same OS thread; otherwise, the
+  later call will see the wrong state.
+</li>
+</ul></div>
+<p id="to_handle_these">To handle these requirements, Haskell has a <a id="id514574" class="indexterm"></a><a id="id514580" class="indexterm"></a>concept of <span class="emphasis"><em>bound
+threads</em></span>.  A bound thread is a Haskell thread/OS thread pair that guarantees
+that foreign calls made by the Haskell thread always take place in the
+associated OS thread.  A bound thread is created by <code class="literal">forkOS</code>:</p>
+<pre class="programlisting" data-language="haskell" id="forkos__io_"><code class="nf">forkOS</code> <code class="ow">::</code> <code class="kt">IO</code> <code class="nb">()</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="kt">ThreadId</code></pre>
+<p id="care_should_be_">Care should be taken<a id="id514652" class="indexterm"></a> when calling <code class="literal">forkOS</code>; it creates a complete new
+OS thread, so it can be quite expensive.  Furthermore, bound threads
+are much more expensive than unbound threads. When context-switching
+to or from a bound thread, the runtime system has to switch OS
+threads, which involves a trip through the operating system and tends
+to be very slow.  Use bound threads sparingly.</p>
+<p id="for_more_detail">For more details on bound threads, see the documentation for the
+<code class="literal">Control.Concurrent</code> module.</p>
+<div class="note" id="there_is_a_comm_id1">
+<p id="there_is_a_comm_id2">There is a common <a id="id514691" class="indexterm"></a>misconception about <code class="literal">forkOS</code>, which is partly a
+consequence of its poorly chosen name.  Upon seeing a function called
+<code class="literal">forkOS</code>, one might jump to the conclusion that you need to use
+<code class="literal">forkOS</code> to call a foreign function like <code class="literal">read()</code> and have it run
+concurrently with the other Haskell threads.  This isn’t the case. As
+I mentioned earlier, the GHC runtime system creates more OS threads on
+demand for running foreign calls.  Moreover, using <code class="literal">forkOS</code> instead of
+<code class="literal">forkIO</code> will make your code a lot slower.</p>
+<p id="the_only_reason">The <span class="emphasis"><em>only</em></span> reason to call <code class="literal">forkOS</code> is to create a bound thread,
+and the only reason for wanting bound threads is to work with foreign
+libraries that have particular requirements about the OS thread in which a
+call is made.</p>
+</div>
+<div class="caution" id="the_thread_boun_id1">
+<p id="the_thread_boun_id2">The thread <a id="id514768" class="indexterm"></a><a id="id514776" class="indexterm"></a>that runs <code class="literal">main</code> in a Haskell program is a bound thread.
+This can give rise to a serious performance problem if you use the
+main thread heavily; communication between the main thread and other
+Haskell threads will be extremely slow.  If you notice that your
+program runs several times slower when <code class="literal">-threaded</code> is added, this
+is the most likely cause.</p>
+<p id="the_best_way_ar">The best way around this problem is just to create a new thread from
+<code class="literal">main</code> and work in that instead.<a id="id514813" class="indexterm"></a><a id="id514824" class="indexterm"></a><a id="id514834" class="indexterm"></a><a id="id514844" class="indexterm"></a></p>
+</div>
+</div>
+<div class="sect2" id="sec_conc-ffi-async">
+<div class="titlepage"><div><div><h3 class="title">Asynchronous Exceptions and Foreign Calls</h3></div></div></div>
+<p id="asynchronous_ex_id2"><a id="ix_ch15_conc-debugging-tuning-txt32" class="indexterm"></a><a id="ix_ch15_conc-debugging-tuning-txt33" class="indexterm"></a><a id="ix_ch15_conc-debugging-tuning-txt34" class="indexterm"></a>When a Haskell thread is making a foreign call, it cannot receive
+asynchronous exceptions.  There is no way in general to interrupt a
+foreign call, so the runtime system waits until the call returns
+before raising the exception.  This means that a thread blocked in a
+foreign call may be unresponsive to timeouts and interrupts, and
+moreover that calling <code class="literal">throwTo</code> will block if the target thread is in
+a foreign call.</p>
+<p id="the_trick_for_w">The trick for working around this limitation is to perform the foreign
+call in a separate thread.  For example:</p>
+<pre class="programlisting" data-language="haskell" id="do_a__async_">  <code class="kr">do</code>
+    <code class="n">a</code> <code class="ow">&lt;-</code> <code class="n">async</code> <code class="o">$</code> <code class="n">c_read</code> <code class="n">fd</code> <code class="n">buf</code> <code class="n">size</code>
+    <code class="n">r</code> <code class="ow">&lt;-</code> <code class="n">wait</code> <code class="n">a</code>
+    <code class="o">...</code></pre>
+<p id="now_the_current">Now the current thread is blocked in <code class="literal">wait</code> and can be interrupted
+by an exception as usual.  Note that if an exception is raised it
+won’t cancel the <code class="literal">read()</code> call, which will continue in the background.
+Don’t be tempted to use <code class="literal">withAsync</code> here because <code class="literal">withAsync</code> will
+attempt to kill the thread calling <code class="literal">read()</code> and will block in doing so.</p>
+<p id="operations_in_t">Operations in the standard <code class="literal">System.IO</code> library already work this way
+behind the scenes because they delegate blocking operations to a
+special IO manager thread.  So there’s no need to worry about forking
+extra threads when calling standard <code class="literal">IO</code> operations.<a id="id515073" class="indexterm"></a><a id="id515084" class="indexterm"></a><a id="id515094" class="indexterm"></a></p>
+</div>
+<div class="sect2" id="sec_conc-ffi-incall">
+<div class="titlepage"><div><div><h3 class="title">Threads and Foreign In-Calls</h3></div></div></div>
+<p id="ffi_foreign_fu_id2"><a id="id515116" class="indexterm"></a><a id="id515124" class="indexterm"></a><a id="id515129" class="indexterm"></a><span class="emphasis"><em>In-calls</em></span> are calls to Haskell functions that have been exposed to
+foreign code with a <code class="literal">foreign export</code> declaration.  For example, if we have a
+function <code class="literal">f</code> of type <code class="literal">Int -&gt; IO Int</code>, we could expose it like this:</p>
+<pre class="screen" id="foreign_export_"><code class="kr">foreign export ccall</code> <code class="s">"f"</code> <code class="n">f</code> <code class="ow">::</code> <code class="kt">Int</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="kt">Int</code></pre>
+<p id="this_would_crea">This would create a C function with the following signature:</p>
+<pre class="programlisting" data-language="haskell" id="hsint_fhsint"><code class="kt">HsInt</code> <code class="n">f</code><code class="p">(</code><code class="kt">HsInt</code><code class="p">);</code></pre>
+<p id="here_hsint_is_">Here, <code class="literal">HsInt</code> is the C type corresponding to Haskell’s <code class="literal">Int</code>
+type.</p>
+<p id="in_a_multithrea">In a multithreaded<a id="id515270" class="indexterm"></a><a id="id515279" class="indexterm"></a><a id="id515286" class="indexterm"></a> program, it is entirely possible for <code class="literal">f</code> to be
+called by multiple OS threads concurrently.  The GHC runtime system
+supports this (provided you use <code class="literal">-threaded</code>) with the following
+behavior: each call becomes a new <span class="emphasis"><em>bound thread</em></span>.  That is, a
+new Haskell thread is created for each call, and the Haskell thread is
+bound to the OS thread that made the call.  Hence, any further
+out-calls made by the Haskell thread will take place in the same OS
+thread that made the original in-call.  This turns out to be important
+for dealing with GUI callbacks. The GUI wants to run in the main OS
+thread only, so when it makes a callback into Haskell, we need to
+ensure that GUI calls made by the callback happen in the same OS
+thread that invoked the callback.</p>
+</div>
+</div>
+<div class="footnotes">
+<br><hr style="width: 100; align: left;">
+<div id="ftn.id510833" class="footnote"><p><a href="#id510833" class="simpara"><sup class="simpara">[64] </sup></a>The <code class="literal">ghc-events</code> program is installed along with the <code class="literal">ghc-events</code> package, which is a dependency of ThreadScope, so you should have it if you have ThreadScope.  If not, <code class="literal">cabal install ghc-events</code> should get it.</p></div>
+<div id="ftn.id511727" class="footnote"><p><a href="#id511727" class="simpara"><sup class="simpara">[65] </sup></a>Courtesy of Edward Yang.</p></div>
+</div></section><footer><div class="navfooter">
+<hr>
+<table style="width: 100%; ">
+<tr>
+<td style="width: 40%; text-align: left; ">
+<a accesskey="p" href="ch14.html">Prev</a> </td>
+<td style="width: 20%; text-align: center; "><a accesskey="u" href="pt02.html">Up</a></td>
+<td style="width: 40%; text-align: right; "> <a accesskey="n" href="ix01.html">Next</a>
+</td>
+</tr>
+<tr>
+<td style="width: 40%; text-align: left; vertical-align: top; ">Chapter 14. Distributed Programming </td>
+<td style="width: 20%; text-align: center; "><a accesskey="h" href="index.html">Home</a></td>
+<td style="width: 40%; text-align: right; vertical-align: top; "> Index</td>
+</tr>
+</table>
+</div></footer>
+
+
+	<div class="extra-footer">
+		<p>© 2013, O’Reilly Media, Inc.</p>
+		<ul>
+			<li><a href="http://oreilly.com/terms/">Terms of Service</a></li>
+			<li><a href="http://oreilly.com/oreilly/privacy.csp">Privacy Policy</a></li>
+			<li>Interested in <a href="mailto:scordesse@oreilly.com">sponsoring content?</a></li>
+		</ul>
+	</div>
+<script type="text/javascript">if (!NREUMQ.f) { NREUMQ.f=function() {
+NREUMQ.push(["load",new Date().getTime()]);
+var e=document.createElement("script");
+e.type="text/javascript";
+e.src=(("http:"===document.location.protocol)?"http:":"https:") + "//" +
+  "js-agent.newrelic.com/nr-100.js";
+document.body.appendChild(e);
+if(NREUMQ.a)NREUMQ.a();
+};
+NREUMQ.a=window.onload;window.onload=NREUMQ.f;
+};
+NREUMQ.push(["nrfj","bam.nr-data.net","3e361aebcf","2194180","IApbRUBZXg1WEEoHDAwORh5aQl8N",4,33,new Date().getTime(),"","","","",""]);</script></body>
+
+<!-- Mirrored from chimera.labs.oreilly.com/books/1230000000929/ch15.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 11:04:16 GMT -->
+</html>

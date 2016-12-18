@@ -1,0 +1,534 @@
+<!DOCTYPE html><html>
+<!-- Mirrored from blog.jakuba.net/2014/07/20/mutable-state-in-haskell.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 11:03:47 GMT -->
+<head><title>Mutable State in Haskell -  Jakub Arnold Blog</title><meta charset="utf-8" /><meta content="C-7ZK-UEyHdN7MWkiZy4QWGfdErxcu3evJTENXdFHAY" name="google-site-verification" /><link href="http://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/2.3.2/css/bootstrap.min.css" rel="stylesheet" /><link href="http://cdnjs.cloudflare.com/ajax/libs/font-awesome/3.2.1/css/font-awesome.min.css" rel="stylesheet" /><script src="http://cdnjs.cloudflare.com/ajax/libs/jquery/2.0.0/jquery.js"></script><link href="http://blog.jakuba.net/stylesheets/application.css" rel="stylesheet" /><link href="http://blog.jakuba.net/images/favicon.ico" rel="shortcut icon" type="image/vnd.microsoft.icon" /><script src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML" type="text/javascript"></script><script type="text/x-mathjax-config">MathJax.Hub.Config({tex2jax: {inlineMath: [['$','$']], displayedMath: [['$$', '$$']]}});</script><link href="http://blog.jakubarnold.cz/feed.xml" rel="alternate" title="ATOM" type="application/atom+xml" /></head><body><div class="header"><div class="container"><section class="name"><a href="http://blog.jakuba.net/">Jakub <strong>Arnold</strong></a></section></div></div><div class="container"><div class="row"><div class="span8"><div class="index-post"><div class="post-title"><h1><a href="mutable-state-in-haskell.html">Mutable State in Haskell</a><span class="when">Jul 20, 2014</span></h1></div><p>Haskell is a purely functional language, which means there are no side-effects
+and all variables are immutable. <strike>But as you probably know this isn&rsquo;t
+completely true.</strike> <em>All variables are indeed immutable, but there
+are ways to construct mutable references where we can change what the
+reference points to.</em></p>
+
+<p>Without side effects we wouldn&rsquo;t be able to do much, which is
+why Haskell gives us the IO monad. In a similar manner we have many ways to
+achieve mutable state in Haskell, let&rsquo;s take a look at them:</p>
+
+<ul>
+<li>IORef</li>
+<li>STRef in the ST monad</li>
+<li>MVar</li>
+<li>TVar in Software Transactional Memory (STM)</li>
+</ul>
+
+<h2>IORef</h2>
+
+<p>We all know that the IO monad allows us to do arbitrary effects in the real
+world, so it probably comes as no surprise that it also allows us to create a
+mutable reference to an type, called <code>IORef</code> (from <code>Data.IORef</code>.) There is not
+much complicated about <code>IORef</code>, as it only takes a single type parameter, which
+is the type it&rsquo;s going to contain.</p>
+
+<p>Before we move into specifics it is important to note here that modifying the
+<code>IORef</code> is no a pure operation, which means ever single operation on the
+<code>IORef</code> will be inside the <code>IO</code> monad.</p>
+
+<p>Let&rsquo;s take a look at some of the functions available for manipulating <code>IORef</code>s.</p>
+<pre class="highlight haskell"><code><span class="kr">data</span> <span class="kt">IORef</span> <span class="n">a</span>
+
+<span class="n">newIORef</span>    <span class="o">::</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="kt">IO</span> <span class="p">(</span><span class="kt">IORef</span> <span class="n">a</span><span class="p">)</span>
+<span class="n">readIORef</span>   <span class="o">::</span> <span class="kt">IORef</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="kt">IO</span> <span class="n">a</span>
+<span class="n">writeIORef</span>  <span class="o">::</span> <span class="kt">IORef</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="kt">IO</span> <span class="nb">()</span>
+<span class="n">modifyIORef</span> <span class="o">::</span> <span class="kt">IORef</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="n">a</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kt">IO</span> <span class="nb">()</span>
+</code></pre>
+
+<p>First thing you&rsquo;ll probably notice is that in order to create an <code>IORef</code> we
+need to give it a value. <strong>An <code>IORef</code> must always contain a value of a given
+type, it is impossible to create it empty</strong>. Here&rsquo;s a simple example.</p>
+<pre class="highlight haskell"><code><span class="kr">import</span> <span class="nn">Data.IORef</span>
+
+<span class="n">main</span> <span class="o">::</span> <span class="kt">IO</span> <span class="nb">()</span>
+<span class="n">main</span> <span class="o">=</span> <span class="kr">do</span>
+    <span class="n">ref</span> <span class="o">&lt;-</span> <span class="n">newIORef</span> <span class="p">(</span><span class="mi">0</span> <span class="o">::</span> <span class="kt">Int</span><span class="p">)</span>
+
+    <span class="n">modifyIORef</span> <span class="n">ref</span> <span class="p">(</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="n">readIORef</span> <span class="n">ref</span> <span class="o">&gt;&gt;=</span> <span class="n">print</span>
+</code></pre>
+
+<p><em>I&rsquo;ve used <code>0 :: Int</code> instead of just <code>0</code> to make it explicit that we&rsquo;re using
+<code>Int</code>s. If you don&rsquo;t  do that it won&rsquo;t affect the program but you might get a
+warning from the compiler.</em></p>
+
+<p>There&rsquo;s not much really happening in this example, we just create a new
+<code>IORef</code>, increase it&rsquo;s value by <code>1</code> and then print the result. While this is
+nice it doesn&rsquo;t really show much, so let&rsquo;s make this more complicated.</p>
+
+<p>A common pattern in Haskell is to take an immutable data structure and put it
+inside a mutable reference, which basically gives you a mutable version of that
+data structure (let&rsquo;s ignore the fact that there might be a more efficient way
+to do this for now.) This will work because we can take any Haskell type and
+put it into an <code>IORef</code>. Let&rsquo;s begin by using <code>Maybe Int</code> to represent a
+<em>mutable box for an <code>Int</code> which can be empty</em>.</p>
+<pre class="highlight haskell"><code><span class="n">magic</span> <span class="o">::</span> <span class="kt">IORef</span> <span class="p">(</span><span class="kt">Maybe</span> <span class="kt">Int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kt">IO</span> <span class="nb">()</span>
+<span class="n">magic</span> <span class="n">ref</span> <span class="o">=</span> <span class="kr">do</span>
+    <span class="n">value</span> <span class="o">&lt;-</span> <span class="n">readIORef</span> <span class="n">ref</span>
+
+    <span class="kr">case</span> <span class="n">value</span> <span class="kr">of</span>
+        <span class="kt">Just</span> <span class="kr">_</span> <span class="o">-&gt;</span> <span class="n">return</span> <span class="nb">()</span>
+        <span class="kt">Nothing</span> <span class="o">-&gt;</span> <span class="n">writeIORef</span> <span class="n">ref</span> <span class="p">(</span><span class="kt">Just</span> <span class="mi">42</span><span class="p">)</span>
+
+<span class="n">main</span> <span class="o">::</span> <span class="kt">IO</span> <span class="nb">()</span>
+<span class="n">main</span> <span class="o">=</span> <span class="kr">do</span>
+    <span class="n">ref</span> <span class="o">&lt;-</span> <span class="n">newIORef</span> <span class="kt">Nothing</span>
+    <span class="n">magic</span> <span class="n">ref</span>
+
+    <span class="n">readIORef</span> <span class="n">ref</span> <span class="o">&gt;&gt;=</span> <span class="n">print</span>
+</code></pre>
+
+<p>First we define a function which takes a <code>IORef (Maybe Int)</code>, that is <em>a
+mutable reference that maybe contains an <code>Int</code></em> and produces some side effects.
+The implementation simply reads the <code>IORef</code> and do nothing if it already has a
+value, but if it contains <code>Nothing</code> it will replace that value with <code>Just 42</code>.
+Our <code>main</code> function then simply <code>print</code>s the contents of the <code>IORef</code>, which is
+<code>Just 42</code>.</p>
+
+<h2>In-place bubble sort with <code>IORef</code></h2>
+
+<p>If you&rsquo;ve read this far there&rsquo;s a fair chance that you know how bubble sort
+works. The important thing about it is that it works in-place and modifies the
+array it is sorting. Here&rsquo;s a simple implementation in Ruby.</p>
+<pre class="highlight ruby"><code><span class="k">def</span> <span class="nf">bubble_sort</span><span class="p">(</span><span class="n">list</span><span class="p">)</span>
+  <span class="n">list</span><span class="p">.</span><span class="nf">each_index</span> <span class="k">do</span> <span class="o">|</span><span class="n">i</span><span class="o">|</span>
+    <span class="p">(</span><span class="n">list</span><span class="p">.</span><span class="nf">length</span> <span class="o">-</span> <span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">).</span><span class="nf">times</span> <span class="k">do</span> <span class="o">|</span><span class="n">j</span><span class="o">|</span>
+      <span class="k">if</span> <span class="n">list</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">list</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+        <span class="n">list</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">list</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">list</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">],</span> <span class="n">list</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+      <span class="k">end</span>
+    <span class="k">end</span>
+  <span class="k">end</span>
+<span class="k">end</span>
+</code></pre>
+
+<p>The key part being here is that we&rsquo;re swapping the elements of the list as we
+iterate through it. This is something we can&rsquo;t do in pure Haskell, but we can
+attempt to do this using <code>IORef</code>s.</p>
+
+<p>We will use a simple Haskell list where each element is <code>IORef Int</code>, so that we
+can move them around. The exact type will be <code>[IORef Int]</code>.</p>
+
+<p><em>Disclaimer: I am aware that using a list, which is a linked list, is a
+horribly inefficient implementation. The point of this article is however to
+show how <code>IORef</code> can be used, not how to properly sort an array.</em></p>
+
+<p>Our sorting function will accept a plain list of <code>Int</code>s, wrap them all in
+<code>IORef</code>s, do the sorting in place, and unwrap the <code>IORef</code>s to return a list of
+<code>Int</code>s again.</p>
+<pre class="highlight haskell"><code><span class="n">bubbleSort</span> <span class="o">::</span> <span class="p">[</span><span class="kt">Int</span><span class="p">]</span> <span class="o">-&gt;</span> <span class="kt">IO</span> <span class="p">[</span><span class="kt">Int</span><span class="p">]</span>
+<span class="n">bubbleSort</span> <span class="n">input</span> <span class="o">=</span> <span class="kr">do</span>
+    <span class="kr">let</span> <span class="n">ln</span> <span class="o">=</span> <span class="n">length</span> <span class="n">input</span>
+
+    <span class="n">xs</span> <span class="o">&lt;-</span> <span class="n">mapM</span> <span class="n">newIORef</span> <span class="n">input</span>
+
+    <span class="n">forM_</span> <span class="p">[</span><span class="mi">0</span><span class="o">..</span><span class="n">ln</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">$</span> <span class="nf">\</span><span class="kr">_</span> <span class="o">-&gt;</span> <span class="kr">do</span>
+        <span class="n">forM_</span> <span class="p">[</span><span class="mi">0</span><span class="o">..</span><span class="n">ln</span> <span class="o">-</span> <span class="mi">2</span><span class="p">]</span> <span class="o">$</span> <span class="nf">\</span><span class="n">j</span> <span class="o">-&gt;</span> <span class="kr">do</span>
+            <span class="kr">let</span> <span class="n">ix</span> <span class="o">=</span> <span class="n">xs</span> <span class="o">!!</span> <span class="n">j</span>
+            <span class="kr">let</span> <span class="n">iy</span> <span class="o">=</span> <span class="n">xs</span> <span class="o">!!</span> <span class="p">(</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+
+            <span class="n">x</span> <span class="o">&lt;-</span> <span class="n">readIORef</span> <span class="n">ix</span>
+            <span class="n">y</span> <span class="o">&lt;-</span> <span class="n">readIORef</span> <span class="n">iy</span>
+
+            <span class="n">when</span> <span class="p">(</span><span class="n">x</span> <span class="o">&gt;</span> <span class="n">y</span><span class="p">)</span> <span class="o">$</span> <span class="kr">do</span>
+                <span class="n">writeIORef</span> <span class="n">ix</span> <span class="n">y</span>
+                <span class="n">writeIORef</span> <span class="n">iy</span> <span class="n">x</span>
+
+    <span class="n">mapM</span> <span class="n">readIORef</span> <span class="n">xs</span>
+</code></pre>
+
+<p>Let&rsquo;s go through the code one step at a time. First we need to calculate the
+length of the list being sorted and bind that to a variable.</p>
+<pre class="highlight haskell"><code><span class="kr">let</span> <span class="n">ln</span> <span class="o">=</span> <span class="n">length</span> <span class="n">input</span>
+</code></pre>
+
+<p>Next we wrap all of the items in the list inside an <code>IORef</code>. This will allow us
+to do the sort in-place by swapping around the values of the references.</p>
+<pre class="highlight haskell"><code><span class="n">xs</span> <span class="o">&lt;-</span> <span class="n">mapM</span> <span class="n">newIORef</span> <span class="n">input</span>
+</code></pre>
+
+<p>Let&rsquo;s examine the <code>mapM</code> here a little bit. The <code>newIORef</code> function has a type
+of <code>a -&gt; IO (IORef a)</code>, if we try to partially apply it with <code>map</code>, we&rsquo;ll get
+back the following.</p>
+<pre class="highlight haskell"><code><span class="err">λ</span><span class="o">&gt;</span> <span class="o">:</span><span class="n">t</span> <span class="n">map</span> <span class="n">newIORef</span>
+<span class="o">::</span> <span class="p">[</span><span class="n">a</span><span class="p">]</span> <span class="o">-&gt;</span> <span class="p">[</span><span class="kt">IO</span> <span class="p">(</span><span class="kt">IORef</span> <span class="n">a</span><span class="p">)]</span>
+</code></pre>
+
+<p>This is not very useful for us, since we need a <code>[IORef a]</code>. Fortunately
+Haskell provides a <code>sequence :: [IO a] -&gt; IO [a]</code> function which simply pulls
+out the monadic effects from a list.</p>
+<pre class="highlight plaintext"><code>λ&gt; :t sequence . map newIORef
+:: [a] -&gt; IO [IORef a]
+</code></pre>
+
+<p><code>mapM</code> is simply defined a shorthand for as <code>sequence . map</code>. There also exists
+<code>forM</code> which is exactly like <code>mapM</code>, but the arguments are swapped around.</p>
+<pre class="highlight haskell"><code><span class="err">λ</span><span class="o">&gt;</span> <span class="o">:</span><span class="n">t</span> <span class="n">mapM</span>
+<span class="n">mapM</span> <span class="o">::</span> <span class="kt">Monad</span> <span class="n">m</span> <span class="o">=&gt;</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="n">m</span> <span class="n">b</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="p">[</span><span class="n">a</span><span class="p">]</span> <span class="o">-&gt;</span> <span class="n">m</span> <span class="p">[</span><span class="n">b</span><span class="p">]</span>
+<span class="err">λ</span><span class="o">&gt;</span> <span class="o">:</span><span class="n">t</span> <span class="n">forM</span>
+<span class="n">forM</span> <span class="o">::</span> <span class="kt">Monad</span> <span class="n">m</span> <span class="o">=&gt;</span> <span class="p">[</span><span class="n">a</span><span class="p">]</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="n">m</span> <span class="n">b</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">m</span> <span class="p">[</span><span class="n">b</span><span class="p">]</span>
+</code></pre>
+
+<p>One last variant is <code>mapM_</code> and <code>forM_</code>, which the same as <code>mapM</code> and <code>forM</code>,
+only their return value is discarded.</p>
+<pre class="highlight haskell"><code><span class="err">λ</span><span class="o">&gt;</span> <span class="o">:</span><span class="n">t</span> <span class="n">mapM_</span>
+<span class="n">mapM_</span> <span class="o">::</span> <span class="kt">Monad</span> <span class="n">m</span> <span class="o">=&gt;</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="n">m</span> <span class="n">b</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="p">[</span><span class="n">a</span><span class="p">]</span> <span class="o">-&gt;</span> <span class="n">m</span> <span class="nb">()</span>
+<span class="err">λ</span><span class="o">&gt;</span> <span class="o">:</span><span class="n">t</span> <span class="n">forM_</span>
+<span class="n">forM_</span> <span class="o">::</span> <span class="kt">Monad</span> <span class="n">m</span> <span class="o">=&gt;</span> <span class="p">[</span><span class="n">a</span><span class="p">]</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="n">m</span> <span class="n">b</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">m</span> <span class="nb">()</span>
+</code></pre>
+
+<p>We chose <code>forM</code> because the function we pass in as an argument is quite long
+and it just ends up being syntactically more pleasing, and because we only care
+about the effects produced by the function we apply. <code>[0..ln - 2]</code> simply
+allows us to call the function <code>length - 2</code> number of times.</p>
+<pre class="highlight haskell"><code><span class="n">forM_</span> <span class="p">[</span><span class="mi">0</span><span class="o">..</span><span class="n">ln</span> <span class="o">-</span> <span class="mi">2</span><span class="p">]</span> <span class="o">$</span> <span class="nf">\</span><span class="kr">_</span> <span class="o">-&gt;</span> <span class="kr">do</span>
+    <span class="n">forM_</span> <span class="p">[</span><span class="mi">0</span><span class="o">..</span><span class="n">ln</span> <span class="o">-</span> <span class="mi">2</span><span class="p">]</span> <span class="o">$</span> <span class="nf">\</span><span class="n">j</span> <span class="o">-&gt;</span> <span class="kr">do</span>
+</code></pre>
+
+<p>Next we extract two items from the list, note that these have the type <code>IORef Int</code>.</p>
+<pre class="highlight haskell"><code><span class="kr">let</span> <span class="n">ix</span> <span class="o">=</span> <span class="n">xs</span> <span class="o">!!</span> <span class="n">j</span>
+<span class="kr">let</span> <span class="n">iy</span> <span class="o">=</span> <span class="n">xs</span> <span class="o">!!</span> <span class="p">(</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+</code></pre>
+
+<p>We need to read the values from the <code>IORef</code>s in order to be able to compare them</p>
+<pre class="highlight haskell"><code><span class="n">x</span> <span class="o">&lt;-</span> <span class="n">readIORef</span> <span class="n">ix</span>
+<span class="n">y</span> <span class="o">&lt;-</span> <span class="n">readIORef</span> <span class="n">iy</span>
+</code></pre>
+
+<p>and then simply swap the contents if <code>x &gt; y</code></p>
+<pre class="highlight haskell"><code><span class="n">when</span> <span class="p">(</span><span class="n">x</span> <span class="o">&gt;</span> <span class="n">y</span><span class="p">)</span> <span class="o">$</span> <span class="kr">do</span>
+    <span class="n">writeIORef</span> <span class="n">ix</span> <span class="n">y</span>
+    <span class="n">writeIORef</span> <span class="n">iy</span> <span class="n">x</span>
+</code></pre>
+
+<p>The last step is to unwrap the <code>IORef</code>s.</p>
+<pre class="highlight haskell"><code><span class="n">mapM</span> <span class="n">readIORef</span> <span class="n">xs</span>
+</code></pre>
+
+<p>Now that we went through each of the steps, let&rsquo;s test our bubble sort implementation.</p>
+<pre class="highlight haskell"><code><span class="err">λ</span><span class="o">&gt;</span> <span class="n">bubbleSort</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">4</span><span class="p">]</span>
+<span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">4</span><span class="p">]</span>
+<span class="err">λ</span><span class="o">&gt;</span> <span class="n">bubbleSort</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">1</span><span class="p">]</span>
+<span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">4</span><span class="p">]</span>
+<span class="err">λ</span><span class="o">&gt;</span> <span class="n">bubbleSort</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span><span class="mi">99</span><span class="p">,</span><span class="mi">23</span><span class="p">,</span><span class="mi">93</span><span class="p">,</span><span class="mi">17</span><span class="p">]</span>
+<span class="p">[</span><span class="mi">4</span><span class="p">,</span><span class="mi">17</span><span class="p">,</span><span class="mi">23</span><span class="p">,</span><span class="mi">93</span><span class="p">,</span><span class="mi">99</span><span class="p">]</span>
+</code></pre>
+
+<p>It works! Keep in mind that this implementation is horribly slow. If you&rsquo;re
+interested in fast arrays in Haskell <a href="http://hackage.haskell.org/package/vector">check out the vector
+library</a>.</p>
+
+<h2>ST monad</h2>
+
+<p>You&rsquo;ve probably noticed that the only reason why we need to perform our sorting
+algorithm in the <code>IO</code> monad is to have mutable references, which is not ideal
+since we&rsquo;re not really doing any <code>IO</code>.</p>
+
+<p>Luckily for us there is a solution called the <em>state thread monad</em>. I won&rsquo;t be
+going on into great detail since the API for <code>IORef</code> and <code>STRef</code> is almost
+exactly the same.</p>
+<pre class="highlight haskell"><code><span class="kr">data</span> <span class="kt">STRef</span> <span class="n">s</span> <span class="n">a</span>
+
+<span class="n">newSTRef</span>    <span class="o">::</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="kt">ST</span> <span class="n">s</span> <span class="p">(</span><span class="kt">STRef</span> <span class="n">s</span> <span class="n">a</span><span class="p">)</span>
+<span class="n">readSTRef</span>   <span class="o">::</span> <span class="kt">STRef</span> <span class="n">s</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="kt">ST</span> <span class="n">s</span> <span class="n">a</span>
+<span class="n">writeSTRef</span>  <span class="o">::</span> <span class="kt">STRef</span> <span class="n">s</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="kt">ST</span> <span class="n">s</span> <span class="nb">()</span>
+<span class="n">modifySTRef</span> <span class="o">::</span> <span class="kt">STRef</span> <span class="n">s</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="n">a</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kt">ST</span> <span class="n">s</span> <span class="nb">()</span>
+</code></pre>
+
+<p>The key difference is that while we can&rsquo;t ever escape from the <code>IO</code> monad, we
+do have the ability to escape from the <code>ST</code> monad with the <code>runST :: ST s a -&gt;
+a</code> function, making the computation pure.</p>
+<pre class="highlight haskell"><code><span class="kr">import</span> <span class="nn">Control.Monad.ST</span>
+<span class="kr">import</span> <span class="nn">Data.STRef</span>
+
+<span class="n">magic</span> <span class="o">::</span> <span class="kt">Int</span> <span class="o">-&gt;</span> <span class="kt">Int</span>
+<span class="n">magic</span> <span class="n">x</span> <span class="o">=</span> <span class="n">runST</span> <span class="o">$</span> <span class="kr">do</span>
+    <span class="n">ref</span> <span class="o">&lt;-</span> <span class="n">newSTRef</span> <span class="n">x</span>
+
+    <span class="n">modifySTRef</span> <span class="n">ref</span> <span class="p">(</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="n">readSTRef</span> <span class="n">ref</span>
+</code></pre>
+
+<p>The only thing worth mentioning here compared to the <code>IORef</code> example is that
+the type of the function <code>magic</code> is just <code>Int -&gt; Int</code>, because we&rsquo;re able to
+escape the <code>ST</code> monad using a call to <code>runST</code>.</p>
+
+<p>If you&rsquo;re not sure why this is useful, think of the sorting algorithm we
+developed earlier. There are many algorithms which require mutation, but which
+are also pure in their nature. If the way to achieve mutation was using the
+<code>IO</code> monad, we wouldn&rsquo;t be able to implement such algorithm in pure code.</p>
+
+<h2>MVar</h2>
+
+<p>The next type we&rsquo;re going to take a look at is a little bit more complicated
+than <code>IORef</code>, it&rsquo;s called an <code>MVar</code>. As usual most of the API is similar, but
+there is one huge difference. While an <code>IORef</code> must always have a value, <code>MVar</code>
+can be empty.</p>
+
+<p>We have two ways of constructing an <code>MVar</code>.</p>
+<pre class="highlight haskell"><code><span class="n">newMVar</span> <span class="o">::</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="kt">IO</span> <span class="p">(</span><span class="kt">MVar</span> <span class="n">a</span><span class="p">)</span>
+<span class="n">newEmptyMVar</span> <span class="o">::</span> <span class="kt">IO</span> <span class="p">(</span><span class="kt">MVar</span> <span class="n">a</span><span class="p">)</span>
+</code></pre>
+
+<p>We also have an additional operation <code>takeMVar :: MVar a -&gt; IO a</code> which takes a
+value out of an <code>MVar</code> and leaves it empty. Now comes the important part, <strong>if
+we try to do <code>takeMVar</code> from an empty <code>MVar</code>, it will block the thread until
+someone else puts a value into the <code>MVar</code></strong>. The same thing happens when you
+try to <code>putMVar</code> into an <code>MVar</code> that already has a value, it will block until
+someone takes that value out.</p>
+
+<p>Try compiling and running the following program.</p>
+<pre class="highlight haskell"><code><span class="kr">import</span> <span class="nn">Control.Concurrent</span>
+
+<span class="n">main</span> <span class="o">::</span> <span class="kt">IO</span> <span class="nb">()</span>
+<span class="n">main</span> <span class="o">=</span> <span class="kr">do</span>
+    <span class="n">a</span> <span class="o">&lt;-</span> <span class="n">newEmptyMVar</span>
+    <span class="n">takeMVar</span> <span class="n">a</span>
+</code></pre>
+
+<p>After a second or so you&rsquo;ll get an exception and the program will crash.</p>
+<pre class="highlight plaintext"><code>*** Exception: thread blocked indefinitely in an MVar operation
+</code></pre>
+
+<p>The reason for this is that there are no other threads that could possibly
+modify the <code>MVar</code>, so the runtime kills the thread. If we modify the program to
+first put a value into the <code>MVar</code> it will work correctly.</p>
+<pre class="highlight haskell"><code><span class="n">main</span> <span class="o">::</span> <span class="kt">IO</span> <span class="nb">()</span>
+<span class="n">main</span> <span class="o">=</span> <span class="kr">do</span>
+    <span class="n">a</span> <span class="o">&lt;-</span> <span class="n">newEmptyMVar</span>
+    <span class="n">putMVar</span> <span class="n">a</span> <span class="s">"hello"</span>
+    <span class="n">takeMVar</span> <span class="n">a</span> <span class="o">&gt;&gt;=</span> <span class="n">print</span>
+</code></pre>
+
+<p>Now you might be thinking, how does the runtime know that there are no other
+threads that could put a value into that <code>MVar</code>? Using garbage collection!</p>
+
+<p>Every <code>MVar</code> knows which threads are currently blocked on it. If a thread that
+is currently blocked on an <code>MVar</code> is not accessible from any other running
+thread, it will get killed since there is no way  it to become unblocked.</p>
+
+<p>If you&rsquo;re interested in more details about this I recommend reading the amazing
+<a href="../../../../chimera.labs.oreilly.com/books/1230000000929/index.html">Parallel and Concurrent Programming in
+Haskell</a> book,
+specifically the <a href="../../../../chimera.labs.oreilly.com/books/1230000000929/ch15.html">chapter on how blocked <code>MVar</code>s are
+handled</a>.</p>
+
+<h2>Synchronizing threads using <code>MVar</code></h2>
+
+<p>One of the great benefits of <code>MVar</code>s is that they can be be used to serve as
+synchronization primitives for communication between threads.</p>
+
+<p>We can use them as a simple 1 item channel, where we fork a thread that forever
+loops trying to read from the <code>MVar</code> and print the result, and in the main
+thread we read input from the user and put it into the same <code>MVar</code>.</p>
+<pre class="highlight haskell"><code><span class="kr">import</span> <span class="nn">Control.Monad</span>
+<span class="kr">import</span> <span class="nn">Control.Concurrent</span>
+
+<span class="n">main</span> <span class="o">::</span> <span class="kt">IO</span> <span class="nb">()</span>
+<span class="n">main</span> <span class="o">=</span> <span class="kr">do</span>
+    <span class="n">a</span> <span class="o">&lt;-</span> <span class="n">newEmptyMVar</span>
+
+    <span class="n">forkIO</span> <span class="o">$</span> <span class="n">forever</span> <span class="o">$</span> <span class="n">takeMVar</span> <span class="n">a</span> <span class="o">&gt;&gt;=</span> <span class="n">putStrLn</span>
+
+    <span class="n">forever</span> <span class="o">$</span> <span class="kr">do</span>
+        <span class="n">text</span> <span class="o">&lt;-</span> <span class="n">getLine</span>
+        <span class="n">putMVar</span> <span class="n">a</span> <span class="n">text</span>
+</code></pre>
+
+<p>Everything will work as expected since <code>takeMVar</code> will block until we put
+something into the <code>MVar</code>.</p>
+
+<p>One important thing to note here is that when <code>main</code> returns the runtime
+automatically kills all of the other running threads. It doesn&rsquo;t wait for them
+to finish. Let&rsquo;s see a simple example.</p>
+<pre class="highlight haskell"><code><span class="kr">import</span> <span class="nn">Control.Monad</span>
+<span class="kr">import</span> <span class="nn">Control.Concurrent</span>
+
+<span class="n">main</span> <span class="o">::</span> <span class="kt">IO</span> <span class="nb">()</span>
+<span class="n">main</span> <span class="o">=</span> <span class="kr">do</span>
+    <span class="n">forkIO</span> <span class="o">$</span> <span class="kr">do</span>
+        <span class="n">threadDelay</span> <span class="mi">2000000</span>
+        <span class="n">putStrLn</span> <span class="s">"Hello World"</span>
+
+    <span class="n">putStrLn</span> <span class="s">"Game over!"</span>
+</code></pre>
+
+<p>If you run this using <code>runhaskell</code> or by compiling and running the binary
+you&rsquo;ll only see the output of <code>Game over!</code>. The second thread will never print
+<code>Hello World</code>, because by the time it starts waiting the <code>main</code> function will
+return and the runtime will kill the other thread.</p>
+
+<p>We can fix this by using an <code>MVar</code> to make the <code>main</code> function wait for the
+other thread to finish.</p>
+<pre class="highlight haskell"><code><span class="kr">import</span> <span class="nn">Control.Monad</span>
+<span class="kr">import</span> <span class="nn">Control.Concurrent</span>
+
+<span class="n">main</span> <span class="o">::</span> <span class="kt">IO</span> <span class="nb">()</span>
+<span class="n">main</span> <span class="o">=</span> <span class="kr">do</span>
+    <span class="n">a</span> <span class="o">&lt;-</span> <span class="n">newEmptyMVar</span>
+
+    <span class="n">forkIO</span> <span class="o">$</span> <span class="kr">do</span>
+        <span class="n">threadDelay</span> <span class="mi">2000000</span>
+        <span class="n">putStrLn</span> <span class="s">"Hello World"</span>
+        <span class="n">putMVar</span> <span class="n">a</span> <span class="nb">()</span>
+
+    <span class="n">takeMVar</span> <span class="n">a</span>
+    <span class="n">putStrLn</span> <span class="s">"Game over!"</span>
+</code></pre>
+
+<p>The main thread first tried to take a value out of the <code>MVar</code>, which will block
+because there&rsquo;s nothing in there yet, and then the second thread will sleep for
+2 seconds, print <code>Hello World</code> and put a <code>()</code> into the <code>MVar</code>. This causes
+<code>main</code> to continue, print <code>Game over!</code> and exit the program. We could also do
+this the other way around by using <code>putMVar</code> on a full <code>MVar</code> in order to
+block, but the end result is the same.</p>
+<pre class="highlight haskell"><code><span class="n">main</span> <span class="o">::</span> <span class="kt">IO</span> <span class="nb">()</span>
+<span class="n">main</span> <span class="o">=</span> <span class="kr">do</span>
+    <span class="n">a</span> <span class="o">&lt;-</span> <span class="n">newMVar</span> <span class="nb">()</span>
+
+    <span class="n">forkIO</span> <span class="o">$</span> <span class="kr">do</span>
+        <span class="n">threadDelay</span> <span class="mi">2000000</span>
+        <span class="n">putStrLn</span> <span class="s">"Hello World"</span>
+        <span class="n">takeMVar</span> <span class="n">a</span>
+
+    <span class="n">putStrLn</span> <span class="s">"Game over!"</span>
+    <span class="n">putMVar</span> <span class="n">a</span> <span class="nb">()</span>
+</code></pre>
+
+<p>There are many more things to cover with respect to <code>MVar</code>, but I&rsquo;m not going
+to go more in depth here, since there already are other great resources on the
+topic.</p>
+
+<ul>
+<li><a href="../../../../chimera.labs.oreilly.com/books/1230000000929/ch07.html">Parallel &amp; Concurrent Programming in Haskell - Chapter 7. Basic Concurrency: Threads and MVars</a></li>
+<li><a href="../../../../book.realworldhaskell.org/read/concurrent-and-multicore-programming.html">Real World Haskell - Chapter 24. Concurrent and multicore programming</a></li>
+</ul>
+
+<h1>Software Transactional Memory - STM</h1>
+
+<p>Last on our list is Software Transactional Memory. Much like we had <code>IORef</code> and
+<code>MVar</code>, STM gives us <code>TVar</code>, which stands for <em>transaction variable</em>. The way
+that STM works is that it builds up a log of actions that are to be performed
+atomically. We won&rsquo;t be covering STM itself as a method for managing
+concurrency, since it&rsquo;s a rather lengthy topic. Instead we&rsquo;ll just examine the
+options for achieving mutable state using STM using a <code>TVar</code>.</p>
+
+<p>Every STM operation happens inside the <code>STM</code> monad, which already tells us that
+we can chain multiple <code>STM</code> operations into one (since the monad instance
+provides us with <code>&gt;&gt;=</code>.) In order to run the actual <code>STM</code> transaction we must
+use the function <code>atomically :: STM a -&gt; IO a</code>, which takes any <code>STM</code> operation
+and performs it in a single atomic step.</p>
+
+<p>The API for creating <code>TVar</code>s is almost the same as for <code>IORef</code>s.</p>
+<pre class="highlight haskell"><code><span class="kr">data</span> <span class="kt">TVar</span> <span class="n">a</span>
+
+<span class="n">newTVar</span>    <span class="o">::</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="kt">STM</span> <span class="p">(</span><span class="kt">TVar</span> <span class="n">a</span><span class="p">)</span>
+<span class="n">readTVar</span>   <span class="o">::</span> <span class="kt">TVar</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="kt">STM</span> <span class="n">a</span>
+<span class="n">writeTVar</span>  <span class="o">::</span> <span class="kt">TVar</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="kt">STM</span> <span class="nb">()</span>
+<span class="n">modifyTVar</span> <span class="o">::</span> <span class="kt">TVar</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="n">a</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kt">STM</span> <span class="nb">()</span>
+</code></pre>
+
+<p>There are also alternatives that work in the <code>IO</code> monad.</p>
+<pre class="highlight haskell"><code><span class="n">newTVarIO</span>   <span class="o">::</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="kt">IO</span> <span class="p">(</span><span class="kt">TVar</span> <span class="n">a</span><span class="p">)</span>
+<span class="n">readTVarIO</span>  <span class="o">::</span> <span class="kt">TVar</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="kt">IO</span> <span class="n">a</span>
+</code></pre>
+
+<p>Note that these are just convenience functions that we could have implemented
+ourselves using <code>atomically</code> function.</p>
+<pre class="highlight haskell"><code><span class="n">newTVarIO</span> <span class="o">::</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="kt">IO</span> <span class="p">(</span><span class="kt">TVar</span> <span class="n">a</span><span class="p">)</span>
+<span class="n">newTVarIO</span> <span class="o">=</span> <span class="n">atomically</span> <span class="o">.</span> <span class="n">newTVar</span>
+
+<span class="n">readTVarIO</span> <span class="o">::</span> <span class="kt">TVar</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="kt">IO</span> <span class="n">a</span>
+<span class="n">readTVarIO</span> <span class="o">=</span> <span class="n">atomically</span> <span class="o">.</span> <span class="n">readTVar</span>
+</code></pre>
+
+<p>Now let&rsquo;s move onto mutations. We&rsquo;ll use the same example as we did with
+<code>IORef</code>, but implement it using a <code>TVar</code>. We have many ways to approach it,
+either by building one big transaction with all the steps, or by doing this in
+many small ones.</p>
+
+<p>First let&rsquo;s do one big <code>atomically</code> with all the steps.</p>
+<pre class="highlight haskell"><code><span class="n">bigTransaction</span> <span class="o">::</span> <span class="kt">IO</span> <span class="nb">()</span>
+<span class="n">bigTransaction</span> <span class="o">=</span> <span class="kr">do</span>
+    <span class="n">value</span> <span class="o">&lt;-</span> <span class="n">atomically</span> <span class="o">$</span> <span class="kr">do</span>
+        <span class="n">var</span> <span class="o">&lt;-</span> <span class="n">newTVar</span> <span class="p">(</span><span class="mi">0</span> <span class="o">::</span> <span class="kt">Int</span><span class="p">)</span>
+        <span class="n">modifyTVar</span> <span class="n">var</span> <span class="p">(</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">readTVar</span> <span class="n">var</span>
+
+    <span class="n">print</span> <span class="n">value</span>
+</code></pre>
+
+<p>There&rsquo;s not much interesting going on in here, so let&rsquo;s split it into smaller
+chunks. Even though <code>modifyTVar</code> is the perfect function for our use case, we
+can use a combination or <code>readTVar</code> and <code>writeTVar</code> to achieve the same,
+because <code>atomically</code> will make sure those two happen in a single step.</p>
+<pre class="highlight haskell"><code><span class="n">atomicReadWrite</span> <span class="o">::</span> <span class="kt">IO</span> <span class="nb">()</span>
+<span class="n">atomicReadWrite</span> <span class="o">=</span> <span class="kr">do</span>
+    <span class="n">var</span> <span class="o">&lt;-</span> <span class="n">newTVarIO</span> <span class="p">(</span><span class="mi">0</span> <span class="o">::</span> <span class="kt">Int</span><span class="p">)</span>
+
+    <span class="n">atomically</span> <span class="o">$</span> <span class="kr">do</span>
+        <span class="n">value</span> <span class="o">&lt;-</span> <span class="n">readTVar</span> <span class="n">var</span>
+        <span class="n">writeTVar</span> <span class="n">var</span> <span class="p">(</span><span class="n">value</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+
+    <span class="n">readTVarIO</span> <span class="n">var</span> <span class="o">&gt;&gt;=</span> <span class="n">print</span>
+</code></pre>
+
+<p>Since <code>STM</code> is a monad, we can also make this more interesting by combining two
+<code>STM</code> operations together and running those atomically.</p>
+<pre class="highlight haskell"><code><span class="n">f</span> <span class="o">::</span> <span class="kt">TVar</span> <span class="kt">Int</span> <span class="o">-&gt;</span> <span class="kt">STM</span> <span class="nb">()</span>
+<span class="n">f</span> <span class="n">var</span> <span class="o">=</span> <span class="n">modifyTVar</span> <span class="n">var</span> <span class="p">(</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
+
+<span class="n">twoCombined</span> <span class="o">::</span> <span class="kt">IO</span> <span class="nb">()</span>
+<span class="n">twoCombined</span> <span class="o">=</span> <span class="kr">do</span>
+    <span class="n">var</span> <span class="o">&lt;-</span> <span class="n">newTVarIO</span> <span class="p">(</span><span class="mi">0</span> <span class="o">::</span> <span class="kt">Int</span><span class="p">)</span>
+
+    <span class="n">atomically</span> <span class="o">$</span> <span class="kr">do</span>
+        <span class="n">f</span> <span class="n">var</span>
+        <span class="n">f</span> <span class="n">var</span>
+
+    <span class="n">readTVarIO</span> <span class="n">var</span> <span class="o">&gt;&gt;=</span> <span class="n">print</span>
+</code></pre>
+
+<p>There&rsquo;s a lot more to <code>STM</code> than just <code>TVar</code>s which is why I&rsquo;d encourage you,
+dear reader, to take a look at the following resources. You might find that it
+will change the way you think about concurrent programming completely.</p>
+
+<ul>
+<li><a href="http://research.microsoft.com/en-us/um/people/simonpj/papers/stm/lock-free-flops06.pdf">Lock Free Data Structures using STM in Haskell</a></li>
+<li><a href="../../../../chimera.labs.oreilly.com/books/1230000000929/ch10.html">Parallel and Concurrent Programming in Haskell - Chapter 10. Software Transactional Memory</a></li>
+<li><a href="../../../../book.realworldhaskell.org/read/software-transactional-memory.html">Real World Haskell - Chapter 28. Software transactional memory</a></li>
+</ul>
+<div class="form-box"><div class="left"><h1>Want to hear about my upcoming book,<br><strong>Haskell by Example</strong>?</h1><img alt="Haskell by Example Book" src="http://blog.jakuba.net/images/book.png" width="120" /><p>Subscribe to receive updates and free content from the book. You'll also get a discount when the final version of the book is released.</p></div><div class="right mailchimp-signup-form"><div class="col second"><form action="http://sensible.us7.list-manage.com/subscribe/post?u=e0956e52b1c70e11e3e473abd&amp;id=a251f4e777" class="form" method="post" name="mc-embedded-subscribe-form" novalidate="" target="_blank"><div class="form-group"><label for="mce-FNAME"> First Name</label><input class="form-control" name="FNAME" type="text" value="" /></div><div class="form-group"><label for="mce-EMAIL"> Email Address</label><input class="form-control" name="EMAIL" type="email" value="" /></div><!--real people should not fill this in and expect good things - do not remove this or risk form bot signups--><div style="position: absolute; left: -5000px;"><input name="b_e0956e52b1c70e11e3e473abd_a251f4e777" type="text" value="" /></div><div class="clear"><button class="btn btn-subscribe" name="subscribe" type="submit">Keep me updated</button></div></form></div></div></div></div><div id="disqus_thread"></div><script type="text/javascript">var disqus_shortname = 'jakubarnoldblog';
+
+(function() {
+    var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+    dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+    (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+})();</script></div><div class="span4"><div class="right-panel-box"><h3>Recent articles</h3><ul><li><a href="http://blog.jakuba.net/2015/08/08/fibonacci-numbers.html">Fibonacci Numbers</a></li><li><a href="http://blog.jakuba.net/2014/08/10/parsing-css-with-parsec.html">Parsing CSS with Parsec</a></li><li><a href="http://blog.jakuba.net/2014/08/06/lens-tutorial-stab-traversal-part-2.html">Lens Tutorial - Stab & Traversal (Part 2)</a></li><li><a href="http://blog.jakuba.net/2014/07/30/foldable-and-traversable.html">Foldable and Traversable</a></li><li><a href="../22/building-monad-transformers-part-1.html">Building Monad Transformers - Part 1</a></li><li><a href="mutable-state-in-haskell.html">Mutable State in Haskell</a></li><li><a href="http://blog.jakuba.net/2014/07/14/lens-tutorial-introduction-part-1.html">Lens Tutorial - Introduction (part 1)</a></li><li><a href="../10/using-phantom-types-in-haskell-for-extra-safety-part-2.html">Using Phantom Types in Haskell for Extra Safety - Part 2</a></li><li><a href="../08/using-phantom-types-for-extra-safety.html">Using Phantom Types for Extra Safety</a></li><li><a href="http://blog.jakuba.net/2014/06/23/evil-mode-how-to-switch-from-vim-to-emacs.html">Evil Mode: How I Switched From VIM to Emacs</a></li></ul><h3>Tags</h3><ul><li><a href="http://blog.jakuba.net/tags/clojure.html">clojure (1)</a></li><li><a href="http://blog.jakuba.net/tags/testing.html">testing (1)</a></li><li><a href="http://blog.jakuba.net/tags/rspec.html">rspec (1)</a></li><li><a href="http://blog.jakuba.net/tags/ruby.html">ruby (1)</a></li><li><a href="http://blog.jakuba.net/tags/refactoring.html">refactoring (1)</a></li><li><a href="http://blog.jakuba.net/tags/haskell.html">haskell (9)</a></li><li><a href="http://blog.jakuba.net/tags/emacs.html">emacs (1)</a></li><li><a href="http://blog.jakuba.net/tags/lens.html">lens (2)</a></li><li><a href="http://blog.jakuba.net/tags/algorithms.html">algorithms (1)</a></li></ul><h3>Archives</h3><ul><li><a href="http://blog.jakuba.net/2015.html">2015 (1)</a></li><li><a href="http://blog.jakuba.net/2014.html">2014 (13)</a></li><li><a href="http://blog.jakuba.net/2013.html">2013 (3)</a></li></ul><a href="https://plus.google.com/+JakubArnold?rel=author">Google+</a></div></div></div></div><script type="text/javascript">(function() {
+  var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+  po.src = 'https://apis.google.com/js/platform.js';
+  var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+})();</script><script type="text/javascript">!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="https://platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}}(document,"script","twitter-wjs");</script><script type="text/javascript">(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+(i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+})(window,document,'script','http://www.google-analytics.com/analytics.js','ga');
+
+ga('create', 'UA-44251100-2', 'blog.jakubarnold.cz');
+ga('send', 'pageview');</script><script type="text/javascript">var _gauges = _gauges || [];
+(function() {
+  var t   = document.createElement('script');
+  t.type  = 'text/javascript';
+  t.async = true;
+  t.id    = 'gauges-tracker';
+  t.setAttribute('data-site-id', '5325685a8bfdf76a52000c9b');
+  t.src = 'http://secure.gaug.es/track.js';
+  var s = document.getElementsByTagName('script')[0];
+  s.parentNode.insertBefore(t, s);
+})();</script><script src="http://jakubarnold.cz:9000/js/client.js"></script><script type="text/javascript">cat.init("3e4d686b-8b75-4c4b-ae2f-f05c6b7b5fce", "jakubarnold.cz", 9000);
+cat.broadcast("darthdeus", "someone is reading " + document.title);</script></body>
+<!-- Mirrored from blog.jakuba.net/2014/07/20/mutable-state-in-haskell.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 11:03:47 GMT -->
+</html>

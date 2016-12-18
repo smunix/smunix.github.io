@@ -1,0 +1,1712 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<!-- Mirrored from chimera.labs.oreilly.com/books/1230000000929/ch14.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 11:04:16 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head><script type="text/javascript">var NREUMQ=NREUMQ||[];NREUMQ.push(["mark","firstbyte",new Date().getTime()]);</script>
+	<title>Parallel and Concurrent Programming in Haskell</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<link href="http://dwn0odqttrkhc.cloudfront.net/assets/book-f1caceafd9c9f3a6ff72d40c54d173ab.css" media="screen" rel="stylesheet" type="text/css" />
+	<link href="http://dwn0odqttrkhc.cloudfront.net/assets/default-24583441b4f47382b8932338cd56ed23.css" media="screen" rel="stylesheet" type="text/css" />
+	<script src="http://dwn0odqttrkhc.cloudfront.net/assets/application-47d6ffb0c77b868d29a43eb65e940505.js" type="text/javascript"></script>
+	<script src="http://dwn0odqttrkhc.cloudfront.net/assets/book-756862b9ed04d945ca53de5b8f106a83.js" type="text/javascript"></script>
+	<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+	<link href="http://dwn0odqttrkhc.cloudfront.net/assets/janrain-53eb5abed55992e21943b9d3373923e8.css" media="all" rel="stylesheet" type="text/css" />
+	<meta content="authenticity_token" name="csrf-param" />
+<meta content="WQ02oEFDbvBG99rmf8rwvGssMqcy27cCD64yZVVTcMY=" name="csrf-token" />
+	<script type="text/javascript" charset="utf-8">
+  	
+		app.data = new classes.Data({"controller":{"controller":"books","action":"html"},"capturable":{"capture_server":"https://oreilly.janraincapture.com","client_id":"6n5q2k9vesqgn93k3mhevka6c3c3rsre","app_url":"https://login.oreilly.com","app_id":"xsnca5wmqe9vxv97ygh5vfejkd","load_js":"d16s8pqtk4uodx.cloudfront.net/login.oreilly.com/load.js"},"user":{"id":null,"account":"LoggedOutAccount","email":"","name":null,"gravatar_url":"http://www.gravatar.com/avatar/d41d8cd98f00b204e9800998ecf8427e?s=40&d=identicon"},"book":{"isbn":"1230000000929","chapter":"ch14.html","toc_url":"/books/1230000000929/toc_html","metadata_url":"http://d4bb7yl96lyl1.cloudfront.net/1230000000929/metadata/metadata_9b2ac4d71a3220a7d463d8d4c80f9113048bb194.json"},"abilities":{"can_destroy_all_comments":false,"can_create_comments":false},"advertisement":{"body":"<style>      \r\n.ad-profile-image {\r\n  padding: 0;\r\n  margin: 0;\r\n  max-height: 30px;\r\n }\r\n\r\n.top-banner {\r\n  position: absolute;\r\n  right: 0;\r\n  top: 34px;\r\n  z-index: 99999;\r\n}\r\n\r\np.banner-text {\r\n  margin: 0;\r\n  text-align: center;\r\n  padding-right: 10px;\r\n  width: 450px;\r\n}\r\n\r\n@media screen and (max-width: 600px) {\r\n   p.banner-text {\r\n     width: 100%;\r\n     text-align: center;\r\n  }\r\n}\r\n\r\nspan.ebook-advantage {\r\n  font-size: smaller;\r\n  display: block;\r\n}\r\n\r\ndiv.banner-container {\r\n  margin: 0 auto;\r\n}\r\n\r\ndiv.banner-container ul {\r\n  margin: 0 auto;\r\n}\r\n\r\ndiv.topad { padding-bottom: 5px; }\r\n\r\ndiv.banner-container ul li {\r\n  display: inline-block;\r\n  vertical-align: middle;\r\n}\r\n\r\ndiv.banner-container li p {\r\n  padding-top: 0;\r\n  margin-top: 0;\r\n}\r\n\r\ndiv.banner-container li.sponsor {\r\n  border-right: 1px solid rgb(125, 154, 180);\r\n  margin-right: 5px;\r\n  padding-right: 10px;\r\n}\r\n\r\ndiv.banner-container .webbutton {\r\n  background-color: #3994b6;\r\n  display: inline-block;\r\n  padding: 10px;\r\n  -webkit-border-radius: 5px;\r\n  -moz-border-radius: 5px;\r\n  border-radius: 5px;\r\n  color: #FFF;\r\n  text-align: center;\r\n  text-decoration: none;\r\n  font-size: 12px;\r\n  font-weight: bold;\r\n}\r\n\r\n</style>\r\n   \r\n<div style=\"color: rgb(125, 154, 180);\">\r\n\r\n<div class=\"banner-container\">\r\n\r\n<ul>\r\n\r\n<li class=\"sponsor\">\r\n<!--CONFERENCE SPONSOR IMAGE-->\r\n<a href=\"http://www.oscon.com/oscon2013\">\r\n<!--<img src=\"http://orm-other.s3.amazonaws.com/fluent_logo.png\" class=\"ad-profile-image\"/>-->\r\n<img src=\"http://orm-other.s3.amazonaws.com/oscon_logo.png\" class=\"ad-profile-image\"/>\r\n<!--<img src=\"http://orm-other.s3.amazonaws.com/strata_logo.png\" class=\"ad-profile-image\"/>\r\n<img src=\"http://orm-other.s3.amazonaws.com/StrataRx_logo.png\" class=\"ad-profile-image\"/>\r\n<img src=\"http://orm-other.s3.amazonaws.com/velocity_logo.png\" class=\"ad-profile-image\"/>-->\r\n</a>\r\n</li>\r\n\r\n<li>\r\n<!--AD TEXT, 2 LINES, REPLACE LINK URL AS WELL-->\r\n<p class=\"banner-text\">Enjoy this online version of <em>Parallel and Concurrent Programming in Haskell</em>. Purchase and download the DRM-free ebook on <a href=\"http://shop.oreilly.com/product/0636920026365.do\">oreilly.com</a>.<span class=\"ebook-advantage\">Learn more about the O’Reilly <a href=\"http://shop.oreilly.com/category/ebooks.do\">Ebook Advantage</a>.</span></p>\r\n</li>\r\n\r\n<li>\r\n<!--BUY BUTTON-->\r\n<a class=\"webbutton\" href=\"http://shop.oreilly.com/product/0636920026365.do\">Buy the Ebook</a>\r\n</li> \r\n\r\n</ul>\r\n\r\n</div>\r\n\r\n<!--CORNER BANNER (IF NEEDED)-->\r\n<!--<a href=\"http://shop.oreilly.com/product/0636920026365.do\" class=\"top-banner\"><img src=\"http://orm-other.s3.amazonaws.com/banner.png\" /></a>-->\r\n\r\n</div>"}});
+
+		/* Janrain setup */
+  	var janrainModal = new JanrainView();
+  	$("head").append(janrainModal.render().el);
+
+  	/* segment.io setup */
+  	var analytics=analytics||[];analytics.load=function(e){var t=document.createElement("script");t.type="text/javascript",t.async=!0,t.src=("https:"===document.location.protocol?"https://":"http://")+"d2dq2ahtl5zl1z.cloudfront.net/analytics.js/v1/"+e+"/analytics.min.js";var n=document.getElementsByTagName("script")[0];n.parentNode.insertBefore(t,n);var r=function(e){return function(){analytics.push([e].concat(Array.prototype.slice.call(arguments,0)))}},i=["identify","track","trackLink","trackForm","trackClick","trackSubmit","pageview","ab","alias","ready"];for(var s=0;s<i.length;s++)analytics[i[s]]=r(i[s])};
+  	
+  	analytics.load("hg9h6b9pae");
+
+  	$(function() {
+			app.bookapp = new BookApp();
+		});
+	
+	</script>
+</head>
+<body>
+	<div id="menu">
+	
+		<ul id="menu-left">
+			<li id="home-link"><a href="http://chimera.labs.oreilly.com/"><i class="icon-house"></i></a></li>
+			<li><a href="http://chimera.labs.oreilly.com/books/1230000000929">Parallel and Concurrent Programming in Haskell</a></li>
+			<div class="clear"></div>
+		</ul>
+	
+		<ul id="menu-right">
+			<li id="comments-link"><a>&nbsp;</a></li>
+			<li>
+				<a href="#" class="dropdown-toggle" data-toggle="dropdown">Chapters</a>
+				<div id="toc-popup" class="dropdown-menu"></div>
+			</li>
+				<li><a href="#" class="capture_modal_open" id="capture_signin_link">Log In / Sign Up</a></li>
+			<li id="search-li">
+				<form accept-charset="UTF-8" action="http://chimera.labs.oreilly.com/searches" id="search-form" method="get"><div style="margin:0;padding:0;display:inline"><input name="utf8" type="hidden" value="&#x2713;" /></div>
+	<input name='search[q]' type="text" placeholder="Search book..." id="book-search" />
+
+	<input id="search_bookId" name="search[bookId]" type="hidden" value="1230000000929" />
+	
+	<div style='display:none'>
+		sorted by: 
+		<select name='search[sort]' >
+			<option value='relevance'>Relevance</option>
+			<option value='authors'>Author(s)</option>
+			<option value='title'>Title</option>
+		</select>
+		returning
+		<select name='search[limit]' >
+			<option value='5'>5</option>
+			<option value='10'>10</option>
+			<option value='20'>20</option>
+			<option selected="selected" value='50'>50</option>
+			<option value='100'>100</option>
+		</select>
+		values at a time.
+	</div>
+</form>
+			</li>
+			<div class="clear"></div>
+		</ul>
+		<div class="clear"></div>
+	
+</div>
+	<header><div class="navheader">
+<table style="width: 100%; ">
+<tr><td style="text-align: center; " colspan="3">Chapter 14. Distributed Programming</td></tr>
+<tr>
+<td style="width: 20%; text-align: left; ">
+<a accesskey="p" href="ch13.html">Prev</a> </td>
+<td style="width: 60%; text-align: center; ">Part II. Concurrent Haskell</td>
+<td style="width: 20%; text-align: right; "> <a accesskey="n" href="ch15.html">Next</a>
+</td>
+</tr>
+</table>
+<hr>
+</div></header><section class="chapter" data-original-filename="ch14_conc-distrib.asciidoc" id="sec_conc-distrib"><div class="titlepage"><div><div><h2 class="title">Chapter 14. Distributed Programming</h2></div></div></div>
+<p id="distributed_pro_id1"><a id="ix_ch14_conc-distrib-txt0" class="indexterm"></a><a id="ix_ch14_conc-distrib-txt1" class="indexterm"></a>Up until now, we have been considering programs that run on a single
+machine, while possibly making use of multiple processors to exploit
+parallelism. But there is a far more plentiful source of parallelism: running a program on multiple <span class="emphasis"><em>machines</em></span>
+simultaneously.  We call this <span class="emphasis"><em>distributed</em></span> programming, and
+Haskell supports it through a framework called <code class="literal">distributed-process</code>.<a href="#ftn.id492454" class="footnote"><sup class="footnote" id="id492454">[50]</sup></a></p>
+<p id="aside_from_the_">Aside from the obvious advantages of multimachine parallelism, there
+are other reasons to write distributed programs. For example:</p>
+<div class="itemizedlist" id="a_distributed_s_id1"><ul class="itemizedlist">
+<li class="listitem">
+A distributed server can make more efficient use of network
+  resources by moving the servers closer to the clients.  We will see
+  an example of this in <a class="xref" href="ch14.html#sec_conc-distrib-chat" title="A Distributed Chat Server">“A Distributed Chat Server”</a>.
+</li>
+<li class="listitem">
+A distributed program can exploit a heterogeneous environment,
+  where certain resources are available only to certain machines.  An
+  example of this might be a cluster of machines with local disks,
+  where a large data structure is spread across the disks and we wish
+  to run our computation on the machine that has the appropriate
+  part of the data structure on its local disk.
+</li>
+</ul></div>
+<p id="so_what_should_">So what should distributed programming look like from the programmer’s
+perspective?  Should it look like Concurrent Haskell, with <code class="literal">forkIO</code>,
+<code class="literal">MVar</code>, and <code class="literal">STM</code>?  In fact, there are some good reasons to treat
+distributed computation very differently from computation on a
+shared-memory multicore:</p>
+<div class="itemizedlist" id="there_is_a_real_id1"><ul class="itemizedlist">
+<li class="listitem">
+There is a realistic possibility of partial hardware failure:
+  that is, some of the machines involved in a computation may go down
+  while others continue to run.  Indeed, given a large enough cluster
+  of machines, having nodes go down becomes the norm.  It would be
+  unacceptable to simply abort the entire program in this case.
+  Recovery is likely to be application-specific, so it makes sense to
+  make failure visible to the programmer and let him handle it in an
+  appropriate way for his application.
+</li>
+<li class="listitem">
+Communication<a id="id492546" class="indexterm"></a> time becomes significant.  In the shared-memory
+  setting, it is convenient and practical to allow unrestricted
+  sharing. This is because, for example, passing a pointer to a large data
+  structure from one thread to another has no cost
+  (beyond the costs imposed by the hardware and the runtime memory
+  manager, but again it is convenient and practical to ignore these).
+  In a distributed setting, however, communication can be costly, and
+  sharing a data structure between threads is something  the
+  programmer will want to think about and explicitly control.
+</li>
+<li class="listitem">
+In a distributed setting, it becomes far more difficult to provide
+  any global consistency guarantees of the kind that, for example, STM
+  provides in the shared-memory setting.  Achieving a consistent view
+  of the state of the system becomes a very hard problem indeed.
+  There are algorithms for achieving agreement between nodes in a
+  distributed system, but the exact nature of the consistency
+  requirements depend on the application, so we don’t want to
+  build a particular algorithm into the system.
+</li>
+</ul></div>
+<p id="for_these_reaso">For these reasons, the Haskell developers decided that the model for
+distributed programming should be based on explicit <span class="emphasis"><em>message
+  passing</em></span>, and not the <code class="literal">MVar</code> and <code class="literal">STM</code> models that we provide for
+shared-memory concurrency.<a href="#ftn.id492599" class="footnote"><sup class="footnote" id="id492599">[51]</sup></a>  Think of it as having <code class="literal">TChan</code> be the basic
+primitive available for communication.  It is possible to build
+higher-level abstractions on top of the explicit message-passing
+layer, just as we built higher-level abstractions on top of STM and
+<code class="literal">MVar</code> in earlier chapters.</p>
+<div class="sect1" data-original-filename="ch14_conc-distrib.asciidoc" id="sec_remote-framework">
+<div class="titlepage"><div><div><h2 class="title">The Distributed-Process Family of Packages</h2></div></div></div>
+<p id="distributedpro_id1"><a id="ix_ch14_conc-distrib-txt2" class="indexterm"></a>There is no built-in support for distributed programming in Haskell. It is all implemented as libraries using the concurrency facilities we
+have covered in earlier chapters.</p>
+<p id="the_package_pro">The package providing the core APIs for distributed programming is
+called <code class="literal">distributed-process</code>. It must be used
+together with a separate<a id="id492666" class="indexterm"></a> <span class="emphasis"><em>transport layer</em></span> package that provides
+infrastructure for sending and receiving messages between nodes in the
+distributed network.  The <code class="literal">distributed-process</code> package is
+deliberately independent of the transport layer so we can plug
+in different transport layer implementations.  The most common
+transport layer is likely to be TCP/IP, as provided by the<a id="id492685" class="indexterm"></a> <code class="literal">network-transport-tcp</code> package, but we could imagine a transport
+layer that used shared memory to communicate among multiple nodes on
+the same multicore machine, or transport layers supporting some of the
+faster networks designed for clusters, such as InfiniBand.</p>
+<p id="each_transport_">Each transport layer needs a different mechanism for creating and
+shutting down nodes on the network and discovering which nodes are
+available<a id="id492708" class="indexterm"></a><a id="id492713" class="indexterm"></a> (<span class="emphasis"><em>peer discovery</em></span>).  We will be using the package
+<code class="literal">distributed-process-simplelocalnet</code> that provides a simple
+implementation on top of the <code class="literal">network-transport-tcp</code> transport layer.</p>
+<p id="at_the_time_of_">At the time of writing, the <code class="literal">distributed-process</code> framework is
+somewhat new and a little rough around the edges, but it is already
+quite fully featured and we expect it to mature in due
+course.<a href="#ftn.id492752" class="footnote"><sup class="footnote" id="id492752">[52]</sup></a></p>
+<p id="it_is_reasonabl">It is reasonable to wonder whether we even need a framework to do
+distributed message-passing.  After all, can’t we just use the
+<code class="literal">network</code> package directly and program our own message passing?
+Certainly you could do this, but the packages described in this chapter provide a lot
+of functionality that makes it much easier to build a distributed
+application. They let you think about your application as a <span class="emphasis"><em>single program that happens to run on multiple machines</em></span>, rather than a collection of
+programs running on different machines that talk to one another.</p>
+<p id="for_example_wi">For example, with the <code class="literal">distributed-process</code> framework, we can call a
+function <code class="literal">spawn</code> that spawns a process (like a thread) on a different
+machine, and we can exchange messages with the remote process directly in the
+form of Haskell data types.  Even though we are writing a single
+program to execute on multiple machines, there is no need for all the
+machines to be identical; indeed, programmers often want to
+exploit some non-uniformity. For example, we might want to run a
+caching service on a machine with lots of memory while sending
+compute-intensive tasks to machines with lots of fast cores.  There
+may also be nonuniformity in the network topology. We might want to
+perform a database query on a machine close to the database server,
+for example, or put services that communicate with each other
+frequently close to one another in the network.</p>
+<p id="the_distributed_id1">The <code class="literal">distributed-process</code> framework provides a whole infrastructure suite that
+supports the distributed application domain.  These are some of the important
+facilities it provides:</p>
+<div class="itemizedlist" id="remote_spawning_id1"><ul class="itemizedlist">
+<li class="listitem">
+Remote spawning of processes
+</li>
+<li class="listitem">
+Serialization of Haskell data for message passing
+</li>
+<li class="listitem">
+Process linking (receiving notification when another process dies)
+</li>
+<li class="listitem">
+Receiving messages on multiple channels
+</li>
+<li class="listitem">
+A dedicated per-process channel for receiving dynamically typed messages
+</li>
+<li class="listitem">
+Automatic peer discovery<a id="id492878" class="indexterm"></a>
+</li>
+</ul></div>
+</div>
+<div class="sect1" data-original-filename="ch14_conc-distrib.asciidoc" id="sec_distrib-conc-or-par">
+<div class="titlepage"><div><div><h2 class="title">Distributed Concurrency or Parallelism?</h2></div></div></div>
+<p id="distributedpro_id2"><a id="id492905" class="indexterm"></a><a id="id492913" class="indexterm"></a>We have included distribution in the concurrency part of this book
+for the simple reason that the explicit message-passing API we’ll
+describe is concurrent and nondeterministic.  And yet, the main
+reason to want to use distribution is to exploit the parallelism of
+running on multiple machines simultaneously. So this setting is
+similar to parallel programming using threads described in <a class="xref" href="ch13.html" title="Chapter 13. Parallel Programming Using Threads">Chapter 13</a>,
+except that here we have only message passing and no shared state for
+coordination.</p>
+<p id="it_is_a_little_">It is a little unfortunate that we have to resort to a
+nondeterministic programming <span class="keep-together">model to</span> achieve parallelism just
+because we want to exploit multiple machines.  There <span class="keep-together">are efforts</span>
+under way to build deterministic programming models atop the
+<code class="literal">distributed-process</code> framework, although at the time of writing these projects are too
+experimental to include in this book.<a href="#ftn.id492961" class="footnote"><sup class="footnote" id="id492961">[53]</sup></a></p>
+</div>
+<div class="sect1" data-original-filename="ch14_conc-distrib.asciidoc" id="sec_conc-distrib-ping">
+<div class="titlepage"><div><div><h2 class="title">A First Example: Pings</h2></div></div></div>
+<p id="distributed_pro_id2"><a id="ix_ch14_conc-distrib-txt3" class="indexterm"></a><a id="ix_ch14_conc-distrib-txt4" class="indexterm"></a><a id="ix_ch14_conc-distrib-txt5" class="indexterm"></a><a id="ix_ch14_conc-distrib-txt6" class="indexterm"></a>To get acquainted with the basics of distributed programming, we will
+start with a simple example: a ping/pong message exchange.  To start
+with, there will be a single master process that creates a child
+process.  The master process will send a “ping” message to the
+child, which will respond with a “pong” message and the program
+will then exit.</p>
+<p id="the_ping_exampl">The ping example will illustrate the basic pattern for setting up a
+program to use the <code class="literal">distributed-process</code> framework and introduce the APIs for
+creating processes and simple message passing.  The first version of
+the program will run on a single <span class="emphasis"><em>node</em></span> (machine) so we can
+get familiar with the basics of the interface before moving on to
+working with multiple nodes.</p>
+<p id="for_reference__id2">For reference, the subset of the<a id="id493079" class="indexterm"></a> <code class="literal">Control.Distributed.Process</code> API that we will be using is shown here:</p>
+<pre class="programlisting" data-language="haskell" id="data_process_"><code class="kr">data</code> <code class="kt">Process</code>   <code class="c1">-- instance Monad, MonadIO</code>
+
+<code class="kr">data</code> <code class="kt">NodeId</code>    <code class="c1">-- instance Eq, Ord, Show, Typeable, Binary</code>
+<code class="kr">data</code> <code class="kt">ProcessId</code> <code class="c1">-- instance Eq, Ord, Show, Typeable, Binary</code>
+
+<code class="nf">getSelfPid</code>  <code class="ow">::</code> <code class="kt">Process</code> <code class="kt">ProcessId</code>
+<code class="nf">getSelfNode</code> <code class="ow">::</code> <code class="kt">Process</code> <code class="kt">NodeId</code>
+
+<code class="nf">spawn</code>  <code class="ow">::</code> <code class="kt">NodeId</code> <code class="ow">-&gt;</code> <code class="kt">Closure</code> <code class="p">(</code><code class="kt">Process</code> <code class="nb">()</code><code class="p">)</code> <code class="ow">-&gt;</code> <code class="kt">Process</code> <code class="kt">ProcessId</code>
+
+<code class="nf">send</code>   <code class="ow">::</code> <code class="kt">Serializable</code> <code class="n">a</code> <code class="ow">=&gt;</code> <code class="kt">ProcessId</code> <code class="ow">-&gt;</code> <code class="n">a</code> <code class="ow">-&gt;</code> <code class="kt">Process</code> <code class="nb">()</code>
+<code class="nf">expect</code> <code class="ow">::</code> <code class="kt">Serializable</code> <code class="n">a</code> <code class="ow">=&gt;</code> <code class="kt">Process</code> <code class="n">a</code>
+
+<code class="nf">terminate</code> <code class="ow">::</code> <code class="kt">Process</code> <code class="n">a</code>
+
+<code class="nf">say</code> <code class="ow">::</code> <code class="kt">String</code> <code class="ow">-&gt;</code> <code class="kt">Process</code> <code class="nb">()</code></pre>
+<div class="sect2" id="sec_distrib-ping-processes">
+<div class="titlepage"><div><div><h3 class="title">Processes and the Process Monad</h3></div></div></div>
+<p id="distributedpro_id3"><a id="id493419" class="indexterm"></a><a id="id493427" class="indexterm"></a>First, a bit of terminology. A distributed program consists of a set of
+<span class="emphasis"><em>processes</em></span> that may communicate with one another by sending and
+receiving messages.  A process is like a thread. Processes run
+concurrently with one another, and every process has
+a unique<a id="id493440" class="indexterm"></a> <code class="literal">ProcessId</code>.  There are a
+couple of important differences between threads and processes,
+however:</p>
+<div class="itemizedlist" id="threads_are_alw_id1"><ul class="itemizedlist">
+<li class="listitem">
+Threads are
+  always created on the current node, whereas a process can be created on a remote node (we won’t be using this facility
+  until the next section, though).
+</li>
+<li class="listitem">
+Processes run in the <code class="literal">Process</code> monad, rather than the<a id="id493482" class="indexterm"></a> <code class="literal">IO</code>
+  monad. <code class="literal">Process</code> is an instance of<a id="id493503" class="indexterm"></a> <code class="literal">MonadIO</code>, so you can perform
+  <code class="literal">IO</code> operations in <code class="literal">Process</code> by wrapping them in<a id="id493528" class="indexterm"></a> <code class="literal">liftIO</code>.  All
+  message-passing operations are in <code class="literal">Process</code>, so only processes,
+  not threads, can engage in message passing.
+</li>
+</ul></div>
+</div>
+<div class="sect2" id="sec_distrib-ping-messages">
+<div class="titlepage"><div><div><h3 class="title">Defining a Message Type</h3></div></div></div>
+<p id="we_start_by_def">We start by defining the type of messages that our processes will send
+and receive:</p>
+<p id="distribpingpi_id1"><span class="emphasis"><em>distrib-ping/ping.hs</em></span>
+</p>
+<pre class="programlisting" data-language="haskell" id="data_message___id2"><code class="kr">data</code> <code class="kt">Message</code> <code class="ow">=</code> <code class="kt">Ping</code> <code class="kt">ProcessId</code>
+             <code class="o">|</code> <code class="kt">Pong</code> <code class="kt">ProcessId</code>
+  <code class="kr">deriving</code> <code class="p">(</code><code class="kt">Typeable</code><code class="p">,</code> <code class="kt">Generic</code><code class="p">)</code>          <code class="c1">-- </code><span id="ping-1"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1"></span>
+
+<code class="kr">instance</code> <code class="kt">Binary</code> <code class="kt">Message</code>                 <code class="c1">-- </code><span id="ping-2"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/2.png" alt="2"></span>
+</pre>
+<p id="the_ping_messag">The <code class="literal">Ping</code> message contains the <code class="literal">ProcessId</code> of the process that sent
+it so that the target of the message knows where to send the response.
+The <code class="literal">Pong</code> response also includes the <code class="literal">ProcessId</code> of the responder so
+that the master process can tell which process a particular response
+comes from.</p>
+<p id="messages_in_a_d">Messages in a distributed program can be sent over the network, which
+Involves<a id="ix_ch14_conc-distrib-txt7" class="indexterm"></a><a id="ix_ch14_conc-distrib-txt8" class="indexterm"></a><a id="ix_ch14_conc-distrib-txt9" class="indexterm"></a> <span class="emphasis"><em>serializing</em></span> the Haskell data into a stream of bytes before
+it is sent and <span class="emphasis"><em>deserializing</em></span> the bytes back into Haskell data at
+the other end. The <code class="literal">distributed-process</code> framework uses the <code class="literal">Binary</code>
+class from the <code class="literal">binary</code> package to implement serialization and
+deserialization, and hence every message type must be an instance of
+<code class="literal">Binary</code>.</p>
+<p id="the_serializati">The serialization format is under your control. If you want, you can
+define your own <code class="literal">Binary</code> instance that uses a specialized
+serialization format.  Normally, however, you’ll just want an
+automatically derived <code class="literal">Binary</code> instance. Fortunately, the <code class="literal">binary</code>
+package<a href="#ftn.id493833" class="footnote"><sup class="footnote" id="id493833">[54]</sup></a> lets you derive
+<code class="literal">Binary</code> instances using GHC’s<a id="id493850" class="indexterm"></a> <code class="literal">DeriveGeneric</code> extension.<a href="#ftn.id493863" class="footnote"><sup class="footnote" id="id493863">[55]</sup></a>  To do this, we first derive the <code class="literal">Generic</code>
+class (<a class="xref" href="ch14.html#ping-1"><span><img src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1" border="0"></span></a>) and then declare an instance
+of <code class="literal">Binary</code> for <code class="literal">Message</code> (<a class="xref" href="ch14.html#ping-2"><span><img src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/2.png" alt="2" border="0"></span></a>); GHC
+fills in the method definitions of this instance for us.</p>
+<p id="message_types_m">Message types must also be an instance of <code class="literal">Typeable</code>, because they can
+be sent to dynamically typed channels (more about this later).  For<a id="id493913" class="indexterm"></a>
+<code class="literal">Typeable</code>, we can derive the instance directly (<a class="xref" href="ch14.html#ping-1"><span><img src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1" border="0"></span></a>).</p>
+<p id="typeable_and_bi"><code class="literal">Typeable</code> and <code class="literal">Binary</code> are normally packaged up together and referred
+to as <code class="literal">Serializable</code> using the following class provided by <code class="literal">Control.Distributed.Process.Serializable</code>:</p>
+<pre class="programlisting" data-language="haskell" id="class_binary_a"><code class="kr">class</code> <code class="p">(</code><code class="kt">Binary</code> <code class="n">a</code><code class="p">,</code> <code class="kt">Typeable</code> <code class="n">a</code><code class="p">)</code> <code class="ow">=&gt;</code> <code class="kt">Serializable</code> <code class="n">a</code>
+<code class="kr">instance</code> <code class="p">(</code><code class="kt">Binary</code> <code class="n">a</code><code class="p">,</code> <code class="kt">Typeable</code> <code class="n">a</code><code class="p">)</code> <code class="ow">=&gt;</code> <code class="kt">Serializable</code> <code class="n">a</code></pre>
+<p id="theres_nothing_id2">There’s nothing magic about <code class="literal">Serializable</code>. Just think of
+<code class="literal">Serializable a</code> as shorthand for <code class="literal">(Binary a, Typeable a)</code>.  You’ll
+see <code class="literal">Serializable</code> used a lot in the <code class="literal">Control.Distributed.Process</code> APIs.<a id="id494119" class="indexterm"></a><a id="id494130" class="indexterm"></a><a id="id494140" class="indexterm"></a></p>
+</div>
+<div class="sect2" id="sec_distrib-ping-server">
+<div class="titlepage"><div><div><h3 class="title">The Ping Server Process</h3></div></div></div>
+<p id="distributed_pro_id3"><a id="ix_ch14_conc-distrib-txt10" class="indexterm"></a>Next, we’ll write the code for a “ping server” process.  The ping
+server must wait for a <code class="literal">Ping</code> message and then respond with a
+<code class="literal">Pong</code> message.</p>
+<pre class="programlisting" data-language="haskell" id="pingserver__p_id1"><code class="nf">pingServer</code> <code class="ow">::</code> <code class="kt">Process</code> <code class="nb">()</code>
+<code class="nf">pingServer</code> <code class="ow">=</code> <code class="kr">do</code>
+  <code class="kt">Ping</code> <code class="n">from</code> <code class="ow">&lt;-</code> <code class="n">expect</code>                              <code class="c1">-- </code><span id="pingServer-1"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1"></span>
+  <code class="n">say</code> <code class="o">$</code> <code class="n">printf</code> <code class="s">"ping received from %s"</code> <code class="p">(</code><code class="n">show</code> <code class="n">from</code><code class="p">)</code> <code class="c1">-- </code><span id="pingServer-2"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/2.png" alt="2"></span>
+  <code class="n">mypid</code> <code class="ow">&lt;-</code> <code class="n">getSelfPid</code>                              <code class="c1">-- </code><span id="pingServer-3"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/3.png" alt="3"></span>
+  <code class="n">send</code> <code class="n">from</code> <code class="p">(</code><code class="kt">Pong</code> <code class="n">mypid</code><code class="p">)</code>                           <code class="c1">-- </code><span id="pingServer-4"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/4.png" alt="4"></span>
+</pre>
+<p id="first_of_all_n">First of all, notice that we are in the <code class="literal">Process</code> monad.  As we
+mentioned earlier, virtually all of the <code class="literal">Control.Distributed.Process</code> API is in this monad,
+and only code running in the <code class="literal">Process</code> monad can communicate with
+other processes and spawn new processes.  There has to be a way to get
+into <code class="literal">Process</code> in the first place; we’ll see how that happens
+shortly, but for now let’s assume we’re already in <code class="literal">Process</code> and we
+need to program the ping server.</p>
+<p id="at_we_receive_t">At <a class="xref" href="ch14.html#pingServer-1"><span><img src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1" border="0"></span></a> we receive the next message
+using <code class="literal">expect</code>:</p>
+<pre class="programlisting" data-language="haskell" id="expect__seria"><code class="nf">expect</code> <code class="ow">::</code> <code class="kt">Serializable</code> <code class="n">a</code> <code class="ow">=&gt;</code> <code class="kt">Process</code> <code class="n">a</code></pre>
+<p id="theexpect_funct">The<a id="id494507" class="indexterm"></a> <code class="literal">expect</code> function receives a message sent directly to this
+process.  Each process has a channel associated with it, and the
+channel can receive messages of any type.  The <code class="literal">expect</code> call receives
+a message of a particular type, where the type is determined by the
+context.  If the type cannot be determined, the compiler will
+complain that the type is ambiguous, and the usual fix is to add a
+type signature.  In the example just shown, the type of messages to receive
+is determined by the pattern match on the result, which matches
+directly on the <code class="literal">Ping</code> constructor and thus forces <code class="literal">expect</code> to receive
+messages of the type <code class="literal">Message</code>.</p>
+<p id="the_expect_func">The <code class="literal">expect</code> function is a little like Haskell’s<a id="id494561" class="indexterm"></a> <code class="literal">read</code> function, in
+that it returns a value whose type depends on the context.  But
+whereas <code class="literal">read</code> fails if its argument cannot be parsed as the desired
+type, <code class="literal">expect</code> skips over messages in the queue that do not match and
+returns the first one that matches.  Messages that don’t match the
+expected type are left in the channel for the time being.</p>
+<p id="if_there_are_no">If there are no messages of the right type, <code class="literal">expect</code> will block until
+one arrives.  Therefore, it should be used with care: the other
+messages in the queue are ignored while <code class="literal">expect</code> is waiting for the
+right kind of message to arrive, which could lead to a deadlock.
+We’ll see later how to wait for several different types of message at
+the same time.</p>
+<p id="the_say_functio">The <code class="literal">say</code> function, called at <a class="xref" href="ch14.html#pingServer-2"><span><img src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/2.png" alt="2" border="0"></span></a>,
+causes a message to be logged, which is a useful way to debug your
+program.  Usually, the message will be logged to <code class="literal">stderr</code>, but it might
+be sent somewhere else if the transport layer overrides the default
+logging process.</p>
+<p id="at_we_call_gets">At <a class="xref" href="ch14.html#pingServer-3"><span><img src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/3.png" alt="3" border="0"></span></a> we call <code class="literal">getSelfPid</code> to
+obtain the <code class="literal">ProcessId</code> of the current process.  The <code class="literal">ProcessId</code> of the
+current process is needed because the <code class="literal">Pong</code> message will contain it:</p>
+<pre class="programlisting" data-language="haskell" id="getselfpid__p"><code class="nf">getSelfPid</code>  <code class="ow">::</code> <code class="kt">Process</code> <code class="kt">ProcessId</code></pre>
+<p id="and_at_we_send_">And at <a class="xref" href="ch14.html#pingServer-4"><span><img src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/4.png" alt="4" border="0"></span></a> we send a response back
+to the originator of the <code class="literal">Ping</code>.  The function <code class="literal">send</code> is used to send
+a message to a process, and it has the following type:</p>
+<pre class="programlisting" data-language="haskell" id="send__serial"><code class="nf">send</code> <code class="ow">::</code> <code class="p">(</code><code class="kt">Serializable</code> <code class="n">a</code><code class="p">)</code> <code class="ow">=&gt;</code> <code class="kt">ProcessId</code> <code class="ow">-&gt;</code> <code class="n">a</code> <code class="ow">-&gt;</code> <code class="kt">Process</code> <code class="nb">()</code></pre>
+<p id="we_know_which_p">We know which <code class="literal">ProcessId</code> to send the <code class="literal">Pong</code> to because it was
+contained in the original <code class="literal">Ping</code> message.</p>
+<p id="now_we_need_to_">Now we need to be able to create processes running <code class="literal">pingServer</code>.
+Although in this example we will be creating the process on the local
+node, in general we might be creating the process on another
+node. Functions that will be executed remotely in this way need to be
+declared explicitly.<a id="id494845" class="indexterm"></a><a href="#ftn.id494855" class="footnote"><sup class="footnote" id="id494855">[56]</sup></a>  The
+following declaration invokes a bit of Template Haskell magic that creates the necessary infrastructure to allow <code class="literal">pingServer</code> to be executed <span class="keep-together">remotely</span>:<a href="#ftn.id494873" class="footnote"><sup class="footnote" id="id494873">[57]</sup></a></p>
+<pre class="screen" id="remotable_pin"><code class="nf">remotable</code> <code class="p">[</code><code class="n">'pingServer</code><code class="p">]</code></pre>
+</div>
+<div class="sect2" id="sec_distrib-ping-master">
+<div class="titlepage"><div><div><h3 class="title">The Master Process</h3></div></div></div>
+<p id="distributed_pro_id4"><a id="ix_ch14_conc-distrib-txt11" class="indexterm"></a><a id="ix_ch14_conc-distrib-txt12" class="indexterm"></a>Next, we will write the code for the master process. As you might expect, this is an operation of type <code class="literal">Process ()</code>:</p>
+<pre class="programlisting" data-language="haskell" id="master__proce"><code class="nf">master</code> <code class="ow">::</code> <code class="kt">Process</code> <code class="nb">()</code>
+<code class="nf">master</code> <code class="ow">=</code> <code class="kr">do</code>
+  <code class="n">node</code> <code class="ow">&lt;-</code> <code class="n">getSelfNode</code>                               <code class="c1">-- </code><span id="CO50-1"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1"></span>
+
+  <code class="n">say</code> <code class="o">$</code> <code class="n">printf</code> <code class="s">"spawning on %s"</code> <code class="p">(</code><code class="n">show</code> <code class="n">node</code><code class="p">)</code>
+  <code class="n">pid</code> <code class="ow">&lt;-</code> <code class="n">spawn</code> <code class="n">node</code> <code class="o">$</code><code class="p">(</code><code class="n">mkStaticClosure</code> <code class="sc">'pingServer)  -- </code><span id="CO50-2"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/2.png" alt="2"></span>
+
+  <code class="n">mypid</code> <code class="ow">&lt;-</code> <code class="n">getSelfPid</code>                               <code class="c1">-- </code><span id="CO50-3"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/3.png" alt="3"></span>
+  <code class="n">say</code> <code class="o">$</code> <code class="n">printf</code> <code class="s">"sending ping to %s"</code> <code class="p">(</code><code class="n">show</code> <code class="n">pid</code><code class="p">)</code>
+  <code class="n">send</code> <code class="n">pid</code> <code class="p">(</code><code class="kt">Ping</code> <code class="n">mypid</code><code class="p">)</code>                             <code class="c1">-- </code><span id="CO50-4"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/4.png" alt="4"></span>
+
+  <code class="kt">Pong</code> <code class="kr">_</code> <code class="ow">&lt;-</code> <code class="n">expect</code>                                  <code class="c1">-- </code><span id="CO50-5"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/5.png" alt="5"></span>
+  <code class="n">say</code> <code class="s">"pong."</code>
+
+  <code class="n">terminate</code>                                         <code class="c1">-- </code><span id="CO50-6"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/6.png" alt="6"></span></pre>
+<div class="calloutlist"><table style="border: 0; ">
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO50-1"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="callgetselfnode">
+Call<a id="id495297" class="indexterm"></a> <code class="literal">getSelfNode</code>, which returns the<a id="id495310" class="indexterm"></a> <code class="literal">NodeId</code> of the
+  current node.  A <code class="literal">NodeId</code> is needed when creating a new process.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO50-2"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/2.png" alt="2"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; ">
+<p id="call_spawn_to_c">
+Call <code class="literal">spawn</code> to create the child process. Here is the function’s signature:
+</p>
+<pre class="programlisting" data-language="haskell" id="spawn__nodeid"><code class="nf">spawn</code> <code class="ow">::</code> <code class="kt">NodeId</code> <code class="ow">-&gt;</code> <code class="kt">Closure</code> <code class="p">(</code><code class="kt">Process</code> <code class="nb">()</code><code class="p">)</code> <code class="ow">-&gt;</code> <code class="kt">Process</code> <code class="kt">ProcessId</code></pre>
+<p id="theclosurespawn">The<a id="id495425" class="indexterm"></a><a id="id495430" class="indexterm"></a> <code class="literal">spawn</code> function creates a new process on the given <code class="literal">NodeId</code> (which
+here is the current node).  The new process runs the computation
+supplied as the second argument to <code class="literal">spawn</code>, which is a value of type
+<code class="literal">Closure (Process ())</code>.  Ultimately, we want to spawn a computation
+of type <code class="literal">Process ()</code>, but such values cannot be serialized because
+in practice a value of type <code class="literal">Process ()</code> could refer to an
+arbitrary amount of local data, including things that cannot be sent
+to other nodes (such as a <code class="literal">TVar</code>).  Hence the type <code class="literal">Closure</code> is used
+to represent serializable computations.</p>
+<p id="how_do_we_get_o">How do we get one of these?  First, the function to call must be
+declared<a id="id495498" class="indexterm"></a> <code class="literal">remotable</code>, as we did above.  Then, if there are no
+arguments to pass, the Template Haskell function
+<code class="literal">mkStaticClosure</code> generates the appropriate code for the closure. (If
+there are arguments, then we need to use a different function, which we
+will see later.)</p>
+<p id="the_spawn_opera">The <code class="literal">spawn</code> operation returns the <code class="literal">ProcessId</code> of the new process,
+which we bind to <code class="literal">pid</code>.</p>
+</td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO50-3"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/3.png" alt="3"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="call_getselfpid">
+Call <code class="literal">getSelfPid</code> to return the <code class="literal">ProcessId</code> of the
+current process.  We need this to send in the <code class="literal">Ping</code> message.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO50-4"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/4.png" alt="4"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="send_the_ping_m_id1">
+Send the <code class="literal">Ping</code> message to the child process.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO50-5"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/5.png" alt="5"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="call_expect_to_">
+Call <code class="literal">expect</code> to receive the <code class="literal">Pong</code> message from the child
+process.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO50-6"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/6.png" alt="6"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="finally_termin">
+Finally, terminate the process by calling<a id="id495626" class="indexterm"></a> <code class="literal">terminate</code>.  In this
+case, simply returning from <code class="literal">master</code> would terminate the process, but
+sometimes we need to end the process in a context where it is not
+practical to arrange the top-level function to return, and in those
+cases <code class="literal">terminate</code> is useful.  Moreover, it is good practice to indicate
+the end of the process explicitly.<a id="id495652" class="indexterm"></a><a id="id495663" class="indexterm"></a>
+</p></td>
+</tr>
+</table></div>
+</div>
+<div class="sect2" id="sec_distrib-ping-main">
+<div class="titlepage"><div><div><h3 class="title">The main Function</h3></div></div></div>
+<p id="distributed_pro_id5"><a id="ix_ch14_conc-distrib-txt14" class="indexterm"></a>All that remains to complete the program is to define our <code class="literal">main</code>
+function, and here it is:</p>
+<pre class="programlisting" data-language="haskell" id="main__io__m_id9"><code class="nf">main</code> <code class="ow">::</code> <code class="kt">IO</code> <code class="nb">()</code>
+<code class="nf">main</code> <code class="ow">=</code> <code class="n">distribMain</code> <code class="p">(</code><code class="nf">\</code><code class="kr">_</code> <code class="ow">-&gt;</code> <code class="n">master</code><code class="p">)</code> <code class="kt">Main</code><code class="o">.</code><code class="n">__remoteTable</code></pre>
+<p id="the_main_functi_id1">The <code class="literal">main</code> function calls <code class="literal">distribMain</code> from <code class="literal">DistribUtils</code>, which is a small
+module of utilities provided with the sample code to make these
+examples a bit less cluttered.  <span class="keep-together">The <code class="literal">distribMain</code></span> function is a wrapper around the lower-level startup facilities <span class="keep-together">from the <code class="literal">distributed-process-simplelocalnet</code> package</span><a id="id495848" class="indexterm"></a>. It starts up the <code class="literal">distributed-process</code> framework with the
+<code class="literal">distributed-process-simplelocalnet</code> backend on a single node.</p>
+<p id="the_first_argum_id7">The first argument to <code class="literal">distribMain</code> is the <code class="literal">Process</code> computation to
+run as the master process on the node.  It has type <code class="literal">[NodeId] -&gt;
+Process ()</code>, where the list of <code class="literal">NodeId</code>s are the other nodes in our
+distributed network. Because this example is
+running on a single node, we ignore the <code class="literal">[NodeId]</code> and just invoke the
+<code class="literal">master</code> function as our master process.</p>
+<p id="the_second_argu_id3">The second argument to <code class="literal">distribMain</code> is the metadata used to execute
+remote calls; in this case we pass <code class="literal">Main.__remoteTable</code>, which is
+generated by the Template Haskell call to <code class="literal">remotable</code> we showed
+earlier.</p>
+<p id="when_you_run_th">When you run the program, you should see output like this:<a href="#ftn.id495944" class="footnote"><sup class="footnote" id="id495944">[58]</sup></a></p>
+<pre class="screen" id="ping_pid">$ ./ping
+pid://localhost:44444:0:3: spawning on nid://localhost:44444:0
+pid://localhost:44444:0:3: sending ping to pid://localhost:44444:0:4
+pid://localhost:44444:0:4: ping received from pid://localhost:44444:0:3
+pid://localhost:44444:0:3: pong.</pre>
+<p id="each_of_these_m">Each of these messages corresponds to one of the calls to <code class="literal">say</code> in the
+example program, and they are tagged with the date, time, and
+<code class="literal">ProcessId</code> of the process that called <code class="literal">say</code>.<a id="id495989" class="indexterm"></a></p>
+</div>
+<div class="sect2" id="_summing_up_the_ping_example">
+<div class="titlepage"><div><div><h3 class="title">Summing Up the Ping Example</h3></div></div></div>
+<p id="in_this_section">In this section, we built the simplest distributed program possible: it
+spawns a single child process and performs a simple ping/pong message
+exchange.  Here are the key things to take away:</p>
+<div class="itemizedlist" id="to_create_a_pro_id1"><ul class="itemizedlist">
+<li class="listitem">
+To create a process, we call <code class="literal">spawn</code>, passing a <code class="literal">NodeId</code> and a
+  <code class="literal">Closure (Process ())</code>.  The former we got from <code class="literal">getSelfNode</code>
+  (there are other ways, which we will encounter shortly), and the
+  latter was generated by a call to the Template Haskell function
+  <code class="literal">mkStaticClosure</code>.
+</li>
+<li class="listitem">
+Processes run in the <code class="literal">Process</code> monad, which is a layer over
+  the <code class="literal">IO</code> monad.
+</li>
+<li class="listitem">
+Messages can be sent to a process using <code class="literal">send</code> and received by
+  calling <code class="literal">expect</code>.  Messages are ordinary Haskell data; the only
+  requirement is that the type of the message is an instance of the
+  <code class="literal">Binary</code> and <code class="literal">Typeable</code> classes.
+</li>
+</ul></div>
+<p id="there_is_a_cert">There is a certain amount of boilerplate associated with distributed
+programming: deriving <code class="literal">Binary</code> instances, declaring remotable
+functions with <code class="literal">remotable</code>, starting up the framework with
+<code class="literal">distribMain</code>, and so on.  Remember that the <code class="literal">distributed-process</code> framework is
+currently implemented as a library entirely in Haskell. There is no
+support for distributed programming built into the language or GHC
+itself, and this accounts for some of the boilerplate.  As the
+framework matures, distributed programming will likely become a
+smoother experience.<a id="id496144" class="indexterm"></a><a id="id496155" class="indexterm"></a><a id="id496165" class="indexterm"></a><a id="id496175" class="indexterm"></a></p>
+</div>
+</div>
+<div class="sect1" data-original-filename="ch14_conc-distrib.asciidoc" id="sec_ping-multi-node">
+<div class="titlepage"><div><div><h2 class="title">Multi-Node Ping</h2></div></div></div>
+<p id="distributed_pro_id6"><a id="ix_ch14_conc-distrib-txt15" class="indexterm"></a><a id="ix_ch14_conc-distrib-txt16" class="indexterm"></a>The previous example showed how to create a process and exchange some
+simple messages.  Now we will extend the program to be truly
+distributed. Instead of spawning a process on the local node, we will
+run the program on several nodes, create a process on each one, and
+perform the ping/pong protocol with all nodes simultaneously.</p>
+<p id="the_message_typ_id1">The <code class="literal">Message</code> type and <code class="literal">pingServer</code> remain exactly as before. The only
+changes will be to the <code class="literal">master</code> and <code class="literal">main</code> functions.  The new
+<code class="literal">master</code> function is shown below, along with a <code class="literal">waitForPongs</code> helper function:</p>
+<p id="distribpingpi_id2"><span class="emphasis"><em>distrib-ping/ping-multi.hs</em></span>
+</p>
+<pre class="screen" id="master__node_id1"><code class="nf">master</code> <code class="ow">::</code> <code class="p">[</code><code class="kt">NodeId</code><code class="p">]</code> <code class="ow">-&gt;</code> <code class="kt">Process</code> <code class="nb">()</code>                     -- <span id="COA51-1"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1"></span>
+<code class="nf">master</code> <code class="n">peers</code> <code class="ow">=</code> <code class="kr">do</code>
+
+  <code class="n">ps</code> <code class="ow">&lt;-</code> <code class="n">forM</code> <code class="n">peers</code> <code class="o">$</code> <code class="nf">\</code><code class="n">nid</code> <code class="ow">-&gt;</code> <code class="kr">do</code>                      -- <span id="COA51-2"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/2.png" alt="2"></span>
+          <code class="n">say</code> <code class="o">$</code> <code class="n">printf</code> <code class="s">"spawning on %s"</code> <code class="p">(</code><code class="n">show</code> <code class="n">nid</code><code class="p">)</code>
+          <code class="n">spawn</code> <code class="n">nid</code> <code class="o">$</code><code class="p">(</code><code class="n">mkStaticClosure</code> <code class="n">'pingServer</code><code class="p">)</code>
+
+  <code class="n">mypid</code> <code class="ow">&lt;-</code> <code class="n">getSelfPid</code>
+
+  <code class="n">forM_ps</code> <code class="o">$</code> <code class="nf">\</code><code class="n">pid</code> <code class="ow">-&gt;</code> <code class="kr">do</code>                               -- <span id="COA51-3"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/3.png" alt="3"></span>
+    <code class="n">say</code> <code class="o">$</code> <code class="n">printf</code> <code class="s">"pinging %s"</code> <code class="p">(</code><code class="n">show</code> <code class="n">pid</code><code class="p">)</code>
+    <code class="n">send</code> <code class="n">pid</code> <code class="p">(</code><code class="kt">Ping</code> <code class="n">mypid</code><code class="p">)</code>
+
+  <code class="n">waitForPongs</code> <code class="n">ps</code>                                    -- <span id="COA51-4"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/4.png" alt="4"></span>
+
+  <code class="n">say</code> <code class="s">"All pongs successfully received"</code>
+  <code class="n">terminate</code>
+
+<code class="nf">waitForPongs</code> <code class="ow">::</code> <code class="p">[</code><code class="kt">ProcessId</code><code class="p">]</code> <code class="ow">-&gt;</code> <code class="kt">Process</code> <code class="nb">()</code>            -- <span id="COA51-5"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/5.png" alt="5"></span>
+<code class="nf">waitForPongs</code> <code class="kt">[]</code> <code class="ow">=</code> <code class="n">return</code> <code class="nb">()</code>
+<code class="nf">waitForPongs</code> <code class="n">ps</code> <code class="ow">=</code> <code class="kr">do</code>
+  <code class="n">m</code> <code class="ow">&lt;-</code> <code class="n">expect</code>
+  <code class="kr">case</code> <code class="n">m</code> <code class="kr">of</code>
+    <code class="kt">Pong</code> <code class="n">p</code> <code class="ow">-&gt;</code> <code class="n">waitForPongs</code> <code class="p">(</code><code class="n">filter</code> <code class="p">(</code><code class="o">/=</code> <code class="n">p</code><code class="p">)</code> <code class="n">ps</code><code class="p">)</code>
+    <code class="kr">_</code>  <code class="ow">-&gt;</code> <code class="n">say</code> <code class="s">"MASTER received ping"</code> <code class="o">&gt;&gt;</code> <code class="n">terminate</code></pre>
+<div class="calloutlist"><table style="border: 0; ">
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#COA51-1"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="this_time_the__id2">This time, the <code class="literal">master</code> process takes an argument of type <code class="literal">[NodeId]</code>, containing a <code class="literal">NodeId</code> for each node in the distributed network.  This list is supplied by the framework when it starts up, after it has discovered the set of peers in the network.  We'll see shortly how to start up the program on multiple nodes.</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#COA51-2"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/2.png" alt="2"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="spawn_a_new_pro">Spawn a new process on each of the peer nodes, and bind the resulting list of <code class="literal">ProcessId</code>s to <code class="literal">ps</code>.</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#COA51-3"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/3.png" alt="3"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="call_waitforpon">Call <code class="literal">waitForPongs</code> (defined below) to receive all the pong messages.  When <code class="literal">waitForPongs</code> returns, the program emits a diagnostic and terminates.</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#COA51-4"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/4.png" alt="4"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="waitforpongs_is"><code class="literal">waitForPongs</code> is a simple algorithm that removes each <code class="literal">ProcessId</code> from the list as its pong message is received and returns when the list is empty.</p></td>
+</tr>
+</table></div>
+<p id="the_main_functi_id2">The <code class="literal">main</code> function is almost the same as before:</p>
+<pre class="programlisting" data-language="haskell" id="main__io__m_id10"><code class="nf">main</code> <code class="ow">::</code> <code class="kt">IO</code> <code class="nb">()</code>
+<code class="nf">main</code> <code class="ow">=</code> <code class="n">distribMain</code> <code class="n">master</code> <code class="kt">Main</code><code class="o">.</code><code class="n">__remoteTable</code></pre>
+<p id="the_only_differ">The only difference is that the <code class="literal">[Node]</code> argument gets passed along
+to <code class="literal">master</code> instead of being discarded here.</p>
+<div class="sect2" id="sec_running-ping-multi">
+<div class="titlepage"><div><div><h3 class="title">Running with Multiple Nodes on One Machine</h3></div></div></div>
+<p id="multinode_prog_id1"><a id="ix_ch14_conc-distrib-txt17" class="indexterm"></a>First, I’ll illustrate starting multiple nodes on the same machine and
+then progress on to multiple machines.</p>
+<p id="a_distributed_p_id2">A distributed program consists of a single<a id="id497103" class="indexterm"></a> master node and one or more<a id="id497109" class="indexterm"></a>
+<span class="emphasis"><em>slave</em></span> nodes.  The master is the node that begins with a process
+running; the slave nodes just wait until processes are spawned on
+them.</p>
+<p id="lets_start_by_">Let’s start by creating two slave nodes:</p>
+<pre class="screen" id="pingmulti__id1">$ ./ping-multi slave 44445 &amp;
+[3] 58837
+$ ./ping-multi slave 44446 &amp;
+[4] 58847</pre>
+<p id="the_pingmulti_">The <code class="literal">ping-multi</code> program takes two command-line arguments; these are
+interpreted by the <code class="literal">distrbMain</code> function and tell it how to
+initialize the framework.  The first argument is either <code class="literal">master</code> or
+<code class="literal">slave</code> and indicates which kind of node to create.  The second
+argument is the TCP port number that this node should use to
+communicate on, with the default being 44444.<a href="#ftn.id497171" class="footnote"><sup class="footnote" id="id497171">[59]</sup></a> Always use different port numbers
+when creating multiple nodes on the same machine.</p>
+<p id="i_used__to_cre">I used <code class="literal">&amp;</code> to create these as background processes in the shell.  If
+you’re on Windows, just open a few Command Prompt windows and run the
+program in each one.</p>
+<p id="having_started_">Having started the slaves, we now start the master node:</p>
+<pre class="screen" id="pingmulti__id2">$ ./ping-multi
+pid://localhost:44444:0:3: spawning on nid://localhost:44445:0
+pid://localhost:44444:0:3: spawning on nid://localhost:44446:0
+pid://localhost:44444:0:3: pinging pid://localhost:44445:0:4
+pid://localhost:44444:0:3: pinging pid://localhost:44446:0:4
+pid://localhost:44446:0:4: ping received from pid://localhost:44444:0:3
+pid://localhost:44445:0:4: ping received from pid://localhost:44444:0:3
+pid://localhost:44444:0:3: All pongs successfully received</pre>
+<p id="the_first_thing_id2">The first thing to note is that the master node automatically found
+the two slave nodes.  The <code class="literal">distributed-process-simplelocalnet</code> package
+includes a <span class="emphasis"><em>peer discovery</em></span> mechanism that is designed to
+automatically locate and connect to other instances running on the
+same machine or other machines on the local network.</p>
+<p id="it_is_also_poss">It is also possible to restart the master without restarting the
+slaves—try invoking <code class="literal">ping-multi</code> again, and you should see the same
+result.  The new <code class="literal">master</code> node discovers and reconnects to the
+existing slaves.<a id="id497260" class="indexterm"></a></p>
+</div>
+<div class="sect2" id="sec_running-ping-multi-machines">
+<div class="titlepage"><div><div><h3 class="title">Running on Multiple Machines</h3></div></div></div>
+<p id="multinode_prog_id2"><a id="id497291" class="indexterm"></a>If we have multiple machines connected on the same network, we can run
+a distributed Haskell program on them.  The first step is to
+distribute the binary to all the machines; every machine must be
+running the same binary.  A mismatch in the binary on different
+machines can cause strange failures, such as errors when decoding
+messages.</p>
+<p id="next_we_start_">Next, we start the slaves as before, but this time we start slaves on
+the remote machines and pass an extra argument:</p>
+<pre class="screen" id="pingmulti__id3">$ ./ping-multi slave 192.168.1.100 44444
+$ ./ping-multi slave 192.168.1.101 44444</pre>
+<p id="the_above_comm">(The above commands are executed on the appropriate machines.)  The
+second argument is new and gives the IP address that identifies the
+slave.  This is the address that the other nodes will use to contact
+it, so it must be an address that resolves to the correct machine.  It
+doesn’t have to be an IP address, but using IP addresses is simpler
+and eliminates a potential source of failure (the DNS).</p>
+<p id="when_the_slaves">When the slaves are running, we can start the master:</p>
+<pre class="screen" id="pingmulti__id4">$ ./ping-multi master 44444
+pid://localhost:44444:0:3: spawning on nid://192.168.1.100:44444:0
+pid://localhost:44444:0:3: spawning on nid://192.168.1.101:44444:0
+pid://localhost:44444:0:3: pinging pid://192.168.1.100:44444:0:5
+pid://localhost:44444:0:3: pinging pid://192.168.1.101:44444:0:5
+pid://192.168.1.100:44444:0:5: ping received from pid://localhost:44444:0:3
+pid://192.168.1.101:44444:0:5: ping received from pid://localhost:44444:0:3
+pid://localhost:44444:0:3: All pongs successfully received</pre>
+<p id="the_program_suc">The program successfully identified the remote nodes, spawned a
+processes on each one, and exchanged ping-pong messages with the
+process on each node.<a id="id497358" class="indexterm"></a><a id="id497369" class="indexterm"></a></p>
+</div>
+</div>
+<div class="sect1" data-original-filename="ch14_conc-distrib.asciidoc" id="sec_distrib-typed-channels">
+<div class="titlepage"><div><div><h2 class="title">Typed Channels</h2></div></div></div>
+<p id="distributed_pro_id7"><a id="ix_ch14_conc-distrib-txt19" class="indexterm"></a><a id="ix_ch14_conc-distrib-txt19a" class="indexterm"></a><a id="ix_ch14_conc-distrib-txt20" class="indexterm"></a>In the examples so far, we saw messages being delivered to a process and the process receiving the messages by using<a id="id497437" class="indexterm"></a> <code class="literal">expect</code>.  This scheme is quite convenient: we need to know only a process’s <code class="literal">ProcessId</code> to
+send it messages, and we can send it messages of any type.  However,
+all the messages for a process go into the same queue, which has a
+couple of disadvantages:</p>
+<div class="itemizedlist" id="each_time_we_ca_id1"><ul class="itemizedlist">
+<li class="listitem">
+Each time we call <code class="literal">expect</code>, the implementation has to search the
+  queue for a message of the right type, which could be slow.
+</li>
+<li class="listitem">
+If we are receiving messages of the same type from multiple senders,
+  then we need to explicitly include some information in the message that
+  lets us tell them apart (e.g., the <code class="literal">ProcessId</code> of the sender).
+</li>
+</ul></div>
+<p id="the_distributed_id2">The <code class="literal">distributed-process</code> framework provides an alternative means of
+message passing based on <span class="emphasis"><em>typed channels</em></span>, which addresses these two
+problems. The interface is as follows:</p>
+<pre class="programlisting" data-language="haskell" id="data_sendport_a"><code class="kr">data</code> <code class="kt">SendPort</code> <code class="n">a</code>     <code class="c1">-- instance of Typeable, Binary</code>
+<code class="kr">data</code> <code class="kt">ReceivePort</code> <code class="n">a</code>
+
+<code class="nf">newChan</code> <code class="ow">::</code> <code class="kt">Serializable</code> <code class="n">a</code> <code class="ow">=&gt;</code> <code class="kt">Process</code> <code class="p">(</code><code class="kt">SendPort</code> <code class="n">a</code><code class="p">,</code> <code class="kt">ReceivePort</code> <code class="n">a</code><code class="p">)</code>
+
+<code class="nf">sendChan</code> <code class="ow">::</code> <code class="kt">Serializable</code> <code class="n">a</code> <code class="ow">=&gt;</code> <code class="kt">SendPort</code> <code class="n">a</code> <code class="ow">-&gt;</code> <code class="n">a</code> <code class="ow">-&gt;</code> <code class="kt">Process</code> <code class="nb">()</code>
+
+<code class="nf">receiveChan</code> <code class="ow">::</code> <code class="kt">Serializable</code> <code class="n">a</code> <code class="ow">=&gt;</code> <code class="kt">ReceivePort</code> <code class="n">a</code> <code class="ow">-&gt;</code> <code class="kt">Process</code> <code class="n">a</code></pre>
+<p id="a_typed_channel">A typed channel consists of two ports, a <a id="id497744" class="indexterm"></a><code class="literal">SendPort</code> and a<a id="id497756" class="indexterm"></a> <code class="literal">ReceivePort</code>.  Messages are sent to the <code class="literal">SendPort</code> by<a id="id497775" class="indexterm"></a> <code class="literal">sendChannel</code> and received from the <code class="literal">ReceivePort</code> using<a id="id497794" class="indexterm"></a> <code class="literal">receiveChannel</code>.  As the name suggests, a typed channel can carry messages only of a particular
+type.</p>
+<p id="typed_channels_">Typed channels imply a different pattern of interaction.  For example,
+suppose we were making a request to another process and expecting a
+response.  Using typed channels, we could program this as follows:</p>
+<div class="itemizedlist" id="the_client_crea_id1"><ul class="itemizedlist">
+<li class="listitem">
+The client creates a new channel for an interaction.
+</li>
+<li class="listitem">
+The client sends the request, along with the <code class="literal">SendPort</code>.
+</li>
+<li class="listitem">
+The server responds on the <code class="literal">SendPort</code> it was sent.
+</li>
+</ul></div>
+<p id="in_general_the">In general, the server might make its own channel and send that to the
+client, and the subsequent interaction would happen over these two
+channels.</p>
+<p id="the_advantage_o">The advantage of creating a channel to carry the response is that the
+client knows that a message arriving on this channel can only be a
+response to the original request, and it is not possible to mix up
+this response with other responses.  The channel serves as a link
+between the original request and the response; we know that it is a
+response to <span class="emphasis"><em>this</em></span> particular request, because it arrived on the right
+channel.</p>
+<p id="in_the_absence_">In the absence of typed channels, ensuring that the response can be
+uniquely identified would involve creating a new identifier to send
+along with the original message.<a href="#ftn.id497883" class="footnote"><sup class="footnote" id="id497883">[60]</sup></a></p>
+<p id="lets_look_at_h">Let’s look at how to modify the ping example to use typed channels:</p>
+<p id="distribpingpi_id3" class="caption"><span class="emphasis"><em>distrib-ping/ping-tc.hs</em></span>
+</p>
+<pre class="programlisting" data-language="haskell" id="data_message___id3"><code class="kr">data</code> <code class="kt">Message</code> <code class="ow">=</code> <code class="kt">Ping</code> <code class="p">(</code><code class="kt">SendPort</code> <code class="kt">ProcessId</code><code class="p">)</code>
+  <code class="kr">deriving</code> <code class="p">(</code><code class="kt">Typeable</code><code class="p">,</code> <code class="kt">Generic</code><code class="p">)</code>
+
+<code class="kr">instance</code> <code class="kt">Binary</code> <code class="kt">Message</code></pre>
+<p id="note_that_we_do">Note that we don’t need a <code class="literal">Pong</code> message anymore.  Instead, the <code class="literal">Ping</code>
+message will contain a <code class="literal">SendPort</code> on which to send the reply, and the
+reply is just the <code class="literal">ProcessId</code> of the sender.  In fact, in this example
+we don’t really need to send any content back at all—just sending
+<code class="literal">()</code> would be enough—but for the purposes of illustration we will
+send back the <code class="literal">ProcessId</code>.</p>
+<pre class="programlisting" data-language="haskell" id="pingserver__p_id2"><code class="nf">pingServer</code> <code class="ow">::</code> <code class="kt">Process</code> <code class="nb">()</code>
+<code class="nf">pingServer</code> <code class="ow">=</code> <code class="kr">do</code>
+  <code class="kt">Ping</code> <code class="n">chan</code> <code class="ow">&lt;-</code> <code class="n">expect</code>
+  <code class="n">say</code> <code class="o">$</code> <code class="n">printf</code> <code class="s">"ping received from %s"</code> <code class="p">(</code><code class="n">show</code> <code class="n">chan</code><code class="p">)</code>
+  <code class="n">mypid</code> <code class="ow">&lt;-</code> <code class="n">getSelfPid</code>
+  <code class="n">sendChan</code> <code class="n">chan</code> <code class="n">mypid</code></pre>
+<pre class="screen" id="master__node_id2"><code class="nf">master</code> <code class="ow">::</code> <code class="p">[</code><code class="kt">NodeId</code><code class="p">]</code> <code class="ow">-&gt;</code> <code class="kt">Process</code> <code class="nb">()</code>
+<code class="nf">master</code> <code class="n">peers</code> <code class="ow">=</code> <code class="kr">do</code>
+
+  <code class="n">ps</code> <code class="ow">&lt;-</code> <code class="n">forM</code> <code class="n">peers</code> <code class="o">$</code> <code class="nf">\</code><code class="n">nid</code> <code class="ow">-&gt;</code> <code class="kr">do</code>
+          <code class="n">say</code> <code class="o">$</code> <code class="n">printf</code> <code class="s">"spawning on %s"</code> <code class="p">(</code><code class="n">show</code> <code class="n">nid</code><code class="p">)</code>
+          <code class="n">spawn</code> <code class="n">nid</code> <code class="o">$</code><code class="p">(</code><code class="n">mkStaticClosure</code> <code class="n">'pingServer</code><code class="p">)</code>
+
+  <code class="n">mapM_ monitor ps</code>
+
+  <code class="n">ports</code> <code class="ow">&lt;-</code> <code class="n">forM</code> <code class="n">ps</code> <code class="o">$</code> <code class="nf">\</code><code class="n">pid</code> <code class="ow">-&gt;</code> <code class="kr">do</code>
+
+    <code class="n">say</code> <code class="o">$</code> <code class="n">printf</code> <code class="s">"pinging %s"</code> <code class="p">(</code><code class="n">show</code> <code class="n">pid</code><code class="p">)</code>
+    <code class="p">(</code><code class="n">sendport</code><code class="p">,</code><code class="n">recvport</code><code class="p">)</code> <code class="ow">&lt;-</code> <code class="n">newChan</code>      --⁠<span id="COB52-1"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1"></span>
+    <code class="n">send</code> <code class="n">pid</code> <code class="p">(</code><code class="kt">Ping</code> <code class="n">sendport</code><code class="p">)</code>            --⁠<span id="COB52-2"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/2.png" alt="2"></span>
+    <code class="n">return</code> <code class="n">recvport</code>
+
+  <code class="n">forM_</code> <code class="n">ports</code> <code class="o">$</code> <code class="nf">\</code><code class="n">port</code> <code class="ow">-&gt;</code> <code class="kr">do</code>             --⁠<span id="COB52-3"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/3.png" alt="3"></span>
+     <code class="kr">_</code> <code class="ow">&lt;-</code> <code class="n">receiveChan</code> <code class="n">port</code>
+     <code class="n">return</code> <code class="nb">()</code>
+
+  <code class="n">say</code> <code class="s">"All pongs successfully received"</code>
+  <code class="n">terminate</code></pre>
+<div class="calloutlist"><table style="border: 0; ">
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#COB52-1"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="create_a_new_ch">Create a new channel to carry the response.</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#COB52-2"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/2.png" alt="2"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="send_the_ping_m_id2">Send the ping message, including the <code class="literal">SendPort</code> of the channel.</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#COB52-3"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/3.png" alt="3"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="where_previousl_id2">Where previously we needed a function <code class="literal">waitForPongs</code> to collect all the responses and match them up with the peers, this time we can just wait for a response on each of the channels we created.</p></td>
+</tr>
+</table></div>
+<p id="this_code_is_si">This code is simpler than the previous version in
+<a class="xref" href="ch14.html#sec_ping-multi-node" title="Multi-Node Ping">“Multi-Node Ping”</a>.  However, note that we still sent the <code class="literal">Ping</code>
+messages directly to the process, rather than using a typed
+channel. If we wanted to use a typed channel here too, things get more
+complicated.  We want to do something like this (considering just a
+single worker for simplicity):</p>
+<pre class="programlisting" data-language="haskell" id="do_sr__n">  <code class="kr">do</code>
+    <code class="p">(</code><code class="n">s1</code><code class="p">,</code><code class="n">r1</code><code class="p">)</code> <code class="ow">&lt;-</code> <code class="n">newChan</code>
+    <code class="n">spawn</code> <code class="n">nid</code> <code class="p">(</code><code class="o">$</code><code class="p">(</code><code class="n">mkClosure</code> <code class="p">`</code><code class="n">pingServer</code><code class="p">)</code> <code class="n">r1</code><code class="p">)</code>
+
+    <code class="p">(</code><code class="n">s2</code><code class="p">,</code><code class="n">r2</code><code class="p">)</code> <code class="ow">&lt;-</code> <code class="n">newChan</code>
+    <code class="n">sendChan</code> <code class="n">s1</code> <code class="p">(</code><code class="kt">Ping</code> <code class="n">s2</code><code class="p">)</code>
+
+    <code class="n">receiveChan</code> <code class="n">r2</code></pre>
+<p id="this_seems_quit">This seems quite natural: we create a channel with send port <code class="literal">s1</code> and
+receive port <code class="literal">r1</code> on which to send the
+<code class="literal">Ping</code> message. Then we give the receive port of the channel to the
+<code class="literal">pingServer</code> process when we spawn it.  The code shows how to use <code class="literal">spawn</code>
+to apply a function (here <code class="literal">pingServer</code>) to an argument (here
+<code class="literal">r1</code>): use <code class="literal">mkClosure</code> instead of <code class="literal">mkStaticClosure</code>, and then pass the
+argument to it (we’ll come back to this later; the details aren’t
+important right now).</p>
+<p id="but_theres_a_b">But there’s a big problem here. <code class="literal">ReceivePorts</code> are not<a id="id498977" class="indexterm"></a><a id="id498982" class="indexterm"></a> <code class="literal">Serializable</code>,
+which prevents us passing the <code class="literal">ReceivePort</code> <code class="literal">r1</code> to the spawned
+process.  GHC will reject the program with a type error.</p>
+<p id="why_are_receive">Why are <code class="literal">ReceivePorts</code> not <code class="literal">Serializable</code>?  If you think about it a
+bit, this makes a lot of sense.  If a process were allowed to send a
+<code class="literal">ReceivePort</code> somewhere else, the implementation would have to
+deal with two things: routing messages to the correct destination when
+a <code class="literal">ReceivePort</code> has been forwarded (possibly multiple times), and
+routing messages to <span class="emphasis"><em>multiple</em></span> destinations, because sending a
+<code class="literal">ReceivePort</code> would create a new copy.  This would introduce a vast
+amount of complexity to the implementation, and it is not at all clear
+that it is a good feature to allow.  So the <code class="literal">remote</code> framework
+explicitly disallows it, which fortunately can be done using Haskell’s
+type system.</p>
+<p id="this_means_that_id2">This means that we have to jump through an extra hoop to fix the
+previous code, though.  Instead of passing the <code class="literal">ReceivePort</code> to the
+spawned process, the spawned process must create the channel and send
+us back the <code class="literal">SendPort</code>.  This means we need <span class="emphasis"><em>another</em></span> channel so
+that the spawned process can send us back its <code class="literal">SendPort</code>.</p>
+<pre class="programlisting" data-language="haskell" id="do_sr__new">  <code class="kr">do</code>
+    <code class="p">(</code><code class="n">s</code><code class="p">,</code><code class="n">r</code><code class="p">)</code> <code class="ow">&lt;-</code> <code class="n">newChan</code>  <code class="c1">-- throw-away channel</code>
+    <code class="n">spawn</code> <code class="n">nid</code> <code class="p">(</code><code class="o">$</code><code class="p">(</code><code class="n">mkClosure</code> <code class="p">`</code><code class="n">pingServer</code><code class="p">)</code> <code class="n">s</code><code class="p">)</code>
+    <code class="n">ping</code> <code class="ow">&lt;-</code> <code class="n">receiveChan</code> <code class="n">r</code>
+
+    <code class="p">(</code><code class="n">sendpong</code><code class="p">,</code><code class="n">recvpong</code><code class="p">)</code> <code class="ow">&lt;-</code> <code class="n">newChan</code>
+    <code class="n">sendChan</code> <code class="n">ping</code> <code class="p">(</code><code class="kt">Ping</code> <code class="n">sendpong</code><code class="p">)</code>
+
+    <code class="n">receiveChan</code> <code class="n">recvpong</code></pre>
+<p id="since_this_extr">Since this extra handshake is a bit of a hassle, you might well prefer
+to send messages directly to the spawned process using <code class="literal">send</code> rather
+than using typed channels, which is exactly what the example code at the
+beginning of this section did.</p>
+<div class="sect2" id="sec_distrib-typed-channels-merging">
+<div class="titlepage"><div><div><h3 class="title">Merging Channels</h3></div></div></div>
+<p id="mergingtyped_ch"><a id="ix_ch14_conc-distrib-txt21" class="indexterm"></a><a id="ix_ch14_conc-distrib-txt22" class="indexterm"></a>In the previous section, we waited for a response from each child process
+in turn, whereas the old <code class="literal">waitForPongs</code> version processed the messages
+in the order they arrived.  In this case it isn’t a problem, but
+suppose some of these messages required a response.  Then we might
+have introduced some extra latency: if a process toward the end of
+the list replies early, it won’t get a response until the
+master process has dealt with the messages from the other processes
+earlier in the list, some of which might take a while to reply.</p>
+<p id="so_we_need_a_wa_id2">So we need a way to wait for messages from multiple channels
+simultaneously.  The <code class="literal">distributed-process</code> framework has an elegant
+way to do this. Channels can be merged together to make a single
+channel that receives messages from any of the original channels.
+There are two ways to do this:</p>
+<pre class="programlisting" data-language="haskell" id="mergeportsbiase"><code class="nf">mergePortsBiased</code> <code class="ow">::</code> <code class="kt">Serializable</code> <code class="n">a</code> <code class="ow">=&gt;</code> <code class="p">[</code><code class="kt">ReceivePort</code> <code class="n">a</code><code class="p">]</code> <code class="ow">-&gt;</code> <code class="kt">Process</code> <code class="p">(</code><code class="kt">ReceivePort</code> <code class="n">a</code><code class="p">)</code>
+<code class="nf">mergePortsRR</code>     <code class="ow">::</code> <code class="kt">Serializable</code> <code class="n">a</code> <code class="ow">=&gt;</code> <code class="p">[</code><code class="kt">ReceivePort</code> <code class="n">a</code><code class="p">]</code> <code class="ow">-&gt;</code> <code class="kt">Process</code> <code class="p">(</code><code class="kt">ReceivePort</code> <code class="n">a</code><code class="p">)</code></pre>
+<p id="the_difference_">The difference is in the order in which messages arrive on the merged
+channel.  In<a id="id499539" class="indexterm"></a> <code class="literal">mergePortsBiased</code>, each receive searches the
+ports in left-to-right order for a message, returning the first
+message it finds.  The alternative is<a id="id499553" class="indexterm"></a> <code class="literal">mergePortsRR</code> (the RR stands
+for "round robin") which also searches left to right, but rotates the list by one element after each receive, with the leftmost port moving to the end of the list.</p>
+<p id="one_important_t">One important thing to note is that merging channels does not affect the original channel; we can still receive messages from either source, and indeed there is no problem with merging multiple overlapping sets of channels.<a href="#ftn.id499575" class="footnote"><sup class="footnote" id="id499575">[61]</sup></a></p>
+<p id="here_is_the_pin">Here is the ping example with channels, where instead of waiting for
+the responses one by one, we merge the channels together and wait for
+all the responses simultaneously.</p>
+<p id="distribpingpi_id4" class="caption"><span class="emphasis"><em>distrib-ping/ping-tc-merge.hs</em></span>
+</p>
+<pre class="screen" id="master__node_id3"><code class="nf">master</code> <code class="ow">::</code> <code class="p">[</code><code class="kt">NodeId</code><code class="p">]</code> <code class="ow">-&gt;</code> <code class="kt">Process</code> <code class="nb">()</code>
+<code class="nf">master</code> <code class="n">peers</code> <code class="ow">=</code> <code class="kr">do</code>
+
+  <code class="n">ps</code> <code class="ow">&lt;-</code> <code class="n">forM</code> <code class="n">peers</code> <code class="o">$</code> <code class="nf">\</code><code class="n">nid</code> <code class="ow">-&gt;</code> <code class="kr">do</code>
+          <code class="n">say</code> <code class="o">$</code> <code class="n">printf</code> <code class="s">"spawning on %s"</code> <code class="p">(</code><code class="n">show</code> <code class="n">nid</code><code class="p">)</code>
+          <code class="n">spawn</code> <code class="n">nid</code> <code class="o">$</code><code class="p">(</code><code class="n">mkStaticClosure</code> <code class="n">'pingServer</code><code class="p">)</code>
+
+  <code class="n">ports</code> <code class="ow">&lt;-</code> <code class="n">forM</code> <code class="n">ps</code> <code class="o">$</code> <code class="nf">\</code><code class="n">pid</code> <code class="ow">-&gt;</code> <code class="kr">do</code>
+    <code class="n">say</code> <code class="o">$</code> <code class="n">printf</code> <code class="s">"pinging %s"</code> <code class="p">(</code><code class="n">show</code> <code class="n">pid</code><code class="p">)</code>
+    <code class="p">(</code><code class="n">sendport</code><code class="p">,</code><code class="n">recvport</code><code class="p">)</code> <code class="ow">&lt;-</code> <code class="n">newChan</code>
+    <code class="n">send</code> <code class="n">pid</code> <code class="p">(</code><code class="kt">Ping</code> <code class="n">sendport</code><code class="p">)</code>
+    <code class="n">return</code> <code class="n">recvport</code>
+
+  <code class="n">oneport</code> <code class="ow">&lt;-</code> <code class="n">mergePortsBiased</code> <code class="n">ports</code>     -- <span id="COC51-1"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1"></span>
+  <code class="n">waitForPongs</code> <code class="n">oneport</code> <code class="n">ps</code>               -- <span id="COC51-2"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/2.png" alt="2"></span>
+
+  <code class="n">say</code> <code class="s">"All pongs successfully received"</code>
+  <code class="n">terminate</code>
+
+<code class="nf">waitForPongs</code> <code class="ow">::</code> <code class="kt">ReceivePort</code> <code class="kt">ProcessId</code> <code class="ow">-&gt;</code> <code class="p">[</code><code class="kt">ProcessId</code><code class="p">]</code> <code class="ow">-&gt;</code> <code class="kt">Process</code> <code class="nb">()</code>
+<code class="nf">waitForPongs</code> <code class="kr">_</code> <code class="kt">[]</code> <code class="ow">=</code> <code class="n">return</code> <code class="nb">()</code>
+<code class="nf">waitForPongs</code> <code class="n">port</code> <code class="n">ps</code> <code class="ow">=</code> <code class="kr">do</code>
+  <code class="n">pid</code> <code class="ow">&lt;-</code> <code class="n">receiveChan</code> <code class="n">port</code>
+  <code class="n">waitForPongs</code> <code class="n">port</code> <code class="p">(</code><code class="n">filter</code> <code class="p">(</code><code class="o">/=</code> <code class="n">pid</code><code class="p">)</code> <code class="n">ps</code><code class="p">)</code></pre>
+<div class="calloutlist"><table style="border: 0; ">
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#COC51-1"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="merge_the_recei">Merge the <code class="literal">ReceivePort</code>s together into a single <code class="literal">ReceivePort</code>.</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#COC51-2"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/2.png" alt="2"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="now_we_need_a_l">Now we need a loop to wait for the responses, which is written as a separate function <code class="literal">waitForPongs</code>.  Each message received from the channel removes the corresponding <code class="literal">ProcessId</code> from the list until all the spawned processes have responded.<a id="id500259" class="indexterm"></a><a id="id500269" class="indexterm"></a><a id="id500279" class="indexterm"></a><a id="id500290" class="indexterm"></a><a id="id500300" class="indexterm"></a></p></td>
+</tr>
+</table></div>
+</div>
+</div>
+<div class="sect1" data-original-filename="ch14_conc-distrib.asciidoc" id="sec_distrib-failure">
+<div class="titlepage"><div><div><h2 class="title">Handling Failure</h2></div></div></div>
+<p id="distributed_pro_id8"><a id="ix_ch14_conc-distrib-txt23" class="indexterm"></a>One of the important benefits provided by the <code class="literal">distributed-process</code> framework is handling and recovering
+from failure.  Failure is a fact of life in distributed computing, and we should be prepared for the possibility that any of our processes might fail at any time, whether due to network outage, a hardware crash, or software faults.</p>
+<p id="here_is_a_basic">Here is a basic example showing how the failure of one process can be
+caught and acted upon by another process.  In the original ping
+example from <a class="xref" href="ch14.html#sec_distrib-ping-messages" title="Defining a Message Type">“Defining a Message Type”</a>, recall that the <code class="literal">Message</code>
+type has two constructors:</p>
+<pre class="programlisting" data-language="haskell" id="data_message___id4"><code class="kr">data</code> <code class="kt">Message</code> <code class="ow">=</code> <code class="kt">Ping</code> <code class="kt">ProcessId</code>
+             <code class="o">|</code> <code class="kt">Pong</code> <code class="kt">ProcessId</code></pre>
+<p id="and_the_code_fo">and the code for <code class="literal">pingServer</code> matches explicitly on the
+<code class="literal">Ping</code> constructor:</p>
+<p id="distribpingpi_id5" class="caption"><span class="emphasis"><em>distrib-ping/ping-fail.hs</em></span>
+</p>
+<pre class="programlisting" data-language="haskell" id="pingserver__p_id3"><code class="nf">pingServer</code> <code class="ow">::</code> <code class="kt">Process</code> <code class="nb">()</code>
+<code class="nf">pingServer</code> <code class="ow">=</code> <code class="kr">do</code>
+  <code class="kt">Ping</code> <code class="n">from</code> <code class="ow">&lt;-</code> <code class="n">expect</code>
+  <code class="n">say</code> <code class="o">$</code> <code class="n">printf</code> <code class="s">"ping received from %s"</code> <code class="p">(</code><code class="n">show</code> <code class="n">from</code><code class="p">)</code>
+  <code class="n">mypid</code> <code class="ow">&lt;-</code> <code class="n">getSelfPid</code>
+  <code class="n">send</code> <code class="n">from</code> <code class="p">(</code><code class="kt">Pong</code> <code class="n">mypid</code><code class="p">)</code></pre>
+<p id="what_will_happe">What will happen if the message is a <code class="literal">Pong</code>, rather than a
+<code class="literal">Ping</code>?  Both messages have the type <code class="literal">Message</code>, so <code class="literal">expect</code> cannot
+distinguish them; if the context requires a message of type <code class="literal">Message</code>, <code class="literal">expect</code>
+can return either a <code class="literal">Ping</code> or a <code class="literal">Pong</code>.  Clearly, if
+<code class="literal">expect</code> returns a <code class="literal">Pong</code> here, then the pattern match against <code class="literal">Ping</code> will fail,
+and as usual in Haskell this throws an
+exception.  Since there are no exception handlers, the
+exception will result in the termination of the <code class="literal">pingServer</code> process.</p>
+<p id="there_are_ways_">There are ways to prevent the error, of course, but for now let’s see
+how we can catch this failure from another process. We’ll use<a id="id500699" class="indexterm"></a><a id="id500707" class="indexterm"></a>
+<code class="literal">withMonitor</code>, which has the following signature:</p>
+<pre class="programlisting" data-language="haskell" id="withmonitor__"><code class="nf">withMonitor</code> <code class="ow">::</code> <code class="kt">ProcessId</code> <code class="ow">-&gt;</code> <code class="kt">Process</code> <code class="n">a</code> <code class="ow">-&gt;</code> <code class="kt">Process</code> <code class="n">a</code></pre>
+<p id="withmonitor_tak"><code class="literal">withMonitor</code> takes a <code class="literal">ProcessId</code> to monitor and an action to perform.  During the <span class="keep-together">action, if</span> the specified process fails in any way, a special message of type <code class="literal">ProcessMonitorNotification</code> is sent to the current process.</p>
+<p id="to_wait_for_eit">To wait for either the<a id="id500813" class="indexterm"></a> <code class="literal">ProcessMonitorNotification</code> message or a <code class="literal">Pong</code>, we need to know how to wait for different types of message at the same time. The basic pattern for this is as follows:</p>
+<pre class="programlisting" data-language="haskell" id="receivewait__m">  <code class="n">receiveWait</code>
+    <code class="p">[</code> <code class="n">match</code> <code class="o">$</code> <code class="nf">\</code><code class="n">p</code> <code class="ow">-&gt;</code> <code class="kr">do</code> <code class="o">...</code>
+    <code class="p">,</code> <code class="n">match</code> <code class="o">$</code> <code class="nf">\</code><code class="n">q</code> <code class="ow">-&gt;</code> <code class="kr">do</code> <code class="o">...</code>
+    <code class="p">]</code></pre>
+<p id="where_p_and_q_a">where <code class="literal">p</code> and <code class="literal">q</code> are patterns that match different types of
+message.  The types of these functions are shown here:</p>
+<pre class="programlisting" data-language="haskell" id="receivewait__"><code class="nf">receiveWait</code>    <code class="ow">::</code>        <code class="p">[</code><code class="kt">Match</code> <code class="n">b</code><code class="p">]</code> <code class="ow">-&gt;</code> <code class="kt">Process</code> <code class="n">b</code>
+<code class="nf">receiveTimeout</code> <code class="ow">::</code> <code class="kt">Int</code> <code class="ow">-&gt;</code> <code class="p">[</code><code class="kt">Match</code> <code class="n">b</code><code class="p">]</code> <code class="ow">-&gt;</code> <code class="kt">Process</code> <code class="p">(</code><code class="kt">Maybe</code> <code class="n">b</code><code class="p">)</code>
+
+<code class="nf">match</code>   <code class="ow">::</code> <code class="kt">Serializable</code> <code class="n">a</code> <code class="ow">=&gt;</code>                <code class="p">(</code><code class="n">a</code> <code class="ow">-&gt;</code> <code class="kt">Process</code> <code class="n">b</code><code class="p">)</code> <code class="ow">-&gt;</code> <code class="kt">Match</code> <code class="n">b</code>
+<code class="nf">matchIf</code> <code class="ow">::</code> <code class="kt">Serializable</code> <code class="n">a</code> <code class="ow">=&gt;</code> <code class="p">(</code><code class="n">a</code> <code class="ow">-&gt;</code> <code class="kt">Bool</code><code class="p">)</code> <code class="ow">-&gt;</code> <code class="p">(</code><code class="n">a</code> <code class="ow">-&gt;</code> <code class="kt">Process</code> <code class="n">b</code><code class="p">)</code> <code class="ow">-&gt;</code> <code class="kt">Match</code> <code class="n">b</code></pre>
+<p id="the_function_re">The function <code class="literal">receiveWait</code> waits until any of the <code class="literal">match</code> functions
+applies to a message in the queue, and then executes the associated
+action.  The <code class="literal">receiveTimeout</code> operation is similar, but instead of
+waiting indefinitely for a matching message, it takes a time in
+milliseconds and returns <code class="literal">Nothing</code> if a matching message did not
+arrive before the time.</p>
+<p id="here_is_how_we_">Here is how we monitor the <code class="literal">pingServer</code> process and then wait for
+either a <code class="literal">Pong</code> message or a <code class="literal">ProcessMonitorNotification</code>:</p>
+<p id="distribpingpi_id6" class="caption"><span class="emphasis"><em>distrib-ping/ping-fail.hs</em></span>
+</p>
+<pre class="programlisting" data-language="haskell" id="withmonitor_pid">  <code class="n">withMonitor</code> <code class="n">pid</code> <code class="o">$</code> <code class="kr">do</code>
+    <code class="n">send</code> <code class="n">pid</code> <code class="p">(</code><code class="kt">Pong</code> <code class="n">mypid</code><code class="p">)</code>               <code class="c1">-- </code><span id="withMonitor-1"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1"></span>
+    <code class="n">receiveWait</code>
+      <code class="p">[</code> <code class="n">match</code> <code class="o">$</code> <code class="nf">\</code><code class="p">(</code><code class="kt">Pong</code> <code class="kr">_</code><code class="p">)</code> <code class="ow">-&gt;</code> <code class="kr">do</code>
+         <code class="n">say</code> <code class="s">"pong."</code>
+         <code class="n">terminate</code>
+      <code class="p">,</code> <code class="n">match</code> <code class="o">$</code> <code class="nf">\</code><code class="p">(</code><code class="kt">ProcessMonitorNotification</code> <code class="n">_ref</code> <code class="n">deadpid</code> <code class="n">reason</code><code class="p">)</code> <code class="ow">-&gt;</code> <code class="kr">do</code>
+         <code class="n">say</code> <code class="p">(</code><code class="n">printf</code> <code class="s">"process %s died: %s"</code> <code class="p">(</code><code class="n">show</code> <code class="n">deadpid</code><code class="p">)</code> <code class="p">(</code><code class="n">show</code> <code class="n">reason</code><code class="p">))</code>
+         <code class="n">terminate</code>
+      <code class="p">]</code>
+</pre>
+<p id="note_that_we_de">Note that we deliberately send the child a <code class="literal">Pong</code> message (<a class="xref" href="ch14.html#withMonitor-1"><span><img src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1" border="0"></span></a>) to cause it to fail.  Running the program
+results in this:</p>
+<pre class="screen" id="pidlocalhost">pid://localhost:44444:0:3: spawning on nid://localhost:44444:0
+pid://localhost:44444:0:3: sending ping to pid://localhost:44444:0:4
+pid://localhost:44444:0:3: process pid://localhost:44444:0:4 died:
+  DiedException "user error (Pattern match failure in do expression at
+    distrib-ping/ping-fail.hs:24:3-11)"</pre>
+<p id="the_third_log_m">The third log message indicates that the master received the
+notification of the failed process, and gives the details of the
+failure: a pattern-match error, as we expected.</p>
+<p id="it_is_worth_ask">It is worth asking whether having a single <code class="literal">Message</code> data type for our
+messages was a good idea in the first place.  Perhaps we should have
+made separate types, as in:</p>
+<pre class="programlisting" data-language="haskell" id="newtype_pong__"><code class="kr">newtype</code> <code class="kt">Pong</code> <code class="ow">=</code> <code class="kt">Pong</code> <code class="kt">ProcessId</code>
+<code class="kr">newtype</code> <code class="kt">Ping</code> <code class="ow">=</code> <code class="kt">Ping</code> <code class="kt">ProcessId</code></pre>
+<p id="channelstyped_c"><a id="id501720" class="indexterm"></a><a id="id501728" class="indexterm"></a>The choice comes down to whether we are using typed channels or not.
+With typed channels, we could use only a single message type, whereas
+using the per-process dynamically typed channel with <code class="literal">send</code> and
+<code class="literal">expect</code> or <code class="literal">receiveWait</code>, we could use multiple message types.  Having
+one type for each message would avoid the possibility of a pattern-match
+failure when matching on a message, but unless we also have a
+catch-all case to match unrecognized messages, the other messages
+could be left in the queue forever, which could amount to an
+undetected error or deadlock.  So there might well be cases where we
+<span class="emphasis"><em>want</em></span> to match both messages because one is definitely an
+error, and so using a single message type would help ensure that we
+always match on all the possible messages.</p>
+<p id="the_more_approp">The more appropriate choice depends on the particular
+circumstances in your <span class="keep-together">application</span>.</p>
+<p id="a_summary_of_th">A summary of the API for process monitoring follows:</p>
+<pre class="programlisting" data-language="haskell" id="monitor__proc"><code class="nf">monitor</code>     <code class="ow">::</code> <code class="kt">ProcessId</code> <code class="ow">-&gt;</code> <code class="kt">Process</code> <code class="kt">MonitorRef</code>
+<code class="nf">unmonitor</code>   <code class="ow">::</code> <code class="kt">MonitorRef</code> <code class="ow">-&gt;</code> <code class="kt">Process</code> <code class="nb">()</code>
+<code class="nf">withMonitor</code> <code class="ow">::</code> <code class="kt">ProcessId</code> <code class="ow">-&gt;</code> <code class="kt">Process</code> <code class="n">a</code> <code class="ow">-&gt;</code> <code class="kt">Process</code> <code class="n">a</code>
+
+<code class="kr">data</code> <code class="kt">ProcessMonitorNotification</code>
+  <code class="ow">=</code> <code class="kt">ProcessMonitorNotification</code> <code class="kt">MonitorRef</code> <code class="kt">ProcessId</code> <code class="kt">DiedReason</code>
+
+<code class="kr">data</code> <code class="kt">MonitorRef</code> <code class="c1">-- abstract</code>
+
+<code class="kr">data</code> <code class="kt">DiedReason</code>
+  <code class="ow">=</code> <code class="kt">DiedNormal</code>             <code class="c1">-- Normal termination</code>
+  <code class="o">|</code> <code class="kt">DiedException</code> <code class="o">!</code><code class="kt">String</code>  <code class="c1">-- The process exited with an exception</code>
+  <code class="o">|</code> <code class="kt">DiedDisconnect</code>         <code class="c1">-- We got disconnected from the process node</code>
+  <code class="o">|</code> <code class="kt">DiedNodeDown</code>           <code class="c1">-- The process node died</code>
+  <code class="o">|</code> <code class="kt">DiedUnknownId</code>          <code class="c1">-- Invalid (process/node/channel) identifier</code></pre>
+<p id="in_addition_to_">In addition to the <code class="literal">withMonitor</code> function mentioned earlier, a process
+can also be monitored by calling the<a id="id502076" class="indexterm"></a><a id="id502084" class="indexterm"></a> <code class="literal">monitor</code> function.  This
+function returns a token of type <code class="literal">MonitorRef</code>, which can be passed to
+<code class="literal">unmonitor</code> to stop monitoring the process again.  In general, it is
+better to use <code class="literal">withMonitor</code> than the <code class="literal">monitor</code> and <code class="literal">unmonitor</code> pair if
+possible, because <code class="literal">withMonitor</code> will automatically stop monitoring the
+remote process in the event of an exception.  However, sometimes
+<code class="literal">withMonitor</code> doesn’t fit the control flow, which is when <code class="literal">monitor</code> and
+<code class="literal">unmonitor</code> are useful.</p>
+<div class="sect2" id="sec_distrib-let-it-crash">
+<div class="titlepage"><div><div><h3 class="title">The Philosophy of Distributed Failure</h3></div></div></div>
+<p id="in_a_distribute_id2">In a distributed system, parts of the running program may fail at any
+time due to circumstances beyond our control. Such a failure typically
+results in one or more of the processes in our network becoming disconnected
+without warning; there is no exception and no opportunity to clean up
+whatever it was doing.  Perhaps the hardware it was running on failed, or the network on which we were communicating with it stopped working.</p>
+<p id="a_farreaching_">A far-reaching approach for such failures can be seen in<a id="id502178" class="indexterm"></a>
+Erlang, a programming language with distributed programming at its
+heart. The only mechanism for communication is message passing, so
+every concurrent Erlang program is fundamentally distributable.  The
+Erlang designers promote a particular philosophy for dealing with
+failure, often known by its <a id="id502187" class="indexterm"></a>catchphrase: "Let it crash."  The basic
+principle is that since in a distributed system we must already be
+prepared for a process to simply disappear, we might as well deal with
+<span class="emphasis"><em>all</em></span> kinds of failure in this way because doing so makes failure
+handling much simpler. And since failure handling is difficult to
+test, making it simpler is highly desirable.</p>
+<p id="concretely_ins">Concretely, instead of trying to enumerate local
+failure conditions and handle them in some way, we can just let
+them propagate to the top of the process and let the process die.  The
+distributed program must be prepared for this eventuality already
+(since this is a distributed system), so the system will recover in
+some way: perhaps by restarting the failed process in some known-good
+state and logging the failure somewhere.</p>
+<p id="thus_the_granul">Thus the granularity at which we have to consider failure is the
+process, and we can design our applications such that individual
+processes can fail without catastrophic consequences.  A process will
+probably have some <span class="emphasis"><em>internal</em></span> state that is lost when it dies, but the
+parent should know how to construct the initial state to restart the
+process or to propagate the failure to a higher layer that
+can.<a id="id502223" class="indexterm"></a></p>
+</div>
+</div>
+<div class="sect1" data-original-filename="ch14_conc-distrib.asciidoc" id="sec_conc-distrib-chat">
+<div class="titlepage"><div><div><h2 class="title">A Distributed Chat Server</h2></div></div></div>
+<p id="distributed_pro_id9"><a id="ix_ch14_conc-distrib-txt24" class="indexterm"></a><a id="ix_ch14_conc-distrib-txt25" class="indexterm"></a>In <a class="xref" href="ch12.html#sec_chat" title="A Chat Server">“A Chat Server”</a>, we built a multithreaded chat server using Concurrent
+Haskell and STM.  In this section, we will extend the chat server to be
+distributed. The server will be running across multiple machines,
+clients may connect to any of the machines, and any client will be able
+to chat with any other client connected via any of the servers.
+Essentially, the distributed chat server will behave just like the
+single-threaded server (minus some subtle differences that we will
+discuss shortly), except that clients have a choice of machines to
+connect to.</p>
+<p id="a_distributed_c">A distributed chat network saves <a id="id502390" class="indexterm"></a>bandwidth.  For example, suppose we set up a chat network with two servers A and B on each side of the
+Atlantic Ocean.  Each server has a large number of clients connected,
+with each client connecting to its closest server.  When a client
+on server A broadcasts a message, it needs to be sent across
+the trans-Atlantic link to server B only once, and server B then
+forwards it to each of its connected clients.  The broadcast message
+crosses the Atlantic only once, instead of once for each of the
+clients on the other side.</p>
+<p id="we_have_already">We have already written all the code for the multithreaded server, so
+it seems a shame to throw it away and rewrite it all to use
+<code class="literal">distributed-process</code> instead.  Fortunately, we don’t have to do that. We can simply add some extra code to handle distribution, using the original server code nearly intact.  Each client will still be managed
+by ordinary IO threads synchronized using STM, but additionally we
+will have some code communicating with the other servers using
+<code class="literal">distributed-process</code>.  In Haskell, distributed programming is not
+all or nothing. We can freely mix distributed and concurrent
+programming in the same program.  This means we can take advantage of
+the simplicity and performance of ordinary concurrent programming on
+each node, while using the heavier-weight distributed interfaces for
+the parts of the program that need to work across multiple nodes.</p>
+<p id="in_this_first_v">In this first version, we will use a master/slave configuration in
+which the master will start up server instances on all the slaves once
+at the beginning.  Later, we will consider how to modify the program
+so that all nodes are equal, and nodes may come and go at arbitrary
+times.</p>
+<div class="sect2" id="_data_types">
+<div class="titlepage"><div><div><h3 class="title">Data Types</h3></div></div></div>
+<p id="distributed_ser_id1"><a id="ix_ch14_conc-distrib-txt26" class="indexterm"></a>We will need a few changes to the data structures compared with the
+multithreaded server.  When one client sends a message to another
+client connected to a different server, we need to know where to send
+the message.  So each server will need to keep a list of all the
+clients connected to any server in the network, along with the server
+to which the client is connected.  The information about a client now
+has two possibilities: either it is a<a id="id502468" class="indexterm"></a><a id="id502474" class="indexterm"></a> <span class="emphasis"><em>local client</em></span> (connected to
+this server), or a <span class="emphasis"><em>remote client</em></span> (connected to a different server).</p>
+<p id="distribchatch_id1" class="caption"><span class="emphasis"><em>distrib-chat/chat.hs</em></span>
+</p>
+<pre class="programlisting" data-language="haskell" id="type_clientname_id2"><code class="kr">type</code> <code class="kt">ClientName</code> <code class="ow">=</code> <code class="kt">String</code>
+
+<code class="kr">data</code> <code class="kt">Client</code>
+  <code class="ow">=</code> <code class="kt">ClientLocal</code>   <code class="kt">LocalClient</code>
+  <code class="o">|</code> <code class="kt">ClientRemote</code>  <code class="kt">RemoteClient</code>
+
+<code class="kr">data</code> <code class="kt">RemoteClient</code> <code class="ow">=</code> <code class="kt">RemoteClient</code>
+       <code class="p">{</code> <code class="n">remoteName</code> <code class="ow">::</code> <code class="kt">ClientName</code>
+       <code class="p">,</code> <code class="n">clientHome</code> <code class="ow">::</code> <code class="kt">ProcessId</code>
+       <code class="p">}</code>
+
+<code class="kr">data</code> <code class="kt">LocalClient</code> <code class="ow">=</code> <code class="kt">LocalClient</code>
+       <code class="p">{</code> <code class="n">localName</code>      <code class="ow">::</code> <code class="kt">ClientName</code>
+       <code class="p">,</code> <code class="n">clientHandle</code>   <code class="ow">::</code> <code class="kt">Handle</code>
+       <code class="p">,</code> <code class="n">clientKicked</code>   <code class="ow">::</code> <code class="kt">TVar</code> <code class="p">(</code><code class="kt">Maybe</code> <code class="kt">String</code><code class="p">)</code>
+       <code class="p">,</code> <code class="n">clientSendChan</code> <code class="ow">::</code> <code class="kt">TChan</code> <code class="kt">Message</code>
+       <code class="p">}</code>
+
+<code class="nf">clientName</code> <code class="ow">::</code> <code class="kt">Client</code> <code class="ow">-&gt;</code> <code class="kt">ClientName</code>
+<code class="nf">clientName</code> <code class="p">(</code><code class="kt">ClientLocal</code>  <code class="n">c</code><code class="p">)</code> <code class="ow">=</code> <code class="n">localName</code> <code class="n">c</code>
+<code class="nf">clientName</code> <code class="p">(</code><code class="kt">ClientRemote</code> <code class="n">c</code><code class="p">)</code> <code class="ow">=</code> <code class="n">remoteName</code> <code class="n">c</code>
+
+<code class="nf">newLocalClient</code> <code class="ow">::</code> <code class="kt">ClientName</code> <code class="ow">-&gt;</code> <code class="kt">Handle</code> <code class="ow">-&gt;</code> <code class="kt">STM</code> <code class="kt">LocalClient</code>
+<code class="nf">newLocalClient</code> <code class="n">name</code> <code class="n">handle</code> <code class="ow">=</code> <code class="kr">do</code>
+  <code class="n">c</code> <code class="ow">&lt;-</code> <code class="n">newTChan</code>
+  <code class="n">k</code> <code class="ow">&lt;-</code> <code class="n">newTVar</code> <code class="kt">Nothing</code>
+  <code class="n">return</code> <code class="kt">LocalClient</code> <code class="p">{</code> <code class="n">localName</code>      <code class="ow">=</code> <code class="n">name</code>
+                     <code class="p">,</code> <code class="n">clientHandle</code>   <code class="ow">=</code> <code class="n">handle</code>
+                     <code class="p">,</code> <code class="n">clientSendChan</code> <code class="ow">=</code> <code class="n">c</code>
+                     <code class="p">,</code> <code class="n">clientKicked</code>   <code class="ow">=</code> <code class="n">k</code>
+                     <code class="p">}</code></pre>
+<p id="localclient_is_"><code class="literal">LocalClient</code> is what we previously called <code class="literal">Client</code>, and
+<code class="literal">RemoteClient</code> is a client connected to another server. The <code class="literal">Client</code>
+type is now a disjunction of these two, with constructors
+<code class="literal">ClientLocal</code> and <code class="literal">ClientRemote</code>.</p>
+<p id="the_message_typ_id2">The <code class="literal">Message</code> type is as before, except that we need to derive
+<code class="literal">Typeable</code> and <code class="literal">Binary</code>, because <code class="literal">Message</code>s will be sent over the
+network:</p>
+<pre class="programlisting" data-language="haskell" id="data_message___id5"><code class="kr">data</code> <code class="kt">Message</code> <code class="ow">=</code> <code class="kt">Notice</code> <code class="kt">String</code>
+             <code class="o">|</code> <code class="kt">Tell</code> <code class="kt">ClientName</code> <code class="kt">String</code>
+             <code class="o">|</code> <code class="kt">Broadcast</code> <code class="kt">ClientName</code> <code class="kt">String</code>
+             <code class="o">|</code> <code class="kt">Command</code> <code class="kt">String</code>
+  <code class="kr">deriving</code> <code class="p">(</code><code class="kt">Typeable</code><code class="p">,</code> <code class="kt">Generic</code><code class="p">)</code>
+
+<code class="kr">instance</code> <code class="kt">Binary</code> <code class="kt">Message</code></pre>
+<p id="servers_need_to">Servers need to communicate with one another, and the kinds of messages
+they need to send are richer than <code class="literal">Message</code>.  For example, servers need
+to tell one another when a new client connects, or one client kicks
+another.  So we have a new type for messages sent between servers,
+which we call <code class="literal">PMessage</code>:</p>
+<pre class="programlisting" data-language="haskell" id="data_pmessage_"><code class="kr">data</code> <code class="kt">PMessage</code>
+  <code class="ow">=</code> <code class="kt">MsgServers</code>            <code class="p">[</code><code class="kt">ProcessId</code><code class="p">]</code>
+  <code class="o">|</code> <code class="kt">MsgSend</code>               <code class="kt">ClientName</code> <code class="kt">Message</code>
+  <code class="o">|</code> <code class="kt">MsgBroadcast</code>          <code class="kt">Message</code>
+  <code class="o">|</code> <code class="kt">MsgKick</code>               <code class="kt">ClientName</code> <code class="kt">ClientName</code>
+  <code class="o">|</code> <code class="kt">MsgNewClient</code>          <code class="kt">ClientName</code> <code class="kt">ProcessId</code>
+  <code class="o">|</code> <code class="kt">MsgClientDisconnected</code> <code class="kt">ClientName</code> <code class="kt">ProcessId</code>
+  <code class="kr">deriving</code> <code class="p">(</code><code class="kt">Typeable</code><code class="p">,</code> <code class="kt">Generic</code><code class="p">)</code>
+
+<code class="kr">instance</code> <code class="kt">Binary</code> <code class="kt">PMessage</code></pre>
+<p id="most_of_these_a">Most of these are self-explanatory, except for one: <code class="literal">MsgServers</code> is a
+special message sent to each server node when it starts up, telling it
+the <code class="literal">ProcessId</code>s of all the server nodes in the network.</p>
+<p id="the_server_type">The <code class="literal">Server</code> type previously contained only the mapping from
+<code class="literal">ClientName</code> to <code class="literal">Client</code>, but now it needs some more information:</p>
+<pre class="programlisting" data-language="haskell" id="data_server__s_id2"><code class="kr">data</code> <code class="kt">Server</code> <code class="ow">=</code> <code class="kt">Server</code>
+  <code class="p">{</code> <code class="n">clients</code>   <code class="ow">::</code> <code class="kt">TVar</code> <code class="p">(</code><code class="kt">Map</code> <code class="kt">ClientName</code> <code class="kt">Client</code><code class="p">)</code>
+  <code class="p">,</code> <code class="n">proxychan</code> <code class="ow">::</code> <code class="kt">TChan</code> <code class="p">(</code><code class="kt">Process</code> <code class="nb">()</code><code class="p">)</code>
+  <code class="p">,</code> <code class="n">servers</code>   <code class="ow">::</code> <code class="kt">TVar</code> <code class="p">[</code><code class="kt">ProcessId</code><code class="p">]</code>
+  <code class="p">,</code> <code class="n">spid</code>      <code class="ow">::</code> <code class="kt">ProcessId</code>
+  <code class="p">}</code>
+
+<code class="nf">newServer</code> <code class="ow">::</code> <code class="p">[</code><code class="kt">ProcessId</code><code class="p">]</code> <code class="ow">-&gt;</code> <code class="kt">Process</code> <code class="kt">Server</code>
+<code class="nf">newServer</code> <code class="n">pids</code> <code class="ow">=</code> <code class="kr">do</code>
+  <code class="n">pid</code> <code class="ow">&lt;-</code> <code class="n">getSelfPid</code>
+  <code class="n">liftIO</code> <code class="o">$</code> <code class="kr">do</code>
+    <code class="n">s</code> <code class="ow">&lt;-</code> <code class="n">newTVarIO</code> <code class="n">pids</code>
+    <code class="n">c</code> <code class="ow">&lt;-</code> <code class="n">newTVarIO</code> <code class="kt">Map</code><code class="o">.</code><code class="n">empty</code>
+    <code class="n">o</code> <code class="ow">&lt;-</code> <code class="n">newTChanIO</code>
+    <code class="n">return</code> <code class="kt">Server</code> <code class="p">{</code> <code class="n">clients</code> <code class="ow">=</code> <code class="n">c</code><code class="p">,</code> <code class="n">servers</code> <code class="ow">=</code> <code class="n">s</code><code class="p">,</code> <code class="n">proxychan</code> <code class="ow">=</code> <code class="n">o</code><code class="p">,</code> <code class="n">spid</code> <code class="ow">=</code> <code class="n">pid</code> <code class="p">}</code></pre>
+<p id="clients_is_the_"><code class="literal">clients</code> is the client mapping, as before; <code class="literal">servers</code> is the list of
+other server <code class="literal">ProcessId</code>s, and <code class="literal">spid</code> is the <code class="literal">ProcessId</code> of this
+server (for convenience).</p>
+<p id="the_proxychan_f">The <code class="literal">proxychan</code> field pertains to an added bit of complexity in our
+distributed architecture. Remember that we are
+leaving as much of the existing server infrastructure intact as
+possible; that means the existing server threads are ordinary<a id="id504073" class="indexterm"></a><a id="id504081" class="indexterm"></a>
+<code class="literal">forkIO</code> threads.  A <code class="literal">forkIO</code> thread cannot perform operations in the
+<code class="literal">Process</code> monad, yet we certainly need to be able to do that somehow
+because certain actions by a client must trigger communication with
+other servers in the network. So the trick we use is a<a id="id504107" class="indexterm"></a> <span class="emphasis"><em>proxy</em></span>, which is a
+process that reads actions from a <code class="literal">TChan</code> and performs them in the
+<code class="literal">Process</code> monad.  To have a <code class="literal">Process</code> action performed from an IO
+thread, we simply queue it on the proxy <code class="literal">TChan</code>.  Each server has a
+single proxy channel, created when the server starts up and stored in
+the <code class="literal">proxychan</code> field of <code class="literal">Server</code>.<a id="id504155" class="indexterm"></a></p>
+</div>
+<div class="sect2" id="sec_distrib-chat-sending">
+<div class="titlepage"><div><div><h3 class="title">Sending Messages</h3></div></div></div>
+<p id="distributed_ser_id2"><a id="id504178" class="indexterm"></a>Next, we need a few small utilities.  First, a way to send a <code class="literal">Message</code>
+to a <code class="literal">LocalClient</code>:</p>
+<pre class="programlisting" data-language="haskell" id="sendlocal__lo"><code class="nf">sendLocal</code> <code class="ow">::</code> <code class="kt">LocalClient</code> <code class="ow">-&gt;</code> <code class="kt">Message</code> <code class="ow">-&gt;</code> <code class="kt">STM</code> <code class="nb">()</code>
+<code class="nf">sendLocal</code> <code class="kt">LocalClient</code><code class="p">{</code><code class="o">..</code><code class="p">}</code> <code class="n">msg</code> <code class="ow">=</code> <code class="n">writeTChan</code> <code class="n">clientSendChan</code> <code class="n">msg</code></pre>
+<p id="the_following_f_id3">The following function, <code class="literal">sendRemote</code>, sends a <code class="literal">PMessage</code> to a remote
+server.  To do this, it needs to use the <code class="literal">proxychan</code> (which it gets
+from the <code class="literal">Server</code>) and it needs the <code class="literal">pid</code> of the destination process:</p>
+<pre class="programlisting" data-language="haskell" id="sendremote__s"><code class="nf">sendRemote</code> <code class="ow">::</code> <code class="kt">Server</code> <code class="ow">-&gt;</code> <code class="kt">ProcessId</code> <code class="ow">-&gt;</code> <code class="kt">PMessage</code> <code class="ow">-&gt;</code> <code class="kt">STM</code> <code class="nb">()</code>
+<code class="nf">sendRemote</code> <code class="kt">Server</code><code class="p">{</code><code class="o">..</code><code class="p">}</code> <code class="n">pid</code> <code class="n">pmsg</code> <code class="ow">=</code> <code class="n">writeTChan</code> <code class="n">proxychan</code> <code class="p">(</code><code class="n">send</code> <code class="n">pid</code> <code class="n">pmsg</code><code class="p">)</code></pre>
+<p id="now_that_we_can">Now that we can send both local and remote messages, we can define
+<code class="literal">sendMessage</code>, which sends a <code class="literal">Message</code> to any client:</p>
+<pre class="programlisting" data-language="haskell" id="sendmessage___id2"><code class="nf">sendMessage</code> <code class="ow">::</code> <code class="kt">Server</code> <code class="ow">-&gt;</code> <code class="kt">Client</code> <code class="ow">-&gt;</code> <code class="kt">Message</code> <code class="ow">-&gt;</code> <code class="kt">STM</code> <code class="nb">()</code>
+<code class="nf">sendMessage</code> <code class="n">server</code> <code class="p">(</code><code class="kt">ClientLocal</code> <code class="n">client</code><code class="p">)</code> <code class="n">msg</code> <code class="ow">=</code>
+    <code class="n">sendLocal</code> <code class="n">client</code> <code class="n">msg</code>
+<code class="nf">sendMessage</code> <code class="n">server</code> <code class="p">(</code><code class="kt">ClientRemote</code> <code class="n">client</code><code class="p">)</code> <code class="n">msg</code> <code class="ow">=</code>
+    <code class="n">sendRemote</code> <code class="n">server</code> <code class="p">(</code><code class="n">clientHome</code> <code class="n">client</code><code class="p">)</code> <code class="p">(</code><code class="kt">MsgSend</code> <code class="p">(</code><code class="n">remoteName</code> <code class="n">client</code><code class="p">)</code> <code class="n">msg</code><code class="p">)</code></pre>
+<p id="a_variant_sends">A variant sends a message to a named client or returns <code class="literal">False</code> if the
+client is not <span class="keep-together">connected</span>:</p>
+<pre class="programlisting" data-language="haskell" id="sendtoname__s"><code class="nf">sendToName</code> <code class="ow">::</code> <code class="kt">Server</code> <code class="ow">-&gt;</code> <code class="kt">ClientName</code> <code class="ow">-&gt;</code> <code class="kt">Message</code> <code class="ow">-&gt;</code> <code class="kt">STM</code> <code class="kt">Bool</code>
+<code class="nf">sendToName</code> <code class="n">server</code><code class="o">@</code><code class="kt">Server</code><code class="p">{</code><code class="o">..</code><code class="p">}</code> <code class="n">name</code> <code class="n">msg</code> <code class="ow">=</code> <code class="kr">do</code>
+    <code class="n">clientmap</code> <code class="ow">&lt;-</code> <code class="n">readTVar</code> <code class="n">clients</code>
+    <code class="kr">case</code> <code class="kt">Map</code><code class="o">.</code><code class="n">lookup</code> <code class="n">name</code> <code class="n">clientmap</code> <code class="kr">of</code>
+        <code class="kt">Nothing</code>     <code class="ow">-&gt;</code> <code class="n">return</code> <code class="kt">False</code>
+        <code class="kt">Just</code> <code class="n">client</code> <code class="ow">-&gt;</code> <code class="n">sendMessage</code> <code class="n">server</code> <code class="n">client</code> <code class="n">msg</code> <code class="o">&gt;&gt;</code> <code class="n">return</code> <code class="kt">True</code></pre>
+</div>
+<div class="sect2" id="_broadcasting">
+<div class="titlepage"><div><div><h3 class="title">Broadcasting</h3></div></div></div>
+<p id="distributed_ser_id3"><a id="ix_ch14_conc-distrib-txt27" class="indexterm"></a>Next, we consider broadcasting messages.  First, we need a way to send
+a <code class="literal">PMessage</code> to all the connected servers:</p>
+<pre class="programlisting" data-language="haskell" id="sendremoteall_"><code class="nf">sendRemoteAll</code> <code class="ow">::</code> <code class="kt">Server</code> <code class="ow">-&gt;</code> <code class="kt">PMessage</code> <code class="ow">-&gt;</code> <code class="kt">STM</code> <code class="nb">()</code>
+<code class="nf">sendRemoteAll</code> <code class="n">server</code><code class="o">@</code><code class="kt">Server</code><code class="p">{</code><code class="o">..</code><code class="p">}</code> <code class="n">pmsg</code> <code class="ow">=</code> <code class="kr">do</code>
+    <code class="n">pids</code> <code class="ow">&lt;-</code> <code class="n">readTVar</code> <code class="n">servers</code>
+    <code class="n">mapM_</code> <code class="p">(</code><code class="nf">\</code><code class="n">pid</code> <code class="ow">-&gt;</code> <code class="n">sendRemote</code> <code class="n">server</code> <code class="n">pid</code> <code class="n">pmsg</code><code class="p">)</code> <code class="n">pids</code></pre>
+<p id="we_also_need_a_">We also need a <code class="literal">broadcastLocal</code> function that sends a message to the local
+clients only:</p>
+<pre class="programlisting" data-language="haskell" id="broadcastlocal_"><code class="nf">broadcastLocal</code> <code class="ow">::</code> <code class="kt">Server</code> <code class="ow">-&gt;</code> <code class="kt">Message</code> <code class="ow">-&gt;</code> <code class="kt">STM</code> <code class="nb">()</code>
+<code class="nf">broadcastLocal</code> <code class="n">server</code><code class="o">@</code><code class="kt">Server</code><code class="p">{</code><code class="o">..</code><code class="p">}</code> <code class="n">msg</code> <code class="ow">=</code> <code class="kr">do</code>
+    <code class="n">clientmap</code> <code class="ow">&lt;-</code> <code class="n">readTVar</code> <code class="n">clients</code>
+    <code class="n">mapM_</code> <code class="n">sendIfLocal</code> <code class="p">(</code><code class="kt">Map</code><code class="o">.</code><code class="n">elems</code> <code class="n">clientmap</code><code class="p">)</code>
+  <code class="kr">where</code>
+    <code class="n">sendIfLocal</code> <code class="p">(</code><code class="kt">ClientLocal</code> <code class="n">c</code><code class="p">)</code>  <code class="ow">=</code> <code class="n">sendLocal</code> <code class="n">c</code> <code class="n">msg</code>
+    <code class="n">sendIfLocal</code> <code class="p">(</code><code class="kt">ClientRemote</code> <code class="kr">_</code><code class="p">)</code> <code class="ow">=</code> <code class="n">return</code> <code class="nb">()</code></pre>
+<p id="this_function_w">This function works by calling an auxiliary function <code class="literal">sendIfLocal</code> on
+each of the clients, which calls <code class="literal">sendLocal</code> if the client is local
+and does nothing if the client is remote.</p>
+<p id="putting_sendrem">Putting <code class="literal">sendRemoteAll</code> and <code class="literal">broadcastLocal</code> together, we can
+broadcast a <code class="literal">Message</code> to everyone: <a id="id505538" class="indexterm"></a></p>
+<pre class="programlisting" data-language="haskell" id="broadcast__se_id2"><code class="nf">broadcast</code> <code class="ow">::</code> <code class="kt">Server</code> <code class="ow">-&gt;</code> <code class="kt">Message</code> <code class="ow">-&gt;</code> <code class="kt">STM</code> <code class="nb">()</code>
+<code class="nf">broadcast</code> <code class="n">server</code><code class="o">@</code><code class="kt">Server</code><code class="p">{</code><code class="o">..</code><code class="p">}</code> <code class="n">msg</code> <code class="ow">=</code> <code class="kr">do</code>
+    <code class="n">sendRemoteAll</code> <code class="n">server</code> <code class="p">(</code><code class="kt">MsgBroadcast</code> <code class="n">msg</code><code class="p">)</code>
+    <code class="n">broadcastLocal</code> <code class="n">server</code> <code class="n">msg</code></pre>
+</div>
+<div class="sect2" id="_distribution">
+<div class="titlepage"><div><div><h3 class="title">Distribution</h3></div></div></div>
+<p id="distributed_ser_id4"><a id="ix_ch14_conc-distrib-txt28" class="indexterm"></a>The rest of the local server code is almost identical to that in
+<a class="xref" href="ch12.html#sec_chat" title="A Chat Server">“A Chat Server”</a>, so we don’t reproduce it here.  The only important
+differences are that we need to inform other servers whenever a client
+connects or disconnects by calling <code class="literal">sendRemoteAll</code> with a
+<code class="literal">MsgNewClient</code> or <code class="literal">MsgClientDisconnected</code> respectively.</p>
+<p id="the_interesting">The interesting part is how we handle distribution.  Previously, the
+<code class="literal">main</code> function was responsible for setting up the network socket and
+accepting new connections.  This is now delegated to a function
+<code class="literal">socketListener</code>, which is otherwise identical to the previous <code class="literal">main</code>:</p>
+<pre class="programlisting" data-language="haskell" id="socketlistener_"><code class="nf">socketListener</code> <code class="ow">::</code> <code class="kt">Server</code> <code class="ow">-&gt;</code> <code class="kt">Int</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="nb">()</code>
+<code class="nf">socketListener</code> <code class="n">server</code> <code class="n">port</code> <code class="ow">=</code> <code class="n">withSocketsDo</code> <code class="o">$</code> <code class="kr">do</code>
+  <code class="n">sock</code> <code class="ow">&lt;-</code> <code class="n">listenOn</code> <code class="p">(</code><code class="kt">PortNumber</code> <code class="p">(</code><code class="n">fromIntegral</code> <code class="n">port</code><code class="p">))</code>
+  <code class="n">printf</code> <code class="s">"Listening on port %d</code><code class="se">\n</code><code class="s">"</code> <code class="n">port</code>
+  <code class="n">forever</code> <code class="o">$</code> <code class="kr">do</code>
+      <code class="p">(</code><code class="n">handle</code><code class="p">,</code> <code class="n">host</code><code class="p">,</code> <code class="n">port</code><code class="p">)</code> <code class="ow">&lt;-</code> <code class="n">accept</code> <code class="n">sock</code>
+      <code class="n">printf</code> <code class="s">"Accepted connection from %s: %s</code><code class="se">\n</code><code class="s">"</code> <code class="n">host</code> <code class="p">(</code><code class="n">show</code> <code class="n">port</code><code class="p">)</code>
+      <code class="n">forkFinally</code> <code class="p">(</code><code class="n">talk</code> <code class="n">server</code> <code class="n">handle</code><code class="p">)</code>
+                  <code class="p">(</code><code class="nf">\</code><code class="kr">_</code> <code class="ow">-&gt;</code> <code class="n">hClose</code> <code class="n">handle</code><code class="p">)</code></pre>
+<p id="we_need_a_funct">We need a function to implement the proxy, described above in
+<a class="xref" href="ch14.html#sec_distrib-chat-sending" title="Sending Messages">“Sending Messages”</a>.  All it does is repeatedly read <code class="literal">Process
+()</code> values from the <code class="literal">proxychan</code> and execute them:</p>
+<pre class="programlisting" data-language="haskell" id="proxy__server"><code class="nf">proxy</code> <code class="ow">::</code> <code class="kt">Server</code> <code class="ow">-&gt;</code> <code class="kt">Process</code> <code class="nb">()</code>
+<code class="nf">proxy</code> <code class="kt">Server</code><code class="p">{</code><code class="o">..</code><code class="p">}</code> <code class="ow">=</code> <code class="n">forever</code> <code class="o">$</code> <code class="n">join</code> <code class="o">$</code> <code class="n">liftIO</code> <code class="o">$</code> <code class="n">atomically</code> <code class="o">$</code> <code class="n">readTChan</code> <code class="n">proxychan</code></pre>
+<p id="now_the_chatse">Now, the <code class="literal">chatServer</code> function is the main <code class="literal">Process ()</code> action that
+implements a chat server:</p>
+<pre class="programlisting" data-language="haskell" id="chatserver__i"><code class="nf">chatServer</code> <code class="ow">::</code> <code class="kt">Int</code> <code class="ow">-&gt;</code> <code class="kt">Process</code> <code class="nb">()</code>
+<code class="nf">chatServer</code> <code class="n">port</code> <code class="ow">=</code> <code class="kr">do</code>
+  <code class="n">server</code> <code class="ow">&lt;-</code> <code class="n">newServer</code> <code class="kt">[]</code>
+  <code class="n">liftIO</code> <code class="o">$</code> <code class="n">forkIO</code> <code class="p">(</code><code class="n">socketListener</code> <code class="n">server</code> <code class="n">port</code><code class="p">)</code>           <code class="c1">-- </code><span id="CO51-1"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1"></span>
+  <code class="n">spawnLocal</code> <code class="p">(</code><code class="n">proxy</code> <code class="n">server</code><code class="p">)</code>                              <code class="c1">-- </code><span id="CO51-2"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/2.png" alt="2"></span>
+  <code class="n">forever</code> <code class="o">$</code> <code class="kr">do</code> <code class="n">m</code> <code class="ow">&lt;-</code> <code class="n">expect</code><code class="p">;</code> <code class="n">handleRemoteMessage</code> <code class="n">server</code> <code class="n">m</code> <code class="c1">-- </code><span id="CO51-3"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/3.png" alt="3"></span></pre>
+<div class="calloutlist"><table style="border: 0; ">
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO51-1"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="starts_up_the_s">
+Starts up the <code class="literal">socketListener</code> thread.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO51-2"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/2.png" alt="2"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="creates_the_pro">
+Creates the <code class="literal">proxy</code>.  Note here that we use <code class="literal">spawnLocal</code>, which is like
+<code class="literal">spawn</code> except that the new process is always created on the current
+node.  This means that the computation to be spawned doesn’t need to
+be serialized, so <code class="literal">spawnLocal</code> takes an ordinary <code class="literal">Process</code> value
+rather than a <code class="literal">Closure</code>, which makes it easier to use.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO51-3"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/3.png" alt="3"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="repeatedly_grab">
+Repeatedly grabs the next message and calls <code class="literal">handleRemoteMessage</code>
+(defined next) to act on it.
+</p></td>
+</tr>
+</table></div>
+<pre class="programlisting" data-language="haskell" id="handleremotemes"><code class="nf">handleRemoteMessage</code> <code class="ow">::</code> <code class="kt">Server</code> <code class="ow">-&gt;</code> <code class="kt">PMessage</code> <code class="ow">-&gt;</code> <code class="kt">Process</code> <code class="nb">()</code>
+<code class="nf">handleRemoteMessage</code> <code class="n">server</code><code class="o">@</code><code class="kt">Server</code><code class="p">{</code><code class="o">..</code><code class="p">}</code> <code class="n">m</code> <code class="ow">=</code> <code class="n">liftIO</code> <code class="o">$</code> <code class="n">atomically</code> <code class="o">$</code>
+  <code class="kr">case</code> <code class="n">m</code> <code class="kr">of</code>
+    <code class="kt">MsgServers</code> <code class="n">pids</code>  <code class="ow">-&gt;</code> <code class="n">writeTVar</code> <code class="n">servers</code> <code class="p">(</code><code class="n">filter</code> <code class="p">(</code><code class="o">/=</code> <code class="n">spid</code><code class="p">)</code> <code class="n">pids</code><code class="p">)</code> <code class="c1">-- </code><span id="CO52-1"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1"></span>
+    <code class="kt">MsgSend</code> <code class="n">name</code> <code class="n">msg</code> <code class="ow">-&gt;</code> <code class="n">void</code> <code class="o">$</code> <code class="n">sendToName</code> <code class="n">server</code> <code class="n">name</code> <code class="n">msg</code>         <code class="c1">-- </code><span id="CO52-2"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/2.png" alt="2"></span>
+    <code class="kt">MsgBroadcast</code> <code class="n">msg</code> <code class="ow">-&gt;</code> <code class="n">broadcastLocal</code> <code class="n">server</code> <code class="n">msg</code>                 <code class="c1">-- </code><span id="CO52-3"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/3.png" alt="3"></span>
+    <code class="kt">MsgKick</code> <code class="n">who</code> <code class="n">by</code>   <code class="ow">-&gt;</code> <code class="n">kick</code> <code class="n">server</code> <code class="n">who</code> <code class="n">by</code>                        <code class="c1">-- </code><span id="CO52-4"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/4.png" alt="4"></span>
+
+    <code class="kt">MsgNewClient</code> <code class="n">name</code> <code class="n">pid</code> <code class="ow">-&gt;</code> <code class="kr">do</code>                                   <code class="c1">-- </code><span id="CO52-5"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/5.png" alt="5"></span>
+        <code class="n">ok</code> <code class="ow">&lt;-</code> <code class="n">checkAddClient</code> <code class="n">server</code> <code class="p">(</code><code class="kt">ClientRemote</code> <code class="p">(</code><code class="kt">RemoteClient</code> <code class="n">name</code> <code class="n">pid</code><code class="p">))</code>
+        <code class="n">when</code> <code class="p">(</code><code class="n">not</code> <code class="n">ok</code><code class="p">)</code> <code class="o">$</code>
+          <code class="n">sendRemote</code> <code class="n">server</code> <code class="n">pid</code> <code class="p">(</code><code class="kt">MsgKick</code> <code class="n">name</code> <code class="s">"SYSTEM"</code><code class="p">)</code>
+
+    <code class="kt">MsgClientDisconnected</code> <code class="n">name</code> <code class="n">pid</code> <code class="ow">-&gt;</code> <code class="kr">do</code>                          <code class="c1">-- </code><span id="CO52-6"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/6.png" alt="6"></span>
+         <code class="n">clientmap</code> <code class="ow">&lt;-</code> <code class="n">readTVar</code> <code class="n">clients</code>
+         <code class="kr">case</code> <code class="kt">Map</code><code class="o">.</code><code class="n">lookup</code> <code class="n">name</code> <code class="n">clientmap</code> <code class="kr">of</code>
+            <code class="kt">Nothing</code> <code class="ow">-&gt;</code> <code class="n">return</code> <code class="nb">()</code>
+            <code class="kt">Just</code> <code class="p">(</code><code class="kt">ClientRemote</code> <code class="p">(</code><code class="kt">RemoteClient</code> <code class="kr">_</code> <code class="n">pid'</code><code class="p">))</code> <code class="o">|</code> <code class="n">pid</code> <code class="o">==</code> <code class="n">pid'</code> <code class="ow">-&gt;</code>
+              <code class="n">deleteClient</code> <code class="n">server</code> <code class="n">name</code>
+            <code class="kt">Just</code> <code class="kr">_</code> <code class="ow">-&gt;</code>
+              <code class="n">return</code> <code class="nb">()</code></pre>
+<div class="calloutlist"><table style="border: 0; ">
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO52-1"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="the_special_msg">
+The special <code class="literal">MsgServers</code> message is sent once at startup to tell
+each server the <code class="literal">ProcessId</code>s of all the servers in the network.
+This is used to set the <code class="literal">servers</code> field of <code class="literal">Server</code>.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO52-2"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/2.png" alt="2"></span></a> <a href="#CO52-3"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/3.png" alt="3"></span></a> <a href="#CO52-4"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/4.png" alt="4"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="msgsend_msgbro">
+<code class="literal">MsgSend</code>, <code class="literal">MsgBroadcast</code>, and <code class="literal">MsgKick</code> are straightforward. They
+cause the appropriate action to take place just as if a
+local client had initiated it.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO52-5"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/5.png" alt="5"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="msgnewclient_in">
+<code class="literal">MsgNewClient</code> indicates that a client has connected to a remote
+server.  We attempt to add the remote client to the local state, but
+it may be that this server already has a client with the same
+name. Unlike in the single server case where we relied on STM to
+ensure that inconsistencies like this could never arise, in a
+distributed system there is no global consistency.  So we have to
+handle the case where two clients connect at the same time on
+different servers. The method we choose here is simple but brutal:
+reply with a <code class="literal">MsgKick</code> to kick the other client.  It is likely that
+the remote server will simultaneously do the same, so both clients
+will end up being kicked, but at least the inconsistency is resolved,
+and this case will be rare in practice.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO52-6"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/6.png" alt="6"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="msgclientdiscon">
+<code class="literal">MsgClientDisconnected</code> is not difficult, but we do have to be
+careful to check that the client being disconnected is in fact the
+correct client, just in case an inconsistency has arisen (in
+particular, this might be the response to the <code class="literal">MsgKick</code> initiated by
+the <code class="literal">MsgNewClient</code> case just shown).
+</p></td>
+</tr>
+</table></div>
+<p id="now_that_the_se">Now that the server code is in place, we just need to write the
+code to start up the whole distributed network.  The <code class="literal">main</code> function
+invokes <code class="literal">master</code> on the master node:</p>
+<pre class="screen" id="port__int_por"><code class="nf">port</code> <code class="ow">::</code> <code class="kt">Int</code>
+<code class="nf">port</code> <code class="ow">=</code> <code class="mi">44444</code>
+
+<code class="nf">master</code> <code class="ow">::</code> <code class="p">[</code><code class="kt">NodeId</code><code class="p">]</code> <code class="ow">-&gt;</code> <code class="kt">Process</code> <code class="nb">()</code>
+<code class="nf">master</code> <code class="n">peers</code> <code class="ow">=</code> <code class="kr">do</code>
+
+  <code class="kr">let</code> <code class="n">run</code> <code class="n">nid</code> <code class="n">port</code> <code class="ow">=</code> <code class="kr">do</code>
+         <code class="n">say</code> <code class="o">$</code> <code class="n">printf</code> <code class="s">"spawning on %s"</code> <code class="p">(</code><code class="n">show</code> <code class="n">nid</code><code class="p">)</code>
+         <code class="n">spawn</code> <code class="n">nid</code> <code class="p">(</code><code class="o">$</code><code class="p">(</code><code class="n">mkClosure</code> <code class="n">'chatServer</code><code class="p">)</code> <code class="n">port</code><code class="p">)</code>
+
+  <code class="n">pids</code> <code class="ow">&lt;-</code> <code class="n">zipWithM run peers</code> <code class="p">[</code><code class="n">port+1..</code><code class="p">]</code>
+  <code class="n">mypid</code> <code class="ow">&lt;-</code> <code class="n">getSelfPid</code>
+  <code class="n">let all_pids</code> <code class="p">=</code> <code class="n">mypid</code> <code class="ow">:</code> <code class="n">pids</code>
+  <code class="n">mapM_</code> <code class="p">(</code><code class="nf">\</code><code class="n">pid</code> <code class="ow">&lt;-</code> <code class="n">send pid</code> <code class="p">(</code><code class="kt">MsgServers</code><code class="p">))</code> <code class="n">all_pids</code>
+
+  <code class="n">chatServer port</code>
+
+<code class="nf">main</code> <code class="ow">=</code> <code class="n">distribMain master</code> <code class="kt">Main</code><code class="o">.</code><code class="n">__remoteTable</code></pre>
+<p id="themaster_funct">The<a id="id507908" class="indexterm"></a> <code class="literal">master</code> function is fairly straightforward. It spawns
+<code class="literal">chatServer</code> on each of the slaves, using increasing port numbers, and then sends a <code class="literal">MsgServers</code> message to each server process containing a list of all the server <code class="literal">ProcessId</code>s<a id="id507940" class="indexterm"></a>.<a href="#ftn.id507952" class="footnote"><sup class="footnote" id="id507952">[62]</sup></a></p>
+</div>
+<div class="sect2" id="_testing_the_server">
+<div class="titlepage"><div><div><h3 class="title">Testing the Server</h3></div></div></div>
+<p id="distributed_ser_id5"><a id="id507969" class="indexterm"></a>We can start up a few nodes on a single machine like so:</p>
+<pre class="screen" id="chat_slave_">$ ./chat slave 55551 &amp; ./chat slave 55552 &amp; ./chat master 55553
+pid://localhost:55553:0:3: spawning on nid://localhost:55552:0
+pid://localhost:55553:0:3: spawning on nid://localhost:55551:0
+Listening on port 44444
+Listening on port 44445
+Listening on port 44446</pre>
+<p id="remember_the_p">(Remember the port numbers given on the command line are the ports
+used by the <code class="literal">distributed-process</code> framework; the ports that the chat
+server listens to are hardcoded to 44444, 44445, …)</p>
+<p id="then_connect_to">Then connect to one of the nodes:</p>
+<pre class="screen" id="nc_localhost__id1">$ nc localhost 44445
+What is your name?
+Fred
+*** Fred has connected</pre>
+<p id="and_connect_to_">And connect to a different node:</p>
+<pre class="screen" id="nc_localhost__id2">$ nc localhost 44446
+What is your name?
+Bob
+*** Bob has connected
+hi
+&lt;Bob&gt;: hi</pre>
+<p id="we_should_now_s">We should now see the new activity on the first connection:</p>
+<pre class="screen" id="bob_has_con">*** Bob has connected
+&lt;Bob&gt;: hi</pre>
+</div>
+<div class="sect2" id="_failure_and_adding_removing_nodes">
+<div class="titlepage"><div><div><h3 class="title">Failure and Adding/Removing Nodes</h3></div></div></div>
+<p id="distributed_ser_id6"><a id="ix_ch14_conc-distrib-txt29" class="indexterm"></a><a id="ix_ch14_conc-distrib-txt30" class="indexterm"></a>Our distributed server works only with a fixed set of nodes, which
+makes it quite limited.  In practice, we want to be able to add and
+remove nodes from the network at will.  Nodes will disconnect due to
+network and hardware outages, and we would like to be able to add new
+nodes without restarting the entire network.</p>
+<p id="my_sketch_imple">My sketch implementation can be found in
+<span class="emphasis"><em>distrib-chat/chat-noslave.hs</em></span>, but you might want to try implementing
+this for yourself.  Some hints on how to go about it follow.</p>
+<p id="we_need_to_aban">We need to abandon the master/slave architecture; every node will be
+equal.  Instead of using our <code class="literal">DistribUtils</code> module, we can use the
+following sequence to initialize the<a id="id508123" class="indexterm"></a> <code class="literal">simplelocalnet</code> backend and
+start up a node:</p>
+<p id="distribchatch_id2" class="caption"><span class="emphasis"><em>distrib-chat/chat-noslave.hs</em></span>
+</p>
+<pre class="programlisting" data-language="haskell" id="main__do_port"><code class="nf">main</code> <code class="ow">=</code> <code class="kr">do</code>
+ <code class="p">[</code><code class="n">port</code><code class="p">,</code> <code class="n">chat_port</code><code class="p">]</code> <code class="ow">&lt;-</code> <code class="n">getArgs</code>
+ <code class="n">backend</code> <code class="ow">&lt;-</code> <code class="n">initializeBackend</code> <code class="s">"localhost"</code> <code class="n">port</code>
+                              <code class="p">(</code><code class="kt">Main</code><code class="o">.</code><code class="n">__remoteTable</code> <code class="n">initRemoteTable</code><code class="p">)</code>
+ <code class="n">node</code> <code class="ow">&lt;-</code> <code class="n">newLocalNode</code> <code class="n">backend</code>
+ <code class="kt">Node</code><code class="o">.</code><code class="n">runProcess</code> <code class="n">node</code> <code class="p">(</code><code class="n">master</code> <code class="n">backend</code> <code class="n">chat_port</code><code class="p">)</code></pre>
+<p id="now_the_functio">Now the function <code class="literal">master</code> has type <code class="literal">Backend -&gt; String -&gt; Process ()</code>
+and runs on every node.  The outline of the rest of the
+implementation is as follows:</p>
+<div class="orderedlist" id="when_a_node_sta_id1"><ol class="orderedlist" type="1">
+<li class="listitem">
+<p id="when_a_node_sta_id2" class="simpara">
+When a node starts up, it calls <code class="literal">findPeers</code> to get the other nodes
+  in the network.
+</p>
+<pre class="programlisting" data-language="haskell" id="findpeers__ba"><code class="nf">findPeers</code> <code class="ow">::</code> <code class="kt">Backend</code> <code class="ow">-&gt;</code> <code class="kt">Int</code> <code class="cm">{- timeout -}</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="p">[</code><code class="kt">NodeId</code><code class="p">]</code></pre>
+</li>
+<li class="listitem">
+<p id="it_registers_th" class="simpara">
+It registers the current process as <code class="literal">"chatServer"</code> on the local node using the <code class="literal">register</code> function:
+</p>
+<pre class="programlisting" data-language="haskell" id="register__str"><code class="nf">register</code> <code class="ow">::</code> <code class="kt">String</code> <code class="ow">-&gt;</code> <code class="kt">ProcessId</code> <code class="ow">-&gt;</code>
+<code class="kt">Process</code> <code class="nb">()</code></pre>
+</li>
+<li class="listitem">
+<p id="next_we_call_wh" class="simpara">
+Next we call <code class="literal">whereisRemoteAsync</code> for each of the other nodes,
+  asking for the <code class="literal">ProcessId</code> of <code class="literal">"chatServer"</code>.
+</p>
+<pre class="programlisting" data-language="haskell" id="whereisremoteas"><code class="nf">whereisRemoteAsync</code> <code class="ow">::</code> <code class="kt">NodeId</code> <code class="ow">-&gt;</code> <code class="kt">String</code> <code class="ow">-&gt;</code> <code class="kt">Process</code> <code class="nb">()</code></pre>
+<p id="the_remote_node" class="simpara">The remote node will respond with a <code class="literal">WhereIsReply</code>:</p>
+<pre class="programlisting" data-language="haskell" id="data_whereisrep"><code class="kr">data</code> <code class="kt">WhereIsReply</code> <code class="ow">=</code> <code class="kt">WhereIsReply</code> <code class="kt">String</code> <code class="p">(</code><code class="kt">Maybe</code> <code class="kt">ProcessId</code><code class="p">)</code></pre>
+<p id="we_wont_wait_f" class="simpara">We won’t wait for the reply immediately; it will be received along with other
+messages in the main message loop.</p>
+</li>
+<li class="listitem">
+Then we start up the <code class="literal">chatServer</code> as before, but now we need to also
+  handle <code class="literal">WhereIsReply</code> messages.  When one of these messages is
+  received, if it indicates that we found a <code class="literal">"chatServer"</code> process on
+  another node, then we move on to the next step.
+</li>
+<li class="listitem">
+Send that <code class="literal">ProcessId</code> a message to tell it that we have joined the
+    network.  This is a new <code class="literal">PMessage</code> that we call <code class="literal">MsgServerInfo</code>. It contains the current <code class="literal">ProcessId</code> and the list of local clients
+    we have (because clients may have already connected by now).
+</li>
+<li class="listitem">
+On receipt of a <code class="literal">MsgServerInfo</code>, add that <code class="literal">ProcessId</code> to the <code class="literal">servers</code> list if it isn’t already there.
+</li>
+<li class="listitem">
+Add the information about the remote clients to the state.  There
+  may need to be some conflict resolution at this point if the remote
+  server has clients with the same names as clients that we already
+  know about.
+</li>
+<li class="listitem">
+If the new server is not already known to us, then we should respond
+  with a <code class="literal">MsgServerInfo</code> of our own to tell the other server which
+  local clients are on <span class="emphasis"><em>this</em></span> server.
+</li>
+<li class="listitem">
+Start monitoring the remote process.  Then we can be informed when
+    the remote process dies and remove its clients from our local
+    state.<a id="id508786" class="indexterm"></a><a id="id508796" class="indexterm"></a><a id="id508807" class="indexterm"></a><a id="id508817" class="indexterm"></a>
+</li>
+</ol></div>
+</div>
+</div>
+<div class="sect1" data-original-filename="ch14_conc-distrib.asciidoc" id="sec_conc-distrib-keyval">
+<div class="titlepage"><div><div><h2 class="title">Exercise: A Distributed Key-Value Store</h2></div></div></div>
+<p id="a_keyvalue_sto">A key-value store is a simple database that supports only operations
+to store and retrieve values associated with keys.  Key-value stores
+have become popular over recent years because they offer scalability
+advantages over traditional relational databases in exchange for
+supporting fewer operations (in particular, they lack database joins).</p>
+<p id="this_exercise_i">This exercise is to use the <code class="literal">distributed-process</code> framework to
+implement a<a id="id508887" class="indexterm"></a> <span class="emphasis"><em>distributed fault-tolerant key-value store</em></span> (albeit a
+very simplistic one).</p>
+<p id="the_interface_e">The interface exposed to clients is the following:</p>
+<pre class="programlisting" data-language="haskell" id="type_database_t"><code class="kr">type</code> <code class="kt">Database</code>
+<code class="kr">type</code> <code class="kt">Key</code>   <code class="ow">=</code> <code class="kt">String</code>
+<code class="kr">type</code> <code class="kt">Value</code> <code class="ow">=</code> <code class="kt">String</code>
+
+<code class="nf">createDB</code> <code class="ow">::</code> <code class="kt">Process</code> <code class="kt">Database</code>
+<code class="nf">set</code>      <code class="ow">::</code> <code class="kt">Database</code> <code class="ow">-&gt;</code> <code class="kt">Key</code> <code class="ow">-&gt;</code> <code class="kt">Value</code> <code class="ow">-&gt;</code> <code class="kt">Process</code> <code class="nb">()</code>
+<code class="nf">get</code>      <code class="ow">::</code> <code class="kt">Database</code> <code class="ow">-&gt;</code> <code class="kt">Key</code> <code class="ow">-&gt;</code> <code class="kt">Process</code> <code class="p">(</code><code class="kt">Maybe</code> <code class="kt">Value</code><code class="p">)</code></pre>
+<p id="here_createdb_">Here, <code class="literal">createDB</code> creates a database, and <code class="literal">set</code> and <code class="literal">get</code> perform
+operations on it.  The <code class="literal">set</code> operation sets the given key to the given
+value, and <code class="literal">get</code> returns the current value associated with the given
+key or <code class="literal">Nothing</code> if the key has no entry.</p>
+<p id="part__in_dist"><span class="strong"><strong>Part 1.</strong></span> In <span class="emphasis"><em>distrib-db/db.hs</em></span>, I supplied a sample <code class="literal">main</code> function that
+acts as a client for the database, and you can use this to test your
+database.  The skeleton for the database code itself is in
+<span class="emphasis"><em>Database.hs</em></span> in the same directory. The first exercise is to
+implement a single-node database by modifying <span class="emphasis"><em>Database.hs</em></span>.  That is:</p>
+<div class="itemizedlist" id="createdb_should_id1"><ul class="itemizedlist">
+<li class="listitem">
+<code class="literal">createDB</code> should spawn a process to act as the database.  It
+can spawn on the current node.
+</li>
+<li class="listitem">
+<code class="literal">get</code> and <code class="literal">set</code> should talk to the database process via
+messages; you need to define the message type and the operations.
+</li>
+</ul></div>
+<p id="when_you_run_db">When you run <span class="emphasis"><em>db.hs</em></span>, it will call <code class="literal">createDB</code> to create a database
+and then populate it using the <span class="emphasis"><em>Database.hs</em></span> source file itself. Every
+word in the file is a key that maps to the word after it.  The client
+will then look up a couple of keys and then go into an interactive
+mode where you can type in keys that are looked up in the database.
+Try it out with your database implementation and satisfy yourself
+that it is working.</p>
+<p id="part__the_sec"><span class="strong"><strong>Part 2.</strong></span> The second stage is to make the database <span class="emphasis"><em>distributed</em></span>.  In practice,
+the reason for doing this is to store a database much larger than we
+can store on a single machine and still have fast access to all of
+it.</p>
+<p id="the_basic_plan_">The basic plan is that we are going to divide up the key space
+uniformly and store each portion of the key space on a separate node.
+The exact method used for splitting up the key space is important in
+practice because if you get it wrong, then the load might not be well-balanced between the nodes.  For the purposes of this exercise, though, a simple scheme will do: take the first character of the key modulo
+the number of workers.</p>
+<p id="there_will_stil">There will still be a single process handling requests from clients,
+so we still have <code class="literal">type Database = ProcessId</code>.  However, this process
+needs to delegate requests to the correct worker process according to
+the key:</p>
+<div class="itemizedlist" id="arrange_to_star_id1"><ul class="itemizedlist">
+<li class="listitem">
+Arrange to start worker processes on each of the nodes.  The list of
+  nodes in the network is passed to <code class="literal">createDB</code>.
+</li>
+<li class="listitem">
+Write the code for the worker process.  You probably need to put it
+in a different module (e.g., called <code class="literal">Worker</code>) due to restrictions
+imposed by Template Haskell.  The worker process needs to maintain its
+own <code class="literal">Map</code> and handle <code class="literal">get</code> and <code class="literal">set</code> requests.
+</li>
+<li class="listitem">
+Make the main database process delegate operations to the correct
+worker.  You should be able to make the worker reply directly to the
+original client rather than having to forward the response from the
+worker back to the client.
+</li>
+</ul></div>
+<p id="compile_dbhs_a">Compile <span class="emphasis"><em>db.hs</em></span> against your distributed database to make sure it
+still works.</p>
+<p id="part__make_th"><span class="strong"><strong>Part 3.</strong></span> Make the main database process monitor all the worker processes.
+Detect failure of a worker and emit a message using <code class="literal">say</code>.  You will
+need to use <code class="literal">receiveWait</code> to wait for multiple types of messages; see
+the <span class="emphasis"><em>ping-fail.hs</em></span> example for hints.</p>
+<p id="note_that_we_ca_id2">Note that we can’t yet do anything sensible if a worker dies. That is
+the next part of the exercise.</p>
+<p id="part__impleme"><span class="strong"><strong>Part 4.</strong></span> Implement <span class="emphasis"><em>fault tolerance</em></span> by replicating the database across
+multiple nodes.</p>
+<div class="itemizedlist" id="instead_of_divi_id1"><ul class="itemizedlist">
+<li class="listitem">
+Instead of dividing the key space evenly across workers, put the
+workers in pairs and give each pair a slice of the key space.  Both
+workers in the pair will have exactly the same data.
+</li>
+<li class="listitem">
+Forward requests to both workers in the pair (it doesn’t matter that
+there will be two responses in the case of a <code class="literal">get</code>).
+</li>
+<li class="listitem">
+If a worker dies, you will need to remove the worker from your
+internal list of workers so that you don’t try to send it messages in
+the future.<a href="#ftn.id509430" class="footnote"><sup class="footnote" id="id509430">[63]</sup></a>
+</li>
+</ul></div>
+<p id="this_should_res">This <span class="emphasis"><em>should</em></span> result in a distributed key-value store that is robust
+to individual nodes going down, as long as we don’t kill too many
+nodes too close together. Try it out—kill a node while the database
+is running and check that you can still look up keys.</p>
+<p id="a_sample_soluti">A sample solution can be found in <span class="emphasis"><em>distrib-db/DatabaseSample.hs</em></span> and
+<span class="emphasis"><em>distrib-db/WorkerSample.hs</em></span>.<a id="id509466" class="indexterm"></a><a id="id509476" class="indexterm"></a></p>
+</div>
+<div class="footnotes">
+<br><hr style="width: 100; align: left;">
+<div id="ftn.id492454" class="footnote"><p><a href="#id492454" class="simpara"><sup class="simpara">[50] </sup></a>Also known as “Cloud Haskell.”</p></div>
+<div id="ftn.id492599" class="footnote"><p><a href="#id492599" class="simpara"><sup class="simpara">[51] </sup></a>This is also known as the <span class="emphasis"><em>actor model</em></span>.</p></div>
+<div id="ftn.id492752" class="footnote"><p><a href="#id492752" class="simpara"><sup class="simpara">[52] </sup></a>The <code class="literal">distributed-process</code> package is in fact the second implementation of these ideas, the first prototype being the <code class="literal">remote</code> package.</p></div>
+<div id="ftn.id492961" class="footnote"><p><a href="#id492961" class="simpara"><sup class="simpara">[53] </sup></a>For example, <code class="literal">meta-par</code> and
+<code class="literal">HdpH</code>.</p></div>
+<div id="ftn.id493833" class="footnote"><p><a href="#id493833" class="simpara"><sup class="simpara">[54] </sup></a>As of <code class="literal">binary</code> version 0.6.3.0.</p></div>
+<div id="ftn.id493863" class="footnote"><p><a href="#id493863" class="simpara"><sup class="simpara">[55] </sup></a>As of GHC version 7.2.1.</p></div>
+<div id="ftn.id494855" class="footnote"><p><a href="#id494855" class="simpara"><sup class="simpara">[56] </sup></a>We expect that in the future, GHC will provide syntactic sugar to make remote code execution easier.</p></div>
+<div id="ftn.id494873" class="footnote"><p><a href="#id494873" class="simpara"><sup class="simpara">[57] </sup></a>Template Haskell is a feature provided by GHC that allows Haskell code to be manipulated and generated at compile time. For more details, see the GHC User’s Guide.</p></div>
+<div id="ftn.id495944" class="footnote"><p><a href="#id495944" class="simpara"><sup class="simpara">[58] </sup></a>The log messages produced by <code class="literal">say</code> are normally prefixed by a timestamp, but I have omitted the timestamps here for clarity.</p></div>
+<div id="ftn.id497171" class="footnote"><p><a href="#id497171" class="simpara"><sup class="simpara">[59] </sup></a>The default
+port is chosen by our <code class="literal">distribMain</code> wrapper, not the
+<code class="literal">distributed-process</code> framework.</p></div>
+<div id="ftn.id497883" class="footnote"><p><a href="#id497883" class="simpara"><sup class="simpara">[60] </sup></a>Indeed, some of Erlang’s libraries use exactly this technique.</p></div>
+<div id="ftn.id499575" class="footnote"><p><a href="#id499575" class="simpara"><sup class="simpara">[61] </sup></a>The current implementation of channels uses STM, and channels are merged using <code class="literal">orElse</code>.</p></div>
+<div id="ftn.id507952" class="footnote"><p><a href="#id507952" class="simpara"><sup class="simpara">[62] </sup></a>This is mainly so that we can test the server on a single machine; in practice, you would want to choose the port number via a command-line option or some other method.</p></div>
+<div id="ftn.id509430" class="footnote"><p><a href="#id509430" class="simpara"><sup class="simpara">[63] </sup></a>A real fault-tolerant database would restart the
+worker on a new node and copy the database slice from its partner. The
+solution provided in this book doesn’t do
+this, but by all means have a go at doing it.</p></div>
+</div></section><footer><div class="navfooter">
+<hr>
+<table style="width: 100%; ">
+<tr>
+<td style="width: 40%; text-align: left; ">
+<a accesskey="p" href="ch13.html">Prev</a> </td>
+<td style="width: 20%; text-align: center; "><a accesskey="u" href="pt02.html">Up</a></td>
+<td style="width: 40%; text-align: right; "> <a accesskey="n" href="ch15.html">Next</a>
+</td>
+</tr>
+<tr>
+<td style="width: 40%; text-align: left; vertical-align: top; ">Chapter 13. Parallel Programming Using Threads </td>
+<td style="width: 20%; text-align: center; "><a accesskey="h" href="index.html">Home</a></td>
+<td style="width: 40%; text-align: right; vertical-align: top; "> Chapter 15. Debugging, Tuning, and Interfacing with Foreign Code</td>
+</tr>
+</table>
+</div></footer>
+
+
+	<div class="extra-footer">
+		<p>© 2013, O’Reilly Media, Inc.</p>
+		<ul>
+			<li><a href="http://oreilly.com/terms/">Terms of Service</a></li>
+			<li><a href="http://oreilly.com/oreilly/privacy.csp">Privacy Policy</a></li>
+			<li>Interested in <a href="mailto:scordesse@oreilly.com">sponsoring content?</a></li>
+		</ul>
+	</div>
+<script type="text/javascript">if (!NREUMQ.f) { NREUMQ.f=function() {
+NREUMQ.push(["load",new Date().getTime()]);
+var e=document.createElement("script");
+e.type="text/javascript";
+e.src=(("http:"===document.location.protocol)?"http:":"https:") + "//" +
+  "js-agent.newrelic.com/nr-100.js";
+document.body.appendChild(e);
+if(NREUMQ.a)NREUMQ.a();
+};
+NREUMQ.a=window.onload;window.onload=NREUMQ.f;
+};
+NREUMQ.push(["nrfj","bam.nr-data.net","3e361aebcf","2194180","IApbRUBZXg1WEEoHDAwORh5aQl8N",8,68,new Date().getTime(),"","","","",""]);</script></body>
+
+<!-- Mirrored from chimera.labs.oreilly.com/books/1230000000929/ch14.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 11:04:16 GMT -->
+</html>

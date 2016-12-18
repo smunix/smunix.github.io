@@ -1,0 +1,1228 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<!-- Mirrored from chimera.labs.oreilly.com/books/1230000000929/ch12.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 11:04:16 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head><script type="text/javascript">var NREUMQ=NREUMQ||[];NREUMQ.push(["mark","firstbyte",new Date().getTime()]);</script>
+	<title>Parallel and Concurrent Programming in Haskell</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<link href="http://dwn0odqttrkhc.cloudfront.net/assets/book-f1caceafd9c9f3a6ff72d40c54d173ab.css" media="screen" rel="stylesheet" type="text/css" />
+	<link href="http://dwn0odqttrkhc.cloudfront.net/assets/default-24583441b4f47382b8932338cd56ed23.css" media="screen" rel="stylesheet" type="text/css" />
+	<script src="http://dwn0odqttrkhc.cloudfront.net/assets/application-47d6ffb0c77b868d29a43eb65e940505.js" type="text/javascript"></script>
+	<script src="http://dwn0odqttrkhc.cloudfront.net/assets/book-756862b9ed04d945ca53de5b8f106a83.js" type="text/javascript"></script>
+	<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+	<link href="http://dwn0odqttrkhc.cloudfront.net/assets/janrain-53eb5abed55992e21943b9d3373923e8.css" media="all" rel="stylesheet" type="text/css" />
+	<meta content="authenticity_token" name="csrf-param" />
+<meta content="WQ02oEFDbvBG99rmf8rwvGssMqcy27cCD64yZVVTcMY=" name="csrf-token" />
+	<script type="text/javascript" charset="utf-8">
+  	
+		app.data = new classes.Data({"controller":{"controller":"books","action":"html"},"capturable":{"capture_server":"https://oreilly.janraincapture.com","client_id":"6n5q2k9vesqgn93k3mhevka6c3c3rsre","app_url":"https://login.oreilly.com","app_id":"xsnca5wmqe9vxv97ygh5vfejkd","load_js":"d16s8pqtk4uodx.cloudfront.net/login.oreilly.com/load.js"},"user":{"id":null,"account":"LoggedOutAccount","email":"","name":null,"gravatar_url":"http://www.gravatar.com/avatar/d41d8cd98f00b204e9800998ecf8427e?s=40&d=identicon"},"book":{"isbn":"1230000000929","chapter":"ch12.html","toc_url":"/books/1230000000929/toc_html","metadata_url":"http://d4bb7yl96lyl1.cloudfront.net/1230000000929/metadata/metadata_9b2ac4d71a3220a7d463d8d4c80f9113048bb194.json"},"abilities":{"can_destroy_all_comments":false,"can_create_comments":false},"advertisement":{"body":"<style>      \r\n.ad-profile-image {\r\n  padding: 0;\r\n  margin: 0;\r\n  max-height: 30px;\r\n }\r\n\r\n.top-banner {\r\n  position: absolute;\r\n  right: 0;\r\n  top: 34px;\r\n  z-index: 99999;\r\n}\r\n\r\np.banner-text {\r\n  margin: 0;\r\n  text-align: center;\r\n  padding-right: 10px;\r\n  width: 450px;\r\n}\r\n\r\n@media screen and (max-width: 600px) {\r\n   p.banner-text {\r\n     width: 100%;\r\n     text-align: center;\r\n  }\r\n}\r\n\r\nspan.ebook-advantage {\r\n  font-size: smaller;\r\n  display: block;\r\n}\r\n\r\ndiv.banner-container {\r\n  margin: 0 auto;\r\n}\r\n\r\ndiv.banner-container ul {\r\n  margin: 0 auto;\r\n}\r\n\r\ndiv.topad { padding-bottom: 5px; }\r\n\r\ndiv.banner-container ul li {\r\n  display: inline-block;\r\n  vertical-align: middle;\r\n}\r\n\r\ndiv.banner-container li p {\r\n  padding-top: 0;\r\n  margin-top: 0;\r\n}\r\n\r\ndiv.banner-container li.sponsor {\r\n  border-right: 1px solid rgb(125, 154, 180);\r\n  margin-right: 5px;\r\n  padding-right: 10px;\r\n}\r\n\r\ndiv.banner-container .webbutton {\r\n  background-color: #3994b6;\r\n  display: inline-block;\r\n  padding: 10px;\r\n  -webkit-border-radius: 5px;\r\n  -moz-border-radius: 5px;\r\n  border-radius: 5px;\r\n  color: #FFF;\r\n  text-align: center;\r\n  text-decoration: none;\r\n  font-size: 12px;\r\n  font-weight: bold;\r\n}\r\n\r\n</style>\r\n   \r\n<div style=\"color: rgb(125, 154, 180);\">\r\n\r\n<div class=\"banner-container\">\r\n\r\n<ul>\r\n\r\n<li class=\"sponsor\">\r\n<!--CONFERENCE SPONSOR IMAGE-->\r\n<a href=\"http://www.oscon.com/oscon2013\">\r\n<!--<img src=\"http://orm-other.s3.amazonaws.com/fluent_logo.png\" class=\"ad-profile-image\"/>-->\r\n<img src=\"http://orm-other.s3.amazonaws.com/oscon_logo.png\" class=\"ad-profile-image\"/>\r\n<!--<img src=\"http://orm-other.s3.amazonaws.com/strata_logo.png\" class=\"ad-profile-image\"/>\r\n<img src=\"http://orm-other.s3.amazonaws.com/StrataRx_logo.png\" class=\"ad-profile-image\"/>\r\n<img src=\"http://orm-other.s3.amazonaws.com/velocity_logo.png\" class=\"ad-profile-image\"/>-->\r\n</a>\r\n</li>\r\n\r\n<li>\r\n<!--AD TEXT, 2 LINES, REPLACE LINK URL AS WELL-->\r\n<p class=\"banner-text\">Enjoy this online version of <em>Parallel and Concurrent Programming in Haskell</em>. Purchase and download the DRM-free ebook on <a href=\"http://shop.oreilly.com/product/0636920026365.do\">oreilly.com</a>.<span class=\"ebook-advantage\">Learn more about the O’Reilly <a href=\"http://shop.oreilly.com/category/ebooks.do\">Ebook Advantage</a>.</span></p>\r\n</li>\r\n\r\n<li>\r\n<!--BUY BUTTON-->\r\n<a class=\"webbutton\" href=\"http://shop.oreilly.com/product/0636920026365.do\">Buy the Ebook</a>\r\n</li> \r\n\r\n</ul>\r\n\r\n</div>\r\n\r\n<!--CORNER BANNER (IF NEEDED)-->\r\n<!--<a href=\"http://shop.oreilly.com/product/0636920026365.do\" class=\"top-banner\"><img src=\"http://orm-other.s3.amazonaws.com/banner.png\" /></a>-->\r\n\r\n</div>"}});
+
+		/* Janrain setup */
+  	var janrainModal = new JanrainView();
+  	$("head").append(janrainModal.render().el);
+
+  	/* segment.io setup */
+  	var analytics=analytics||[];analytics.load=function(e){var t=document.createElement("script");t.type="text/javascript",t.async=!0,t.src=("https:"===document.location.protocol?"https://":"http://")+"d2dq2ahtl5zl1z.cloudfront.net/analytics.js/v1/"+e+"/analytics.min.js";var n=document.getElementsByTagName("script")[0];n.parentNode.insertBefore(t,n);var r=function(e){return function(){analytics.push([e].concat(Array.prototype.slice.call(arguments,0)))}},i=["identify","track","trackLink","trackForm","trackClick","trackSubmit","pageview","ab","alias","ready"];for(var s=0;s<i.length;s++)analytics[i[s]]=r(i[s])};
+  	
+  	analytics.load("hg9h6b9pae");
+
+  	$(function() {
+			app.bookapp = new BookApp();
+		});
+	
+	</script>
+</head>
+<body>
+	<div id="menu">
+	
+		<ul id="menu-left">
+			<li id="home-link"><a href="http://chimera.labs.oreilly.com/"><i class="icon-house"></i></a></li>
+			<li><a href="http://chimera.labs.oreilly.com/books/1230000000929">Parallel and Concurrent Programming in Haskell</a></li>
+			<div class="clear"></div>
+		</ul>
+	
+		<ul id="menu-right">
+			<li id="comments-link"><a>&nbsp;</a></li>
+			<li>
+				<a href="#" class="dropdown-toggle" data-toggle="dropdown">Chapters</a>
+				<div id="toc-popup" class="dropdown-menu"></div>
+			</li>
+				<li><a href="#" class="capture_modal_open" id="capture_signin_link">Log In / Sign Up</a></li>
+			<li id="search-li">
+				<form accept-charset="UTF-8" action="http://chimera.labs.oreilly.com/searches" id="search-form" method="get"><div style="margin:0;padding:0;display:inline"><input name="utf8" type="hidden" value="&#x2713;" /></div>
+	<input name='search[q]' type="text" placeholder="Search book..." id="book-search" />
+
+	<input id="search_bookId" name="search[bookId]" type="hidden" value="1230000000929" />
+	
+	<div style='display:none'>
+		sorted by: 
+		<select name='search[sort]' >
+			<option value='relevance'>Relevance</option>
+			<option value='authors'>Author(s)</option>
+			<option value='title'>Title</option>
+		</select>
+		returning
+		<select name='search[limit]' >
+			<option value='5'>5</option>
+			<option value='10'>10</option>
+			<option value='20'>20</option>
+			<option selected="selected" value='50'>50</option>
+			<option value='100'>100</option>
+		</select>
+		values at a time.
+	</div>
+</form>
+			</li>
+			<div class="clear"></div>
+		</ul>
+		<div class="clear"></div>
+	
+</div>
+	<header><div class="navheader">
+<table style="width: 100%; ">
+<tr><td style="text-align: center; " colspan="3">Chapter 12. Concurrent Network Servers</td></tr>
+<tr>
+<td style="width: 20%; text-align: left; ">
+<a accesskey="p" href="ch11.html">Prev</a> </td>
+<td style="width: 60%; text-align: center; ">Part II. Concurrent Haskell</td>
+<td style="width: 20%; text-align: right; "> <a accesskey="n" href="ch13.html">Next</a>
+</td>
+</tr>
+</table>
+<hr>
+</div></header><section class="chapter" data-original-filename="ch12_conc-server.asciidoc" id="sec_conc-server"><div class="titlepage"><div><div><h2 class="title">Chapter 12. Concurrent Network Servers</h2></div></div></div>
+<p id="server_applicat_id1"><a id="ix_ch12_conc-server-txt0" class="indexterm"></a>Server-type applications that communicate with many clients
+simultaneously demand both a high degree of concurrency and high
+performance from the I/O subsystem.  A good web server should be able
+to handle hundreds of thousands of concurrent connections and service
+tens of thousands of requests per second.</p>
+<p id="conc-server_00000000">Ideally, we would like to write these kinds of applications using
+threads.  A thread is the right abstraction. It allows the developer
+to focus on programming the interaction with a single client and then
+to lift this interaction to multiple clients by simply forking many
+instances of the single-client interaction in separate threads.  In
+this chapter, we explore this idea by developing a series of
+server applications, starting from a trivial server with no
+interaction between clients, then adding some shared state, and
+finally building a chat server with state and inter-client
+interaction.</p>
+<p id="conc-server_00000001">Along the way, we will need to draw on many of the concepts from
+previous chapters.  We’ll discuss the design of the server using both
+<code class="literal">MVar</code> and STM, how to handle failure, and building groups of threads
+using the abstractions introduced in <a class="xref" href="ch11.html#sec_conc-symmetric" title="Symmetric Concurrency Combinators">“Symmetric Concurrency Combinators”</a>.</p>
+<div class="sect1" data-original-filename="ch12_conc-server.asciidoc" id="sec_server-trivial">
+<div class="titlepage"><div><div><h2 class="title">A Trivial Server</h2></div></div></div>
+<p id="conc-server_00000002"><a id="ix_ch12_conc-server-txt1" class="indexterm"></a>In this section, we will consider how to build a simple network server
+with the following behavior:</p>
+<div class="itemizedlist" id="conc-server_00000003"><ul class="itemizedlist">
+<li class="listitem">
+The server accepts connections from clients on port 44444.
+</li>
+<li class="listitem">
+If a client sends an integer <span class="emphasis"><em>n</em></span>, then the service responds with the value of
+  <span class="emphasis"><em>2n</em></span>.
+</li>
+<li class="listitem">
+If a client sends the string <code class="literal">"end"</code>, then the server closes the
+  connection.
+</li>
+</ul></div>
+<p id="conc-server_00000004">First, we program the interaction with a single client.  The <a id="id474089" class="indexterm"></a><a id="id474097" class="indexterm"></a>function
+<code class="literal">talk</code> defined below takes a <code class="literal">Handle</code> for communicating with the
+client.  The <code class="literal">Handle</code> will be bound to a network socket so that data
+sent by the client can be read from the <code class="literal">Handle</code>, and data written to
+the <code class="literal">Handle</code> will be sent to the client.</p>
+<p id="conc-server_00000005" class="caption"><span class="emphasis"><em>server.hs</em></span>
+</p>
+<pre class="programlisting" data-language="haskell" id="talk__handle__id1"><code class="nf">talk</code> <code class="ow">::</code> <code class="kt">Handle</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="nb">()</code>
+<code class="nf">talk</code> <code class="n">h</code> <code class="ow">=</code> <code class="kr">do</code>
+  <code class="n">hSetBuffering</code> <code class="n">h</code> <code class="kt">LineBuffering</code>                                <code class="c1">-- </code><span id="CO39-1"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1"></span>
+  <code class="n">loop</code>                                                         <code class="c1">-- </code><span id="CO39-2"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/2.png" alt="2"></span>
+ <code class="kr">where</code>
+  <code class="n">loop</code> <code class="ow">=</code> <code class="kr">do</code>
+    <code class="n">line</code> <code class="ow">&lt;-</code> <code class="n">hGetLine</code> <code class="n">h</code>                                         <code class="c1">-- </code><span id="CO39-3"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/3.png" alt="3"></span>
+    <code class="kr">if</code> <code class="n">line</code> <code class="o">==</code> <code class="s">"end"</code>                                           <code class="c1">-- </code><span id="CO39-4"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/4.png" alt="4"></span>
+       <code class="kr">then</code> <code class="n">hPutStrLn</code> <code class="n">h</code> <code class="p">(</code><code class="s">"Thank you for using the "</code> <code class="o">++</code>         <code class="c1">-- </code><span id="CO39-5"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/5.png" alt="5"></span>
+                         <code class="s">"Haskell doubling service."</code><code class="p">)</code>
+       <code class="kr">else</code> <code class="kr">do</code> <code class="n">hPutStrLn</code> <code class="n">h</code> <code class="p">(</code><code class="n">show</code> <code class="p">(</code><code class="mi">2</code> <code class="o">*</code> <code class="p">(</code><code class="n">read</code> <code class="n">line</code> <code class="ow">::</code> <code class="kt">Integer</code><code class="p">)))</code> <code class="c1">-- </code><span id="CO39-6"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/6.png" alt="6"></span>
+               <code class="n">loop</code>                                            <code class="c1">-- </code><span id="CO39-7"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/7.png" alt="7"></span></pre>
+<div class="calloutlist" id="conc-server_00000006"><table style="border: 0; ">
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO39-1"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="first_we_set_t">
+First, we set the buffering mode for the <code class="literal">Handle</code> to
+<a id="id474516" class="indexterm"></a>line buffering. If we don’t, output sent to the <code class="literal">Handle</code>
+will be buffered up by the I/O layer until there is a full block
+(which is more efficient for large transfers, but not useful for
+interactive applications).
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO39-2"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/2.png" alt="2"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="we_enter_a_loop">
+We enter a loop to respond to
+requests from the client.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO39-3"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/3.png" alt="3"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="each_iteration__id2">
+Each iteration of the loop reads a new line
+of text.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO39-4"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/4.png" alt="4"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="then_it_checks_">
+Then it checks whether the client sent <code class="literal">"end"</code>.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO39-5"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/5.png" alt="5"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="if_so_we_emit_">
+If so, we emit a polite message and return.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO39-6"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/6.png" alt="6"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="if_not_we_atte">
+If not, we attempt to interpret the line as an integer and to
+write the value obtained by doubling it.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO39-7"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/7.png" alt="7"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="finally_we_cal">
+Finally, we call <code class="literal">loop</code> again to read the next request.
+</p></td>
+</tr>
+</table></div>
+<p id="conc-server_00000013">Having dealt with the interaction with a single client, we can now
+make this into a multiclient server using concurrency.  <a id="id474621" class="indexterm"></a>The <code class="literal">main</code>
+function for our server is as follows:</p>
+<pre class="programlisting" data-language="haskell" id="main__withsock_id1"><code class="nf">main</code> <code class="ow">=</code> <code class="n">withSocketsDo</code> <code class="o">$</code> <code class="kr">do</code>
+  <code class="n">sock</code> <code class="ow">&lt;-</code> <code class="n">listenOn</code> <code class="p">(</code><code class="kt">PortNumber</code> <code class="p">(</code><code class="n">fromIntegral</code> <code class="n">port</code><code class="p">))</code>              <code class="c1">-- </code><span id="CO40-1"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1"></span>
+  <code class="n">printf</code> <code class="s">"Listening on port %d</code><code class="se">\n</code><code class="s">"</code> <code class="n">port</code>
+  <code class="n">forever</code> <code class="o">$</code> <code class="kr">do</code>                                                   <code class="c1">-- </code><span id="CO40-2"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/2.png" alt="2"></span>
+     <code class="p">(</code><code class="n">handle</code><code class="p">,</code> <code class="n">host</code><code class="p">,</code> <code class="n">port</code><code class="p">)</code> <code class="ow">&lt;-</code> <code class="n">accept</code> <code class="n">sock</code>                         <code class="c1">-- </code><span id="CO40-3"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/3.png" alt="3"></span>
+     <code class="n">printf</code> <code class="s">"Accepted connection from %s: %s</code><code class="se">\n</code><code class="s">"</code> <code class="n">host</code> <code class="p">(</code><code class="n">show</code> <code class="n">port</code><code class="p">)</code>
+     <code class="n">forkFinally</code> <code class="p">(</code><code class="n">talk</code> <code class="n">handle</code><code class="p">)</code> <code class="p">(</code><code class="nf">\</code><code class="kr">_</code> <code class="ow">-&gt;</code> <code class="n">hClose</code> <code class="n">handle</code><code class="p">)</code>             <code class="c1">-- </code><span id="CO40-4"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/4.png" alt="4"></span>
+
+<code class="nf">port</code> <code class="ow">::</code> <code class="kt">Int</code>
+<code class="nf">port</code> <code class="ow">=</code> <code class="mi">44444</code></pre>
+<div class="calloutlist" id="conc-server_00000015"><table style="border: 0; ">
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO40-1"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="first_we_creat">
+First, we create a network socket to listen on port
+44444.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO40-2"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/2.png" alt="2"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="then_we_enter_a">
+Then we enter a loop to accept connections from clients.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO40-3"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/3.png" alt="3"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="this_line_waits">
+This line waits for a new client connection. <a id="id475026" class="indexterm"></a>The <code class="literal">accept</code> operation blocks
+until a connection request from a client arrives and then returns a
+<code class="literal">Handle</code> for communicating with the client (here bound to <code class="literal">handle</code>) and
+some information about the client. Here we bind <code class="literal">host</code> to the client’s
+hostname and <code class="literal">port</code> to the local port that accepted the connection
+but use the variables just to log information to the console.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO40-4"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/4.png" alt="4"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="next_we_forkfi">
+Next, we <a id="id475077" class="indexterm"></a>call <code class="literal">forkFinally</code> to create a new thread to handle the
+request.  The interaction with the client is delegated to the function
+<code class="literal">talk</code> that we defined above, to which we pass the <code class="literal">handle</code> returned
+by the <code class="literal">accept</code> call. We defined <code class="literal">forkFinally</code> back in
+<a class="xref" href="ch09.html#sec_catching-async-exceptions" title="Catching Asynchronous Exceptions">“Catching Asynchronous Exceptions”</a>.<a href="#ftn.id475122" class="footnote"><sup class="footnote" id="id475122">[43]</sup></a> It is used here
+to ensure that the <code class="literal">Handle</code> is always closed in
+the event of an exception in the server thread.  If we didn’t do this, then GHC’s <a id="id475140" class="indexterm"></a><a id="id475148" class="indexterm"></a>garbage collector would eventually close the <code class="literal">Handle</code> for us, but it might take a while, and we might run out of <code class="literal">Handle</code>s in
+the meantime (there is usually a fixed limit imposed by the operating
+system on the number of open <code class="literal">Handle</code>s).
+</p></td>
+</tr>
+</table></div>
+<p id="conc-server_00000019">Having forked a thread to handle this client, the main thread then
+goes back to accepting more connections.  All the active client
+connections and the main thread run concurrently with each other, so
+the fact that the server is handling multiple clients will be
+invisible to any individual client.</p>
+<p id="conc-server_00000020">So making our concurrent server was simple—we did not have to
+change the single-client code at all, and the code to lift it to a
+concurrent server was only a handful of lines.  We can verify that it
+works by starting the server in one window:</p>
+<pre class="screen" id="conc-server_00000021">$ ./server</pre>
+<p id="conc-server_00000022">In another window, we start a client and try a single
+request. We send 22 and get 44 in return.<a href="#ftn.id475210" class="footnote"><sup class="footnote" id="id475210">[44]</sup></a></p>
+<pre class="screen" id="conc-server_00000023">$ nc localhost 44444
+22
+44</pre>
+<p id="conc-server_00000024">Next, we leave this client running and start another client:</p>
+<pre class="screen" id="conc-server_00000025">$ ghc -e 'mapM_ print [1..]' | nc localhost 44444
+2
+4
+6
+...</pre>
+<p id="conc-server_00000026">This client exercises the server a bit more by sending it a
+continuous stream of numbers to double.  For fun, try starting a few
+of these.  Meanwhile we can switch back to our first client and
+observe that it is still being serviced:</p>
+<pre class="screen" id="conc-server_00000027">$ nc localhost 44444
+22
+44
+33
+66</pre>
+<p id="conc-server_00000028">Finally, we can end a single client’s interaction by typing
+<code class="literal">end</code>:</p>
+<pre class="screen" id="conc-server_00000029">end
+Thank you for using the Haskell doubling service.</pre>
+<p id="conc-server_00000030">This was just a simple example, but the same ideas underlie several
+high-performance web server implementations in <a id="id475301" class="indexterm"></a>Haskell.  Furthermore,
+with no additional effort at all, the same server code can make use of
+multiple cores simply by compiling with <code class="literal">-threaded</code> and running with
+<code class="literal">+RTS -N</code>.</p>
+<p id="conc-server_00000031">There are two technologies that make this structure feasible in
+Haskell:</p>
+<div class="itemizedlist" id="conc-server_00000033"><ul class="itemizedlist">
+<li class="listitem">
+GHC’s very lightweight <a id="id475343" class="indexterm"></a>threads mean that having one thread per
+  client is practical.
+</li>
+<li class="listitem">
+GHC’s I/O libraries employ an <a id="id475360" class="indexterm"></a>I/O manager thread that multiplexes
+  all the ongoing I/O requests using efficient operating system
+  primitives such as <code class="literal">epoll</code> on Linux.  Thus applications with
+  lots of lightweight threads, all doing I/O simultaneously,
+  perform very well.
+</li>
+</ul></div>
+<p id="conc-server_00000035">Were it not for lightweight threads and the I/O manager, we would have
+to resort to collapsing the structure into a single event loop (or
+worse, multiple event loops to take advantage of multiple cores).  The
+<a id="id475383" class="indexterm"></a>event loop style loses the single-client abstraction. Instead, all
+clients have to be dealt with simultaneously, which can be complicated
+if there are different kinds of clients with different behaviors.
+Furthermore, we have to represent the state of each client somehow,
+rather than just writing the straight-line code as we did in <code class="literal">talk</code> earlier.  Imagine extending <code class="literal">talk</code> to implement a more elaborate
+protocol with several states—it would be reasonably straightforward
+with the single-client abstraction, but if we had to represent each
+state and the transitions explicitly, things would quickly get
+complicated.</p>
+<p id="conc-server_00000036">We ignored many details that would be necessary in a real server
+application.  The reader is encouraged to think about these and try
+implementing any required changes on top of the provided sample code:</p>
+<div class="itemizedlist" id="conc-server_00000038"><ul class="itemizedlist">
+<li class="listitem">
+What happens if the user interrupts the server with
+  <a id="id475431" class="indexterm"></a>Ctrl+C? (Ctrl+C is implemented by sending an asynchronous
+  <code class="literal">Interrupted</code> exception to the main thread.)
+</li>
+<li class="listitem">
+What happens in <code class="literal">talk</code> if the line does not parse as a number?
+</li>
+<li class="listitem">
+What happens if the client cuts the connection prematurely or
+  the network goes down?
+</li>
+<li class="listitem">
+Should there be a limit on the number of clients we serve
+  simultaneously?
+</li>
+<li class="listitem">
+Can we log the activity of the server to a file?<a id="id475482" class="indexterm"></a>
+</li>
+</ul></div>
+</div>
+<div class="sect1" data-original-filename="ch12_conc-server.asciidoc" id="sec_server-state">
+<div class="titlepage"><div><div><h2 class="title">Extending the Simple Server with State</h2></div></div></div>
+<p id="conc-server_00000039"><a id="ix_ch12_conc-server-txt2" class="indexterm"></a><a id="ix_ch12_conc-server-txt3" class="indexterm"></a>Next, we’ll extend the simple server from the previous section to
+include some state that is shared amongst the clients and may be
+changed by client actions.</p>
+<p id="conc-server_00000040">The new behavior is as follows: instead of multiplying each number by
+two, the server will multiply each number by the <span class="emphasis"><em>current factor</em></span>.
+Any connected client can change the current factor by sending the
+command <code class="literal">*<em class="replaceable"><code>N</code></em></code>, where
+<code class="literal"><em class="replaceable"><code>N</code></em></code> is an integer. When a client
+changes the factor, the server sends a message to all the other
+connected clients informing them of the change.</p>
+<p id="conc-server_00000041">While this seems like a small change in behavior, it introduces some
+interesting new challenges in designing the server.</p>
+<div class="itemizedlist" id="conc-server_00000042"><ul class="itemizedlist">
+<li class="listitem">
+There is a shared state—the current factor—so we must decide how to store it and how it is accessed and modified.
+</li>
+<li class="listitem">
+When one server thread changes the state in response to its client
+issuing <a id="id475594" class="indexterm"></a>the <code class="literal">*<em class="replaceable"><code>N</code></em></code> command, we must
+arrange to send a message to all the connected clients.
+</li>
+</ul></div>
+<p id="conc-server_00000043">Let’s explore the design space, taking as a given that we want to
+serve each client from a separate thread on the server.  Over the
+following sections, I’ll outline four possible designs and explain the
+pros and cons of each one.</p>
+<div class="sect2" id="sec_conc-server-design1">
+<div class="titlepage"><div><div><h3 class="title">Design One: One Giant Lock</h3></div></div></div>
+<p id="server_state_i_id1"><a id="ix_ch12_conc-server-txt5" class="indexterm"></a>This is the simplest approach.  The state of the server is stored
+under a single <code class="literal">MVar</code> and looks something like this:</p>
+<pre class="programlisting" data-language="haskell" id="data_state__st_id1"><code class="kr">data</code> <code class="kt">State</code> <code class="ow">=</code> <code class="kt">State</code> <code class="p">{</code>
+  <code class="n">currentFactor</code> <code class="ow">::</code> <code class="kt">Int</code><code class="p">,</code>
+  <code class="n">clientHandles</code> <code class="ow">::</code> <code class="p">[</code><code class="kt">Handle</code><code class="p">]</code>
+ <code class="p">}</code>
+
+<code class="kr">newtype</code> <code class="kt">StateVar</code> <code class="ow">=</code> <code class="kt">StateVar</code> <code class="p">(</code><code class="kt">MVar</code> <code class="kt">State</code><code class="p">)</code></pre>
+<p id="note_that_the_s">Note that the state contains all the <code class="literal">Handle</code>s of the connected
+clients. This is so that if a server thread receives a factor-change
+command from its client, it can notify all the other clients of the
+change by writing a message to their <code class="literal">Handle</code>.</p>
+<p id="however_we_hav">However, we have to be careful. If multiple threads write to <a id="id475818" class="indexterm"></a><a id="id475826" class="indexterm"></a><a id="id475831" class="indexterm"></a>a
+<code class="literal">Handle</code> simultaneously, the messages might get interleaved in an
+arbitrary way.  To make sure messages don’t get interleaved, we
+can use the <code class="literal">MVar</code> as a lock.  But this means that every server
+thread, when it needs to send a message to its client, must hold the
+<code class="literal">MVar</code> while sending the message.</p>
+<p id="clearly_the_di">Clearly, the disadvantage of this model is that there will be lots of
+contention for the shared <code class="literal">MVar</code>, since even when clients are not
+interacting with each other, they still have to take the lock.  This
+design does not have enough concurrency.</p>
+<p id="note_that_we_ca_id1">Note that we can’t reduce contention by using finer-grained locking
+here because the combination of modifying the state and informing all
+the clients must be atomic.  Otherwise, the notifications created by
+multiple factor-change commands could interleave with one another and
+clients may end up being misled about the current factor value.<a id="id475884" class="indexterm"></a></p>
+</div>
+<div class="sect2" id="sec_conc-server-design2">
+<div class="titlepage"><div><div><h3 class="title">Design Two: One Chan Per Server Thread</h3></div></div></div>
+<p id="server_state_i_id2"><a id="ix_ch12_conc-server-txt6" class="indexterm"></a>To add more concurrency, we want to design the system so that each
+server thread can communicate with its client privately without
+interacting with the other server threads.  Therefore, the <code class="literal">Handle</code> for
+communicating with the client must be private to each server thread.</p>
+<p id="the_factorchan">The factor-change command still has to notify all the clients, but
+since the server thread is the only thread allowed to communicate with
+a client, we must send a message to all the server threads when a
+factor-change occurs.  Therefore, each server thread must have a <code class="literal">Chan</code>
+on which it receives messages.</p>
+<p id="the_types_in_th">The types in this setup would look like this:</p>
+<pre class="programlisting" data-language="haskell" id="data_state__st_id2"><code class="kr">data</code> <code class="kt">State</code> <code class="ow">=</code> <code class="kt">State</code> <code class="p">{</code>
+  <code class="n">clientChans</code> <code class="ow">::</code> <code class="p">[</code><code class="kt">Chan</code> <code class="kt">Message</code><code class="p">]</code>
+ <code class="p">}</code>
+
+<code class="kr">data</code> <code class="kt">Message</code>
+  <code class="ow">=</code> <code class="kt">FactorChange</code> <code class="kt">Int</code>
+  <code class="o">|</code> <code class="kt">ClientInput</code> <code class="kt">String</code>
+
+<code class="kr">newtype</code> <code class="kt">StateVar</code> <code class="ow">=</code> <code class="kt">StateVar</code> <code class="p">(</code><code class="kt">MVar</code> <code class="kt">State</code><code class="p">)</code></pre>
+<p id="there_are_two_k">There are two kinds of events that a server thread can act upon:
+a factor-change event from another server thread or a line of
+input from the client.  Therefore, we make a <code class="literal">Message</code> type to combine
+these two events so that the <code class="literal">Chan</code> can carry either.  How do <a id="id476143" class="indexterm"></a><a id="id476152" class="indexterm"></a>the
+<code class="literal">ClientInput</code> events get generated?  We need another thread for each
+server thread whose sole job it is to receive lines of input from the
+client’s <code class="literal">Handle</code> and forward them to the <code class="literal">Chan</code> in the form of
+<code class="literal">ClientInput</code> events. I’ll call this the "receive thread."</p>
+<p id="this_design_is_">This design is an improvement over the first design, although it does
+still have one drawback. A server thread that receives a factor-change
+command must iterate over the whole list of <code class="literal">Chan</code>s sending a
+message to each one, and this must be done with the lock held, again
+for atomicity reasons.  Furthermore, we have to keep the list of
+<code class="literal">Chan</code>s up to date when clients connect and disconnect.<a id="id476209" class="indexterm"></a></p>
+</div>
+<div class="sect2" id="sec_conc-server-design3">
+<div class="titlepage"><div><div><h3 class="title">Design Three: Use a Broadcast Chan</h3></div></div></div>
+<p id="broadcast_chann"><a id="id476232" class="indexterm"></a><a id="id476237" class="indexterm"></a><a id="id476246" class="indexterm"></a>To solve the issue that notifying all the clients requires a possibly
+expensive walk over the list of <code class="literal">Chan</code>s, we can use a broadcast
+channel instead, where a broadcast channel is an ordinary <code class="literal">Chan</code> that
+we create a copy of for each server thread using <code class="literal">dupChan</code> (see
+<a class="xref" href="ch07.html#sec_channels" title="MVar as a Building Block: Unbounded Channels">“MVar as a Building Block: Unbounded Channels”</a>).  When an item is written to the broadcast channel,
+it will appear on all the copies.</p>
+<p id="so_in_this_desi">So in this design, the only shared state we need is a single broadcast
+channel, which doesn’t even need to be stored in an <code class="literal">MVar</code> (because it
+never changes).  The messages sent on the broadcast channel are new
+factor values. Because all server threads will see messages on this
+channel in the same order, they all have a consistent view of the state.</p>
+<pre class="programlisting" data-language="haskell" id="newtype_state__id1"><code class="kr">newtype</code> <code class="kt">State</code> <code class="ow">=</code> <code class="kt">State</code> <code class="p">{</code> <code class="n">broadcastChan</code> <code class="ow">::</code> <code class="kt">Chan</code> <code class="kt">Int</code> <code class="p">}</code></pre>
+<p id="however_there_">However, there is one wrinkle with this design.  The server thread
+must listen both for events on the broadcast channel and for <a id="id476366" class="indexterm"></a>input from
+the client.  To merge these two kinds of events, we’ll need a <code class="literal">Chan</code> as
+in the previous design, a receive thread to forward the client’s
+input, and another thread to forward messages from the broadcast
+channel.  Hence this design needs a total of three threads per client.
+The setup is summarized by the diagram in <a class="xref" href="ch12.html#fig_server-mvar" title="Figure 12-1. Server structure with Chan">Figure 12-1</a>.</p>
+<div class="figure" id="fig_server-mvar">
+<div class="figure-contents"><div class="mediaobject"><img src="http://orm-chimera-prod.s3.amazonaws.com/1230000000929/images/pcph_1201.png" alt="Server structure with Chan"></div></div>
+<div class="figure-title">Figure 12-1. Server structure with Chan</div>
+</div>
+</div>
+<div class="sect2" id="sec_conc-server-design4">
+<div class="titlepage"><div><div><h3 class="title">Design Four: Use STM</h3></div></div></div>
+<p id="server_state_i_id3"><a id="ix_ch12_conc-server-txt9" class="indexterm"></a><a id="ix_ch12_conc-server-txt10" class="indexterm"></a>We can improve on the previous design further by using STM.  With STM,
+we can avoid the broadcast channel by storing the current factor in a
+single shared <code class="literal">TVar</code>:</p>
+<pre class="programlisting" data-language="haskell" id="newtype_state__id2"><code class="kr">newtype</code> <code class="kt">State</code> <code class="ow">=</code> <code class="kt">State</code> <code class="p">{</code> <code class="n">currentFactor</code> <code class="ow">::</code> <code class="kt">TVar</code> <code class="kt">Int</code> <code class="p">}</code></pre>
+<p id="an_stm_transact">An STM transaction can watch for changes in the <code class="literal">TVar</code>'s value using
+the technique that we saw in <a class="xref" href="ch10.html#sec_stm-block-until-changes" title="Blocking Until Something Changes">“Blocking Until Something Changes”</a>, so we
+don’t need to explicitly send messages when it changes.</p>
+<p id="furthermore_as">Furthermore, as we saw in <a class="xref" href="ch10.html#sec_stm-merging" title="Merging with STM">“Merging with STM”</a>, we can merge multiple
+sources of events in STM without using extra threads.  We do need a
+receive thread to forward input from the client because an STM
+transaction can’t wait for IO, but that’s all.  This design needs two
+threads per client.  The overall structure is depicted in
+<a class="xref" href="ch12.html#fig_server-stm" title="Figure 12-2. Server structure with STM">Figure 12-2</a>.</p>
+<div class="figure" id="fig_server-stm">
+<div class="figure-contents"><div class="mediaobject"><img src="http://orm-chimera-prod.s3.amazonaws.com/1230000000929/images/pcph_1202.png" alt="Server structure with STM"></div></div>
+<div class="figure-title">Figure 12-2. Server structure with STM</div>
+</div>
+<p id="for_concretenes">For concreteness, let’s walk through the sequence of events that take
+place in this setup when a client issues <a id="id476614" class="indexterm"></a>a
+<code class="literal">*<em class="replaceable"><code>N</code></em></code> command:</p>
+<div class="itemizedlist" id="the_receive_thr_id1"><ul class="itemizedlist">
+<li class="listitem">
+The receive thread reads the <code class="literal">*<em class="replaceable"><code>N</code></em></code>
+  command from the <code class="literal">Handle</code>, and forwards it to the server thread’s
+  <code class="literal">TChan</code>.
+</li>
+<li class="listitem">
+The server thread receives the command on its <code class="literal">TChan</code> and modifies
+  the shared <code class="literal">TVar</code> containing the current factor.
+</li>
+<li class="listitem">
+The change of value in the <code class="literal">TVar</code> is noticed by the other server
+  threads, which all report the new value to their respective clients.
+</li>
+</ul></div>
+</div>
+<div class="sect2" id="conc-server_00000057">
+<div class="titlepage"><div><div><h3 class="title">The Implementation</h3></div></div></div>
+<p id="conc-server_00000058">STM results in the simplest architecture, so we’ll develop our
+solution using that. First, the <code class="literal">main</code> function, which has a couple
+of changes compared with the previous version:</p>
+<p id="conc-server_00000059" class="caption"><span class="emphasis"><em>server2.hs</em></span>
+</p>
+<pre class="programlisting" data-language="haskell" id="main__withsock_id2"><code class="nf">main</code> <code class="ow">=</code> <code class="n">withSocketsDo</code> <code class="o">$</code> <code class="kr">do</code>
+  <code class="n">sock</code> <code class="ow">&lt;-</code> <code class="n">listenOn</code> <code class="p">(</code><code class="kt">PortNumber</code> <code class="p">(</code><code class="n">fromIntegral</code> <code class="n">port</code><code class="p">))</code>
+  <code class="n">printf</code> <code class="s">"Listening on port %d</code><code class="se">\n</code><code class="s">"</code> <code class="n">port</code>
+  <code class="n">factor</code> <code class="ow">&lt;-</code> <code class="n">atomically</code> <code class="o">$</code> <code class="n">newTVar</code> <code class="mi">2</code>                               <code class="c1">-- </code><span id="CO41-1"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1"></span>
+  <code class="n">forever</code> <code class="o">$</code> <code class="kr">do</code>
+    <code class="p">(</code><code class="n">handle</code><code class="p">,</code> <code class="n">host</code><code class="p">,</code> <code class="n">port</code><code class="p">)</code> <code class="ow">&lt;-</code> <code class="n">accept</code> <code class="n">sock</code>
+    <code class="n">printf</code> <code class="s">"Accepted connection from %s: %s</code><code class="se">\n</code><code class="s">"</code> <code class="n">host</code> <code class="p">(</code><code class="n">show</code> <code class="n">port</code><code class="p">)</code>
+    <code class="n">forkFinally</code> <code class="p">(</code><code class="n">talk</code> <code class="n">handle</code> <code class="n">factor</code><code class="p">)</code> <code class="p">(</code><code class="nf">\</code><code class="kr">_</code> <code class="ow">-&gt;</code> <code class="n">hClose</code> <code class="n">handle</code><code class="p">)</code>       <code class="c1">-- </code><span id="CO41-2"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/2.png" alt="2"></span>
+
+<code class="nf">port</code> <code class="ow">::</code> <code class="kt">Int</code>
+<code class="nf">port</code> <code class="ow">=</code> <code class="mi">44444</code></pre>
+<div class="calloutlist" id="conc-server_00000060"><table style="border: 0; ">
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO41-1"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="here_we_create">
+Here, we create the <code class="literal">TVar</code> that contains the current factor and
+initialize its value to 2.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO41-2"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/2.png" alt="2"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="the_talk_functi">
+The <code class="literal">talk</code> function now takes the factor <code class="literal">TVar</code> as an
+additional argument.
+</p></td>
+</tr>
+</table></div>
+<p id="conc-server_00000062">The talk function sets up the threads to handle the new client
+connection:</p>
+<pre class="programlisting" data-language="haskell" id="talk__handle__id2"><code class="nf">talk</code> <code class="ow">::</code> <code class="kt">Handle</code> <code class="ow">-&gt;</code> <code class="kt">TVar</code> <code class="kt">Integer</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="nb">()</code>
+<code class="nf">talk</code> <code class="n">h</code> <code class="n">factor</code> <code class="ow">=</code> <code class="kr">do</code>
+  <code class="n">hSetBuffering</code> <code class="n">h</code> <code class="kt">LineBuffering</code>
+  <code class="n">c</code> <code class="ow">&lt;-</code> <code class="n">atomically</code> <code class="n">newTChan</code>                <code class="c1">-- </code><span id="CO42-1"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1"></span>
+  <code class="n">race</code> <code class="p">(</code><code class="n">server</code> <code class="n">h</code> <code class="n">factor</code> <code class="n">c</code><code class="p">)</code> <code class="p">(</code><code class="n">receive</code> <code class="n">h</code> <code class="n">c</code><code class="p">)</code>  <code class="c1">-- </code><span id="CO42-2"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/2.png" alt="2"></span>
+  <code class="n">return</code> <code class="nb">()</code></pre>
+<div class="calloutlist" id="conc-server_00000064"><table style="border: 0; ">
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO42-1"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="creates_the_new">
+Creates the new <code class="literal">TChan</code> that will carry the messages from the
+receive thread.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO42-2"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/2.png" alt="2"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="creates_the_ser">
+Creates the <code class="literal">server</code> and <code class="literal">receive</code> threads.  (The
+<code class="literal">server</code> and <code class="literal">receive</code> functions will be defined shortly.) Note that we are using
+<code class="literal">race</code> from <a class="xref" href="ch11.html#sec_conc-symmetric" title="Symmetric Concurrency Combinators">“Symmetric Concurrency Combinators”</a>. <code class="literal">race</code> is particularly useful
+here because we want to set up a sibling relationship between the two
+threads.  If either thread fails for any reason, then we want to cancel the
+other thread and raise the exception, which will cause the client
+connection to be cleanly shut down.  Furthermore, <code class="literal">race</code> gives us the
+ability to terminate one thread by simply returning from the other. We
+don’t intend the <code class="literal">receive</code> thread to ever voluntarily terminate, but
+it is useful to be able to shut down cleanly by just returning from
+the <code class="literal">server</code> thread.
+</p></td>
+</tr>
+</table></div>
+<p id="conc-server_00000066"><a id="id477466" class="indexterm"></a>The <code class="literal">receive</code> function repeatedly reads a line from the <code class="literal">Handle</code> and
+writes it to the <code class="literal">TChan</code>:</p>
+<pre class="programlisting" data-language="haskell" id="receive__hand"><code class="nf">receive</code> <code class="ow">::</code> <code class="kt">Handle</code> <code class="ow">-&gt;</code> <code class="kt">TChan</code> <code class="kt">String</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="nb">()</code>
+<code class="nf">receive</code> <code class="n">h</code> <code class="n">c</code> <code class="ow">=</code> <code class="n">forever</code> <code class="o">$</code> <code class="kr">do</code>
+  <code class="n">line</code> <code class="ow">&lt;-</code> <code class="n">hGetLine</code> <code class="n">h</code>
+  <code class="n">atomically</code> <code class="o">$</code> <code class="n">writeTChan</code> <code class="n">c</code> <code class="n">line</code></pre>
+<p id="conc-server_00000068">Next, we have the <code class="literal">server</code> thread, where most of the application logic
+resides.</p>
+<pre class="programlisting" data-language="haskell" id="server__handl"><code class="nf">server</code> <code class="ow">::</code> <code class="kt">Handle</code> <code class="ow">-&gt;</code> <code class="kt">TVar</code> <code class="kt">Integer</code> <code class="ow">-&gt;</code> <code class="kt">TChan</code> <code class="kt">String</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="nb">()</code>
+<code class="nf">server</code> <code class="n">h</code> <code class="n">factor</code> <code class="n">c</code> <code class="ow">=</code> <code class="kr">do</code>
+  <code class="n">f</code> <code class="ow">&lt;-</code> <code class="n">atomically</code> <code class="o">$</code> <code class="n">readTVar</code> <code class="n">factor</code>     <code class="c1">-- </code><span id="CO43-1"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1"></span>
+  <code class="n">hPrintf</code> <code class="n">h</code> <code class="s">"Current factor: %d</code><code class="se">\n</code><code class="s">"</code> <code class="n">f</code>    <code class="c1">-- </code><span id="CO43-2"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/2.png" alt="2"></span>
+  <code class="n">loop</code> <code class="n">f</code>                                <code class="c1">-- </code><span id="CO43-3"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/3.png" alt="3"></span>
+ <code class="kr">where</code>
+  <code class="n">loop</code> <code class="n">f</code> <code class="ow">=</code> <code class="kr">do</code>
+    <code class="n">action</code> <code class="ow">&lt;-</code> <code class="n">atomically</code> <code class="o">$</code> <code class="kr">do</code>           <code class="c1">-- </code><span id="CO43-4"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/4.png" alt="4"></span>
+      <code class="n">f'</code> <code class="ow">&lt;-</code> <code class="n">readTVar</code> <code class="n">factor</code>             <code class="c1">-- </code><span id="CO43-5"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/5.png" alt="5"></span>
+      <code class="kr">if</code> <code class="p">(</code><code class="n">f</code> <code class="o">/=</code> <code class="n">f'</code><code class="p">)</code>                      <code class="c1">-- </code><span id="CO43-6"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/6.png" alt="6"></span>
+         <code class="kr">then</code> <code class="n">return</code> <code class="p">(</code><code class="n">newfactor</code> <code class="n">f'</code><code class="p">)</code>     <code class="c1">-- </code><span id="CO43-7"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/7.png" alt="7"></span>
+         <code class="kr">else</code> <code class="kr">do</code>
+           <code class="n">l</code> <code class="ow">&lt;-</code> <code class="n">readTChan</code> <code class="n">c</code>             <code class="c1">-- </code><span id="CO43-8"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/8.png" alt="8"></span>
+           <code class="n">return</code> <code class="p">(</code><code class="n">command</code> <code class="n">f</code> <code class="n">l</code><code class="p">)</code>         <code class="c1">-- </code><span id="CO43-9"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/9.png" alt="9"></span>
+    <code class="n">action</code>
+
+  <code class="n">newfactor</code> <code class="n">f</code> <code class="ow">=</code> <code class="kr">do</code>                      <code class="c1">-- </code><span id="CO43-10"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/10.png" alt="10"></span>
+    <code class="n">hPrintf</code> <code class="n">h</code> <code class="s">"new factor: %d</code><code class="se">\n</code><code class="s">"</code> <code class="n">f</code>
+    <code class="n">loop</code> <code class="n">f</code>
+
+  <code class="n">command</code> <code class="n">f</code> <code class="n">s</code>                           <code class="c1">-- </code><span id="CO43-11"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/11.png" alt="11"></span>
+   <code class="ow">=</code> <code class="kr">case</code> <code class="n">s</code> <code class="kr">of</code>
+      <code class="s">"end"</code> <code class="ow">-&gt;</code>
+        <code class="n">hPutStrLn</code> <code class="n">h</code> <code class="p">(</code><code class="s">"Thank you for using the "</code> <code class="o">++</code>
+                     <code class="s">"Haskell doubling service."</code><code class="p">)</code>         <code class="c1">-- </code><span id="CO43-12"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/12.png" alt="12"></span>
+      <code class="sc">'*'</code><code class="kt">:</code><code class="n">s</code> <code class="ow">-&gt;</code> <code class="kr">do</code>
+        <code class="n">atomically</code> <code class="o">$</code> <code class="n">writeTVar</code> <code class="n">factor</code> <code class="p">(</code><code class="n">read</code> <code class="n">s</code> <code class="ow">::</code> <code class="kt">Integer</code><code class="p">)</code> <code class="c1">-- </code><span id="CO43-13"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/13.png" alt="13"></span>
+        <code class="n">loop</code> <code class="n">f</code>
+      <code class="n">line</code>  <code class="ow">-&gt;</code> <code class="kr">do</code>
+        <code class="n">hPutStrLn</code> <code class="n">h</code> <code class="p">(</code><code class="n">show</code> <code class="p">(</code><code class="n">f</code> <code class="o">*</code> <code class="p">(</code><code class="n">read</code> <code class="n">line</code> <code class="ow">::</code> <code class="kt">Integer</code><code class="p">)))</code>
+        <code class="n">loop</code> <code class="n">f</code></pre>
+<div class="calloutlist" id="conc-server_00000072"><table style="border: 0; ">
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO43-1"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="read_the_curren_id2">
+Read the current value of the factor.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO43-2"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/2.png" alt="2"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="report_the_curr">
+Report the current factor value to the client.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO43-3"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/3.png" alt="3"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="then_we_enter_t">
+Then we enter the <code class="literal">loop</code>.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO43-4"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/4.png" alt="4"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="the_overall_str">
+The overall structure is as follows: <code class="literal">loop</code> waits for the next
+event, which is either a change in the factor or a command from the client, and
+<a id="id478551" class="indexterm"></a><a id="id478557" class="indexterm"></a>calls <code class="literal">newfactor</code> or <code class="literal">command</code>, respectively.  The <code class="literal">newfactor</code> and
+<code class="literal">command</code> functions take whatever action is necessary and then call back to
+<code class="literal">loop</code> to process the next event. The <code class="literal">loop</code> function itself is implemented as an STM transaction that
+returns an <code class="literal">IO</code> <code class="literal">action</code>, which is then performed.  This is a common
+pattern in STM. Since we can’t invoke <code class="literal">IO</code> from inside <code class="literal">STM</code>, the
+transaction instead returns an <code class="literal">IO</code> action which is invoked by the
+caller of <code class="literal">atomically</code>.<a href="#ftn.id478637" class="footnote"><sup class="footnote" id="id478637">[45]</sup></a>
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO43-5"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/5.png" alt="5"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="in_the_transact">
+In the transaction, first we read the current factor.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO43-6"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/6.png" alt="6"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="next_we_compar">
+Next, we compare it against the value we previously read, in <code class="literal">f</code>.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO43-7"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/7.png" alt="7"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="if_the_two_are_">
+If the two are different, indicating that the factor has been
+changed, then we call the <code class="literal">newfactor</code> function.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO43-8"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/8.png" alt="8"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; ">
+<p id="if_the_factor_h">
+If the factor has not been changed, we read from the <code class="literal">TChan</code>.
+This may <code class="literal">retry</code> if the channel is empty, but note that in the event
+of a <code class="literal">retry</code>, the transaction will be re-executed if either the
+<code class="literal">factor</code> <code class="literal">TVar</code> <span class="emphasis"><em>or</em></span> the <code class="literal">TChan</code> changes.  You can think of this
+transaction as a composition of two blocking operations: waiting for
+the factor <code class="literal">TVar</code> to change, and reading from the <code class="literal">TChan</code>.  But we can
+code it without <code class="literal">orElse</code> thanks to the following equality:
+</p>
+<pre class="programlisting" data-language="haskell" id="if_a_then_retr">  <code class="p">(</code><code class="kr">if</code> <code class="kt">A</code> <code class="kr">then</code> <code class="n">retry</code> <code class="kr">else</code> <code class="kt">B</code><code class="p">)</code> <code class="p">`</code><code class="n">orElse</code><code class="p">`</code> <code class="kt">C</code>  <code class="o">==&gt;</code>  <code class="kr">if</code> <code class="kt">A</code> <code class="kr">then</code> <code class="kt">C</code> <code class="kr">else</code> <code class="kt">B</code></pre>
+<p id="convince_yours">(Convince yourself that the two versions do the same thing, and also
+consider why it isn’t possible to <span class="emphasis"><em>always</em></span> transform away an
+<code class="literal">orElse</code>).  Sometimes it isn’t necessary to <a id="id478897" class="indexterm"></a>use <code class="literal">orElse</code> to compose
+blocking operations in STM.</p>
+</td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO43-9"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/9.png" alt="9"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="having_read_a_l">
+Having read a line of input from the <code class="literal">TChan</code>, we call <code class="literal">command</code> to
+act upon it.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO43-10"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/10.png" alt="10"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="the_newfactor_f">
+The <code class="literal">newfactor</code> function reports the change in factor to the
+client and continues with <code class="literal">loop.</code>
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO43-11"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/11.png" alt="11"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="the_command_fun">
+The <code class="literal">command</code> function executes a command received from the
+client.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO43-12"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/12.png" alt="12"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="if_the_client_s">
+If the client said <code class="literal">end</code>, then we terminate the connection by
+simply returning, instead of recursively calling <code class="literal">loop</code>.  As mentioned
+earlier, this will cause <code class="literal">race</code> to terminate the <code class="literal">receive</code> thread.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO43-13"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/13.png" alt="13"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="if_the_client_r">
+If the client requests a change in factor, then we update the
+global factor value and call <code class="literal">loop</code>, <span class="emphasis"><em>passing the old factor value</em></span>.
+Thus the transaction will immediately notice the change in factor and
+report it, giving the client confirmation that the factor was changed.
+</p></td>
+</tr>
+</table></div>
+<p id="conc-server_00000083">Try this server yourself by compiling and running the <code class="literal">server2.hs</code>
+program.  Start up a few clients with the <code class="literal">nc</code> program (or another
+suitable telnet-style application) and check that it is working as
+expected.  Test the error handling: what happens when you close the
+client connection without sending the <code class="literal">end</code> command, or if you send a
+non-number?  You might want to add some additional debugging output to
+various parts of the program in order to track more clearly what is happening.<a id="id479061" class="indexterm"></a><a id="id479072" class="indexterm"></a><a id="id479082" class="indexterm"></a><a id="id479092" class="indexterm"></a></p>
+</div>
+</div>
+<div class="sect1" data-original-filename="ch12_conc-server.asciidoc" id="sec_chat">
+<div class="titlepage"><div><div><h2 class="title">A Chat Server</h2></div></div></div>
+<p id="conc-server_00000084"><a id="ix_ch12_conc-server-txt11" class="indexterm"></a><a id="ix_ch12_conc-server-txt12" class="indexterm"></a>Continuing on from the simple server examples in the previous sections,
+we now consider a more realistic example: a network chat server.  A
+chat server enables multiple clients to connect and type messages to
+one another interactively.  Real chat servers (e.g., IRC) have multiple
+channels and allow clients to choose which channels to participate in. For simplicity, we will be building a chat server that has a single
+channel, whereby every message is seen by every client.</p>
+<p id="conc-server_00000085">The informal specification for the server is as follows:</p>
+<div class="itemizedlist" id="conc-server_00000087"><ul class="itemizedlist">
+<li class="listitem">
+When a client connects, the server requests the name that the client
+  will be using.  The client must choose a name that is not currently
+  in use; otherwise, the server will request that the user choose a
+  different name.
+</li>
+<li class="listitem">
+<p id="each_line_recei" class="simpara">
+Each line received from the client is interpreted as a command,
+  which is one of the following<a id="id479182" class="indexterm"></a>:
+</p>
+<div class="variablelist" id="conc-server_00000088"><dl class="variablelist">
+<dt><span class="term">
+<code class="literal">/tell</code> <em class="replaceable"><code>name message</code></em>
+</span></dt>
+<dd>
+      Sends <em class="replaceable"><code>message</code></em> to the user <em class="replaceable"><code>name</code></em>.
+</dd>
+<dt><span class="term">
+<code class="literal">/kick</code> <em class="replaceable"><code>name</code></em>
+</span></dt>
+<dd>
+      Disconnects user <em class="replaceable"><code>name</code></em>.<a href="#ftn.id479251" class="footnote"><sup class="footnote" id="id479251">[46]</sup></a>
+</dd>
+<dt><span class="term">
+<code class="literal">/quit</code>
+</span></dt>
+<dd>
+      Disconnects the current client.
+</dd>
+<dt><span class="term">
+<em class="replaceable"><code>message</code></em>
+</span></dt>
+<dd>
+      Any other string (not beginning with <code class="literal">/</code>) is broadcast as a
+      message to all the connected clients.
+</dd>
+</dl></div>
+</li>
+<li class="listitem">
+Whenever a client connects or disconnects, all other connected
+  clients are notified.
+</li>
+<li class="listitem">
+We will be handling errors correctly and aiming for consistent
+  behavior.  For example, when two clients connect at the same time,
+  one of them is always deemed to have connected first and gets
+  notified about the other client connecting.
+</li>
+<li class="listitem">
+If two clients simultaneously try to kick each other, only one
+  of them will succeed.  This may seem obvious, but as we shall see it
+  is easy to get this wrong.
+</li>
+</ul></div>
+<div class="sect2" id="conc-server_00000097">
+<div class="titlepage"><div><div><h3 class="title">Architecture</h3></div></div></div>
+<p id="conc-server_00000098"><a id="ix_ch12_conc-server-txt13" class="indexterm"></a><a id="id479346" class="indexterm"></a>As in the factor example of the previous section, the requirements
+dictate that a server thread must act on events from multiple sources:
+input from the client over the network, <code class="literal">/tell</code> messages and
+broadcasts from other clients, being kicked by another client, and
+clients connecting or disconnecting,</p>
+<p id="conc-server_00000099">The basic architecture will be similar. We need a receive thread to
+forward the network input into <a id="id479371" class="indexterm"></a>a <code class="literal">TChan</code> and a server thread to wait
+for the different kinds of events and act upon them.  Compared to the
+previous example, though, we have a lot more shared state. A client
+needs to be able to send messages to any other client, so the set of
+clients and their corresponding <code class="literal">TChan</code>s must be shared.</p>
+<p id="conc-server_00000100">We should consider how to handle <code class="literal">/kick</code> because we want to guarantee
+that two clients cannot simultaneously kick each other.  This implies
+some synchronized, shared state for each client to
+indicate whether it has been kicked. A server thread can then check
+that it has not already been kicked itself before kicking another
+client.  To inform the victim that it has been kicked, we could send a
+message to its <code class="literal">TChan</code>, but because we are using STM, we might as well
+just watch the global state for changes as we did in the factor
+example in the previous section.</p>
+<p id="conc-server_00000101">Next, we need to consider how the various <a id="id479422" class="indexterm"></a>events (apart from <code class="literal">/kick</code>)
+arrive at the server thread.  There is input from the client over the
+network and also messages from other clients to be sent back to this
+client.  We could use separate <code class="literal">TChan</code>s for the different kinds of
+events, but it is slightly better to use just one; the ordering on
+events is retained, which makes things more predictable for the
+client.  So the design we have so far is a <code class="literal">TVar</code> to indicate whether
+the client has been kicked and a <code class="literal">TChan</code> to carry both network input
+and events from other clients.<a id="id479459" class="indexterm"></a></p>
+</div>
+<div class="sect2" id="conc-server_00000102">
+<div class="titlepage"><div><div><h3 class="title">Client Data</h3></div></div></div>
+<p id="server_applicat_id2"><a id="ix_ch12_conc-server-txt14" class="indexterm"></a>Now<a id="id479497" class="indexterm"></a><a id="id479505" class="indexterm"></a> that we have established the main architectural design, we can
+fill in the details.  In the previous examples, we passed around the
+various pieces of state explicitly, but now that things are more
+complicated, it will help to separate the state into the global server
+state and the per-client state.  The per-client state is defined as
+follows:</p>
+<p id="conc-server_00000103" class="caption"><span class="emphasis"><em>chat.hs</em></span>
+</p>
+<pre class="programlisting" data-language="haskell" id="type_clientname_id1"><code class="kr">type</code> <code class="kt">ClientName</code> <code class="ow">=</code> <code class="kt">String</code>
+
+<code class="kr">data</code> <code class="kt">Client</code> <code class="ow">=</code> <code class="kt">Client</code>
+  <code class="p">{</code> <code class="n">clientName</code>     <code class="ow">::</code> <code class="kt">ClientName</code>
+  <code class="p">,</code> <code class="n">clientHandle</code>   <code class="ow">::</code> <code class="kt">Handle</code>
+  <code class="p">,</code> <code class="n">clientKicked</code>   <code class="ow">::</code> <code class="kt">TVar</code> <code class="p">(</code><code class="kt">Maybe</code> <code class="kt">String</code><code class="p">)</code>
+  <code class="p">,</code> <code class="n">clientSendChan</code> <code class="ow">::</code> <code class="kt">TChan</code> <code class="kt">Message</code>
+  <code class="p">}</code></pre>
+<p id="conc-server_00000105">We have one <code class="literal">TVar</code> indicating whether this client has been
+kicked (<code class="literal">clientKicked</code>). Normally, this <code class="literal">TVar</code> contains <code class="literal">Nothing</code>, but
+after the client is kicked, the <code class="literal">TVar</code> contains <code class="literal">Just s</code>, where  <code class="literal">s</code>
+is a string describing the reason for the client being kicked.</p>
+<p id="clientsendchant"><a id="id479751" class="indexterm"></a>The <code class="literal">TChan</code> <code class="literal">clientSendChan</code> carries all the other messages that may be
+sent to a client.  These have type <code class="literal">Message</code>:</p>
+<pre class="programlisting" data-language="haskell" id="data_message___id1"><code class="kr">data</code> <code class="kt">Message</code> <code class="ow">=</code> <code class="kt">Notice</code> <code class="kt">String</code>
+             <code class="o">|</code> <code class="kt">Tell</code> <code class="kt">ClientName</code> <code class="kt">String</code>
+             <code class="o">|</code> <code class="kt">Broadcast</code> <code class="kt">ClientName</code> <code class="kt">String</code>
+             <code class="o">|</code> <code class="kt">Command</code> <code class="kt">String</code></pre>
+<p id="conc-server_00000107">Where, respectively<a id="id479882" class="indexterm"></a><a id="id479888" class="indexterm"></a><a id="id479893" class="indexterm"></a>: <code class="literal">Notice</code> is a message from the server,
+<code class="literal">Tell</code> is a private message from another client, <code class="literal">Broadcast</code> is a
+public message from another client, and <code class="literal">Command</code> is a line of text
+received from the user (via the receive thread).</p>
+<p id="conc-server_00000108">We need a way to construct a new instance of <code class="literal">Client</code>, which is
+Straightforward<a id="id479938" class="indexterm"></a>:</p>
+<pre class="programlisting" data-language="haskell" id="newclient__cl"><code class="nf">newClient</code> <code class="ow">::</code> <code class="kt">ClientName</code> <code class="ow">-&gt;</code> <code class="kt">Handle</code> <code class="ow">-&gt;</code> <code class="kt">STM</code> <code class="kt">Client</code>
+<code class="nf">newClient</code> <code class="n">name</code> <code class="n">handle</code> <code class="ow">=</code> <code class="kr">do</code>
+  <code class="n">c</code> <code class="ow">&lt;-</code> <code class="n">newTChan</code>
+  <code class="n">k</code> <code class="ow">&lt;-</code> <code class="n">newTVar</code> <code class="kt">Nothing</code>
+  <code class="n">return</code> <code class="kt">Client</code> <code class="p">{</code> <code class="n">clientName</code>     <code class="ow">=</code> <code class="n">name</code>
+                <code class="p">,</code> <code class="n">clientHandle</code>   <code class="ow">=</code> <code class="n">handle</code>
+                <code class="p">,</code> <code class="n">clientSendChan</code> <code class="ow">=</code> <code class="n">c</code>
+                <code class="p">,</code> <code class="n">clientKicked</code>   <code class="ow">=</code> <code class="n">k</code>
+                <code class="p">}</code></pre>
+<p id="conc-server_00000110">Next, we define a useful function for sending a <code class="literal">Message</code> to a given
+<code class="literal">Client</code>:</p>
+<pre class="programlisting" data-language="haskell" id="sendmessage___id1"><code class="nf">sendMessage</code> <code class="ow">::</code> <code class="kt">Client</code> <code class="ow">-&gt;</code> <code class="kt">Message</code> <code class="ow">-&gt;</code> <code class="kt">STM</code> <code class="nb">()</code>
+<code class="nf">sendMessage</code> <code class="kt">Client</code><code class="p">{</code><code class="o">..</code><code class="p">}</code> <code class="n">msg</code> <code class="ow">=</code>
+  <code class="n">writeTChan</code> <code class="n">clientSendChan</code> <code class="n">msg</code></pre>
+<p id="conc-server_00000112">The syntax <code class="literal">Client{..}</code> is <a id="id480304" class="indexterm"></a>a <span class="emphasis"><em>record wildcard</em></span> pattern, which brings
+into scope all the fields of the <code class="literal">Client</code> record with their
+declared names.  In this case, we are using only <code class="literal">clientSendChan</code>, but
+when there are lots of fields it is a convenient shorthand, so we will
+be using it quite often from here on.  (Remember to enable the<a id="id480328" class="indexterm"></a>
+<code class="literal">RecordWildCards</code> extension to use this syntax.)</p>
+<p id="conc-server_00000113">Note that this function is in the <code class="literal">STM</code> monad, not <code class="literal">IO</code>.  We
+will be using it inside some STM transactions later.<a id="id480360" class="indexterm"></a></p>
+</div>
+<div class="sect2" id="conc-server_00000114">
+<div class="titlepage"><div><div><h3 class="title">Server Data</h3></div></div></div>
+<p id="conc-server_00000115">The<a id="id480384" class="indexterm"></a> data structure that stores the server state is just a <code class="literal">TVar</code>
+containing a mapping from <code class="literal">ClientName</code> to <code class="literal">Client</code>.</p>
+<pre class="programlisting" data-language="haskell" id="data_server__s_id1"><code class="kr">data</code> <code class="kt">Server</code> <code class="ow">=</code> <code class="kt">Server</code>
+  <code class="p">{</code> <code class="n">clients</code> <code class="ow">::</code> <code class="kt">TVar</code> <code class="p">(</code><code class="kt">Map</code> <code class="kt">ClientName</code> <code class="kt">Client</code><code class="p">)</code>
+  <code class="p">}</code>
+
+<code class="nf">newServer</code> <code class="ow">::</code> <code class="kt">IO</code> <code class="kt">Server</code>
+<code class="nf">newServer</code> <code class="ow">=</code> <code class="kr">do</code>
+  <code class="n">c</code> <code class="ow">&lt;-</code> <code class="n">newTVarIO</code> <code class="kt">Map</code><code class="o">.</code><code class="n">empty</code>
+  <code class="n">return</code> <code class="kt">Server</code> <code class="p">{</code> <code class="n">clients</code> <code class="ow">=</code> <code class="n">c</code> <code class="p">}</code></pre>
+<p id="conc-server_00000118">This state must be accessible from all the clients, because each
+client needs to be able to broadcast to all the others.  Furthermore,
+new clients need to ensure that they are choosing a username that is
+not already in use and hence the set of active usernames is
+shared knowledge.</p>
+<p id="conc-server_00000119">Here is how we broadcast a <code class="literal">Message</code> to all the clients:</p>
+<pre class="programlisting" data-language="haskell" id="broadcast__se_id1"><code class="nf">broadcast</code> <code class="ow">::</code> <code class="kt">Server</code> <code class="ow">-&gt;</code> <code class="kt">Message</code> <code class="ow">-&gt;</code> <code class="kt">STM</code> <code class="nb">()</code>
+<code class="nf">broadcast</code> <code class="kt">Server</code><code class="p">{</code><code class="o">..</code><code class="p">}</code> <code class="n">msg</code> <code class="ow">=</code> <code class="kr">do</code>
+  <code class="n">clientmap</code> <code class="ow">&lt;-</code> <code class="n">readTVar</code> <code class="n">clients</code>
+  <code class="n">mapM_</code> <code class="p">(</code><code class="nf">\</code><code class="n">client</code> <code class="ow">-&gt;</code> <code class="n">sendMessage</code> <code class="n">client</code> <code class="n">msg</code><code class="p">)</code> <code class="p">(</code><code class="kt">Map</code><code class="o">.</code><code class="n">elems</code> <code class="n">clientmap</code><code class="p">)</code></pre>
+</div>
+<div class="sect2" id="conc-server_00000121">
+<div class="titlepage"><div><div><h3 class="title">The Server</h3></div></div></div>
+<p id="now_we_will_wor">Now we will work top-down and write the code of the server.  The
+<code class="literal">main</code> function is almost identical to the one in the previous section:</p>
+<pre class="programlisting" data-language="haskell" id="main__io__m_id7"><code class="nf">main</code> <code class="ow">::</code> <code class="kt">IO</code> <code class="nb">()</code>
+<code class="nf">main</code> <code class="ow">=</code> <code class="n">withSocketsDo</code> <code class="o">$</code> <code class="kr">do</code>
+  <code class="n">server</code> <code class="ow">&lt;-</code> <code class="n">newServer</code>
+  <code class="n">sock</code> <code class="ow">&lt;-</code> <code class="n">listenOn</code> <code class="p">(</code><code class="kt">PortNumber</code> <code class="p">(</code><code class="n">fromIntegral</code> <code class="n">port</code><code class="p">))</code>
+  <code class="n">printf</code> <code class="s">"Listening on port %d</code><code class="se">\n</code><code class="s">"</code> <code class="n">port</code>
+  <code class="n">forever</code> <code class="o">$</code> <code class="kr">do</code>
+      <code class="p">(</code><code class="n">handle</code><code class="p">,</code> <code class="n">host</code><code class="p">,</code> <code class="n">port</code><code class="p">)</code> <code class="ow">&lt;-</code> <code class="n">accept</code> <code class="n">sock</code>
+      <code class="n">printf</code> <code class="s">"Accepted connection from %s: %s</code><code class="se">\n</code><code class="s">"</code> <code class="n">host</code> <code class="p">(</code><code class="n">show</code> <code class="n">port</code><code class="p">)</code>
+      <code class="n">forkFinally</code> <code class="p">(</code><code class="n">talk</code> <code class="n">handle</code> <code class="n">server</code><code class="p">)</code> <code class="p">(</code><code class="nf">\</code><code class="kr">_</code> <code class="ow">-&gt;</code> <code class="n">hClose</code> <code class="n">handle</code><code class="p">)</code>
+
+<code class="nf">port</code> <code class="ow">::</code> <code class="kt">Int</code>
+<code class="nf">port</code> <code class="ow">=</code> <code class="mi">44444</code></pre>
+<p id="conc-server_00000124">The only difference is that we create a new empty <a id="id481191" class="indexterm"></a>server
+state up front by calling <code class="literal">newServer</code> and pass this to each new
+client as an argument to <code class="literal">talk</code>.</p>
+</div>
+<div class="sect2" id="conc-server_00000125">
+<div class="titlepage"><div><div><h3 class="title">Setting Up a New Client</h3></div></div></div>
+<p id="conc-server_00000126">When a <a id="id481225" class="indexterm"></a>new client connects, we need to do the following tasks:</p>
+<div class="itemizedlist" id="conc-server_00000127"><ul class="itemizedlist">
+<li class="listitem">
+Ask the client for a username.
+</li>
+<li class="listitem">
+If the username already exists, ask the client to choose another name.
+</li>
+<li class="listitem">
+Otherwise, create a new <code class="literal">Client</code> and insert it into the <code class="literal">Server</code>
+  state, ensuring that the <code class="literal">Client</code> will be removed when it
+  disconnects or any failure occurs.
+</li>
+<li class="listitem">
+Notify all existing clients that the new client has connected.
+</li>
+<li class="listitem">
+Set up the threads to handle the client connection and start
+  processing messages.
+</li>
+</ul></div>
+<p id="conc-server_00000130">Let’s start by defining an auxiliary <a id="id481321" class="indexterm"></a>function <code class="literal">checkAddClient</code>, which
+takes a username and attempts to add a new client with that name to
+the state, returning <code class="literal">Nothing</code> if a client with that name already
+exists, or <code class="literal">Just client</code> if the addition was successful.  It also
+broadcasts the event to all the other connected clients:</p>
+<pre class="programlisting" data-language="haskell" id="checkaddclient_"><code class="nf">checkAddClient</code> <code class="ow">::</code> <code class="kt">Server</code> <code class="ow">-&gt;</code> <code class="kt">ClientName</code> <code class="ow">-&gt;</code> <code class="kt">Handle</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="p">(</code><code class="kt">Maybe</code> <code class="kt">Client</code><code class="p">)</code>
+<code class="nf">checkAddClient</code> <code class="n">server</code><code class="o">@</code><code class="kt">Server</code><code class="p">{</code><code class="o">..</code><code class="p">}</code> <code class="n">name</code> <code class="n">handle</code> <code class="ow">=</code> <code class="n">atomically</code> <code class="o">$</code> <code class="kr">do</code>
+  <code class="n">clientmap</code> <code class="ow">&lt;-</code> <code class="n">readTVar</code> <code class="n">clients</code>
+  <code class="kr">if</code> <code class="kt">Map</code><code class="o">.</code><code class="n">member</code> <code class="n">name</code> <code class="n">clientmap</code>
+    <code class="kr">then</code> <code class="n">return</code> <code class="kt">Nothing</code>
+    <code class="kr">else</code> <code class="kr">do</code> <code class="n">client</code> <code class="ow">&lt;-</code> <code class="n">newClient</code> <code class="n">name</code> <code class="n">handle</code>
+            <code class="n">writeTVar</code> <code class="n">clients</code> <code class="o">$</code> <code class="kt">Map</code><code class="o">.</code><code class="n">insert</code> <code class="n">name</code> <code class="n">client</code> <code class="n">clientmap</code>
+            <code class="n">broadcast</code> <code class="n">server</code>  <code class="o">$</code> <code class="kt">Notice</code> <code class="p">(</code><code class="n">name</code> <code class="o">++</code> <code class="s">" has connected"</code><code class="p">)</code>
+            <code class="n">return</code> <code class="p">(</code><code class="kt">Just</code> <code class="n">client</code><code class="p">)</code></pre>
+<p id="conc-server_00000132">And we will need a corresponding <code class="literal">removeClient</code> <a id="id481728" class="indexterm"></a>that removes
+the client again:</p>
+<pre class="programlisting" data-language="haskell" id="removeclient_"><code class="nf">removeClient</code> <code class="ow">::</code> <code class="kt">Server</code> <code class="ow">-&gt;</code> <code class="kt">ClientName</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="nb">()</code>
+<code class="nf">removeClient</code> <code class="n">server</code><code class="o">@</code><code class="kt">Server</code><code class="p">{</code><code class="o">..</code><code class="p">}</code> <code class="n">name</code> <code class="ow">=</code> <code class="n">atomically</code> <code class="o">$</code> <code class="kr">do</code>
+  <code class="n">modifyTVar'</code> <code class="n">clients</code> <code class="o">$</code> <code class="kt">Map</code><code class="o">.</code><code class="n">delete</code> <code class="n">name</code>
+  <code class="n">broadcast</code> <code class="n">server</code> <code class="o">$</code> <code class="kt">Notice</code> <code class="p">(</code><code class="n">name</code> <code class="o">++</code> <code class="s">" has disconnected"</code><code class="p">)</code></pre>
+<p id="conc-server_00000134">Now we can put the pieces together.  Unfortunately we can’t reach for
+the usual tool for these situations, <a id="id481939" class="indexterm"></a>namely <code class="literal">bracket</code>, because our
+“resource acquisition” (<code class="literal">checkAddClient</code>) is conditional.  So we
+need to write the code out explicitly:</p>
+<pre class="programlisting" data-language="haskell" id="talk__handle__id3"><code class="nf">talk</code> <code class="ow">::</code> <code class="kt">Handle</code> <code class="ow">-&gt;</code> <code class="kt">Server</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="nb">()</code>
+<code class="nf">talk</code> <code class="n">handle</code> <code class="n">server</code><code class="o">@</code><code class="kt">Server</code><code class="p">{</code><code class="o">..</code><code class="p">}</code> <code class="ow">=</code> <code class="kr">do</code>
+  <code class="n">hSetNewlineMode</code> <code class="n">handle</code> <code class="n">universalNewlineMode</code>
+      <code class="c1">-- Swallow carriage returns sent by telnet clients</code>
+  <code class="n">hSetBuffering</code> <code class="n">handle</code> <code class="kt">LineBuffering</code>
+  <code class="n">readName</code>
+ <code class="kr">where</code>
+  <code class="n">readName</code> <code class="ow">=</code> <code class="kr">do</code>
+    <code class="n">hPutStrLn</code> <code class="n">handle</code> <code class="s">"What is your name?"</code>
+    <code class="n">name</code> <code class="ow">&lt;-</code> <code class="n">hGetLine</code> <code class="n">handle</code>
+    <code class="kr">if</code> <code class="n">null</code> <code class="n">name</code>
+      <code class="kr">then</code> <code class="n">readName</code>
+      <code class="kr">else</code> <code class="kr">do</code>
+             <code class="n">ok</code> <code class="ow">&lt;-</code> <code class="n">checkAddClient</code> <code class="n">server</code> <code class="n">name</code> <code class="n">handle</code> <code class="c1">-- </code><span id="CO44-1"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1"></span>
+             <code class="kr">case</code> <code class="n">ok</code> <code class="kr">of</code>
+               <code class="kt">Nothing</code> <code class="ow">-&gt;</code> <code class="kr">do</code>                         <code class="c1">-- </code><span id="CO44-2"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/2.png" alt="2"></span>
+                  <code class="n">hPrintf</code> <code class="n">handle</code>
+                     <code class="s">"The name %s is in use, please choose another</code><code class="se">\n</code><code class="s">"</code> <code class="n">name</code>
+                  <code class="n">readName</code>
+               <code class="kt">Just</code> <code class="n">client</code> <code class="ow">-&gt;</code>                        <code class="c1">-- </code><span id="CO44-3"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/3.png" alt="3"></span>
+                  <code class="n">runClient</code> <code class="n">server</code> <code class="n">client</code>
+                      <code class="p">`</code><code class="n">finally</code><code class="p">`</code> <code class="n">removeClient</code> <code class="n">server</code> <code class="n">name</code></pre>
+<div class="calloutlist" id="conc-server_00000136"><table style="border: 0; ">
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO44-1"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="after_reading_t">
+After reading the requested username from the client, we attempt
+to add it to the server state with <code class="literal">checkAddClient</code>.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO44-2"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/2.png" alt="2"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="if_we_were_unsu">
+If we were unsuccessful, then print a message to the client, and
+recursively call <code class="literal">readName</code> to read another name.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO44-3"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/3.png" alt="3"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="if_we_were_succ">
+If we were successful, then call a function named <code class="literal">runClient</code> (to be
+defined shortly) to handle the client interaction and use <code class="literal">finally</code>
+to arrange that whatever happens, we eventually call <code class="literal">removeClient</code> to
+remove this client from the state.
+</p></td>
+</tr>
+</table></div>
+<p id="conc-server_00000139">This is <span class="emphasis"><em>almost</em></span> right, but strictly speaking we should mask
+<a id="id482478" class="indexterm"></a>asynchronous exceptions to eliminate the possibility that an exception
+is received just after <code class="literal">checkAddClient</code> but before <code class="literal">runClient</code>, which
+would leave a stale client in the state.  This is what <code class="literal">bracket</code> would
+have done for us, but because we’re rolling our own logic here, we have
+to handle the exception safety, too (for reference, the definition of
+<code class="literal">bracket</code> is given in <a class="xref" href="ch09.html#sec_async-safety" title="Asynchronous Exception Safety for Channels">“Asynchronous Exception Safety for Channels”</a>).</p>
+<p id="conc-server_00000140">The correct version <a id="id482527" class="indexterm"></a>of <code class="literal">readName</code> is as follows:</p>
+<pre class="programlisting" data-language="haskell" id="readname__do_h">  <code class="n">readName</code> <code class="ow">=</code> <code class="kr">do</code>
+    <code class="n">hPutStrLn</code> <code class="n">handle</code> <code class="s">"What is your name?"</code>
+    <code class="n">name</code> <code class="ow">&lt;-</code> <code class="n">hGetLine</code> <code class="n">handle</code>
+    <code class="kr">if</code> <code class="n">null</code> <code class="n">name</code>
+      <code class="kr">then</code> <code class="n">readName</code>
+      <code class="kr">else</code> <code class="n">mask</code> <code class="o">$</code> <code class="nf">\</code><code class="n">restore</code> <code class="ow">-&gt;</code> <code class="kr">do</code>        <code class="c1">-- </code><span id="CO45-1"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1"></span>
+             <code class="n">ok</code> <code class="ow">&lt;-</code> <code class="n">checkAddClient</code> <code class="n">server</code> <code class="n">name</code> <code class="n">handle</code>
+             <code class="kr">case</code> <code class="n">ok</code> <code class="kr">of</code>
+               <code class="kt">Nothing</code> <code class="ow">-&gt;</code> <code class="n">restore</code> <code class="o">$</code> <code class="kr">do</code>  <code class="c1">-- </code><span id="CO45-2"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/2.png" alt="2"></span>
+                  <code class="n">hPrintf</code> <code class="n">handle</code>
+                     <code class="s">"The name %s is in use, please choose another</code><code class="se">\n</code><code class="s">"</code> <code class="n">name</code>
+                  <code class="n">readName</code>
+               <code class="kt">Just</code> <code class="n">client</code> <code class="ow">-&gt;</code>
+                  <code class="n">restore</code> <code class="p">(</code><code class="n">runClient</code> <code class="n">server</code> <code class="n">client</code><code class="p">)</code> <code class="c1">-- </code><span id="CO45-3"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/3.png" alt="3"></span>
+                      <code class="p">`</code><code class="n">finally</code><code class="p">`</code> <code class="n">removeClient</code> <code class="n">server</code> <code class="n">name</code></pre>
+<div class="calloutlist" id="conc-server_00000142"><table style="border: 0; ">
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO45-1"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="we_mask_asynchr">
+We <code class="literal">mask</code> asynchronous exceptions.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO45-2"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/2.png" alt="2"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="we_restore_them">
+We restore them again before trying again if the name was already in use.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO45-3"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/3.png" alt="3"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="if_the_name_is_">
+If the name is accepted, then we unmask asynchronous
+exceptions when calling <code class="literal">runClient</code> but being careful to do it inside
+the argument to <code class="literal">finally</code> so there’s no danger that a stale <code class="literal">Client</code>
+will be left in the state.
+</p></td>
+</tr>
+</table></div>
+</div>
+<div class="sect2" id="conc-server_00000145">
+<div class="titlepage"><div><div><h3 class="title">Running the Client</h3></div></div></div>
+<p id="conc-server_00000146">Having<a id="id482969" class="indexterm"></a><a id="id482977" class="indexterm"></a> initialized the client, created the <code class="literal">Client</code> data structure, and
+added it to the <code class="literal">Server</code> state, we now need to create the client
+threads themselves and start processing events.  The main
+functionality of the client will be implemented in a function <a id="id482998" class="indexterm"></a>called
+<code class="literal">runClient</code>:</p>
+<pre class="programlisting" data-language="haskell" id="runclient__se_id1"><code class="nf">runClient</code> <code class="ow">::</code> <code class="kt">Server</code> <code class="ow">-&gt;</code> <code class="kt">Client</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="nb">()</code></pre>
+<p id="conc-server_00000148"><code class="literal">runClient</code> returns or throws an exception only when the client
+is to be disconnected.  Recall that we need two threads per client: <a id="id483073" class="indexterm"></a>a
+<span class="emphasis"><em>receive</em></span> thread to read from the network socket and a <span class="emphasis"><em>server</em></span>
+thread to listen for messages from other clients and to send messages
+back over the network.  As before, we can use <code class="literal">race</code> to create the two
+threads with a sibling relationship so that if either thread returns
+or fails, the other will be cancelled.</p>
+<pre class="programlisting" data-language="haskell" id="runclient__se_id2"><code class="nf">runClient</code> <code class="ow">::</code> <code class="kt">Server</code> <code class="ow">-&gt;</code> <code class="kt">Client</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="nb">()</code>
+<code class="nf">runClient</code> <code class="n">serv</code><code class="o">@</code><code class="kt">Server</code><code class="p">{</code><code class="o">..</code><code class="p">}</code> <code class="n">client</code><code class="o">@</code><code class="kt">Client</code><code class="p">{</code><code class="o">..</code><code class="p">}</code> <code class="ow">=</code> <code class="kr">do</code>
+  <code class="n">race</code> <code class="n">server</code> <code class="n">receive</code>
+  <code class="n">return</code> <code class="nb">()</code>
+ <code class="kr">where</code>
+  <code class="n">receive</code> <code class="ow">=</code> <code class="n">forever</code> <code class="o">$</code> <code class="kr">do</code>
+    <code class="n">msg</code> <code class="ow">&lt;-</code> <code class="n">hGetLine</code> <code class="n">clientHandle</code>
+    <code class="n">atomically</code> <code class="o">$</code> <code class="n">sendMessage</code> <code class="n">client</code> <code class="p">(</code><code class="kt">Command</code> <code class="n">msg</code><code class="p">)</code>
+
+  <code class="n">server</code> <code class="ow">=</code> <code class="n">join</code> <code class="o">$</code> <code class="n">atomically</code> <code class="o">$</code> <code class="kr">do</code>
+    <code class="n">k</code> <code class="ow">&lt;-</code> <code class="n">readTVar</code> <code class="n">clientKicked</code>
+    <code class="kr">case</code> <code class="n">k</code> <code class="kr">of</code>
+      <code class="kt">Just</code> <code class="n">reason</code> <code class="ow">-&gt;</code> <code class="n">return</code> <code class="o">$</code>
+        <code class="n">hPutStrLn</code> <code class="n">clientHandle</code> <code class="o">$</code> <code class="s">"You have been kicked: "</code> <code class="o">++</code> <code class="n">reason</code>
+      <code class="kt">Nothing</code> <code class="ow">-&gt;</code> <code class="kr">do</code>
+        <code class="n">msg</code> <code class="ow">&lt;-</code> <code class="n">readTChan</code> <code class="n">clientSendChan</code>
+        <code class="n">return</code> <code class="o">$</code> <code class="kr">do</code>
+            <code class="n">continue</code> <code class="ow">&lt;-</code> <code class="n">handleMessage</code> <code class="n">serv</code> <code class="n">client</code> <code class="n">msg</code>
+            <code class="n">when</code> <code class="n">continue</code> <code class="o">$</code> <code class="n">server</code></pre>
+<p id="conc-server_00000151">So <code class="literal">runClient</code> is just <code class="literal">race</code> applied to the <code class="literal">server</code> and
+<code class="literal">receive</code> threads.  In the <code class="literal">receive</code> thread, we read one line at a time
+from the client’s <code class="literal">Handle</code> and forward it to the server thread as a
+<code class="literal">Command</code> message.</p>
+<p id="conc-server_00000152">In the <code class="literal">server</code> thread, we have a transaction that tests two pieces of
+state: first, the <code class="literal">clientKicked</code> <code class="literal">TVar</code>, to see whether this client
+has been kicked. If it has not, then we take the next message from
+<code class="literal">clientSendChan</code> and act upon it.  Note that this time, we have
+expressed <code class="literal">server</code> using <code class="literal">join</code> applied to the STM transaction: <a id="id483677" class="indexterm"></a>the
+<code class="literal">join</code> function is from <code class="literal">Control.Monad</code> and has the following type:</p>
+<pre class="programlisting" data-language="haskell" id="join__monad_m"><code class="nf">join</code> <code class="ow">::</code> <code class="kt">Monad</code> <code class="n">m</code> <code class="ow">=&gt;</code> <code class="n">m</code> <code class="p">(</code><code class="n">m</code> <code class="n">a</code><code class="p">)</code> <code class="ow">-&gt;</code> <code class="n">m</code> <code class="n">a</code></pre>
+<p id="conc-server_00000154">Here, <code class="literal">m</code> is instantiated to <code class="literal">IO</code>.  The STM transaction
+returns an <code class="literal">IO</code> action, which is run by <code class="literal">join</code>, and in most cases this
+<code class="literal">IO</code> action returned will recursively invoke <code class="literal">server</code>.</p>
+<p id="conc-server_00000155"><a id="id483817" class="indexterm"></a>The <code class="literal">handleMessage</code> function acts on a message and
+is entirely straightforward:</p>
+<pre class="programlisting" data-language="haskell" id="handlemessage_"><code class="nf">handleMessage</code> <code class="ow">::</code> <code class="kt">Server</code> <code class="ow">-&gt;</code> <code class="kt">Client</code> <code class="ow">-&gt;</code> <code class="kt">Message</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="kt">Bool</code>
+<code class="nf">handleMessage</code> <code class="n">server</code> <code class="n">client</code><code class="o">@</code><code class="kt">Client</code><code class="p">{</code><code class="o">..</code><code class="p">}</code> <code class="n">message</code> <code class="ow">=</code>
+  <code class="kr">case</code> <code class="n">message</code> <code class="kr">of</code>
+     <code class="kt">Notice</code> <code class="n">msg</code>         <code class="ow">-&gt;</code> <code class="n">output</code> <code class="o">$</code> <code class="s">"*** "</code> <code class="o">++</code> <code class="n">msg</code>
+     <code class="kt">Tell</code> <code class="n">name</code> <code class="n">msg</code>      <code class="ow">-&gt;</code> <code class="n">output</code> <code class="o">$</code> <code class="s">"*"</code> <code class="o">++</code> <code class="n">name</code> <code class="o">++</code> <code class="s">"*: "</code> <code class="o">++</code> <code class="n">msg</code>
+     <code class="kt">Broadcast</code> <code class="n">name</code> <code class="n">msg</code> <code class="ow">-&gt;</code> <code class="n">output</code> <code class="o">$</code> <code class="s">"&lt;"</code> <code class="o">++</code> <code class="n">name</code> <code class="o">++</code> <code class="s">"&gt;: "</code> <code class="o">++</code> <code class="n">msg</code>
+     <code class="kt">Command</code> <code class="n">msg</code> <code class="ow">-&gt;</code>
+       <code class="kr">case</code> <code class="n">words</code> <code class="n">msg</code> <code class="kr">of</code>
+           <code class="p">[</code><code class="s">"/kick"</code><code class="p">,</code> <code class="n">who</code><code class="p">]</code> <code class="ow">-&gt;</code> <code class="kr">do</code>
+               <code class="n">atomically</code> <code class="o">$</code> <code class="n">kick</code> <code class="n">server</code> <code class="n">who</code> <code class="n">clientName</code>
+               <code class="n">return</code> <code class="kt">True</code>
+           <code class="s">"/tell"</code> <code class="kt">:</code> <code class="n">who</code> <code class="kt">:</code> <code class="n">what</code> <code class="ow">-&gt;</code> <code class="kr">do</code>
+               <code class="n">tell</code> <code class="n">server</code> <code class="n">client</code> <code class="n">who</code> <code class="p">(</code><code class="n">unwords</code> <code class="n">what</code><code class="p">)</code>
+               <code class="n">return</code> <code class="kt">True</code>
+           <code class="p">[</code><code class="s">"/quit"</code><code class="p">]</code> <code class="ow">-&gt;</code>
+               <code class="n">return</code> <code class="kt">False</code>
+           <code class="p">(</code><code class="sc">'/'</code><code class="kt">:</code><code class="kr">_</code><code class="p">)</code><code class="kt">:</code><code class="kr">_</code> <code class="ow">-&gt;</code> <code class="kr">do</code>
+               <code class="n">hPutStrLn</code> <code class="n">clientHandle</code> <code class="o">$</code> <code class="s">"Unrecognized command: "</code> <code class="o">++</code> <code class="n">msg</code>
+               <code class="n">return</code> <code class="kt">True</code>
+           <code class="kr">_</code> <code class="ow">-&gt;</code> <code class="kr">do</code>
+               <code class="n">atomically</code> <code class="o">$</code> <code class="n">broadcast</code> <code class="n">server</code> <code class="o">$</code> <code class="kt">Broadcast</code> <code class="n">clientName</code> <code class="n">msg</code>
+               <code class="n">return</code> <code class="kt">True</code>
+ <code class="kr">where</code>
+   <code class="n">output</code> <code class="n">s</code> <code class="ow">=</code> <code class="kr">do</code> <code class="n">hPutStrLn</code> <code class="n">clientHandle</code> <code class="n">s</code><code class="p">;</code> <code class="n">return</code> <code class="kt">True</code></pre>
+<p id="conc-server_00000157">Note that the function returns a <code class="literal">Bool</code> to indicate whether the caller
+should continue to handle more messages (<code class="literal">True</code>) or exit (<code class="literal">False</code>).<a id="id484615" class="indexterm"></a></p>
+</div>
+<div class="sect2" id="conc-server_00000158">
+<div class="titlepage"><div><div><h3 class="title">Recap</h3></div></div></div>
+<p id="we_have_now_giv">We have now given most of the code for the chat server. The full code
+is less than 250 lines total, which is not at all bad considering that
+we have implemented a complete and usable chat server.  Moreover, without
+changes the server will scale to many thousands of connections and
+can make use of multiple CPUs if they are available.</p>
+<p id="conc-server_00000159">There were two tools that helped a lot here:</p>
+<div class="variablelist" id="conc-server_00000160"><dl class="variablelist">
+<dt><span class="term">
+<code class="literal">race</code>
+</span></dt>
+<dd>
+<a id="id484668" class="indexterm"></a>Helped to create threads that propagate errors to their
+parents and are automatically cancelled when their siblings terminate.
+</dd>
+<dt><span class="term">
+STM
+</span></dt>
+<dd>
+<a id="id484688" class="indexterm"></a>Helped to build consistency properties, such as the requirement that two clients may not kick each other simultaneously, and helps
+when we need to handle multiple sources of events.
+</dd>
+</dl></div>
+<p id="conc-server_00000162">Care should be taken with STM with respect to performance, though. Take a look at the definition of <code class="literal">broadcast</code> in <a class="xref" href="ch12.html#conc-server_00000114" title="Server Data">“Server Data”</a>.  It is an STM
+transaction that operates on an unbounded number of <code class="literal">TChan</code>s and thus
+builds an unbounded transaction.  We noted earlier in
+<a class="xref" href="ch10.html#sec_stm-cost" title="Performance">“Performance”</a> that long transactions should be avoided because
+they cost <span class="emphasis"><em>O</em></span>(<span class="emphasis"><em>n</em></span><sup>2</sup>).  Hence, <code class="literal">broadcast</code> should be reimplemented to
+avoid this.  As an exercise, why not try to fix this yourself: one way to do it
+would be to use a <a id="id484747" class="indexterm"></a>broadcast channel.<a id="id484754" class="indexterm"></a><a id="id484765" class="indexterm"></a><a id="id484775" class="indexterm"></a></p>
+</div>
+</div>
+<div class="footnotes">
+<br><hr style="width: 100; align: left;">
+<div id="ftn.id475122" class="footnote"><p><a href="#id475122" class="simpara"><sup class="simpara">[43] </sup></a>It is provided by
+<code class="literal">Control.Concurrent</code> in GHC 7.6.1 and later.</p></div>
+<div id="ftn.id475210" class="footnote"><p><a href="#id475210" class="simpara"><sup class="simpara">[44] </sup></a><span class="emphasis"><em>nc</em></span> is the <span class="emphasis"><em>netcat</em></span> program, which is useful for simple network
+  interaction.  You can also use <code class="literal">telnet</code> if <code class="literal">nc</code> is not available.</p></div>
+<div id="ftn.id478637" class="footnote"><p><a href="#id478637" class="simpara"><sup class="simpara">[45] </sup></a>In fact, this pattern is more
+succinctly expressed using <code class="literal">Control.Monad.join</code>, but here it is
+written without <code class="literal">join</code> for clarity.</p></div>
+<div id="ftn.id479251" class="footnote"><p><a href="#id479251" class="simpara"><sup class="simpara">[46] </sup></a>In real chat servers, this command would typically be available only to privileged users, but for simplicity here we will allow any user to kick any other user.</p></div>
+</div></section><footer><div class="navfooter">
+<hr>
+<table style="width: 100%; ">
+<tr>
+<td style="width: 40%; text-align: left; ">
+<a accesskey="p" href="ch11.html">Prev</a> </td>
+<td style="width: 20%; text-align: center; "><a accesskey="u" href="pt02.html">Up</a></td>
+<td style="width: 40%; text-align: right; "> <a accesskey="n" href="ch13.html">Next</a>
+</td>
+</tr>
+<tr>
+<td style="width: 40%; text-align: left; vertical-align: top; ">Chapter 11. Higher-Level Concurrency Abstractions </td>
+<td style="width: 20%; text-align: center; "><a accesskey="h" href="index.html">Home</a></td>
+<td style="width: 40%; text-align: right; vertical-align: top; "> Chapter 13. Parallel Programming Using Threads</td>
+</tr>
+</table>
+</div></footer>
+
+
+	<div class="extra-footer">
+		<p>© 2013, O’Reilly Media, Inc.</p>
+		<ul>
+			<li><a href="http://oreilly.com/terms/">Terms of Service</a></li>
+			<li><a href="http://oreilly.com/oreilly/privacy.csp">Privacy Policy</a></li>
+			<li>Interested in <a href="mailto:scordesse@oreilly.com">sponsoring content?</a></li>
+		</ul>
+	</div>
+<script type="text/javascript">if (!NREUMQ.f) { NREUMQ.f=function() {
+NREUMQ.push(["load",new Date().getTime()]);
+var e=document.createElement("script");
+e.type="text/javascript";
+e.src=(("http:"===document.location.protocol)?"http:":"https:") + "//" +
+  "js-agent.newrelic.com/nr-100.js";
+document.body.appendChild(e);
+if(NREUMQ.a)NREUMQ.a();
+};
+NREUMQ.a=window.onload;window.onload=NREUMQ.f;
+};
+NREUMQ.push(["nrfj","bam.nr-data.net","3e361aebcf","2194180","IApbRUBZXg1WEEoHDAwORh5aQl8N",12,120,new Date().getTime(),"","","","",""]);</script></body>
+
+<!-- Mirrored from chimera.labs.oreilly.com/books/1230000000929/ch12.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 11:04:16 GMT -->
+</html>

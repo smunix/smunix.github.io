@@ -1,0 +1,184 @@
+<!DOCTYPE html><html>
+<!-- Mirrored from blog.jakuba.net/2014/07/08/using-phantom-types-for-extra-safety.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 11:03:45 GMT -->
+<head><title>Using Phantom Types for Extra Safety -  Jakub Arnold Blog</title><meta charset="utf-8" /><meta content="C-7ZK-UEyHdN7MWkiZy4QWGfdErxcu3evJTENXdFHAY" name="google-site-verification" /><link href="http://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/2.3.2/css/bootstrap.min.css" rel="stylesheet" /><link href="http://cdnjs.cloudflare.com/ajax/libs/font-awesome/3.2.1/css/font-awesome.min.css" rel="stylesheet" /><script src="http://cdnjs.cloudflare.com/ajax/libs/jquery/2.0.0/jquery.js"></script><link href="http://blog.jakuba.net/stylesheets/application.css" rel="stylesheet" /><link href="http://blog.jakuba.net/images/favicon.ico" rel="shortcut icon" type="image/vnd.microsoft.icon" /><script src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML" type="text/javascript"></script><script type="text/x-mathjax-config">MathJax.Hub.Config({tex2jax: {inlineMath: [['$','$']], displayedMath: [['$$', '$$']]}});</script><link href="http://blog.jakubarnold.cz/feed.xml" rel="alternate" title="ATOM" type="application/atom+xml" /></head><body><div class="header"><div class="container"><section class="name"><a href="http://blog.jakuba.net/">Jakub <strong>Arnold</strong></a></section></div></div><div class="container"><div class="row"><div class="span8"><div class="index-post"><div class="post-title"><h1><a href="using-phantom-types-for-extra-safety.html">Using Phantom Types for Extra Safety</a><span class="when">Jul  8, 2014</span></h1></div><p>If you’ve been programming in a dynamic language, you’ve probably heard that
+type systems can catch more errors before your application even gets run. The
+more powerful the type system is, the more you can express in it. And because
+we’re talking about Haskell, we have a great number of tools at our disposal
+when trying to express things in terms of the types.</p>
+
+<p>Why is this important? Sometimes a function has an expectation about the value
+that it’s receiving. In most imperative languages those expectations are
+implicit and up to the programmer to hold, such as the following</p>
+<pre class="highlight ruby"><code><span class="k">def</span> <span class="nf">foo</span><span class="p">(</span><span class="n">bar</span><span class="p">)</span>
+  <span class="n">bar</span><span class="p">.</span><span class="nf">baz</span>
+<span class="k">end</span>
+</code></pre>
+
+<p>In this example the function <code>foo</code> implicitly expects an object which is not
+<code>nil</code>. If you call <code>foo(nil)</code>, you’ll get an exception at runtime. To combat
+this we usually write unit tests to verify that our system will never get into
+such state that the function would get passed in a <code>nil</code>. Now this is a very
+simple example, let’s take a look at a more complicated one.</p>
+
+<p>Imagine you’re writing a service which receives messages from users, encrypts
+them, and sends them on through an unsecured channel. The messages are both
+being sent and received as base64 encoded strings, so you can’t easily tell if
+a message has been encrypted by just inspecting it.</p>
+
+<p>Here’s how we could represent the message in Haskell and in Ruby, just so that
+we can compare the code.</p>
+<pre class="highlight haskell"><code><span class="kr">data</span> <span class="kt">Message</span> <span class="o">=</span> <span class="kt">Message</span> <span class="kt">String</span>
+</code></pre>
+<pre class="highlight ruby"><code><span class="k">class</span> <span class="nc">Message</span>
+  <span class="kp">attr_accessor</span> <span class="ss">:text</span>
+
+  <span class="k">def</span> <span class="nf">initialize</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
+    <span class="vi">@text</span> <span class="o">=</span> <span class="n">text</span>
+  <span class="k">end</span>
+<span class="k">end</span>
+</code></pre>
+
+<p>Now this is all well and good, but we also want to keep track if the message
+has been encrypted or if it is still in plain text. To do this in Haskell we’ll
+use a simple Algebraic Data Type, while in Ruby we’ll add an additional
+attribute called <code>encrypted</code>, which will default to <code>false</code>.</p>
+<pre class="highlight haskell"><code><span class="kr">data</span> <span class="kt">Message</span> <span class="o">=</span> <span class="kt">PlainText</span> <span class="kt">String</span> <span class="o">|</span> <span class="kt">Encrypted</span> <span class="kt">String</span>
+</code></pre>
+<pre class="highlight ruby"><code><span class="k">class</span> <span class="nc">Message</span>
+  <span class="kp">attr_accessor</span> <span class="ss">:text</span><span class="p">,</span> <span class="ss">:encrypted</span>
+
+  <span class="k">def</span> <span class="nf">initialize</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
+    <span class="vi">@text</span> <span class="o">=</span> <span class="n">text</span>
+    <span class="vi">@encrypted</span> <span class="o">=</span> <span class="kp">false</span>
+  <span class="k">end</span>
+<span class="k">end</span>
+</code></pre>
+
+<p>While the Haskell version is less verbose, it doesn’t give us much more safety
+guarantees at this point. Let’s say we want to define a function which sends a
+message. We want it only to accept a message that has been encrypted, since
+sending a plain text message is unsafe and should not be allowed.</p>
+<pre class="highlight ruby"><code><span class="k">def</span> <span class="nf">send_message</span><span class="p">(</span><span class="n">message</span><span class="p">,</span> <span class="n">recipient</span><span class="p">)</span>
+  <span class="k">if</span> <span class="n">message</span><span class="p">.</span><span class="nf">encrypted</span>
+    <span class="c1"># send logic</span>
+  <span class="k">else</span>
+    <span class="k">raise</span> <span class="no">ArgumentError</span><span class="p">,</span> <span class="s2">"Can’t send a plain text message"</span>
+  <span class="k">end</span>
+<span class="k">end</span>
+</code></pre>
+<pre class="highlight haskell"><code><span class="n">send</span> <span class="o">::</span> <span class="kt">Message</span> <span class="o">-&gt;</span> <span class="kt">Recipient</span> <span class="o">-&gt;</span> <span class="kt">IO</span> <span class="nb">()</span>
+<span class="n">send</span> <span class="p">(</span><span class="kt">Encrypted</span> <span class="n">m</span><span class="p">)</span> <span class="n">recipient</span> <span class="o">=</span> <span class="n">some</span> <span class="n">magic</span> <span class="n">with</span> <span class="n">m</span>
+<span class="n">send</span> <span class="p">(</span><span class="kt">PlainText</span> <span class="kr">_</span><span class="p">)</span> <span class="kr">_</span> <span class="o">=</span> <span class="n">undefined</span>
+</code></pre>
+
+<p>It doesn’t really matter how we chose to represent this in Haskell. Even if we
+used a <code>Maybe</code> or <code>Either</code> to handle the failure, we would still have to handle
+this at runtime. Which means only one thing, this function needs to be for the
+edge case that we pass in a message in an invalid state, and we would also need
+to test the error handling. This is as far as we can go with Ruby, since
+there’s no way to enforce more structure into the program.</p>
+
+<p>But wouldn’t it be much nicer if a program that’s trying to call <code>send</code> with
+<code>PlainText</code> message would get rejected by the type checker? Such program is not
+valid in our business domain and it shouldn&rsquo;t compile. If we manage to do that,
+we can save ourselves the error handling, and also writing tests for the error
+handling. </p>
+
+<p>To be able to do this we need to express the relationship between the
+<code>Encrypted</code> message and the <code>send</code> function at the type level. The trick that
+allows us to do this is called <code>Phantom Types</code>, but to understand those, first
+let&rsquo;s take a look at simple parametric data types in Haskell. They are very
+similar to templates or generics in C++/C#/Java and many other languages.
+Here&rsquo;s a simple parametric type:</p>
+<pre class="highlight haskell"><code><span class="kr">data</span> <span class="kt">Maybe</span> <span class="n">a</span> <span class="o">=</span> <span class="kt">Just</span> <span class="n">a</span> <span class="o">|</span> <span class="kt">Nothing</span>
+</code></pre>
+
+<p>The <code>a</code> on the left side is simply a <em>type parameter</em>. If we choose to create a
+value such as <code>Just 3</code>, it would have the type of <code>Maybe Int</code>.</p>
+
+<h2>Phantom Types</h2>
+
+<p>A type is called a Phantom Type if it has a type parameter which only appears
+on the left hand side, but is not used by any of the value constructors. Here&rsquo;s
+how we could need to modify our <code>Message</code> type to make it into a Phantom Type.</p>
+<pre class="highlight haskell"><code><span class="kr">data</span> <span class="kt">Message</span> <span class="n">a</span> <span class="o">=</span> <span class="kt">Message</span> <span class="kt">String</span>
+</code></pre>
+
+<p>This allows us to have things like <code>Message Int</code>, <code>Message String</code>, <code>Message
+(Maybe Char)</code>, and so on. In itself it might not look appealing, since no
+matter what type we use it will still have a single value constructor which
+works with <code>String</code>s. But let&rsquo;s expand this further by adding two empty data
+types, one for each type of the message.</p>
+<pre class="highlight haskell"><code><span class="kr">data</span> <span class="kt">Encrypted</span>
+<span class="kr">data</span> <span class="kt">PlainText</span>
+</code></pre>
+
+<p>This gives us an option to create both <code>Message Encrypted</code> and <code>Message
+PlainText</code> types. Remember that even if we&rsquo;re not using the type parameter in
+any of the constructors, it is still verified by the type system, which means
+we can change our <code>send</code> function to have the following signature.</p>
+<pre class="highlight haskell"><code><span class="n">send</span> <span class="o">::</span> <span class="kt">Message</span> <span class="kt">Encrypted</span> <span class="o">-&gt;</span> <span class="kt">Recipient</span> <span class="o">-&gt;</span> <span class="kt">IO</span> <span class="nb">()</span>
+<span class="n">encrypt</span> <span class="o">::</span> <span class="kt">Message</span> <span class="kt">PlainText</span> <span class="o">-&gt;</span> <span class="kt">Message</span> <span class="kt">Encrypted</span>
+<span class="n">decrypt</span> <span class="o">::</span> <span class="kt">Message</span> <span class="kt">Encrypted</span> <span class="o">-&gt;</span> <span class="kt">Message</span> <span class="kt">PlainText</span>
+</code></pre>
+
+<p>The last thing we would need to do to make this completely safe is to make the
+constructor for <code>Message</code> private and only export a function for creating a new
+instance of the type. This makes it impossible to change the <em>state</em> of the
+<code>Message</code> type in any other way, but by using our <code>encrypt</code> and <code>decrypt</code>
+functions, because you wouldn&rsquo;t be able to use pattern matching to extract the
+inner value. The function for creating a new <code>Message</code> could look something
+like this</p>
+<pre class="highlight haskell"><code><span class="n">newMessage</span> <span class="o">::</span> <span class="kt">String</span> <span class="o">-&gt;</span> <span class="kt">Message</span> <span class="kt">PlainText</span>
+<span class="n">newMessage</span> <span class="n">s</span> <span class="o">=</span> <span class="kt">Message</span> <span class="n">s</span>
+</code></pre>
+
+<p>Now armed with the power of Phantom Types, the following would be rejected by
+the type system, making it impossible to send plain-text messages.</p>
+<pre class="highlight haskell"><code><span class="n">send</span> <span class="p">(</span><span class="n">newMessage</span> <span class="s">"hello!"</span><span class="p">)</span> <span class="s">"john@example.com"</span>
+</code></pre>
+
+<p>A similar thing could also be implemented using <a href="http://www.haskell.org/haskellwiki/Generalised_algebraic_datatype">Generalised Algebraic Data
+Types</a>
+(GADTs), but that&rsquo;s in the scope of this article. If you&rsquo;re interested in
+learning more, I recommend checking out the <a href="http://www.haskell.org/haskellwiki/Phantom_type">Haskell Wiki article about Phantom
+Types</a>, which has some great
+examples, or the <a href="http://en.wikibooks.org/wiki/Haskell/Phantom_types">WikiBooks
+entry</a>.</p>
+
+<p><strong>Update:</strong> As it was just pointed out in the <a href="https://lobste.rs/s/5ekbap/using_phantom_types_in_haskell_for_extra_safety">comments on
+Lobste.rs</a>,
+it&rsquo;s worth noting that all of this safety guarantee comes for free. The
+types are stripped when the program type checks and compiles, so there
+is no runtime overhead. This might be something not so obvious to people
+used to programming in dynamic languages.</p>
+<div class="form-box"><div class="left"><h1>Want to hear about my upcoming book,<br><strong>Haskell by Example</strong>?</h1><img alt="Haskell by Example Book" src="http://blog.jakuba.net/images/book.png" width="120" /><p>Subscribe to receive updates and free content from the book. You'll also get a discount when the final version of the book is released.</p></div><div class="right mailchimp-signup-form"><div class="col second"><form action="http://sensible.us7.list-manage.com/subscribe/post?u=e0956e52b1c70e11e3e473abd&amp;id=a251f4e777" class="form" method="post" name="mc-embedded-subscribe-form" novalidate="" target="_blank"><div class="form-group"><label for="mce-FNAME"> First Name</label><input class="form-control" name="FNAME" type="text" value="" /></div><div class="form-group"><label for="mce-EMAIL"> Email Address</label><input class="form-control" name="EMAIL" type="email" value="" /></div><!--real people should not fill this in and expect good things - do not remove this or risk form bot signups--><div style="position: absolute; left: -5000px;"><input name="b_e0956e52b1c70e11e3e473abd_a251f4e777" type="text" value="" /></div><div class="clear"><button class="btn btn-subscribe" name="subscribe" type="submit">Keep me updated</button></div></form></div></div></div></div><div id="disqus_thread"></div><script type="text/javascript">var disqus_shortname = 'jakubarnoldblog';
+
+(function() {
+    var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+    dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+    (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+})();</script></div><div class="span4"><div class="right-panel-box"><h3>Recent articles</h3><ul><li><a href="http://blog.jakuba.net/2015/08/08/fibonacci-numbers.html">Fibonacci Numbers</a></li><li><a href="http://blog.jakuba.net/2014/08/10/parsing-css-with-parsec.html">Parsing CSS with Parsec</a></li><li><a href="http://blog.jakuba.net/2014/08/06/lens-tutorial-stab-traversal-part-2.html">Lens Tutorial - Stab & Traversal (Part 2)</a></li><li><a href="http://blog.jakuba.net/2014/07/30/foldable-and-traversable.html">Foldable and Traversable</a></li><li><a href="../22/building-monad-transformers-part-1.html">Building Monad Transformers - Part 1</a></li><li><a href="../20/mutable-state-in-haskell.html">Mutable State in Haskell</a></li><li><a href="http://blog.jakuba.net/2014/07/14/lens-tutorial-introduction-part-1.html">Lens Tutorial - Introduction (part 1)</a></li><li><a href="../10/using-phantom-types-in-haskell-for-extra-safety-part-2.html">Using Phantom Types in Haskell for Extra Safety - Part 2</a></li><li><a href="using-phantom-types-for-extra-safety.html">Using Phantom Types for Extra Safety</a></li><li><a href="http://blog.jakuba.net/2014/06/23/evil-mode-how-to-switch-from-vim-to-emacs.html">Evil Mode: How I Switched From VIM to Emacs</a></li></ul><h3>Tags</h3><ul><li><a href="http://blog.jakuba.net/tags/clojure.html">clojure (1)</a></li><li><a href="http://blog.jakuba.net/tags/testing.html">testing (1)</a></li><li><a href="http://blog.jakuba.net/tags/rspec.html">rspec (1)</a></li><li><a href="http://blog.jakuba.net/tags/ruby.html">ruby (1)</a></li><li><a href="http://blog.jakuba.net/tags/refactoring.html">refactoring (1)</a></li><li><a href="http://blog.jakuba.net/tags/haskell.html">haskell (9)</a></li><li><a href="http://blog.jakuba.net/tags/emacs.html">emacs (1)</a></li><li><a href="http://blog.jakuba.net/tags/lens.html">lens (2)</a></li><li><a href="http://blog.jakuba.net/tags/algorithms.html">algorithms (1)</a></li></ul><h3>Archives</h3><ul><li><a href="http://blog.jakuba.net/2015.html">2015 (1)</a></li><li><a href="http://blog.jakuba.net/2014.html">2014 (13)</a></li><li><a href="http://blog.jakuba.net/2013.html">2013 (3)</a></li></ul><a href="https://plus.google.com/+JakubArnold?rel=author">Google+</a></div></div></div></div><script type="text/javascript">(function() {
+  var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+  po.src = 'https://apis.google.com/js/platform.js';
+  var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+})();</script><script type="text/javascript">!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="https://platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}}(document,"script","twitter-wjs");</script><script type="text/javascript">(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+(i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+})(window,document,'script','http://www.google-analytics.com/analytics.js','ga');
+
+ga('create', 'UA-44251100-2', 'blog.jakubarnold.cz');
+ga('send', 'pageview');</script><script type="text/javascript">var _gauges = _gauges || [];
+(function() {
+  var t   = document.createElement('script');
+  t.type  = 'text/javascript';
+  t.async = true;
+  t.id    = 'gauges-tracker';
+  t.setAttribute('data-site-id', '5325685a8bfdf76a52000c9b');
+  t.src = 'http://secure.gaug.es/track.js';
+  var s = document.getElementsByTagName('script')[0];
+  s.parentNode.insertBefore(t, s);
+})();</script><script src="http://jakubarnold.cz:9000/js/client.js"></script><script type="text/javascript">cat.init("3e4d686b-8b75-4c4b-ae2f-f05c6b7b5fce", "jakubarnold.cz", 9000);
+cat.broadcast("darthdeus", "someone is reading " + document.title);</script></body>
+<!-- Mirrored from blog.jakuba.net/2014/07/08/using-phantom-types-for-extra-safety.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 11:03:45 GMT -->
+</html>

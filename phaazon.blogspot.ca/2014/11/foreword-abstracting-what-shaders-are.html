@@ -1,0 +1,1631 @@
+<!DOCTYPE html>
+<html class='v2' dir='ltr' xmlns='http://www.w3.org/1999/xhtml' xmlns:b='http://www.google.com/2005/gml/b' xmlns:data='http://www.google.com/2005/gml/data' xmlns:expr='http://www.google.com/2005/gml/expr'>
+
+<!-- Mirrored from phaazon.blogspot.ca/2014/11/foreword-abstracting-what-shaders-are.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 11:04:18 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=UTF-8" /><!-- /Added by HTTrack -->
+<head>
+<meta content='width=1100' name='viewport'/>
+<meta content='text/html; charset=UTF-8' http-equiv='Content-Type'/>
+<meta content='blogger' name='generator'/>
+<link href='http://phaazon.blogspot.ca/favicon.ico' rel='icon' type='image/x-icon'/>
+<link href='http://phaazon.blogspot.com/2014/11/foreword-abstracting-what-shaders-are.html' rel='canonical'/>
+<link rel="alternate" type="application/atom+xml" title="Graphics and FPL - Atom" href="http://phaazon.blogspot.com/feeds/posts/default" />
+<link rel="alternate" type="application/rss+xml" title="Graphics and FPL - RSS" href="http://phaazon.blogspot.com/feeds/posts/default?alt=rss" />
+<link rel="service.post" type="application/atom+xml" title="Graphics and FPL - Atom" href="https://www.blogger.com/feeds/8976038770606708499/posts/default" />
+
+<link rel="alternate" type="application/atom+xml" title="Graphics and FPL - Atom" href="http://phaazon.blogspot.com/feeds/156108301236456925/comments/default" />
+<!--[if IE]><script type="text/javascript" src="https://www.blogger.com/static/v1/jsbin/3032875878-ieretrofit.js"></script>
+<![endif]-->
+<meta content='http://phaazon.blogspot.com/2014/11/foreword-abstracting-what-shaders-are.html' property='og:url'/>
+<meta content='Abstracting shader – introducing the ash Haskell library' property='og:title'/>
+<meta content='Foreword  Abstracting what?  Shaders  are very common units in the world of graphics. Even though we’re used to using them for shading 1  pu...' property='og:description'/>
+<!--[if IE]> <script> (function() { var html5 = ("abbr,article,aside,audio,canvas,datalist,details," + "figure,footer,header,hgroup,mark,menu,meter,nav,output," + "progress,section,time,video").split(','); for (var i = 0; i < html5.length; i++) { document.createElement(html5[i]); } try { document.execCommand('BackgroundImageCache', false, true); } catch(e) {} })(); </script> <![endif]-->
+<title>Graphics and FPL: Abstracting shader &#8211; introducing the ash Haskell library</title>
+<link type='text/css' rel='stylesheet' href='https://www.blogger.com/static/v1/widgets/178992763-css_bundle_v2.css' />
+<link type='text/css' rel='stylesheet' href='https://www.blogger.com/dyn-css/authorization.css?targetBlogID=8976038770606708499&amp;zx=09cbdce8-1fe5-49a4-8a3a-f49149b6e3d9' />
+<link type='text/css' rel='stylesheet' href='http://www.google.com/uds/css/gsearch.css' />
+<style id='page-skin-1' type='text/css'><!--
+/*
+-----------------------------------------------
+Blogger Template Style
+Name:     Simple
+Designer: Josh Peterson
+URL:      www.noaesthetic.com
+----------------------------------------------- */
+/* Variable definitions
+====================
+<Variable name="keycolor" description="Main Color" type="color" default="#66bbdd"/>
+<Group description="Page Text" selector="body">
+<Variable name="body.font" description="Font" type="font"
+default="normal normal 12px Arial, Tahoma, Helvetica, FreeSans, sans-serif"/>
+<Variable name="body.text.color" description="Text Color" type="color" default="#222222"/>
+</Group>
+<Group description="Backgrounds" selector=".body-fauxcolumns-outer">
+<Variable name="body.background.color" description="Outer Background" type="color" default="#66bbdd"/>
+<Variable name="content.background.color" description="Main Background" type="color" default="#ffffff"/>
+<Variable name="header.background.color" description="Header Background" type="color" default="transparent"/>
+</Group>
+<Group description="Links" selector=".main-outer">
+<Variable name="link.color" description="Link Color" type="color" default="#2288bb"/>
+<Variable name="link.visited.color" description="Visited Color" type="color" default="#888888"/>
+<Variable name="link.hover.color" description="Hover Color" type="color" default="#33aaff"/>
+</Group>
+<Group description="Blog Title" selector=".header h1">
+<Variable name="header.font" description="Font" type="font"
+default="normal normal 60px Arial, Tahoma, Helvetica, FreeSans, sans-serif"/>
+<Variable name="header.text.color" description="Title Color" type="color" default="#3399bb" />
+</Group>
+<Group description="Blog Description" selector=".header .description">
+<Variable name="description.text.color" description="Description Color" type="color"
+default="#777777" />
+</Group>
+<Group description="Tabs Text" selector=".tabs-inner .widget li a">
+<Variable name="tabs.font" description="Font" type="font"
+default="normal normal 14px Arial, Tahoma, Helvetica, FreeSans, sans-serif"/>
+<Variable name="tabs.text.color" description="Text Color" type="color" default="#999999"/>
+<Variable name="tabs.selected.text.color" description="Selected Color" type="color" default="#000000"/>
+</Group>
+<Group description="Tabs Background" selector=".tabs-outer .PageList">
+<Variable name="tabs.background.color" description="Background Color" type="color" default="#f5f5f5"/>
+<Variable name="tabs.selected.background.color" description="Selected Color" type="color" default="#eeeeee"/>
+</Group>
+<Group description="Post Title" selector="h3.post-title, .comments h4">
+<Variable name="post.title.font" description="Font" type="font"
+default="normal normal 22px Arial, Tahoma, Helvetica, FreeSans, sans-serif"/>
+</Group>
+<Group description="Date Header" selector=".date-header">
+<Variable name="date.header.color" description="Text Color" type="color"
+default="#000000"/>
+<Variable name="date.header.background.color" description="Background Color" type="color"
+default="transparent"/>
+<Variable name="date.header.font" description="Text Font" type="font"
+default="normal bold 11px Arial, Tahoma, Helvetica, FreeSans, sans-serif"/>
+<Variable name="date.header.padding" description="Date Header Padding" type="string" default="inherit"/>
+<Variable name="date.header.letterspacing" description="Date Header Letter Spacing" type="string" default="inherit"/>
+<Variable name="date.header.margin" description="Date Header Margin" type="string" default="inherit"/>
+</Group>
+<Group description="Post Footer" selector=".post-footer">
+<Variable name="post.footer.text.color" description="Text Color" type="color" default="#666666"/>
+<Variable name="post.footer.background.color" description="Background Color" type="color"
+default="#f9f9f9"/>
+<Variable name="post.footer.border.color" description="Shadow Color" type="color" default="#eeeeee"/>
+</Group>
+<Group description="Gadgets" selector="h2">
+<Variable name="widget.title.font" description="Title Font" type="font"
+default="normal bold 11px Arial, Tahoma, Helvetica, FreeSans, sans-serif"/>
+<Variable name="widget.title.text.color" description="Title Color" type="color" default="#000000"/>
+<Variable name="widget.alternate.text.color" description="Alternate Color" type="color" default="#999999"/>
+</Group>
+<Group description="Images" selector=".main-inner">
+<Variable name="image.background.color" description="Background Color" type="color" default="#ffffff"/>
+<Variable name="image.border.color" description="Border Color" type="color" default="#eeeeee"/>
+<Variable name="image.text.color" description="Caption Text Color" type="color" default="#000000"/>
+</Group>
+<Group description="Accents" selector=".content-inner">
+<Variable name="body.rule.color" description="Separator Line Color" type="color" default="#eeeeee"/>
+<Variable name="tabs.border.color" description="Tabs Border Color" type="color" default="transparent"/>
+</Group>
+<Variable name="body.background" description="Body Background" type="background"
+color="#eeeeee" default="$(color) none repeat scroll top left"/>
+<Variable name="body.background.override" description="Body Background Override" type="string" default=""/>
+<Variable name="body.background.gradient.cap" description="Body Gradient Cap" type="url"
+default="url(https://resources.blogblog.com/blogblog/data/1kt/simple/gradients_light.png)"/>
+<Variable name="body.background.gradient.tile" description="Body Gradient Tile" type="url"
+default="url(https://resources.blogblog.com/blogblog/data/1kt/simple/body_gradient_tile_light.png)"/>
+<Variable name="content.background.color.selector" description="Content Background Color Selector" type="string" default=".content-inner"/>
+<Variable name="content.padding" description="Content Padding" type="length" default="10px" min="0" max="100px"/>
+<Variable name="content.padding.horizontal" description="Content Horizontal Padding" type="length" default="10px" min="0" max="100px"/>
+<Variable name="content.shadow.spread" description="Content Shadow Spread" type="length" default="40px" min="0" max="100px"/>
+<Variable name="content.shadow.spread.webkit" description="Content Shadow Spread (WebKit)" type="length" default="5px" min="0" max="100px"/>
+<Variable name="content.shadow.spread.ie" description="Content Shadow Spread (IE)" type="length" default="10px" min="0" max="100px"/>
+<Variable name="main.border.width" description="Main Border Width" type="length" default="0" min="0" max="10px"/>
+<Variable name="header.background.gradient" description="Header Gradient" type="url" default="none"/>
+<Variable name="header.shadow.offset.left" description="Header Shadow Offset Left" type="length" default="-1px" min="-50px" max="50px"/>
+<Variable name="header.shadow.offset.top" description="Header Shadow Offset Top" type="length" default="-1px" min="-50px" max="50px"/>
+<Variable name="header.shadow.spread" description="Header Shadow Spread" type="length" default="1px" min="0" max="100px"/>
+<Variable name="header.padding" description="Header Padding" type="length" default="30px" min="0" max="100px"/>
+<Variable name="header.border.size" description="Header Border Size" type="length" default="1px" min="0" max="10px"/>
+<Variable name="header.bottom.border.size" description="Header Bottom Border Size" type="length" default="1px" min="0" max="10px"/>
+<Variable name="header.border.horizontalsize" description="Header Horizontal Border Size" type="length" default="0" min="0" max="10px"/>
+<Variable name="description.text.size" description="Description Text Size" type="string" default="140%"/>
+<Variable name="tabs.margin.top" description="Tabs Margin Top" type="length" default="0" min="0" max="100px"/>
+<Variable name="tabs.margin.side" description="Tabs Side Margin" type="length" default="30px" min="0" max="100px"/>
+<Variable name="tabs.background.gradient" description="Tabs Background Gradient" type="url"
+default="url(https://resources.blogblog.com/blogblog/data/1kt/simple/gradients_light.png)"/>
+<Variable name="tabs.border.width" description="Tabs Border Width" type="length" default="1px" min="0" max="10px"/>
+<Variable name="tabs.bevel.border.width" description="Tabs Bevel Border Width" type="length" default="1px" min="0" max="10px"/>
+<Variable name="post.margin.bottom" description="Post Bottom Margin" type="length" default="25px" min="0" max="100px"/>
+<Variable name="image.border.small.size" description="Image Border Small Size" type="length" default="2px" min="0" max="10px"/>
+<Variable name="image.border.large.size" description="Image Border Large Size" type="length" default="5px" min="0" max="10px"/>
+<Variable name="page.width.selector" description="Page Width Selector" type="string" default=".region-inner"/>
+<Variable name="page.width" description="Page Width" type="string" default="auto"/>
+<Variable name="main.section.margin" description="Main Section Margin" type="length" default="15px" min="0" max="100px"/>
+<Variable name="main.padding" description="Main Padding" type="length" default="15px" min="0" max="100px"/>
+<Variable name="main.padding.top" description="Main Padding Top" type="length" default="30px" min="0" max="100px"/>
+<Variable name="main.padding.bottom" description="Main Padding Bottom" type="length" default="30px" min="0" max="100px"/>
+<Variable name="paging.background"
+color="#ffffff"
+description="Background of blog paging area" type="background"
+default="transparent none no-repeat scroll top center"/>
+<Variable name="footer.bevel" description="Bevel border length of footer" type="length" default="0" min="0" max="10px"/>
+<Variable name="mobile.background.overlay" description="Mobile Background Overlay" type="string"
+default="transparent none repeat scroll top left"/>
+<Variable name="mobile.background.size" description="Mobile Background Size" type="string" default="auto"/>
+<Variable name="mobile.button.color" description="Mobile Button Color" type="color" default="#ffffff" />
+<Variable name="startSide" description="Side where text starts in blog language" type="automatic" default="left"/>
+<Variable name="endSide" description="Side where text ends in blog language" type="automatic" default="right"/>
+*/
+/* Content
+----------------------------------------------- */
+body {
+font: normal normal 12px Verdana, Geneva, sans-serif;
+color: #000000;
+background: #eeeeee url(http://themes.googleusercontent.com/image?id=0BwVBOzw_-hbMNjUwODUzYTgtM2FlMi00NjA0LWE4ZjEtM2VmNzI3NDE4Zjhm) repeat scroll top center /* Credit: Ollustrator (http://www.istockphoto.com/googleimages.php?id=9505737&platform=blogger) */;
+padding: 0 0 0 0;
+}
+html body .region-inner {
+min-width: 0;
+max-width: 100%;
+width: auto;
+}
+h2 {
+font-size: 22px;
+}
+a:link {
+text-decoration:none;
+color: #a2b818;
+}
+a:visited {
+text-decoration:none;
+color: #966a8d;
+}
+a:hover {
+text-decoration:underline;
+color: #00c8f0;
+}
+.body-fauxcolumn-outer .fauxcolumn-inner {
+background: transparent none repeat scroll top left;
+_background-image: none;
+}
+.body-fauxcolumn-outer .cap-top {
+position: absolute;
+z-index: 1;
+height: 400px;
+width: 100%;
+}
+.body-fauxcolumn-outer .cap-top .cap-left {
+width: 100%;
+background: transparent none repeat-x scroll top left;
+_background-image: none;
+}
+.content-outer {
+-moz-box-shadow: 0 0 0 rgba(0, 0, 0, .15);
+-webkit-box-shadow: 0 0 0 rgba(0, 0, 0, .15);
+-goog-ms-box-shadow: 0 0 0 #333333;
+box-shadow: 0 0 0 rgba(0, 0, 0, .15);
+margin-bottom: 1px;
+}
+.content-inner {
+padding: 10px 40px;
+}
+.content-inner {
+background-color: #ffffff;
+}
+/* Header
+----------------------------------------------- */
+.header-outer {
+background: #ffffff none repeat-x scroll 0 -400px;
+_background-image: none;
+}
+.Header h1 {
+font: normal normal 40px Verdana, Geneva, sans-serif;
+color: #a2b818;
+text-shadow: 0 0 0 rgba(0, 0, 0, .2);
+}
+.Header h1 a {
+color: #a2b818;
+}
+.Header .description {
+font-size: 18px;
+color: #787878;
+}
+.header-inner .Header .titlewrapper {
+padding: 22px 0;
+}
+.header-inner .Header .descriptionwrapper {
+padding: 0 0;
+}
+/* Tabs
+----------------------------------------------- */
+.tabs-inner .section:first-child {
+border-top: 0 solid #cfcfcf;
+}
+.tabs-inner .section:first-child ul {
+margin-top: -1px;
+border-top: 1px solid #cfcfcf;
+border-left: 1px solid #cfcfcf;
+border-right: 1px solid #cfcfcf;
+}
+.tabs-inner .widget ul {
+background: transparent none repeat-x scroll 0 -800px;
+_background-image: none;
+border-bottom: 1px solid #cfcfcf;
+margin-top: 0;
+margin-left: -30px;
+margin-right: -30px;
+}
+.tabs-inner .widget li a {
+display: inline-block;
+padding: .6em 1em;
+font: normal normal 16px Verdana, Geneva, sans-serif;
+color: #000000;
+border-left: 1px solid #ffffff;
+border-right: 1px solid #cfcfcf;
+}
+.tabs-inner .widget li:first-child a {
+border-left: none;
+}
+.tabs-inner .widget li.selected a, .tabs-inner .widget li a:hover {
+color: #000000;
+background-color: #e2e2e2;
+text-decoration: none;
+}
+/* Columns
+----------------------------------------------- */
+.main-outer {
+border-top: 0 solid transparent;
+}
+.fauxcolumn-left-outer .fauxcolumn-inner {
+border-right: 1px solid transparent;
+}
+.fauxcolumn-right-outer .fauxcolumn-inner {
+border-left: 1px solid transparent;
+}
+/* Headings
+----------------------------------------------- */
+div.widget > h2,
+div.widget h2.title {
+margin: 0 0 1em 0;
+font: italic bold 18px 'Trebuchet MS',Trebuchet,Verdana,sans-serif;
+color: #000000;
+}
+/* Widgets
+----------------------------------------------- */
+.widget .zippy {
+color: #787878;
+text-shadow: 2px 2px 1px rgba(0, 0, 0, .1);
+}
+.widget .popular-posts ul {
+list-style: none;
+}
+/* Posts
+----------------------------------------------- */
+h2.date-header {
+font: normal bold 11px Arial, Tahoma, Helvetica, FreeSans, sans-serif;
+}
+.date-header span {
+background-color: #000000;
+color: #ffffff;
+padding: 0.4em;
+letter-spacing: 3px;
+margin: inherit;
+}
+.main-inner {
+padding-top: 35px;
+padding-bottom: 65px;
+}
+.main-inner .column-center-inner {
+padding: 0 0;
+}
+.main-inner .column-center-inner .section {
+margin: 0 1em;
+}
+.post {
+margin: 0 0 45px 0;
+}
+h3.post-title, .comments h4 {
+font: normal normal 36px 'Trebuchet MS',Trebuchet,Verdana,sans-serif;
+margin: .75em 0 0;
+}
+.post-body {
+font-size: 110%;
+line-height: 1.4;
+position: relative;
+}
+.post-body img, .post-body .tr-caption-container, .Profile img, .Image img,
+.BlogList .item-thumbnail img {
+padding: 2px;
+background: #ffffff;
+border: 1px solid #e2e2e2;
+-moz-box-shadow: 1px 1px 5px rgba(0, 0, 0, .1);
+-webkit-box-shadow: 1px 1px 5px rgba(0, 0, 0, .1);
+box-shadow: 1px 1px 5px rgba(0, 0, 0, .1);
+}
+.post-body img, .post-body .tr-caption-container {
+padding: 5px;
+}
+.post-body .tr-caption-container {
+color: #000000;
+}
+.post-body .tr-caption-container img {
+padding: 0;
+background: transparent;
+border: none;
+-moz-box-shadow: 0 0 0 rgba(0, 0, 0, .1);
+-webkit-box-shadow: 0 0 0 rgba(0, 0, 0, .1);
+box-shadow: 0 0 0 rgba(0, 0, 0, .1);
+}
+.post-header {
+margin: 0 0 1.5em;
+line-height: 1.6;
+font-size: 90%;
+}
+.post-footer {
+margin: 20px -2px 0;
+padding: 5px 10px;
+color: #000000;
+background-color: #cfcfcf;
+border-bottom: 1px solid #00c8f0;
+line-height: 1.6;
+font-size: 90%;
+}
+#comments .comment-author {
+padding-top: 1.5em;
+border-top: 1px solid transparent;
+background-position: 0 1.5em;
+}
+#comments .comment-author:first-child {
+padding-top: 0;
+border-top: none;
+}
+.avatar-image-container {
+margin: .2em 0 0;
+}
+#comments .avatar-image-container img {
+border: 1px solid #e2e2e2;
+}
+/* Comments
+----------------------------------------------- */
+.comments .comments-content .icon.blog-author {
+background-repeat: no-repeat;
+background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABIAAAASCAYAAABWzo5XAAAAAXNSR0IArs4c6QAAAAZiS0dEAP8A/wD/oL2nkwAAAAlwSFlzAAALEgAACxIB0t1+/AAAAAd0SU1FB9sLFwMeCjjhcOMAAAD+SURBVDjLtZSvTgNBEIe/WRRnm3U8RC1neQdsm1zSBIU9VVF1FkUguQQsD9ITmD7ECZIJSE4OZo9stoVjC/zc7ky+zH9hXwVwDpTAWWLrgS3QAe8AZgaAJI5zYAmc8r0G4AHYHQKVwII8PZrZFsBFkeRCABYiMh9BRUhnSkPTNCtVXYXURi1FpBDgArj8QU1eVXUzfnjv7yP7kwu1mYrkWlU33vs1QNu2qU8pwN0UpKoqokjWwCztrMuBhEhmh8bD5UDqur75asbcX0BGUB9/HAMB+r32hznJgXy2v0sGLBcyAJ1EK3LFcbo1s91JeLwAbwGYu7TP/3ZGfnXYPgAVNngtqatUNgAAAABJRU5ErkJggg==);
+}
+.comments .comments-content .loadmore a {
+border-top: 1px solid #787878;
+border-bottom: 1px solid #787878;
+}
+.comments .comment-thread.inline-thread {
+background-color: #cfcfcf;
+}
+.comments .continue {
+border-top: 2px solid #787878;
+}
+/* Accents
+---------------------------------------------- */
+.section-columns td.columns-cell {
+border-left: 1px solid transparent;
+}
+.blog-pager {
+background: transparent url(http://www.blogblog.com/1kt/simple/paging_dot.png) repeat-x scroll top center;
+}
+.blog-pager-older-link, .home-link,
+.blog-pager-newer-link {
+background-color: #ffffff;
+padding: 5px;
+}
+.footer-outer {
+border-top: 1px dashed #bbbbbb;
+}
+/* Mobile
+----------------------------------------------- */
+body.mobile  {
+background-size: auto;
+}
+.mobile .body-fauxcolumn-outer {
+background: transparent none repeat scroll top left;
+}
+.mobile .body-fauxcolumn-outer .cap-top {
+background-size: 100% auto;
+}
+.mobile .content-outer {
+-webkit-box-shadow: 0 0 3px rgba(0, 0, 0, .15);
+box-shadow: 0 0 3px rgba(0, 0, 0, .15);
+}
+.mobile .tabs-inner .widget ul {
+margin-left: 0;
+margin-right: 0;
+}
+.mobile .post {
+margin: 0;
+}
+.mobile .main-inner .column-center-inner .section {
+margin: 0;
+}
+.mobile .date-header span {
+padding: 0.1em 10px;
+margin: 0 -10px;
+}
+.mobile h3.post-title {
+margin: 0;
+}
+.mobile .blog-pager {
+background: transparent none no-repeat scroll top center;
+}
+.mobile .footer-outer {
+border-top: none;
+}
+.mobile .main-inner, .mobile .footer-inner {
+background-color: #ffffff;
+}
+.mobile-index-contents {
+color: #000000;
+}
+.mobile-link-button {
+background-color: #a2b818;
+}
+.mobile-link-button a:link, .mobile-link-button a:visited {
+color: #ffffff;
+}
+.mobile .tabs-inner .section:first-child {
+border-top: none;
+}
+.mobile .tabs-inner .PageList .widget-content {
+background-color: #e2e2e2;
+color: #000000;
+border-top: 1px solid #cfcfcf;
+border-bottom: 1px solid #cfcfcf;
+}
+.mobile .tabs-inner .PageList .widget-content .pagelist-arrow {
+border-left: 1px solid #cfcfcf;
+}
+
+--></style>
+<style id='template-skin-1' type='text/css'><!--
+body {
+min-width: 1090px;
+}
+.content-outer, .content-fauxcolumn-outer, .region-inner {
+min-width: 1090px;
+max-width: 1090px;
+_width: 1090px;
+}
+.main-inner .columns {
+padding-left: 0px;
+padding-right: 260px;
+}
+.main-inner .fauxcolumn-center-outer {
+left: 0px;
+right: 260px;
+/* IE6 does not respect left and right together */
+_width: expression(this.parentNode.offsetWidth -
+parseInt("0px") -
+parseInt("260px") + 'px');
+}
+.main-inner .fauxcolumn-left-outer {
+width: 0px;
+}
+.main-inner .fauxcolumn-right-outer {
+width: 260px;
+}
+.main-inner .column-left-outer {
+width: 0px;
+right: 100%;
+margin-left: -0px;
+}
+.main-inner .column-right-outer {
+width: 260px;
+margin-right: -260px;
+}
+#layout {
+min-width: 0;
+}
+#layout .content-outer {
+min-width: 0;
+width: 800px;
+}
+#layout .region-inner {
+min-width: 0;
+width: auto;
+}
+p {
+text-align: justify;
+}
+--></style>
+<link href='http://yandex.st/highlightjs/7.2/styles/monokai.min.css' rel='stylesheet'/>
+<script src='http://yandex.st/highlightjs/7.2/highlight.min.js'></script>
+<script>
+      hljs.initHighlightingOnLoad();
+    </script>
+<script type="text/javascript">function a(){var b=window.location.href,c=b.split("?");switch(c.length){case 1:return b+"?m=1";case 2:return 0<=c[1].search("(^|&)m=")?null:b+"&m=1";default:return null}}var d=navigator.userAgent;if(-1!=d.indexOf("Mobile")&&-1!=d.indexOf("WebKit")&&-1==d.indexOf("iPad")||-1!=d.indexOf("Opera Mini")||-1!=d.indexOf("IEMobile")){var e=a();e&&window.location.replace(e)};
+</script></head>
+<body class='loading variant-simplysimple'>
+<div class='navbar no-items section' id='navbar'>
+</div>
+<div class='body-fauxcolumns'>
+<div class='fauxcolumn-outer body-fauxcolumn-outer'>
+<div class='cap-top'>
+<div class='cap-left'></div>
+<div class='cap-right'></div>
+</div>
+<div class='fauxborder-left'>
+<div class='fauxborder-right'></div>
+<div class='fauxcolumn-inner'>
+</div>
+</div>
+<div class='cap-bottom'>
+<div class='cap-left'></div>
+<div class='cap-right'></div>
+</div>
+</div>
+</div>
+<div class='content'>
+<div class='content-fauxcolumns'>
+<div class='fauxcolumn-outer content-fauxcolumn-outer'>
+<div class='cap-top'>
+<div class='cap-left'></div>
+<div class='cap-right'></div>
+</div>
+<div class='fauxborder-left'>
+<div class='fauxborder-right'></div>
+<div class='fauxcolumn-inner'>
+</div>
+</div>
+<div class='cap-bottom'>
+<div class='cap-left'></div>
+<div class='cap-right'></div>
+</div>
+</div>
+</div>
+<div class='content-outer'>
+<div class='content-cap-top cap-top'>
+<div class='cap-left'></div>
+<div class='cap-right'></div>
+</div>
+<div class='fauxborder-left content-fauxborder-left'>
+<div class='fauxborder-right content-fauxborder-right'></div>
+<div class='content-inner'>
+<header>
+<div class='header-outer'>
+<div class='header-cap-top cap-top'>
+<div class='cap-left'></div>
+<div class='cap-right'></div>
+</div>
+<div class='fauxborder-left header-fauxborder-left'>
+<div class='fauxborder-right header-fauxborder-right'></div>
+<div class='region-inner header-inner'>
+<div class='header section' id='header'><div class='widget Header' data-version='1' id='Header1'>
+<div id='header-inner'>
+<div class='titlewrapper'>
+<h1 class='title'>
+<a href='http://phaazon.blogspot.ca/'>Graphics and FPL</a>
+</h1>
+</div>
+<div class='descriptionwrapper'>
+<p class='description'><span>A blog about graphics, demoscene, functional programming languages and some other IT materials.</span></p>
+</div>
+</div>
+</div></div>
+</div>
+</div>
+<div class='header-cap-bottom cap-bottom'>
+<div class='cap-left'></div>
+<div class='cap-right'></div>
+</div>
+</div>
+</header>
+<div class='tabs-outer'>
+<div class='tabs-cap-top cap-top'>
+<div class='cap-left'></div>
+<div class='cap-right'></div>
+</div>
+<div class='fauxborder-left tabs-fauxborder-left'>
+<div class='fauxborder-right tabs-fauxborder-right'></div>
+<div class='region-inner tabs-inner'>
+<div class='tabs no-items section' id='crosscol'></div>
+<div class='tabs no-items section' id='crosscol-overflow'></div>
+</div>
+</div>
+<div class='tabs-cap-bottom cap-bottom'>
+<div class='cap-left'></div>
+<div class='cap-right'></div>
+</div>
+</div>
+<div class='main-outer'>
+<div class='main-cap-top cap-top'>
+<div class='cap-left'></div>
+<div class='cap-right'></div>
+</div>
+<div class='fauxborder-left main-fauxborder-left'>
+<div class='fauxborder-right main-fauxborder-right'></div>
+<div class='region-inner main-inner'>
+<div class='columns fauxcolumns'>
+<div class='fauxcolumn-outer fauxcolumn-center-outer'>
+<div class='cap-top'>
+<div class='cap-left'></div>
+<div class='cap-right'></div>
+</div>
+<div class='fauxborder-left'>
+<div class='fauxborder-right'></div>
+<div class='fauxcolumn-inner'>
+</div>
+</div>
+<div class='cap-bottom'>
+<div class='cap-left'></div>
+<div class='cap-right'></div>
+</div>
+</div>
+<div class='fauxcolumn-outer fauxcolumn-left-outer'>
+<div class='cap-top'>
+<div class='cap-left'></div>
+<div class='cap-right'></div>
+</div>
+<div class='fauxborder-left'>
+<div class='fauxborder-right'></div>
+<div class='fauxcolumn-inner'>
+</div>
+</div>
+<div class='cap-bottom'>
+<div class='cap-left'></div>
+<div class='cap-right'></div>
+</div>
+</div>
+<div class='fauxcolumn-outer fauxcolumn-right-outer'>
+<div class='cap-top'>
+<div class='cap-left'></div>
+<div class='cap-right'></div>
+</div>
+<div class='fauxborder-left'>
+<div class='fauxborder-right'></div>
+<div class='fauxcolumn-inner'>
+</div>
+</div>
+<div class='cap-bottom'>
+<div class='cap-left'></div>
+<div class='cap-right'></div>
+</div>
+</div>
+<!-- corrects IE6 width calculation -->
+<div class='columns-inner'>
+<div class='column-center-outer'>
+<div class='column-center-inner'>
+<div class='main section' id='main'><div class='widget Blog' data-version='1' id='Blog1'>
+<div class='blog-posts hfeed'>
+
+          <div class="date-outer">
+        
+<h2 class='date-header'><span>Friday, November 14, 2014</span></h2>
+
+          <div class="date-posts">
+        
+<div class='post-outer'>
+<div class='post hentry' itemprop='blogPost' itemscope='itemscope' itemtype='http://schema.org/BlogPosting'>
+<meta content='8976038770606708499' itemprop='blogId'/>
+<meta content='156108301236456925' itemprop='postId'/>
+<a name='156108301236456925'></a>
+<h3 class='post-title entry-title' itemprop='name'>
+Abstracting shader &#8211; introducing the ash Haskell library
+</h3>
+<div class='post-header'>
+<div class='post-header-line-1'></div>
+</div>
+<div class='post-body entry-content' id='post-body-156108301236456925' itemprop='description articleBody'>
+<h1 id="foreword">Foreword</h1>
+<h2 id="abstracting-what">Abstracting what?</h2>
+<p><a href="http://en.wikipedia.org/wiki/Shader">Shaders</a> are very common units in the world of graphics. Even though we&#8217;re used to using them for shading<a href="#fn1" class="footnoteRef" id="fnref1"><sup>1</sup></a> purposes, they&#8217;re not limited to that. Vulgarisation has ripped off the meaning up and down so much that nowadays, a <strong>shader</strong> might have nothing related to shading. If you&#8217;re already doing some graphics, you may know <em>OpenGL</em> and its <em>compute shaders</em>. They have nothing to do with shading.</p>
+<p>You might also already know <a href="https://www.shadertoy.com/">shader toy</a>. That&#8217;s a great place to host cool and fancy <em>OpenGL</em> shaders<a href="#fn2" class="footnoteRef" id="fnref2"><sup>2</sup></a>. You write your shaders in GLSL<a href="#fn3" class="footnoteRef" id="fnref3"><sup>3</sup></a> then a GLSL compiler is invoked, and your shader is running on the GPU.</p>
+<h2 id="the-problem-with-source-based-shaders">The problem with source based shaders</h2>
+<p>So you write your shader as a source code in a host language, for instance in <em>C/C++</em>, <em>Java</em>, <em>Haskell</em>, <em>whatever</em>, and you end up with a shader running on GPU.</p>
+<p>There&#8217;re two nasty issues with that way of doing though:</p>
+<ul class="incremental">
+<li>the shader is compiled at runtime, so if it contains error, you&#8217;ll know that after your application starts ;</li>
+<li>you have to learn a new language for each target shader compilers.</li>
+</ul>
+<p>They&#8217;re both serious issues I&#8217;m going to explain further.</p>
+<h3 id="issue-n1-compiled-at-runtime">Issue n&#176;1: compiled at runtime</h3>
+<p>This is problematic for a good reason: a lot of shaders are application dependent. <strong>Shadertoy</strong> is a nice exception, just like modeling tools or material editors, but seriously, in most applications, end users are not asked the shaders to run with. In a game for instance, you write all the shaders while writing the game, and then release the whole package.</p>
+<blockquote>
+<p><em>Yeah&#8230; What&#8217;s about additional content? Per-map shaders, or that kind of stuff?</em></p>
+</blockquote>
+<p>Those shaders are like resources. That doesn&#8217;t imply using them as is though. We could use dynamic relocatable objects (<strong>.so</strong> or <strong>.dll</strong>) for instance.</p>
+<blockquote>
+<p><em>What compile-time compilation gives you?</em></p>
+</blockquote>
+<p>It gives you something hyper cool: <strong>host language features</strong>. If you have a strongly-typed language, you&#8217;ll benefit from that. And that&#8217;s a huge benefit you can&#8217;t get away from. If you&#8217;re writing an incorrectly typed shader, your application / library won&#8217;t compile, so that the application won&#8217;t react in weird way at run-time. That&#8217;s pretty badass.</p>
+<h3 id="issue-n2-languages-languages">Issue n&#176;2: languages, languages&#8230;</h3>
+<p>This issue is not as important as the first one, but still. If you&#8217;re working on a project and you target several platforms (among ones using <em>OpenGL</em>, <em>OpenGL ES</em>, <em>DirectX</em> and a <em>soft renderer</em>), you&#8217;ll have to learn several shading languages as well (<strong>GLSL</strong>, <strong>HLSL</strong><a href="#fn4" class="footnoteRef" id="fnref4"><sup>4</sup></a>).</p>
+<p>In order to solve that, there&#8217;re two ways to go:</p>
+<ul class="incremental">
+<li>a DSL<a href="#fn5" class="footnoteRef" id="fnref5"><sup>5</sup></a> ;</li>
+<li>an EDSL<a href="#fn6" class="footnoteRef" id="fnref6"><sup>6</sup></a>.</li>
+</ul>
+<p>A DSL is appealing. You have a standalone language for writing shaders, and backends for a compiler/language. However, that sounds a bit overwhelming for such an aim.</p>
+<p>An EDSL is pretty cool as well. Take a host language (we&#8217;ll be using <strong>Haskell</strong>) and provide structure and construction idioms borrowed from such a language to create a small embedded one. That is the solution I&#8217;m going to introduce.</p>
+<h1 id="ash">Ash</h1>
+<p><strong>Ash</strong> stands for <strong>Abstract Shader</strong>. It&#8217;s a Haskell package I&#8217;ve been working on for a few weeks now. The main idea is:</p>
+<ul class="incremental">
+<li>to provide a typesafe shading language compiled at compile-time;</li>
+<li>to provide backends;</li>
+<li>to provide a nice and friendly <em>haskellish</em> interface.</li>
+</ul>
+<p>I guessed it&#8217;d be a good idea to share my thoughts about the whole concept, since I reckon several people will be interested in such a topic. However, keep in mind that Ash is still a big work in progress. I&#8217;m gonna use several blog entries to write down my thoughts, share it with you, possibly enhance Ash, and finally release a decent and powerful library.</p>
+<p>If you&#8217;re curious, you can find Ash <a href="https://github.com/phaazon/ash">here</a>.</p>
+<h2 id="basics">Basics</h2>
+<p><strong>Ash</strong> is a library that provides useful tools to build up <em>shaders</em> in <strong>Haskell</strong>. In <strong>Ash</strong>, a <em>shader</em> is commonly function. For instance, a vertex shader is a function that <em>folds</em> vertex components down to other ones &#8211; possibly <em>maps</em>, but it could <em>add</em>/<em>remove</em> components as well &#8211; and <em>yields</em> extra values for the next stages to work with.</p>
+<p>You write a shader with the Ash EDSL then you pass it along to a <strong>backend compiler</strong>.</p>
+<p>Here are two examples. In order for you to understand how Ash works, I&#8217;ll first write the GLSL (330 core) shader, then the Ash one.</p>
+<h3 id="first-example-a-simple-vertex-shader">First example: a simple vertex shader</h3>
+<p>Let&#8217;s write a vertex shader that takes a position and a color, and projects the vertex using a perspective matrix, a view matrix and the object matrix of the object currently being rendered and passes the color to the next stage:</p>
+<pre><code>#version 330 core
+
+in vec3 pos;
+in vec4 col;
+
+out vec4 vcol;
+
+uniform mat4 projViewModel;
+
+void main() {
+  vcol = col; 
+  gl_Position = projViewModel * vec4(pos, 1.);
+}</code></pre>
+<p>And now, the Ash one:</p>
+<pre><code>vertexShader :: Ash (M44 Float -&gt; V3 Float :. V4 Float -&gt; V4 Float :. V4 Float)
+vertexShader = lam $ \proj -&gt; lam $ \v -&gt;
+  let pos :. col = v
+  in proj #* v3v4 pos 1 :. col</code></pre>
+<p><code>Ash</code> is the type used to lift the shading expression up to Haskell. You use it to use the EDSL. It actually represents some kind of HOAST<a href="#fn7" class="footnoteRef" id="fnref7"><sup>7</sup></a>.</p>
+<p>Then, you can find <code>M44</code>, <code>V3</code>, <code>V4</code> and <code>(:.)</code>.</p>
+<p><code>M44</code> is the type of <strong>4x4 matrices</strong>. Since projection matrix, view matrix and model matrix are all 4x4 floating matrix, <code>M44 Float</code> makes sense.</p>
+<p><code>V3</code> and <code>V4</code> represents 3D and 4D vectors, respectively. <code>V3 Int</code> is three ints packed in a vector as well as <code>V4 Float</code> is four floats packed in a vector. You&#8217;ll also meet <code>V2</code>, which is&#8230; the 2D version.</p>
+<p><code>(:.)</code> is a <a href="https://www.haskell.org/ghc/docs/7.2.1/html/users_guide/data-type-extensions.html#infix-tycons">type operator</a> used to build tuples. You can see <code>(:.)</code> as a generalized <code>(,)</code> &#8211; the default Haskell pair type &#8211; but <code>(:.)</code> is more power full since it can flatten expressions:</p>
+<pre><code>a :. (b :. c) = a :. b :. c</code></pre>
+<p>The <code>(:.)</code> has a lot of uses in Ash. In our cases, a chain of <code>(:.)</code> represents a vertex&#8217; components.</p>
+<p>So our <code>vertexShader</code> value is just a function that takes a matrix and a vertex (two components) and outputs two values: the new position of the shader, and the color. Let&#8217;s see the body of the function.</p>
+<pre><code>lam $ \proj -&gt; lam $ \v -&gt;</code></pre>
+<p>This is a pretty weird expression, but I haven&#8217;t found &#8211; yet? &#8211; a better way to go. <code>lam</code> is a combinator used to introduce lambdas in the EDSL. This expression then introduces a lambda that takes two values: <code>proj</code> and <code>v</code>. You can read that as:</p>
+<pre><code>\proj v -&gt;</code></pre>
+<p>Next:</p>
+<pre><code>let pos :. col = v</code></pre>
+<p>This is the tricky part. That <em>let expression</em> extracts the components out of the vertex and binds them to <code>pos</code> and <code>col</code> for later use.</p>
+<pre><code>in proj #* v3v4 pos 1 :. col</code></pre>
+<p><code>(#*)</code> is a cool operator used to multiply a matrix by a vector, yielding a new vector.</p>
+<p><code>(v3v4)</code> is a shortcut used to to build a <code>V4</code> using a <code>V3</code> by providing the missing value &#8211; here, <code>1</code>. You&#8217;ll find similar functions, like <code>v2v3</code> and <code>v2v4</code>, to respectively build a <code>V3</code> from a <code>V2</code> by providing the missing value and build a <code>V4</code> from a <code>V2</code> by providing the two missing values.</p>
+<p>We finally wrap the result in a tuple <code>(:.)</code>, and we&#8217;re done.</p>
+<h2 id="features">Features</h2>
+<p>Ash embeds regular linear expressions (vectors, matrix), textures manipulation, tuples creation, let-bindings, lambda functions (they represent shader stages up to now), and a lot of other features.</p>
+<p>Each feature is supposed to have an implementation in a given <em>backend</em>. For instance, in the GLSL backend, a lambda function is often turned into the well done <code>main</code> function. Its parameters are expanded to as <code>in</code> values, and control parameters are <code>uniform</code> variables.</p>
+<p>Each backend is supposed to export a <code>compile</code> function &#8211; the name may varies though. However, each backend is free to compiles to whatever smart they think is. For instance, compiling an Ash shader to GLuint (shader stage) is not very smart since it would use <code>IO</code> and handles error a specific way we don&#8217;t want it to do. So the GLSL compiler is a function like <code>glslCompile :: Ash &#8230; -&gt; Either CompilationError String</code>, and the <code>String</code> can be used as a regular GLSL source code string you&#8217;ll pass to whatever implementation of shader you&#8217;ve written.</p>
+<h1 id="whats-next">What&#8217;s next?</h1>
+<p>I need to finish the implentation of the EDSL, and write the whole GLSL 330 compiler. If it&#8217;s a success, I&#8217;ll accept pull-requests for other famous compilers (other GLSL version compilers, HLSL, and so on and so forth).</p>
+<p>Once that done, I&#8217;ll write a few other blog entries with example as a proof-of-concept :)</p>
+<div class="footnotes">
+<hr />
+<ol>
+<li id="fn1"><p>Shading is the process in which <em>primitives</em> (sets of <em>vertices</em>) are turned into colors (i.e <em>fragments</em>, a.k.a. <em>pixels</em> or <em>texels</em>).<a href="#fnref1">&#8617;</a></p></li>
+<li id="fn2"><p>Actually, they&#8217;re <strong>fragment shaders</strong>.<a href="#fnref2">&#8617;</a></p></li>
+<li id="fn3"><p><a href="https://www.opengl.org/documentation/glsl/">OpenGL Shading Language</a>.<a href="#fnref3">&#8617;</a></p></li>
+<li id="fn4"><p><a href="http://msdn.microsoft.com/en-us/library/windows/desktop/bb509638(v=vs.85).aspx">High Level Shading Language</a>.<a href="#fnref4">&#8617;</a></p></li>
+<li id="fn5"><p><a href="http://en.wikipedia.org/wiki/Domain-specific_language">Domain-Specific Language</a>.<a href="#fnref5">&#8617;</a></p></li>
+<li id="fn6"><p>Embedded Specific Language.<a href="#fnref6">&#8617;</a></p></li>
+<li id="fn7"><p><a href="http://en.wikipedia.org/wiki/Higher-order_abstract_syntax">High-Order Abstract Syntax tree</a>; for the purpose of this paper, you don&#8217;t have to fully understand them to get your feet wet with Ash (which is cool, right? :) ).<a href="#fnref7">&#8617;</a></p></li>
+</ol>
+</div>
+<div style='clear: both;'></div>
+</div>
+<div class='post-footer'>
+<div class='post-footer-line post-footer-line-1'><span class='post-author vcard'>
+Publié par
+<span class='fn' itemprop='author' itemscope='itemscope' itemtype='http://schema.org/Person'>
+<meta content='https://plus.google.com/118250214489576311115' itemprop='url'/>
+<a class='g-profile' href='https://plus.google.com/118250214489576311115' rel='author' title='author profile'>
+<span itemprop='name'>Dimitri Sabadie</span>
+</a>
+</span>
+</span>
+<span class='post-timestamp'>
+à
+<meta content='http://phaazon.blogspot.com/2014/11/foreword-abstracting-what-shaders-are.html' itemprop='url'/>
+<a class='timestamp-link' href='foreword-abstracting-what-shaders-are.html' rel='bookmark' title='permanent link'><abbr class='published' itemprop='datePublished' title='2014-11-14T21:22:00+01:00'>21:22</abbr></a>
+</span>
+<span class='post-comment-link'>
+</span>
+<span class='post-icons'>
+</span>
+<div class='post-share-buttons goog-inline-block'>
+<a class='goog-inline-block share-button sb-email' href='https://www.blogger.com/share-post.g?blogID=8976038770606708499&amp;postID=156108301236456925&amp;target=email' target='_blank' title='Email This'><span class='share-button-link-text'>Email This</span></a><a class='goog-inline-block share-button sb-blog' href='https://www.blogger.com/share-post.g?blogID=8976038770606708499&amp;postID=156108301236456925&amp;target=blog' onclick='window.open(this.href, "_blank", "height=270,width=475"); return false;' target='_blank' title='BlogThis!'><span class='share-button-link-text'>BlogThis!</span></a><a class='goog-inline-block share-button sb-twitter' href='https://www.blogger.com/share-post.g?blogID=8976038770606708499&amp;postID=156108301236456925&amp;target=twitter' target='_blank' title='Share to Twitter'><span class='share-button-link-text'>Share to Twitter</span></a><a class='goog-inline-block share-button sb-facebook' href='https://www.blogger.com/share-post.g?blogID=8976038770606708499&amp;postID=156108301236456925&amp;target=facebook' onclick='window.open(this.href, "_blank", "height=430,width=640"); return false;' target='_blank' title='Share to Facebook'><span class='share-button-link-text'>Share to Facebook</span></a><a class='goog-inline-block share-button sb-pinterest' href='https://www.blogger.com/share-post.g?blogID=8976038770606708499&amp;postID=156108301236456925&amp;target=pinterest' target='_blank' title='Share to Pinterest'><span class='share-button-link-text'>Share to Pinterest</span></a><div class='goog-inline-block google-plus-share-container'><g:plusone source='blogger:blog:plusone' href='http://phaazon.blogspot.com/2014/11/foreword-abstracting-what-shaders-are.html' size='medium' width='300' annotation='inline'/></div>
+</div>
+</div>
+<div class='post-footer-line post-footer-line-2'><span class='post-labels'>
+Libellés :
+<a href='http://phaazon.blogspot.ca/search/label/abstract' rel='tag'>abstract</a>,
+<a href='http://phaazon.blogspot.ca/search/label/directx' rel='tag'>directx</a>,
+<a href='http://phaazon.blogspot.ca/search/label/glsl' rel='tag'>glsl</a>,
+<a href='http://phaazon.blogspot.ca/search/label/graphics' rel='tag'>graphics</a>,
+<a href='http://phaazon.blogspot.ca/search/label/haskell' rel='tag'>haskell</a>,
+<a href='http://phaazon.blogspot.ca/search/label/hlsl' rel='tag'>hlsl</a>,
+<a href='http://phaazon.blogspot.ca/search/label/opengl' rel='tag'>opengl</a>,
+<a href='http://phaazon.blogspot.ca/search/label/shader' rel='tag'>shader</a>,
+<a href='http://phaazon.blogspot.ca/search/label/shading' rel='tag'>shading</a>
+</span>
+</div>
+<div class='post-footer-line post-footer-line-3'><span class='post-location'>
+</span>
+</div>
+</div>
+</div>
+<div class='comments' id='comments'>
+<a name='comments'></a>
+<h4>6 comments:</h4>
+<div class='comments-content'>
+<script async='async' src='http://www.blogblog.com/dynamicviews/4224c15c4e7c9321/js/comments.js' type='text/javascript'></script>
+<script type='text/javascript'>
+    (function() {
+      var items = [{'id': '3773044540880786604', 'body': 'Issue #1 isn\x26#39;t true as such. Sure you find out that your shader is broken only when you run the host application, but speaking of video games, there\x26#39;s always an asset pipeline which tests and bakes assets, so your package should have no bug. On some previous consoles, shaders were written directlty in a GPU-specific assembly. Moreover, good engines allow you to edit your shaders in real time, avoiding the overhead of reloading the game.\x3cbr /\x3e\x3cbr /\x3eI\x26#39;m not used to the syntax eccentricity of Haskell, so maybe it\x26#39;s considered as a good practice to set new operators, but can\x26#39;t you overload the existing operators? Like V3 * V3 would be the cross product, and M33 * V3 would be a matrix multiplication?', 'timestamp': '1416058158564', 'permalink': 'http://phaazon.blogspot.com/2014/11/foreword-abstracting-what-shaders-are.html?showComment\x3d1416058158564#c3773044540880786604', 'author': {'name': 'Jonathan Giroux', 'avatarUrl': '//lh4.googleusercontent.com/-jM5E-AbyyLw/AAAAAAAAAAI/AAAAAAAAEs8/kP1mjVteQTY/s35-c/photo.jpg', 'profileUrl': 'https://www.blogger.com/profile/10588210044354965573'}, 'displayTime': '15 Nov 2014, 14:29:00', 'deleteclass': 'item-control blog-admin pid-2061390787'}, {'id': '505908175725650472', 'parentId': '3773044540880786604', 'body': 'The type operator not being overloaded is a matter of type safety. The regular multiplication as you mentioned (*) is an endomorphism, so you can&#8217;t get a matrix out of a V3*V3 multiplication. That&#8217;s why we need specific operators for such purposes :)\x3cbr /\x3e\x3cbr /\x3eThe Issue #1 is more about detecting error at compile-time I guess. Sure you can have a pipeline asset, but you&#8217;re not bound to using raw data :) There&#8217;re &#8211; in Haskell as well as in other languages &#8211; ways to hotload code (relocatable objects is one).\x3cbr /\x3e\x3cbr /\x3eBeing able to edit a shader on the fly is great, and we can do that with ash and dynamic code (plugin library in Haskell). However, do you have an example of such a use outside of development?', 'timestamp': '1416059172524', 'permalink': 'http://phaazon.blogspot.com/2014/11/foreword-abstracting-what-shaders-are.html?showComment\x3d1416059172524#c505908175725650472', 'author': {'name': 'Dimitri Sabadie', 'avatarUrl': '//lh4.googleusercontent.com/-5JGTsXBSCIs/AAAAAAAAAAI/AAAAAAAACYQ/1HcD4IFGu20/s35-c/photo.jpg', 'profileUrl': 'https://www.blogger.com/profile/06180476773002153033'}, 'displayTime': '15 Nov 2014, 14:46:00', 'deleteclass': 'item-control blog-admin pid-1062334130'}, {'id': '7366002030177649415', 'body': 'Shouldn\x26#39;t the return type be `V4 Float :. V4 Float`, given that the left component is a M44 multiplied by a Vec4?', 'timestamp': '1416228864417', 'permalink': 'http://phaazon.blogspot.com/2014/11/foreword-abstracting-what-shaders-are.html?showComment\x3d1416228864417#c7366002030177649415', 'author': {'name': 'Dries Harnie', 'avatarUrl': '//lh4.googleusercontent.com/-vpyBxLb8yM8/AAAAAAAAAAI/AAAAAAAAEgY/Qi12B2F3_AQ/s35-c/photo.jpg', 'profileUrl': 'https://www.blogger.com/profile/08277639027878926692'}, 'displayTime': '17 Nov 2014, 13:54:00', 'deleteclass': 'item-control blog-admin pid-1706488929'}, {'id': '4026332693698939088', 'parentId': '7366002030177649415', 'body': 'You got it right. Fixed :) Thanks!', 'timestamp': '1416230616606', 'permalink': 'http://phaazon.blogspot.com/2014/11/foreword-abstracting-what-shaders-are.html?showComment\x3d1416230616606#c4026332693698939088', 'author': {'name': 'Dimitri Sabadie', 'avatarUrl': '//lh4.googleusercontent.com/-5JGTsXBSCIs/AAAAAAAAAAI/AAAAAAAACYQ/1HcD4IFGu20/s35-c/photo.jpg', 'profileUrl': 'https://www.blogger.com/profile/06180476773002153033'}, 'displayTime': '17 Nov 2014, 14:23:00', 'deleteclass': 'item-control blog-admin pid-1062334130'}, {'id': '7416628822743596926', 'body': 'strongly-typed language !\x3d static typed languages.\x3cbr /\x3e\x3cbr /\x3ePython is a strongly-typed language and belive me if I do a operation int + str it will give a TypeError at runtime.\x3cbr /\x3e\x3cbr /\x3eA static typed languages will know the variables and types at compile time.', 'timestamp': '1416243702697', 'permalink': 'http://phaazon.blogspot.com/2014/11/foreword-abstracting-what-shaders-are.html?showComment\x3d1416243702697#c7416628822743596926', 'author': {'name': 'razpeitia', 'avatarUrl': '//lh3.googleusercontent.com/zFdxGE77vvD2w5xHy6jkVuElKv-U9_9qLkRYK8OnbDeJPtjSZ82UPq5w6hJ-SA\x3ds35', 'profileUrl': 'https://www.blogger.com/profile/16332106705077864851'}, 'displayTime': '17 Nov 2014, 18:01:00', 'deleteclass': 'item-control blog-admin pid-1887738944'}, {'id': '5144561759885162389', 'parentId': '7416628822743596926', 'body': 'Yeah, I do agree with your statement and Haskell is strongly-typed and static :). Static typing is when the type is resolved at compile-time. Strongly typing is somewhat an obscure and not that well defined concept, but you could sum it up to forbidding implicit casts and enforce types to match.', 'timestamp': '1416268912786', 'permalink': 'http://phaazon.blogspot.com/2014/11/foreword-abstracting-what-shaders-are.html?showComment\x3d1416268912786#c5144561759885162389', 'author': {'name': 'Dimitri Sabadie', 'avatarUrl': '//lh4.googleusercontent.com/-5JGTsXBSCIs/AAAAAAAAAAI/AAAAAAAAE7U/9eaeq3VV3S8/s35-c/photo.jpg', 'profileUrl': 'https://www.blogger.com/profile/06180476773002153033'}, 'displayTime': '18 Nov 2014, 01:01:00', 'deleteclass': 'item-control blog-admin pid-1062334130'}];
+      var msgs = {'loadMore': 'Load more...', 'loading': 'Loading...', 'loaded': 'No more.', 'addComment': 'Add comment', 'reply': 'Reply', 'delete': 'Delete'};
+      var config = {'blogId': '8976038770606708499', 'postId': '156108301236456925', 'feed': 'http://phaazon.blogspot.com/feeds/156108301236456925/comments/default', 'authorName': 'Dimitri Sabadie', 'authorUrl': 'https://www.blogger.com/profile/06180476773002153033', 'baseUri': 'https://www.blogger.com', 'maxThreadDepth': 2};
+
+// <![CDATA[
+      var cursor = null;
+      if (items && items.length > 0) {
+        cursor = parseInt(items[items.length - 1].timestamp) + 1;
+      }
+
+      var bodyFromEntry = function(entry) {
+        if (entry.gd$extendedProperty) {
+          for (var k in entry.gd$extendedProperty) {
+            if (entry.gd$extendedProperty[k].name == 'blogger.contentRemoved') {
+              return '<span class="deleted-comment">' + entry.content.$t + '</span>';
+            }
+          }
+        }
+        return entry.content.$t;
+      }
+
+      var parse = function(data) {
+        cursor = null;
+        var comments = [];
+        if (data && data.feed && data.feed.entry) {
+          for (var i = 0, entry; entry = data.feed.entry[i]; i++) {
+            var comment = {};
+            // comment ID, parsed out of the original id format
+            var id = /blog-(\d+).post-(\d+)/.exec(entry.id.$t);
+            comment.id = id ? id[2] : null;
+            comment.body = bodyFromEntry(entry);
+            comment.timestamp = Date.parse(entry.published.$t) + '';
+            if (entry.author && entry.author.constructor === Array) {
+              var auth = entry.author[0];
+              if (auth) {
+                comment.author = {
+                  name: (auth.name ? auth.name.$t : undefined),
+                  profileUrl: (auth.uri ? auth.uri.$t : undefined),
+                  avatarUrl: (auth.gd$image ? auth.gd$image.src : undefined)
+                };
+              }
+            }
+            if (entry.link) {
+              if (entry.link[2]) {
+                comment.link = comment.permalink = entry.link[2].href;
+              }
+              if (entry.link[3]) {
+                var pid = /.*comments\/default\/(\d+)\?.*/.exec(entry.link[3].href);
+                if (pid && pid[1]) {
+                  comment.parentId = pid[1];
+                }
+              }
+            }
+            comment.deleteclass = 'item-control blog-admin';
+            if (entry.gd$extendedProperty) {
+              for (var k in entry.gd$extendedProperty) {
+                if (entry.gd$extendedProperty[k].name == 'blogger.itemClass') {
+                  comment.deleteclass += ' ' + entry.gd$extendedProperty[k].value;
+                } else if (entry.gd$extendedProperty[k].name == 'blogger.displayTime') {
+                  comment.displayTime = entry.gd$extendedProperty[k].value;
+                }
+              }
+            }
+            comments.push(comment);
+          }
+        }
+        return comments;
+      };
+
+      var paginator = function(callback) {
+        if (hasMore()) {
+          var url = config.feed + '?alt=json&v=2&orderby=published&reverse=false&max-results=50';
+          if (cursor) {
+            url += '&published-min=' + new Date(cursor).toISOString();
+          }
+          window.bloggercomments = function(data) {
+            var parsed = parse(data);
+            cursor = parsed.length < 50 ? null
+                : parseInt(parsed[parsed.length - 1].timestamp) + 1
+            callback(parsed);
+            window.bloggercomments = null;
+          }
+          url += '&callback=bloggercomments';
+          var script = document.createElement('script');
+          script.type = 'text/javascript';
+          script.src = url;
+          document.getElementsByTagName('head')[0].appendChild(script);
+        }
+      };
+      var hasMore = function() {
+        return !!cursor;
+      };
+      var getMeta = function(key, comment) {
+        if ('iswriter' == key) {
+          var matches = !!comment.author
+              && comment.author.name == config.authorName
+              && comment.author.profileUrl == config.authorUrl;
+          return matches ? 'true' : '';
+        } else if ('deletelink' == key) {
+          return config.baseUri + '/delete-comment.g?blogID='
+               + config.blogId + '&postID=' + comment.id;
+        } else if ('deleteclass' == key) {
+          return comment.deleteclass;
+        }
+        return '';
+      };
+
+      var replybox = null;
+      var replyUrlParts = null;
+      var replyParent = undefined;
+
+      var onReply = function(commentId, domId) {
+        if (replybox == null) {
+          // lazily cache replybox, and adjust to suit this style:
+          replybox = document.getElementById('comment-editor');
+          if (replybox != null) {
+            replybox.height = '250px';
+            replybox.style.display = 'block';
+            replyUrlParts = replybox.src.split('#');
+          }
+        }
+        if (replybox && (commentId !== replyParent)) {
+          replybox.src = '';
+          document.getElementById(domId).insertBefore(replybox, null);
+          replybox.src = replyUrlParts[0]
+              + (commentId ? '&parentID=' + commentId : '')
+              + '#' + replyUrlParts[1];
+          replyParent = commentId;
+        }
+      };
+
+      var hash = (window.location.hash || '#').substring(1);
+      var startThread, targetComment;
+      if (/^comment-form_/.test(hash)) {
+        startThread = hash.substring('comment-form_'.length);
+      } else if (/^c[0-9]+$/.test(hash)) {
+        targetComment = hash.substring(1);
+      }
+
+      // Configure commenting API:
+      var configJso = {
+        'maxDepth': config.maxThreadDepth
+      };
+      var provider = {
+        'id': config.postId,
+        'data': items,
+        'loadNext': paginator,
+        'hasMore': hasMore,
+        'getMeta': getMeta,
+        'onReply': onReply,
+        'rendered': true,
+        'initComment': targetComment,
+        'initReplyThread': startThread,
+        'config': configJso,
+        'messages': msgs
+      };
+
+      var render = function() {
+        if (window.goog && window.goog.comments) {
+          var holder = document.getElementById('comment-holder');
+          window.goog.comments.render(holder, provider);
+        }
+      };
+
+      // render now, or queue to render when library loads:
+      if (window.goog && window.goog.comments) {
+        render();
+      } else {
+        window.goog = window.goog || {};
+        window.goog.comments = window.goog.comments || {};
+        window.goog.comments.loadQueue = window.goog.comments.loadQueue || [];
+        window.goog.comments.loadQueue.push(render);
+      }
+    })();
+// ]]>
+  </script>
+<div id='comment-holder'>
+<div id='bc_0_7C' kind='c'><div id='bc_0_7CT'><div id='bc_0_6T' class='comment-thread' kind='r'  t='0' u='0'><ol id='bc_0_6TB'><li id='bc_0_1B' class='comment' kind='b'><div class='avatar-image-container'><img src='http://lh4.googleusercontent.com/-jM5E-AbyyLw/AAAAAAAAAAI/AAAAAAAAEs8/kP1mjVteQTY/s35-c/photo.jpg'></img></div><div id='c3773044540880786604' class='comment-block'><div id='bc_0_1M' class='comment-header' kind='m'><cite class='user'><a rel='nofollow' href='https://www.blogger.com/profile/10588210044354965573'>Jonathan Giroux</a></cite><span class='icon user'></span><span class='datetime secondary-text'><a rel='nofollow' href='http://phaazon.blogspot.com/2014/11/foreword-abstracting-what-shaders-are.html?showComment=1416058158564#c3773044540880786604'>15 Nov 2014, 14:29:00</a></span></div><p id='bc_0_1MC' class='comment-content'>Issue #1 isn&#39;t true as such. Sure you find out that your shader is broken only when you run the host application, but speaking of video games, there&#39;s always an asset pipeline which tests and bakes assets, so your package should have no bug. On some previous consoles, shaders were written directlty in a GPU-specific assembly. Moreover, good engines allow you to edit your shaders in real time, avoiding the overhead of reloading the game.<br /><br />I&#39;m not used to the syntax eccentricity of Haskell, so maybe it&#39;s considered as a good practice to set new operators, but can&#39;t you overload the existing operators? Like V3 * V3 would be the cross product, and M33 * V3 would be a matrix multiplication?</p><span id='bc_0_1MN' class='comment-actions secondary-text' kind='m'><a kind='i' href='javascript:;' target='_self' o='r'>Reply</a><span class='item-control blog-admin pid-2061390787'><a o='d' target='_self' href='https://www.blogger.com/delete-comment.g?blogID=8976038770606708499&amp;postID=3773044540880786604'>Delete</a></span></span></div><div id='bc_0_1BR' class='comment-replies'><span id='bc_0_1b+seedDzbsD' kind='d'><div id='bc_0_0T' class='comment-thread inline-thread' kind='t'   t='0' u='0'><span id='bc_0_0TT' class='thread-toggle thread-expanded' kind='g'><span id='bc_0_0TA' class='thread-arrow'></span><span id='bc_0_0TN' class='thread-count'><span id='bc_0_0TNT' style='display: none;'></span><span id='bc_0_0TNU' style='display: none;'></span><a href='javascript:;' target='_self'>Replies</a><div id='bc_0_0TD' class='thread-dropContainer thread-expanded'><span class='thread-drop'></span></div></span></span><ol id='bc_0_0TC' class='thread-chrome thread-expanded'><div><li id='bc_0_0B' class='comment' kind='b'><div class='avatar-image-container'><img src='http://lh4.googleusercontent.com/-5JGTsXBSCIs/AAAAAAAAAAI/AAAAAAAACYQ/1HcD4IFGu20/s35-c/photo.jpg'></img></div><div id='c505908175725650472' class='comment-block'><div id='bc_0_0M' class='comment-header' kind='m'><cite class='user blog-author'><a rel='nofollow' href='https://www.blogger.com/profile/06180476773002153033'>Dimitri Sabadie</a></cite><span class='icon user blog-author'></span><span class='datetime secondary-text'><a rel='nofollow' href='http://phaazon.blogspot.com/2014/11/foreword-abstracting-what-shaders-are.html?showComment=1416059172524#c505908175725650472'>15 Nov 2014, 14:46:00</a></span></div><p id='bc_0_0MC' class='comment-content'>The type operator not being overloaded is a matter of type safety. The regular multiplication as you mentioned (*) is an endomorphism, so you can&#8217;t get a matrix out of a V3*V3 multiplication. That&#8217;s why we need specific operators for such purposes :)<br /><br />The Issue #1 is more about detecting error at compile-time I guess. Sure you can have a pipeline asset, but you&#8217;re not bound to using raw data :) There&#8217;re &#8211; in Haskell as well as in other languages &#8211; ways to hotload code (relocatable objects is one).<br /><br />Being able to edit a shader on the fly is great, and we can do that with ash and dynamic code (plugin library in Haskell). However, do you have an example of such a use outside of development?</p><span id='bc_0_0MN' class='comment-actions secondary-text' kind='m'><span class='item-control blog-admin pid-1062334130'><a o='d' target='_self' href='https://www.blogger.com/delete-comment.g?blogID=8976038770606708499&amp;postID=505908175725650472'>Delete</a></span></span></div><div id='bc_0_0BR' class='comment-replies'></div><div id='bc_0_0B_box' class='comment-replybox-single'></div></li></div><div id='bc_0_0I' class='continue' kind='ci'><a href='javascript:;' target='_self'>Reply</a></div></ol><div id='bc_0_0T_box' class='comment-replybox-thread'></div></div></span></div><div id='bc_0_1B_box' class='comment-replybox-single'></div></li><li id='bc_0_3B' class='comment' kind='b'><div class='avatar-image-container'><img src='http://lh4.googleusercontent.com/-vpyBxLb8yM8/AAAAAAAAAAI/AAAAAAAAEgY/Qi12B2F3_AQ/s35-c/photo.jpg'></img></div><div id='c7366002030177649415' class='comment-block'><div id='bc_0_3M' class='comment-header' kind='m'><cite class='user'><a rel='nofollow' href='https://www.blogger.com/profile/08277639027878926692'>Dries Harnie</a></cite><span class='icon user'></span><span class='datetime secondary-text'><a rel='nofollow' href='http://phaazon.blogspot.com/2014/11/foreword-abstracting-what-shaders-are.html?showComment=1416228864417#c7366002030177649415'>17 Nov 2014, 13:54:00</a></span></div><p id='bc_0_3MC' class='comment-content'>Shouldn&#39;t the return type be `V4 Float :. V4 Float`, given that the left component is a M44 multiplied by a Vec4?</p><span id='bc_0_3MN' class='comment-actions secondary-text' kind='m'><a kind='i' href='javascript:;' target='_self' o='r'>Reply</a><span class='item-control blog-admin pid-1706488929'><a o='d' target='_self' href='https://www.blogger.com/delete-comment.g?blogID=8976038770606708499&amp;postID=7366002030177649415'>Delete</a></span></span></div><div id='bc_0_3BR' class='comment-replies'><span id='bc_0_3b+seedDzbuD' kind='d'><div id='bc_0_2T' class='comment-thread inline-thread' kind='t'   t='0' u='0'><span id='bc_0_2TT' class='thread-toggle thread-expanded' kind='g'><span id='bc_0_2TA' class='thread-arrow'></span><span id='bc_0_2TN' class='thread-count'><span id='bc_0_2TNT' style='display: none;'></span><span id='bc_0_2TNU' style='display: none;'></span><a href='javascript:;' target='_self'>Replies</a><div id='bc_0_2TD' class='thread-dropContainer thread-expanded'><span class='thread-drop'></span></div></span></span><ol id='bc_0_2TC' class='thread-chrome thread-expanded'><div><li id='bc_0_2B' class='comment' kind='b'><div class='avatar-image-container'><img src='http://lh4.googleusercontent.com/-5JGTsXBSCIs/AAAAAAAAAAI/AAAAAAAACYQ/1HcD4IFGu20/s35-c/photo.jpg'></img></div><div id='c4026332693698939088' class='comment-block'><div id='bc_0_2M' class='comment-header' kind='m'><cite class='user blog-author'><a rel='nofollow' href='https://www.blogger.com/profile/06180476773002153033'>Dimitri Sabadie</a></cite><span class='icon user blog-author'></span><span class='datetime secondary-text'><a rel='nofollow' href='http://phaazon.blogspot.com/2014/11/foreword-abstracting-what-shaders-are.html?showComment=1416230616606#c4026332693698939088'>17 Nov 2014, 14:23:00</a></span></div><p id='bc_0_2MC' class='comment-content'>You got it right. Fixed :) Thanks!</p><span id='bc_0_2MN' class='comment-actions secondary-text' kind='m'><span class='item-control blog-admin pid-1062334130'><a o='d' target='_self' href='https://www.blogger.com/delete-comment.g?blogID=8976038770606708499&amp;postID=4026332693698939088'>Delete</a></span></span></div><div id='bc_0_2BR' class='comment-replies'></div><div id='bc_0_2B_box' class='comment-replybox-single'></div></li></div><div id='bc_0_2I' class='continue' kind='ci'><a href='javascript:;' target='_self'>Reply</a></div></ol><div id='bc_0_2T_box' class='comment-replybox-thread'></div></div></span></div><div id='bc_0_3B_box' class='comment-replybox-single'></div></li><li id='bc_0_5B' class='comment' kind='b'><div class='avatar-image-container'><img src='http://lh3.googleusercontent.com/zFdxGE77vvD2w5xHy6jkVuElKv-U9_9qLkRYK8OnbDeJPtjSZ82UPq5w6hJ-SA=s35'></img></div><div id='c7416628822743596926' class='comment-block'><div id='bc_0_5M' class='comment-header' kind='m'><cite class='user'><a rel='nofollow' href='https://www.blogger.com/profile/16332106705077864851'>razpeitia</a></cite><span class='icon user'></span><span class='datetime secondary-text'><a rel='nofollow' href='http://phaazon.blogspot.com/2014/11/foreword-abstracting-what-shaders-are.html?showComment=1416243702697#c7416628822743596926'>17 Nov 2014, 18:01:00</a></span></div><p id='bc_0_5MC' class='comment-content'>strongly-typed language != static typed languages.<br /><br />Python is a strongly-typed language and belive me if I do a operation int + str it will give a TypeError at runtime.<br /><br />A static typed languages will know the variables and types at compile time.</p><span id='bc_0_5MN' class='comment-actions secondary-text' kind='m'><a kind='i' href='javascript:;' target='_self' o='r'>Reply</a><span class='item-control blog-admin pid-1887738944'><a o='d' target='_self' href='https://www.blogger.com/delete-comment.g?blogID=8976038770606708499&amp;postID=7416628822743596926'>Delete</a></span></span></div><div id='bc_0_5BR' class='comment-replies'><span id='bc_0_5b+seedDzbwD' kind='d'><div id='bc_0_4T' class='comment-thread inline-thread' kind='t'   t='0' u='0'><span id='bc_0_4TT' class='thread-toggle thread-expanded' kind='g'><span id='bc_0_4TA' class='thread-arrow'></span><span id='bc_0_4TN' class='thread-count'><span id='bc_0_4TNT' style='display: none;'></span><span id='bc_0_4TNU' style='display: none;'></span><a href='javascript:;' target='_self'>Replies</a><div id='bc_0_4TD' class='thread-dropContainer thread-expanded'><span class='thread-drop'></span></div></span></span><ol id='bc_0_4TC' class='thread-chrome thread-expanded'><div><li id='bc_0_4B' class='comment' kind='b'><div class='avatar-image-container'><img src='http://lh4.googleusercontent.com/-5JGTsXBSCIs/AAAAAAAAAAI/AAAAAAAAE7U/9eaeq3VV3S8/s35-c/photo.jpg'></img></div><div id='c5144561759885162389' class='comment-block'><div id='bc_0_4M' class='comment-header' kind='m'><cite class='user blog-author'><a rel='nofollow' href='https://www.blogger.com/profile/06180476773002153033'>Dimitri Sabadie</a></cite><span class='icon user blog-author'></span><span class='datetime secondary-text'><a rel='nofollow' href='http://phaazon.blogspot.com/2014/11/foreword-abstracting-what-shaders-are.html?showComment=1416268912786#c5144561759885162389'>18 Nov 2014, 01:01:00</a></span></div><p id='bc_0_4MC' class='comment-content'>Yeah, I do agree with your statement and Haskell is strongly-typed and static :). Static typing is when the type is resolved at compile-time. Strongly typing is somewhat an obscure and not that well defined concept, but you could sum it up to forbidding implicit casts and enforce types to match.</p><span id='bc_0_4MN' class='comment-actions secondary-text' kind='m'><span class='item-control blog-admin pid-1062334130'><a o='d' target='_self' href='https://www.blogger.com/delete-comment.g?blogID=8976038770606708499&amp;postID=5144561759885162389'>Delete</a></span></span></div><div id='bc_0_4BR' class='comment-replies'></div><div id='bc_0_4B_box' class='comment-replybox-single'></div></li></div><div id='bc_0_4I' class='continue' kind='ci'><a href='javascript:;' target='_self'>Reply</a></div></ol><div id='bc_0_4T_box' class='comment-replybox-thread'></div></div></span></div><div id='bc_0_5B_box' class='comment-replybox-single'></div></li></ol><div id='bc_0_6I' class='continue' kind='ci'><a href='javascript:;' target='_self'>Add comment</a></div><div id='bc_0_6T_box' class='comment-replybox-thread'></div><div id='bc_0_6L' class='loadmore loaded' kind='rb'><a href='javascript:;' target='_self'>Load more...</a></div></div></div></div>
+</div>
+</div>
+<p class='comment-footer'>
+<div class='comment-form'>
+<a name='comment-form'></a>
+<p>
+</p>
+<a href='https://www.blogger.com/comment-iframe.g?blogID=8976038770606708499&amp;postID=156108301236456925' id='comment-editor-src'></a>
+<iframe allowtransparency='true' class='blogger-iframe-colorize blogger-comment-from-post' frameborder='0' height='410px' id='comment-editor' name='comment-editor' src='#' width='100%'></iframe>
+<script type="text/javascript" src="https://www.blogger.com/static/v1/jsbin/3629047462-comment_from_post_iframe.js"></script>
+<script type='text/javascript'>
+      BLOG_CMT_createIframe('https://www.blogger.com/rpc_relay.html');
+    </script>
+</div>
+</p>
+<div id='backlinks-container'>
+<div id='Blog1_backlinks-container'>
+</div>
+</div>
+</div>
+</div>
+
+        </div></div>
+      
+</div>
+<div class='blog-pager' id='blog-pager'>
+<span id='blog-pager-newer-link'>
+<a class='blog-pager-newer-link' href='abstracting-over-shader-environment.html' id='Blog1_blog-pager-newer-link' title='Newer Post'>Newer Post</a>
+</span>
+<span id='blog-pager-older-link'>
+<a class='blog-pager-older-link' href='http://phaazon.blogspot.ca/2014/07/lost-in-space.html' id='Blog1_blog-pager-older-link' title='Older Post'>Older Post</a>
+</span>
+<a class='home-link' href='http://phaazon.blogspot.ca/'>Home</a>
+</div>
+<div class='clear'></div>
+<div class='post-feeds'>
+<div class='feed-links'>
+Subscribe to:
+<a class='feed-link' href='http://phaazon.blogspot.com/feeds/156108301236456925/comments/default' target='_blank' type='application/atom+xml'>Post Comments (Atom)</a>
+</div>
+</div>
+<script type="text/javascript">window.___gcfg = {'lang': 'en_GB'};</script>
+</div></div>
+</div>
+</div>
+<div class='column-left-outer'>
+<div class='column-left-inner'>
+<aside>
+</aside>
+</div>
+</div>
+<div class='column-right-outer'>
+<div class='column-right-inner'>
+<aside>
+<div class='sidebar section' id='sidebar-right-1'><div class='widget Profile' data-version='1' id='Profile1'>
+<h2>About Me</h2>
+<div class='widget-content'>
+<a href='https://plus.google.com/118250214489576311115'><img alt='My photo' class='profile-img' height='80' src='http://lh4.googleusercontent.com/-5JGTsXBSCIs/AAAAAAAAAAI/AAAAAAAAIFk/hm3dDzWdNVo/s80-c/photo.jpg' width='80'/></a>
+<dl class='profile-datablock'>
+<dt class='profile-data'>
+<a class='profile-name-link g-profile' href='https://plus.google.com/118250214489576311115' rel='author' style='background-image: url(http://www.google.com/images/icons/ui/gprofile_button-16.png);'>
+Dimitri Sabadie
+</a>
+<br/>
+<div class='g-follow' data-annotation='bubble' data-height='20' data-href='https://plus.google.com/118250214489576311115'></div>
+</dt>
+<dd class='profile-textblock'>I&#8217;m Dimitri Sabadie a.k.a. <i>phaazon</i>&#160;on the Internet. If you want to know more about me, feel free to visit <a href="http://phaazon.net/" rel="nofollow" target="_blank">my website</a>.</dd>
+</dl>
+<a class='profile-link' href='https://plus.google.com/118250214489576311115' rel='author'>View my complete profile</a>
+<div class='clear'></div>
+<span class='widget-item-control'>
+<span class='item-control blog-admin'>
+<a class='quickedit' href='http://www.blogger.com/rearrange?blogID=8976038770606708499&amp;widgetType=Profile&amp;widgetId=Profile1&amp;action=editWidget&amp;sectionId=sidebar-right-1' onclick='return _WidgetManager._PopupConfig(document.getElementById("Profile1"));' target='configProfile1' title='Edit'>
+<img alt='' height='18' src='https://resources.blogblog.com/img/icon18_wrench_allbkg.png' width='18'/>
+</a>
+</span>
+</span>
+<div class='clear'></div>
+</div>
+</div><div class='widget LinkList' data-version='1' id='LinkList1'>
+<h2>Some links about me</h2>
+<div class='widget-content'>
+<ul>
+<li><a href='https://twitter.com/phaazon_'>twitter</a></li>
+<li><a href='http://phaazon.net/'>phaazon.net</a></li>
+<li><a href='https://www.linkedin.com/profile/view?id=357572974&amp;trk=spm_pic'>linkedin</a></li>
+<li><a href='http://www.haskellers.com/user/DimitriSabadie'>haskellers.com</a></li>
+<li><a href='https://github.com/phaazon'>github</a></li>
+</ul>
+<div class='clear'></div>
+<span class='widget-item-control'>
+<span class='item-control blog-admin'>
+<a class='quickedit' href='http://www.blogger.com/rearrange?blogID=8976038770606708499&amp;widgetType=LinkList&amp;widgetId=LinkList1&amp;action=editWidget&amp;sectionId=sidebar-right-1' onclick='return _WidgetManager._PopupConfig(document.getElementById("LinkList1"));' target='configLinkList1' title='Edit'>
+<img alt='' height='18' src='https://resources.blogblog.com/img/icon18_wrench_allbkg.png' width='18'/>
+</a>
+</span>
+</span>
+<div class='clear'></div>
+</div>
+</div><div class='widget CustomSearch' data-version='1' id='CustomSearch2'>
+<h2 class='title'>Search This Blog</h2>
+<div class='widget-content'>
+<div id='CustomSearch2_form'>
+<span class='cse-status'>Loading...</span>
+</div>
+</div>
+<style type='text/css'>
+      #uds-searchControl .gs-result .gs-title,
+      #uds-searchControl .gs-result .gs-title *,
+      #uds-searchControl .gsc-results .gsc-trailing-more-results,
+      #uds-searchControl .gsc-results .gsc-trailing-more-results * {
+        color:#a2b818;
+      }
+
+      #uds-searchControl .gs-result .gs-title a:visited,
+      #uds-searchControl .gs-result .gs-title a:visited * {
+        color:#966a8d;
+      }
+
+      #uds-searchControl .gs-relativePublishedDate,
+      #uds-searchControl .gs-publishedDate {
+        color: #787878;
+      }
+
+      #uds-searchControl .gs-result a.gs-visibleUrl,
+      #uds-searchControl .gs-result .gs-visibleUrl {
+        color: #a2b818;
+      }
+
+      #uds-searchControl .gsc-results {
+        border-color: #cfcfcf;
+        background-color: #ffffff;
+      }
+
+      #uds-searchControl .gsc-tabhActive {
+        border-color: #cfcfcf;
+        border-top-color: #cfcfcf;
+        background-color: #ffffff;
+        color: #000000;
+      }
+
+      #uds-searchControl .gsc-tabhInactive {
+        border-color: #cfcfcf;
+        background-color: transparent;
+        color: #a2b818;
+      }
+
+      #uds-searchClearResults {
+        border-color: #cfcfcf;
+      }
+
+      #uds-searchClearResults:hover {
+        border-color: #cfcfcf;
+      }
+
+      #uds-searchControl .gsc-cursor-page {
+        color: #a2b818;
+      }
+
+      #uds-searchControl .gsc-cursor-current-page {
+        color: #000000;
+      }
+    </style>
+<div class='clear'></div>
+<span class='widget-item-control'>
+<span class='item-control blog-admin'>
+<a class='quickedit' href='http://www.blogger.com/rearrange?blogID=8976038770606708499&amp;widgetType=CustomSearch&amp;widgetId=CustomSearch2&amp;action=editWidget&amp;sectionId=sidebar-right-1' onclick='return _WidgetManager._PopupConfig(document.getElementById("CustomSearch2"));' target='configCustomSearch2' title='Edit'>
+<img alt='' height='18' src='https://resources.blogblog.com/img/icon18_wrench_allbkg.png' width='18'/>
+</a>
+</span>
+</span>
+<div class='clear'></div>
+</div><div class='widget BlogArchive' data-version='1' id='BlogArchive1'>
+<h2>Blog Archive</h2>
+<div class='widget-content'>
+<div id='ArchiveList'>
+<div id='BlogArchive1_ArchiveList'>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='http://phaazon.blogspot.ca/search?updated-min=2016-01-01T00:00:00%2B01:00&amp;updated-max=2017-01-01T00:00:00%2B01:00&amp;max-results=4'>
+2016
+</a>
+<span class='post-count' dir='ltr'>(4)</span>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='http://phaazon.blogspot.ca/2016_08_01_archive.html'>
+August
+</a>
+<span class='post-count' dir='ltr'>(1)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='http://phaazon.blogspot.ca/2016_07_01_archive.html'>
+July
+</a>
+<span class='post-count' dir='ltr'>(1)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='http://phaazon.blogspot.ca/2016_04_01_archive.html'>
+April
+</a>
+<span class='post-count' dir='ltr'>(1)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='http://phaazon.blogspot.ca/2016_02_01_archive.html'>
+February
+</a>
+<span class='post-count' dir='ltr'>(1)</span>
+</li>
+</ul>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='http://phaazon.blogspot.ca/search?updated-min=2015-01-01T00:00:00%2B01:00&amp;updated-max=2016-01-01T00:00:00%2B01:00&amp;max-results=30'>
+2015
+</a>
+<span class='post-count' dir='ltr'>(30)</span>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='http://phaazon.blogspot.ca/2015_12_01_archive.html'>
+December
+</a>
+<span class='post-count' dir='ltr'>(1)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='http://phaazon.blogspot.ca/2015_11_01_archive.html'>
+November
+</a>
+<span class='post-count' dir='ltr'>(1)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='http://phaazon.blogspot.ca/2015_10_01_archive.html'>
+October
+</a>
+<span class='post-count' dir='ltr'>(4)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='http://phaazon.blogspot.ca/2015_09_01_archive.html'>
+September
+</a>
+<span class='post-count' dir='ltr'>(4)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='http://phaazon.blogspot.ca/2015_08_01_archive.html'>
+August
+</a>
+<span class='post-count' dir='ltr'>(5)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='http://phaazon.blogspot.ca/2015_07_01_archive.html'>
+July
+</a>
+<span class='post-count' dir='ltr'>(2)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='http://phaazon.blogspot.ca/2015_06_01_archive.html'>
+June
+</a>
+<span class='post-count' dir='ltr'>(4)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='http://phaazon.blogspot.ca/2015_04_01_archive.html'>
+April
+</a>
+<span class='post-count' dir='ltr'>(3)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='http://phaazon.blogspot.ca/2015_03_01_archive.html'>
+March
+</a>
+<span class='post-count' dir='ltr'>(3)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='http://phaazon.blogspot.ca/2015_02_01_archive.html'>
+February
+</a>
+<span class='post-count' dir='ltr'>(2)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='http://phaazon.blogspot.ca/2015_01_01_archive.html'>
+January
+</a>
+<span class='post-count' dir='ltr'>(1)</span>
+</li>
+</ul>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate expanded'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy toggle-open'>
+
+        &#9660;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='http://phaazon.blogspot.ca/search?updated-min=2014-01-01T00:00:00%2B01:00&amp;updated-max=2015-01-01T00:00:00%2B01:00&amp;max-results=8'>
+2014
+</a>
+<span class='post-count' dir='ltr'>(8)</span>
+<ul class='hierarchy'>
+<li class='archivedate expanded'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy toggle-open'>
+
+        &#9660;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='http://phaazon.blogspot.ca/2014_11_01_archive.html'>
+November
+</a>
+<span class='post-count' dir='ltr'>(3)</span>
+<ul class='posts'>
+<li><a href='reactive-programming-through-explicit.html'>Reactive programming through explicit effects</a></li>
+<li><a href='abstracting-over-shader-environment.html'>Abstracting Over Shader &#8211; Environment</a></li>
+<li><a href='foreword-abstracting-what-shaders-are.html'>Abstracting shader &#8211; introducing the ash Haskell l...</a></li>
+</ul>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='http://phaazon.blogspot.ca/2014_07_01_archive.html'>
+July
+</a>
+<span class='post-count' dir='ltr'>(1)</span>
+</li>
+</ul>
+<ul class='hierarchy'>
+<li class='archivedate collapsed'>
+<a class='toggle' href='javascript:void(0)'>
+<span class='zippy'>
+
+        &#9658;&#160;
+      
+</span>
+</a>
+<a class='post-count-link' href='http://phaazon.blogspot.ca/2014_02_01_archive.html'>
+February
+</a>
+<span class='post-count' dir='ltr'>(4)</span>
+</li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+<div class='clear'></div>
+<span class='widget-item-control'>
+<span class='item-control blog-admin'>
+<a class='quickedit' href='http://www.blogger.com/rearrange?blogID=8976038770606708499&amp;widgetType=BlogArchive&amp;widgetId=BlogArchive1&amp;action=editWidget&amp;sectionId=sidebar-right-1' onclick='return _WidgetManager._PopupConfig(document.getElementById("BlogArchive1"));' target='configBlogArchive1' title='Edit'>
+<img alt='' height='18' src='https://resources.blogblog.com/img/icon18_wrench_allbkg.png' width='18'/>
+</a>
+</span>
+</span>
+<div class='clear'></div>
+</div>
+</div></div>
+</aside>
+</div>
+</div>
+</div>
+<div style='clear: both'></div>
+<!-- columns -->
+</div>
+<!-- main -->
+</div>
+</div>
+<div class='main-cap-bottom cap-bottom'>
+<div class='cap-left'></div>
+<div class='cap-right'></div>
+</div>
+</div>
+<footer>
+<div class='footer-outer'>
+<div class='footer-cap-top cap-top'>
+<div class='cap-left'></div>
+<div class='cap-right'></div>
+</div>
+<div class='fauxborder-left footer-fauxborder-left'>
+<div class='fauxborder-right footer-fauxborder-right'></div>
+<div class='region-inner footer-inner'>
+<div class='foot no-items section' id='footer-1'></div>
+<!-- outside of the include in order to lock Attribution widget -->
+<div class='foot section' id='footer-3'><div class='widget Attribution' data-version='1' id='Attribution1'>
+<div class='widget-content' style='text-align: center;'>
+&#169; Dimitri Sabadie, 2014. Simple template. Template images by <a href='http://www.istockphoto.com/googleimages.php?id=9505737&amp;platform=blogger&amp;langregion=en_GB' target='_blank'>Ollustrator</a>. Powered by <a href='https://www.blogger.com/' target='_blank'>Blogger</a>.
+</div>
+<div class='clear'></div>
+<span class='widget-item-control'>
+<span class='item-control blog-admin'>
+<a class='quickedit' href='http://www.blogger.com/rearrange?blogID=8976038770606708499&amp;widgetType=Attribution&amp;widgetId=Attribution1&amp;action=editWidget&amp;sectionId=footer-3' onclick='return _WidgetManager._PopupConfig(document.getElementById("Attribution1"));' target='configAttribution1' title='Edit'>
+<img alt='' height='18' src='https://resources.blogblog.com/img/icon18_wrench_allbkg.png' width='18'/>
+</a>
+</span>
+</span>
+<div class='clear'></div>
+</div></div>
+</div>
+</div>
+<div class='footer-cap-bottom cap-bottom'>
+<div class='cap-left'></div>
+<div class='cap-right'></div>
+</div>
+</div>
+</footer>
+<!-- content -->
+</div>
+</div>
+<div class='content-cap-bottom cap-bottom'>
+<div class='cap-left'></div>
+<div class='cap-right'></div>
+</div>
+</div>
+</div>
+<script type='text/javascript'>
+    window.setTimeout(function() {
+        document.body.className = document.body.className.replace('loading', '');
+      }, 10);
+  </script>
+
+<script type="text/javascript" src="https://www.blogger.com/static/v1/widgets/803954089-widgets.js"></script>
+<script type="text/javascript" src="https://apis.google.com/js/plusone.js"></script>
+<script type="text/javascript" src="http://www.google.com/jsapi"></script>
+<script type='text/javascript'>
+window['__wavt'] = 'AOuZoY6yRKgdnWpWTyzhBKSI04gfLizsgA:1482059028241';_WidgetManager._Init('//www.blogger.com/rearrange?blogID\x3d8976038770606708499','foreword-abstracting-what-shaders-are.html','8976038770606708499');
+_WidgetManager._SetDataContext([{'name': 'blog', 'data': {'blogId': '8976038770606708499', 'bloggerUrl': 'https://www.blogger.com', 'title': 'Graphics and FPL', 'pageType': 'item', 'postId': '156108301236456925', 'url': 'http://phaazon.blogspot.ca/2014/11/foreword-abstracting-what-shaders-are.html', 'canonicalUrl': 'http://phaazon.blogspot.com/2014/11/foreword-abstracting-what-shaders-are.html', 'homepageUrl': 'http://phaazon.blogspot.ca/', 'searchUrl': 'http://phaazon.blogspot.ca/search', 'canonicalHomepageUrl': 'http://phaazon.blogspot.com/', 'blogspotFaviconUrl': 'http://phaazon.blogspot.ca/favicon.ico', 'hasCustomDomain': false, 'enabledCommentProfileImages': true, 'gPlusViewType': 'FILTERED_POSTMOD', 'adultContent': false, 'analyticsAccountNumber': '', 'useUniversalAnalytics': false, 'pageName': 'Abstracting shader &#8211; introducing the ash Haskell library', 'pageTitle': 'Graphics and FPL: Abstracting shader &#8211; introducing the ash Haskell library', 'encoding': 'UTF-8', 'locale': 'en_GB', 'localeUnderscoreDelimited': 'en_gb', 'isPrivate': false, 'isMobile': false, 'isMobileRequest': false, 'mobileClass': '', 'isPrivateBlog': false, 'languageDirection': 'ltr', 'feedLinks': '\x3clink rel\x3d\x22alternate\x22 type\x3d\x22application/atom+xml\x22 title\x3d\x22Graphics and FPL - Atom\x22 href\x3d\x22http://phaazon.blogspot.com/feeds/posts/default\x22 /\x3e\n\x3clink rel\x3d\x22alternate\x22 type\x3d\x22application/rss+xml\x22 title\x3d\x22Graphics and FPL - RSS\x22 href\x3d\x22http://phaazon.blogspot.com/feeds/posts/default?alt\x3drss\x22 /\x3e\n\x3clink rel\x3d\x22service.post\x22 type\x3d\x22application/atom+xml\x22 title\x3d\x22Graphics and FPL - Atom\x22 href\x3d\x22https://www.blogger.com/feeds/8976038770606708499/posts/default\x22 /\x3e\n\n\x3clink rel\x3d\x22alternate\x22 type\x3d\x22application/atom+xml\x22 title\x3d\x22Graphics and FPL - Atom\x22 href\x3d\x22http://phaazon.blogspot.com/feeds/156108301236456925/comments/default\x22 /\x3e\n', 'meTag': '', 'openIdOpTag': '', 'mobileHeadScript': '', 'adsenseHostId': 'ca-host-pub-1556223355139109', 'ieCssRetrofitLinks': '\x3c!--[if IE]\x3e\x3cscript type\x3d\x22text/javascript\x22 src\x3d\x22https://www.blogger.com/static/v1/jsbin/3032875878-ieretrofit.js\x22\x3e\x3c/script\x3e\n\x3c![endif]--\x3e', 'view': '', 'dynamicViewsCommentsSrc': '//www.blogblog.com/dynamicviews/4224c15c4e7c9321/js/comments.js', 'dynamicViewsScriptSrc': '//www.blogblog.com/dynamicviews/0d81398a922284ce', 'plusOneApiSrc': 'https://apis.google.com/js/plusone.js', 'sharing': {'platforms': [{'name': 'Get link', 'key': 'link', 'shareMessage': 'Get link', 'target': ''}, {'name': 'Facebook', 'key': 'facebook', 'shareMessage': 'Share to Facebook', 'target': 'facebook'}, {'name': 'BlogThis!', 'key': 'blogThis', 'shareMessage': 'BlogThis!', 'target': 'blog'}, {'name': 'Twitter', 'key': 'twitter', 'shareMessage': 'Share to Twitter', 'target': 'twitter'}, {'name': 'Pinterest', 'key': 'pinterest', 'shareMessage': 'Share to Pinterest', 'target': 'pinterest'}, {'name': 'Google+', 'key': 'googlePlus', 'shareMessage': 'Share to Google+', 'target': 'googleplus'}, {'name': 'Email', 'key': 'email', 'shareMessage': 'Email', 'target': 'email'}], 'googlePlusShareButtonWidth': 300, 'googlePlusBootstrap': '\x3cscript type\x3d\x22text/javascript\x22\x3ewindow.___gcfg \x3d {\x27lang\x27: \x27en_GB\x27};\x3c/script\x3e'}}}, {'name': 'features', 'data': {'widgetVisibility': true}}, {'name': 'messages', 'data': {'linkCopiedToClipboard': 'Link copied to clipboard', 'postLink': 'Post link'}}, {'name': 'template', 'data': {'name': 'custom', 'localizedName': 'Custom', 'variant': 'simplysimple', 'isResponsive': false, 'isAlternateRendering': false, 'isCustom': true}}, {'name': 'view', 'data': {'classic': {'name': 'classic', 'url': '?view\x3dclassic'}, 'flipcard': {'name': 'flipcard', 'url': '?view\x3dflipcard'}, 'magazine': {'name': 'magazine', 'url': '?view\x3dmagazine'}, 'mosaic': {'name': 'mosaic', 'url': '?view\x3dmosaic'}, 'sidebar': {'name': 'sidebar', 'url': '?view\x3dsidebar'}, 'snapshot': {'name': 'snapshot', 'url': '?view\x3dsnapshot'}, 'timeslide': {'name': 'timeslide', 'url': '?view\x3dtimeslide'}, 'isMobile': false, 'title': 'Abstracting shader &#8211; introducing the ash Haskell library', 'description': 'Foreword  Abstracting what?  Shaders  are very common units in the world of graphics. Even though we&#8217;re used to using them for shading 1  pu...', 'url': 'http://phaazon.blogspot.ca/2014/11/foreword-abstracting-what-shaders-are.html', 'type': 'item', 'isSingleItem': true, 'isMultipleItems': false, 'isError': false, 'isPage': false, 'isPost': true, 'isHomepage': false, 'isArchive': false, 'isSearch': false, 'isLabelSearch': false, 'postId': 156108301236456925}}]);
+_WidgetManager._RegisterWidget('_HeaderView', new _WidgetInfo('Header1', 'header', null, document.getElementById('Header1'), {}, 'displayModeFull'));
+_WidgetManager._RegisterWidget('_BlogView', new _WidgetInfo('Blog1', 'main', null, document.getElementById('Blog1'), {'cmtInteractionsEnabled': false, 'lightboxEnabled': true, 'lightboxModuleUrl': 'https://www.blogger.com/static/v1/jsbin/2371771562-lbx__en_gb.js', 'lightboxCssUrl': 'https://www.blogger.com/static/v1/v-css/368954415-lightbox_bundle.css'}, 'displayModeFull'));
+_WidgetManager._RegisterWidget('_ProfileView', new _WidgetInfo('Profile1', 'sidebar-right-1', null, document.getElementById('Profile1'), {}, 'displayModeFull'));
+_WidgetManager._RegisterWidget('_LinkListView', new _WidgetInfo('LinkList1', 'sidebar-right-1', null, document.getElementById('LinkList1'), {}, 'displayModeFull'));
+_WidgetManager._RegisterWidget('_CustomSearchView', new _WidgetInfo('CustomSearch2', 'sidebar-right-1', null, document.getElementById('CustomSearch2'), {'title': 'Search This Blog', 'includeBlog': true, 'includePostLinks': false, 'includeWeb': false, 'linkLists': [], 'blogUrl': 'http://phaazon.blogspot.com/', 'loadingMsg': 'Loading...', 'thisBlogMsg': 'This Blog', 'linkedFromHereMsg': 'Linked From Here', 'theWebMsg': 'The Web', 'backgroundColor': '#ffffff', 'textColor': '#000000', 'dateColor': '#787878', 'linkColor': '#a2b818', 'urlColor': '#a2b818', 'visitedLinkColor': '#966a8d', 'borderColor': '#cfcfcf', 'activeBorderColor': '#cfcfcf', 'cse_ua': true}, 'displayModeFull'));
+_WidgetManager._RegisterWidget('_BlogArchiveView', new _WidgetInfo('BlogArchive1', 'sidebar-right-1', null, document.getElementById('BlogArchive1'), {'languageDirection': 'ltr', 'loadingMessage': 'Loading\x26hellip;'}, 'displayModeFull'));
+_WidgetManager._RegisterWidget('_AttributionView', new _WidgetInfo('Attribution1', 'footer-3', null, document.getElementById('Attribution1'), {}, 'displayModeFull'));
+</script>
+</body>
+
+<!-- Mirrored from phaazon.blogspot.ca/2014/11/foreword-abstracting-what-shaders-are.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 11:04:18 GMT -->
+</html>

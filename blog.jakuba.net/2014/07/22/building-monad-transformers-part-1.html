@@ -1,0 +1,402 @@
+<!DOCTYPE html><html>
+<!-- Mirrored from blog.jakuba.net/2014/07/22/building-monad-transformers-part-1.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 11:03:45 GMT -->
+<head><title>Building Monad Transformers - Part 1 -  Jakub Arnold Blog</title><meta charset="utf-8" /><meta content="C-7ZK-UEyHdN7MWkiZy4QWGfdErxcu3evJTENXdFHAY" name="google-site-verification" /><link href="http://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/2.3.2/css/bootstrap.min.css" rel="stylesheet" /><link href="http://cdnjs.cloudflare.com/ajax/libs/font-awesome/3.2.1/css/font-awesome.min.css" rel="stylesheet" /><script src="http://cdnjs.cloudflare.com/ajax/libs/jquery/2.0.0/jquery.js"></script><link href="http://blog.jakuba.net/stylesheets/application.css" rel="stylesheet" /><link href="http://blog.jakuba.net/images/favicon.ico" rel="shortcut icon" type="image/vnd.microsoft.icon" /><script src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML" type="text/javascript"></script><script type="text/x-mathjax-config">MathJax.Hub.Config({tex2jax: {inlineMath: [['$','$']], displayedMath: [['$$', '$$']]}});</script><link href="http://blog.jakubarnold.cz/feed.xml" rel="alternate" title="ATOM" type="application/atom+xml" /></head><body><div class="header"><div class="container"><section class="name"><a href="http://blog.jakuba.net/">Jakub <strong>Arnold</strong></a></section></div></div><div class="container"><div class="row"><div class="span8"><div class="index-post"><div class="post-title"><h1><a href="building-monad-transformers-part-1.html">Building Monad Transformers - Part 1</a><span class="when">Jul 22, 2014</span></h1></div><p>In this article we&rsquo;ll focus on building our own monad transformers.
+We&rsquo;ll start out with an example code and improve it by building a simple
+wrapper over <code>IO (Maybe a)</code>.</p>
+
+<p>The following example is really simple, but I&rsquo;m sure you can imagine
+doing something similar in your own application. The <code>findById</code> method
+is there just to simulate a database query that might not find a result.</p>
+<pre class="highlight haskell"><code><span class="kr">data</span> <span class="kt">User</span> <span class="o">=</span> <span class="kt">User</span> <span class="kr">deriving</span> <span class="kt">Show</span>
+
+<span class="n">findById</span> <span class="o">::</span> <span class="kt">Int</span> <span class="o">-&gt;</span> <span class="kt">IO</span> <span class="p">(</span><span class="kt">Maybe</span> <span class="kt">User</span><span class="p">)</span>
+<span class="n">findById</span> <span class="mi">1</span> <span class="o">=</span> <span class="n">return</span> <span class="o">$</span> <span class="kt">Just</span> <span class="kt">User</span>
+<span class="n">findById</span> <span class="kr">_</span> <span class="o">=</span> <span class="n">return</span> <span class="kt">Nothing</span>
+
+<span class="n">findUsers</span> <span class="o">::</span> <span class="kt">Int</span> <span class="o">-&gt;</span> <span class="kt">Int</span> <span class="o">-&gt;</span> <span class="kt">IO</span> <span class="p">(</span><span class="kt">Maybe</span> <span class="p">(</span><span class="kt">User</span><span class="p">,</span> <span class="kt">User</span><span class="p">))</span>
+<span class="n">findUsers</span> <span class="n">x</span> <span class="n">y</span> <span class="o">=</span> <span class="kr">do</span>
+    <span class="n">muser1</span> <span class="o">&lt;-</span> <span class="n">findById</span> <span class="n">x</span>
+
+    <span class="kr">case</span> <span class="n">muser1</span> <span class="kr">of</span>
+        <span class="kt">Nothing</span> <span class="o">-&gt;</span> <span class="n">return</span> <span class="kt">Nothing</span>
+        <span class="kt">Just</span> <span class="n">user1</span> <span class="o">-&gt;</span> <span class="kr">do</span>
+            <span class="n">muser2</span> <span class="o">&lt;-</span> <span class="n">findById</span> <span class="n">y</span>
+
+            <span class="kr">case</span> <span class="n">muser2</span> <span class="kr">of</span>
+                <span class="kt">Nothing</span> <span class="o">-&gt;</span> <span class="n">return</span> <span class="kt">Nothing</span>
+                <span class="kt">Just</span> <span class="n">user2</span> <span class="o">-&gt;</span> <span class="kr">do</span>
+                    <span class="n">return</span> <span class="o">$</span> <span class="kt">Just</span> <span class="p">(</span><span class="n">user1</span><span class="p">,</span> <span class="n">user2</span><span class="p">)</span>
+</code></pre>
+
+<p>While there&rsquo;s nothing bad about <code>case</code> statements with pattern matching
+I&rsquo;m sure we can all agree that this approach can easily blow out of
+proportions.</p>
+
+<p>One solution that won&rsquo;t work all the time might be to fetch both of the users
+at the same time, which would allow us to make use of the <code>Maybe</code> monad. If our
+<code>findById</code> function didn&rsquo;t do any side effects, we could&rsquo;ve written this.</p>
+<pre class="highlight haskell"><code><span class="n">findById</span> <span class="o">::</span> <span class="kt">Int</span> <span class="o">-&gt;</span> <span class="kt">Maybe</span> <span class="kt">User</span>
+<span class="n">findById</span> <span class="mi">1</span> <span class="o">=</span> <span class="kt">Just</span> <span class="kt">User</span>
+<span class="n">findById</span> <span class="kr">_</span> <span class="o">=</span> <span class="kt">Nothing</span>
+
+<span class="n">loadUsers</span> <span class="o">::</span> <span class="kt">Maybe</span> <span class="p">(</span><span class="kt">User</span><span class="p">,</span> <span class="kt">User</span><span class="p">)</span>
+<span class="n">loadUsers</span> <span class="o">=</span> <span class="kr">do</span>
+    <span class="n">user1</span> <span class="o">&lt;-</span> <span class="n">findById</span> <span class="mi">1</span>
+    <span class="n">user2</span> <span class="o">&lt;-</span> <span class="n">findById</span> <span class="mi">2</span>
+    <span class="n">return</span> <span class="p">(</span><span class="n">user1</span><span class="p">,</span> <span class="n">user2</span><span class="p">)</span>
+</code></pre>
+
+<p>Because <code>Maybe</code> is implemented in a way that it stops evaluating when it hits
+on <code>Nothing</code> we get the behavior we intended without pattern matching. If one of
+our <code>findById</code> fails to return a user, the whole function will return a
+<code>Nothing</code>.</p>
+
+<p>Unfortunately the act of finding a user needs to reach out to the real world,
+which forces the <code>IO</code> monad upon us, making this approach impossible. We
+somehow need to be able to teach <code>IO</code> the notion of failure.</p>
+
+<h2>Wrapping <code>IO</code> in <code>MaybeIO</code></h2>
+
+<p>Let&rsquo;s introduce a new monad which will simply wrap our <code>IO</code> computations into a
+<code>Maybe</code>.</p>
+<pre class="highlight haskell"><code><span class="kr">data</span> <span class="kt">MaybeIO</span> <span class="n">a</span> <span class="o">=</span> <span class="kt">MaybeIO</span> <span class="p">{</span> <span class="n">runMaybeIO</span> <span class="o">::</span> <span class="kt">IO</span> <span class="p">(</span><span class="kt">Maybe</span> <span class="n">a</span><span class="p">)</span> <span class="p">}</span>
+</code></pre>
+
+<p>The next step is to make <code>MaybeIO</code> into a <code>Monad</code>, which will allow us to use
+it inside a <code>do</code> block, but first things first. The next version of GHC (7.10)
+will require every <code>Monad</code> to also be an <code>Applicative</code>, which also means that
+every <code>Monad</code> must be a <code>Functor</code>. We&rsquo;ll follow this an start out with a
+<code>Functor</code> instance.</p>
+<pre class="highlight haskell"><code><span class="kr">instance</span> <span class="kt">Functor</span> <span class="kt">MaybeIO</span> <span class="kr">where</span>
+    <span class="n">fmap</span> <span class="n">f</span> <span class="n">m</span> <span class="o">=</span> <span class="n">undefined</span>
+</code></pre>
+
+<p>We&rsquo;ll use type holes to hint us in while implementing these instances. First
+let&rsquo;s recap the type of <code>fmap</code>, which is <code>(a -&gt; b) -&gt; f a -&gt; f b</code>, which means
+we have a function <code>f :: a -&gt; b</code> and a functor value <code>m :: f a</code>, or
+specifically <code>m :: MaybeIO a</code>.</p>
+
+<p>Before we can do anything to the <code>m</code> we need to unwrap <code>MaybeIO</code> to get to the
+insides. We&rsquo;ll use pattern matching to do that since it&rsquo;s more concise
+than using <code>runMaybeIO</code>.</p>
+<pre class="highlight haskell"><code><span class="kr">instance</span> <span class="kt">Functor</span> <span class="kt">MaybeIO</span> <span class="kr">where</span>
+    <span class="n">fmap</span> <span class="n">f</span> <span class="p">(</span><span class="kt">MaybeIO</span> <span class="n">m</span><span class="p">)</span> <span class="o">=</span> <span class="n">undefined</span>
+</code></pre>
+
+<p>We only have two things available to us, the function <code>f :: a -&gt; b</code>
+which only works on the type <code>a</code>, and the fact that both <code>Maybe</code> and
+<code>IO</code> are also <code>Functor</code> instances, which means we can use <code>fmap</code> to
+reach deep into the <code>Maybe (IO a)</code> to apply our function <code>f</code> to get the
+result.</p>
+
+<p>Here comes a little trick, since <code>fmap</code> can also be thought of as <code>(a -&gt; b) -&gt;
+(f a -&gt; f b)</code>. If we compose <code>fmap</code> with <code>fmap</code>, it gives us exactly what we
+need, a way to reach two functors deep to apply a function.</p>
+<pre class="highlight haskell"><code><span class="err">λ</span><span class="o">&gt;</span> <span class="o">:</span><span class="n">t</span> <span class="n">fmap</span><span class="o">.</span><span class="n">fmap</span>
+<span class="o">::</span> <span class="p">(</span><span class="kt">Functor</span> <span class="n">f</span><span class="p">,</span> <span class="kt">Functor</span> <span class="n">g</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="n">b</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">f</span> <span class="p">(</span><span class="n">g</span> <span class="n">a</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">f</span> <span class="p">(</span><span class="n">g</span> <span class="n">b</span><span class="p">)</span>
+</code></pre>
+
+<p>Substituting our types we get the following.</p>
+<pre class="highlight haskell"><code><span class="n">fmap</span><span class="o">.</span><span class="n">fmap</span> <span class="o">::</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="n">b</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="kt">IO</span> <span class="p">(</span><span class="kt">Maybe</span> <span class="n">a</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kt">IO</span> <span class="p">(</span><span class="kt">Maybe</span> <span class="n">b</span><span class="p">))</span>
+</code></pre>
+
+<p>We are not there quite yet, let&rsquo;s see what happens if we use this
+approach to implement the <code>Functor</code> instance.</p>
+<pre class="highlight haskell"><code><span class="kr">instance</span> <span class="kt">Functor</span> <span class="kt">MaybeIO</span> <span class="kr">where</span>
+    <span class="n">fmap</span> <span class="n">f</span> <span class="p">(</span><span class="kt">MaybeIO</span> <span class="n">m</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span><span class="n">fmap</span><span class="o">.</span><span class="n">fmap</span><span class="p">)</span> <span class="n">f</span> <span class="n">m</span>
+
+<span class="c1">-- Couldn't match type ‘Maybe’ with ‘MaybeIO’</span>
+</code></pre>
+
+<p>We&rsquo;re returning the wrong type! The original value passed in was <code>MaybeIO a</code>
+and we&rsquo;re returning <code>IO (Maybe b)</code> instead of <code>MaybeIO b</code>. Let&rsquo;s add a type
+hole to make this crystal clear.</p>
+<pre class="highlight haskell"><code><span class="kr">instance</span> <span class="kt">Functor</span> <span class="kt">MaybeIO</span> <span class="kr">where</span>
+    <span class="n">fmap</span> <span class="n">f</span> <span class="p">(</span><span class="kt">MaybeIO</span> <span class="n">m</span><span class="p">)</span> <span class="o">=</span> <span class="kr">_</span> <span class="o">$</span> <span class="p">(</span><span class="n">fmap</span><span class="o">.</span><span class="n">fmap</span><span class="p">)</span> <span class="n">f</span> <span class="n">m</span>
+
+<span class="c1">-- Found hole ‘_’ with type: Maybe (IO b) -&gt; MaybeIO b</span>
+</code></pre>
+
+<p>Now remember how in the beginning we said we&rsquo;ll be wrapping the <code>IO (Maybe a)</code>
+into a <code>MaybeIO</code>? We can do that using the constructor of <code>MaybeIO</code>!</p>
+<pre class="highlight haskell"><code><span class="kr">instance</span> <span class="kt">Functor</span> <span class="kt">MaybeIO</span> <span class="kr">where</span>
+    <span class="n">fmap</span> <span class="n">f</span> <span class="p">(</span><span class="kt">MaybeIO</span> <span class="n">m</span><span class="p">)</span> <span class="o">=</span> <span class="kt">MaybeIO</span> <span class="o">$</span> <span class="p">(</span><span class="n">fmap</span><span class="o">.</span><span class="n">fmap</span><span class="p">)</span> <span class="n">f</span> <span class="n">m</span>
+</code></pre>
+
+<p>There you go, a <code>Functor</code> instance for <code>MaybeIO</code>.</p>
+
+<h2><code>Applicative</code> instance for <code>MaybeIO</code></h2>
+
+<p>The next step is to implement an <code>Applicative</code> instance for our <code>MaybeIO</code>
+wrapper. Here&rsquo;s how the <code>Applicative</code> class looks in case you forgot.</p>
+<pre class="highlight haskell"><code><span class="kr">class</span> <span class="kt">Applicative</span> <span class="n">m</span> <span class="kr">where</span>
+    <span class="n">pure</span> <span class="o">::</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="n">m</span> <span class="n">a</span>
+    <span class="p">(</span><span class="o">&lt;*&gt;</span><span class="p">)</span> <span class="o">::</span> <span class="n">m</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="n">b</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">m</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="n">m</span> <span class="n">b</span>
+</code></pre>
+
+<p>In terms of our <code>MaybeIO</code> the types would look as following.</p>
+<pre class="highlight haskell"><code><span class="n">pure</span> <span class="o">::</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="kt">MaybeIO</span> <span class="n">a</span>
+<span class="p">(</span><span class="o">&lt;*&gt;</span><span class="p">)</span> <span class="o">::</span> <span class="kt">MaybeIO</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="n">b</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kt">MaybeIO</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="kt">MaybeIO</span> <span class="n">b</span>
+</code></pre>
+
+<p>Implementing <code>pure</code> is simple, we just need to wrap a given value into a
+minimal context. Since both <code>Maybe</code> and <code>IO</code> are an instance of <code>Applicative</code>,
+we can use their <code>pure</code> much as we used <code>fmap</code> when implementing the <code>Functor
+instance</code> (don&rsquo;t forget to import <code>Control.Applicative</code>.)</p>
+<pre class="highlight haskell"><code><span class="kr">instance</span> <span class="kt">Applicative</span> <span class="kt">MaybeIO</span> <span class="kr">where</span>
+    <span class="n">pure</span> <span class="o">=</span> <span class="kt">MaybeIO</span> <span class="o">.</span> <span class="n">pure</span> <span class="o">.</span> <span class="n">pure</span>
+</code></pre>
+
+<p>We could&rsquo;ve also written this more explicitly using <code>Just</code> instead of <code>pure</code>
+for wrapping the value in a <code>Maybe</code>.</p>
+<pre class="highlight haskell"><code><span class="kr">instance</span> <span class="kt">Applicative</span> <span class="kt">MaybeIO</span> <span class="kr">where</span>
+    <span class="n">pure</span> <span class="o">=</span> <span class="kt">MaybeIO</span> <span class="o">.</span> <span class="n">pure</span> <span class="o">.</span> <span class="kt">Just</span>
+</code></pre>
+
+<p>But moving on, now comes the hard part, implementing <code>&lt;*&gt;</code>. This is probably
+the hardest part of the whole article, so don&rsquo;t worry if it seems a bit
+complicated. First we need to pattern match to get rid of the <code>MaybeIO</code>
+wrapper, and then we also need to wrap the value on the right hand side in the
+last step.</p>
+<pre class="highlight haskell"><code><span class="kr">instance</span> <span class="kt">Applicative</span> <span class="kt">MaybeIO</span> <span class="kr">where</span>
+    <span class="n">pure</span> <span class="o">=</span> <span class="kt">MaybeIO</span> <span class="o">.</span> <span class="n">pure</span> <span class="o">.</span> <span class="kt">Just</span>
+    <span class="kt">MaybeIO</span> <span class="n">f</span> <span class="o">&lt;*&gt;</span> <span class="kt">MaybeIO</span> <span class="n">m</span> <span class="o">=</span> <span class="kt">MaybeIO</span> <span class="o">$</span> <span class="kr">_</span>
+
+<span class="c1">-- Found hole ‘_’ with type: IO (Maybe b)</span>
+</code></pre>
+
+<p>The type hole tells us that we need to somehow get to a <code>IO (Maybe b)</code> with the
+given <code>IO (Maybe (a -&gt; b))</code> and <code>IO (Maybe a)</code>. This seems like a typical
+<em>reach into a box/context and apply a function</em> kind of problem, and it is, but
+we do need to do something which isn&rsquo;t so apparent at first.</p>
+
+<p>Both <code>Maybe</code> and <code>IO</code> are an instance of <code>Applicative</code>, which means we need to
+somehow use <code>&lt;*&gt;</code> to apply the boxed function to the boxed value (pardon me for
+saying boxed here, but it just seems like the right analogy here.)</p>
+
+<p>The problem is that we can only use <code>&lt;*&gt;</code> to apply a function nested one level
+deep, since the type is <code>m (a -&gt; b) -&gt; m a -&gt; m b</code>. Knowing that <code>&lt;*&gt;</code> is a two
+argument function, meaning we can&rsquo;t use simple <code>.</code>, we need to look into the
+documentation for <code>Applicative</code> and find the function <code>liftA2</code>, works just like
+<code>fmap</code> on functors, but for two argument functions.</p>
+<pre class="highlight haskell"><code><span class="err">λ</span><span class="o">&gt;</span> <span class="o">:</span><span class="n">t</span> <span class="n">liftA2</span>
+<span class="o">::</span> <span class="kt">Applicative</span> <span class="n">f</span> <span class="o">=&gt;</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="n">b</span> <span class="o">-&gt;</span> <span class="n">c</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">f</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="n">f</span> <span class="n">b</span> <span class="o">-&gt;</span> <span class="n">f</span> <span class="n">c</span>
+</code></pre>
+
+<p>If we combine these two together we do get exactly what we need, a function
+which takes two arguments, where first one is a function nested in two
+applicatives, and a value, and applies the function to that value.</p>
+<pre class="highlight haskell"><code><span class="err">λ</span><span class="o">&gt;</span> <span class="o">:</span><span class="n">t</span> <span class="n">liftA2</span> <span class="p">(</span><span class="o">&lt;*&gt;</span><span class="p">)</span>
+<span class="o">::</span> <span class="p">(</span><span class="kt">Applicative</span> <span class="n">f</span><span class="p">,</span> <span class="kt">Applicative</span> <span class="n">g</span><span class="p">)</span> <span class="o">=&gt;</span>
+     <span class="n">f</span> <span class="p">(</span><span class="n">g</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="n">b</span><span class="p">))</span> <span class="o">-&gt;</span> <span class="n">f</span> <span class="p">(</span><span class="n">g</span> <span class="n">a</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">f</span> <span class="p">(</span><span class="n">g</span> <span class="n">b</span><span class="p">)</span>
+</code></pre>
+
+<p>Let&rsquo;s substitute our types once again to see how this exactly matches to what
+we need.</p>
+<pre class="highlight haskell"><code><span class="n">liftA2</span> <span class="p">(</span><span class="o">&lt;*&gt;</span><span class="p">)</span>
+<span class="o">::</span> <span class="kt">IO</span> <span class="p">(</span><span class="kt">Maybe</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="n">b</span><span class="p">))</span> <span class="o">-&gt;</span> <span class="kt">IO</span> <span class="p">(</span><span class="kt">Maybe</span> <span class="n">a</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kt">IO</span> <span class="p">(</span><span class="kt">Maybe</span> <span class="n">b</span><span class="p">)</span>
+</code></pre>
+
+<p>We already have both of the arguments of the correct types, which means we can
+just apply the function to them and get our instance.</p>
+<pre class="highlight haskell"><code><span class="kr">instance</span> <span class="kt">Applicative</span> <span class="kt">MaybeIO</span> <span class="kr">where</span>
+    <span class="n">pure</span> <span class="o">=</span> <span class="kt">MaybeIO</span> <span class="o">.</span> <span class="n">pure</span> <span class="o">.</span> <span class="kt">Just</span>
+    <span class="kt">MaybeIO</span> <span class="n">f</span> <span class="o">&lt;*&gt;</span> <span class="kt">MaybeIO</span> <span class="n">m</span> <span class="o">=</span> <span class="kt">MaybeIO</span> <span class="o">$</span> <span class="n">liftA2</span> <span class="p">(</span><span class="o">&lt;*&gt;</span><span class="p">)</span> <span class="n">f</span> <span class="n">m</span>
+</code></pre>
+
+<p>In the next step we&rsquo;ll move onto implementing the <code>Monad</code> instance. Make sure
+you understand what we&rsquo;ve done so far.</p>
+
+<h2><code>Monad</code> instance for <code>MaybeIO</code></h2>
+
+<p>Now comes the final step that we&rsquo;ve been waiting for, implementing a <code>Monad</code>
+instance for our <code>MaybeIO</code> wrapper. As we did before, here&rsquo;s how the <code>Monad</code>
+class looks.</p>
+<pre class="highlight haskell"><code><span class="kr">class</span> <span class="kt">Monad</span> <span class="n">m</span> <span class="kr">where</span>
+    <span class="n">return</span> <span class="o">::</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="n">m</span> <span class="n">a</span>
+    <span class="p">(</span><span class="o">&gt;&gt;=</span><span class="p">)</span> <span class="o">::</span> <span class="n">m</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="n">m</span> <span class="n">b</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">m</span> <span class="n">b</span>
+</code></pre>
+
+<p>We can already see that <code>return</code> will be exactly the same as <code>pure</code> for our
+<code>Applicative</code>, so let&rsquo;s do that first.</p>
+<pre class="highlight haskell"><code><span class="kr">instance</span> <span class="kt">Monad</span> <span class="kt">MaybeIO</span> <span class="kr">where</span>
+    <span class="n">return</span> <span class="o">=</span> <span class="n">pure</span>
+</code></pre>
+
+<p>Next comes the implementation of <code>&gt;&gt;=</code> or <em>bind</em>. First the initial structure</p>
+<pre class="highlight haskell"><code><span class="kr">instance</span> <span class="kt">Monad</span> <span class="kt">MaybeIO</span> <span class="kr">where</span>
+    <span class="n">return</span> <span class="o">=</span> <span class="n">pure</span>
+    <span class="kt">MaybeIO</span> <span class="n">m</span> <span class="o">&gt;&gt;=</span> <span class="n">f</span> <span class="o">=</span> <span class="kt">MaybeIO</span> <span class="o">$</span> <span class="kr">_</span>
+</code></pre>
+
+<p>We have a value of type <code>m :: IO (Maybe a)</code> and a function that we need to
+apply to the inner <code>a</code> which has a type <code>f :: a -&gt; MaybeIO b</code>. We can use <code>&gt;&gt;=</code>
+to get to the value inside the <code>IO</code> monad.</p>
+<pre class="highlight haskell"><code><span class="kr">instance</span> <span class="kt">Monad</span> <span class="kt">MaybeIO</span> <span class="kr">where</span>
+    <span class="n">return</span> <span class="o">=</span> <span class="n">pure</span>
+    <span class="kt">MaybeIO</span> <span class="n">m</span> <span class="o">&gt;&gt;=</span> <span class="n">f</span> <span class="o">=</span> <span class="kt">MaybeIO</span> <span class="o">$</span> <span class="n">m</span> <span class="o">&gt;&gt;=</span> <span class="nf">\</span><span class="n">x</span> <span class="o">-&gt;</span> <span class="kr">_</span>
+</code></pre>
+
+<p>This leaves us with <code>x :: Maybe a</code>, which is just one pattern match away from
+the final solution.</p>
+<pre class="highlight haskell"><code><span class="kr">instance</span> <span class="kt">Monad</span> <span class="kt">MaybeIO</span> <span class="kr">where</span>
+    <span class="n">return</span> <span class="o">=</span> <span class="n">pure</span>
+    <span class="kt">MaybeIO</span> <span class="n">m</span> <span class="o">&gt;&gt;=</span> <span class="n">f</span> <span class="o">=</span> <span class="kt">MaybeIO</span> <span class="o">$</span> <span class="n">m</span> <span class="o">&gt;&gt;=</span> <span class="nf">\</span><span class="n">x</span> <span class="o">-&gt;</span> <span class="kr">case</span> <span class="n">x</span> <span class="kr">of</span>
+        <span class="kt">Nothing</span> <span class="o">-&gt;</span> <span class="n">return</span> <span class="o">$</span> <span class="kt">Nothing</span>
+        <span class="kt">Just</span> <span class="n">val</span> <span class="o">-&gt;</span> <span class="n">runMaybeIO</span> <span class="o">$</span> <span class="n">f</span> <span class="n">val</span>
+</code></pre>
+
+<p>A very important thing to note here is that in the case of <code>Just val</code> we
+need to unwrap the <code>MaybeIO</code> using <code>runMaybeIO</code>. One might think that we
+could instead write it like this.</p>
+<pre class="highlight haskell"><code><span class="kr">instance</span> <span class="kt">Monad</span> <span class="kt">MaybeIO</span> <span class="kr">where</span>
+    <span class="n">return</span> <span class="o">=</span> <span class="n">pure</span>
+    <span class="kt">MaybeIO</span> <span class="n">m</span> <span class="o">&gt;&gt;=</span> <span class="n">f</span> <span class="o">=</span> <span class="n">m</span> <span class="o">&gt;&gt;=</span> <span class="nf">\</span><span class="n">x</span> <span class="o">-&gt;</span> <span class="kr">case</span> <span class="n">x</span> <span class="kr">of</span>
+        <span class="kt">Nothing</span> <span class="o">-&gt;</span> <span class="kt">MaybeIO</span> <span class="o">$</span> <span class="n">return</span> <span class="o">$</span> <span class="kt">Nothing</span>
+        <span class="kt">Just</span> <span class="n">val</span> <span class="o">-&gt;</span> <span class="n">f</span> <span class="n">val</span>
+
+<span class="c1">-- Couldn't match type ‘IO’ with ‘MaybeIO’</span>
+</code></pre>
+
+<p>The problem here is that <code>m &gt;&gt;= \x -&gt; ...</code> must have a return value of
+<code>IO</code>, but we&rsquo;re trying to return <code>MaybeIO</code>. This is why we need to
+unwrap the result of <code>f val</code> and then wrap it again after doing <code>&gt;&gt;=</code>,
+as we did in the previous example.</p>
+
+<h2>Using <code>MaybeIO</code> to cleanup our initial example</h2>
+
+<p>We manage to build ourselves a monad which combines the effects of <code>IO</code> and
+<code>Maybe</code> together, which means we can use it to represent <code>IO</code> computations
+which can fail. This is perfect for our initial example which uses <code>findById ::
+Int -&gt; IO (Maybe User)</code>.</p>
+
+<p>Since the type of our computation is <code>MaybeIO</code> we need to wrap the <code>findById</code>
+function to make use of the monad instance for <code>MaybeIO</code>.</p>
+<pre class="highlight haskell"><code><span class="n">smartFindUsers</span> <span class="o">::</span> <span class="kt">Int</span> <span class="o">-&gt;</span> <span class="kt">Int</span> <span class="o">-&gt;</span> <span class="kt">MaybeIO</span> <span class="p">(</span><span class="kt">User</span><span class="p">,</span> <span class="kt">User</span><span class="p">)</span>
+<span class="n">smartFindUsers</span> <span class="n">x</span> <span class="n">y</span> <span class="o">=</span> <span class="kr">do</span>
+    <span class="n">user1</span> <span class="o">&lt;-</span> <span class="kt">MaybeIO</span> <span class="o">$</span> <span class="n">findById</span> <span class="n">x</span>
+    <span class="n">user2</span> <span class="o">&lt;-</span> <span class="kt">MaybeIO</span> <span class="o">$</span> <span class="n">findById</span> <span class="n">y</span>
+
+    <span class="n">return</span> <span class="p">(</span><span class="n">user1</span><span class="p">,</span> <span class="n">user2</span><span class="p">)</span>
+</code></pre>
+
+<p>We can even go one step further and keep the original return value of
+<code>findUsers</code> <code>IO (Maybe (User, User))</code> by unwrapping the <code>MaybeIO</code>.</p>
+<pre class="highlight haskell"><code><span class="n">smartFindUsers</span> <span class="o">::</span> <span class="kt">Int</span> <span class="o">-&gt;</span> <span class="kt">Int</span> <span class="o">-&gt;</span> <span class="kt">IO</span> <span class="p">(</span><span class="kt">Maybe</span> <span class="p">(</span><span class="kt">User</span><span class="p">,</span> <span class="kt">User</span><span class="p">))</span>
+<span class="n">smartFindUsers</span> <span class="n">x</span> <span class="n">y</span> <span class="o">=</span> <span class="n">runMaybeIO</span> <span class="o">$</span> <span class="kr">do</span>
+    <span class="n">user1</span> <span class="o">&lt;-</span> <span class="kt">MaybeIO</span> <span class="o">$</span> <span class="n">findById</span> <span class="n">x</span>
+    <span class="n">user2</span> <span class="o">&lt;-</span> <span class="kt">MaybeIO</span> <span class="o">$</span> <span class="n">findById</span> <span class="n">y</span>
+
+    <span class="n">return</span> <span class="p">(</span><span class="n">user1</span><span class="p">,</span> <span class="n">user2</span><span class="p">)</span>
+</code></pre>
+
+<p>Now let&rsquo;s go ahead and test this in GHCi to make sure we didn&rsquo;t break anything.</p>
+<pre class="highlight haskell"><code><span class="err">λ</span><span class="o">&gt;</span> <span class="n">smartFindUsers</span> <span class="mi">1</span> <span class="mi">1</span>
+<span class="kt">Just</span> <span class="p">(</span><span class="kt">User</span><span class="p">,</span><span class="kt">User</span><span class="p">)</span>
+</code></pre>
+
+<p>Our new version works exactly the same as the old one, but without the
+necessary error handling boilerplate. Much like monads allow you to capture
+control flow patterns, you can use monad transformers to add additional control
+flow to your existing monads without sacrificing readability of your code.</p>
+
+<p>The next step is to make our <code>MaybeIO</code> into an actual transformer by swapping
+<code>IO</code> for any <code>Monad</code>.</p>
+
+<h2>Generalizing <code>MaybeIO</code> to <code>MaybeT</code></h2>
+
+<p>The real monad transformers you&rsquo;ll encounter in the world of Haskell are a bit
+more generic than the one we just implemented. Instead of hard-coding the <code>IO</code>
+monad we&rsquo;ll pass it in as a type parameter, resulting in the following
+definition of <code>MaybeT</code>.</p>
+<pre class="highlight haskell"><code><span class="kr">newtype</span> <span class="kt">MaybeT</span> <span class="n">m</span> <span class="n">a</span> <span class="o">=</span> <span class="kt">MaybeT</span> <span class="p">{</span> <span class="n">runMaybeT</span> <span class="o">::</span> <span class="n">m</span> <span class="p">(</span><span class="kt">Maybe</span> <span class="n">a</span><span class="p">)</span> <span class="p">}</span>
+</code></pre>
+
+<p>There aren&rsquo;t any significant changes, we just introduced a new type parameter
+which will be the monad we&rsquo;re wrapping. Since everything else remains almost
+exactly the same, I&rsquo;ll just show the <code>Monad</code> implementation here.</p>
+<pre class="highlight haskell"><code><span class="kr">newtype</span> <span class="kt">MaybeT</span> <span class="n">m</span> <span class="n">a</span> <span class="o">=</span> <span class="kt">MaybeT</span> <span class="p">{</span> <span class="n">runMaybeT</span> <span class="o">::</span> <span class="n">m</span> <span class="p">(</span><span class="kt">Maybe</span> <span class="n">a</span><span class="p">)</span> <span class="p">}</span>
+
+<span class="kr">instance</span> <span class="kt">Monad</span> <span class="n">m</span> <span class="o">=&gt;</span> <span class="kt">Monad</span> <span class="p">(</span><span class="kt">MaybeT</span> <span class="n">m</span><span class="p">)</span> <span class="kr">where</span>
+    <span class="n">return</span> <span class="o">=</span> <span class="kt">MaybeT</span> <span class="o">.</span> <span class="n">return</span> <span class="o">.</span> <span class="kt">Just</span>
+    <span class="kt">MaybeT</span> <span class="n">m</span> <span class="o">&gt;&gt;=</span> <span class="n">f</span> <span class="o">=</span> <span class="kt">MaybeT</span> <span class="o">$</span> <span class="kr">do</span> <span class="n">value</span> <span class="o">&lt;-</span> <span class="n">m</span>
+                                 <span class="kr">case</span> <span class="n">value</span> <span class="kr">of</span>
+                                     <span class="kt">Nothing</span> <span class="o">-&gt;</span> <span class="n">return</span> <span class="kt">Nothing</span>
+                                     <span class="kt">Just</span> <span class="n">x</span> <span class="o">-&gt;</span> <span class="n">runMaybeT</span> <span class="o">$</span> <span class="n">f</span> <span class="n">x</span>
+</code></pre>
+
+<p>The only notable thing here is that our type parameter <code>m</code> is restricted to be
+a <code>Monad</code> as well, since we&rsquo;re only going to be wrapping monads.</p>
+
+<p>Our <code>findUsers</code> function will be exactly the same, we&rsquo;ll just need to swap
+<code>runMaybeIO</code> for <code>runMaybeT</code>.</p>
+<pre class="highlight haskell"><code><span class="n">transformerFindUsers</span> <span class="o">::</span> <span class="kt">Int</span> <span class="o">-&gt;</span> <span class="kt">Int</span> <span class="o">-&gt;</span> <span class="kt">IO</span> <span class="p">(</span><span class="kt">Maybe</span> <span class="p">(</span><span class="kt">User</span><span class="p">,</span> <span class="kt">User</span><span class="p">))</span>
+<span class="n">transformerFindUsers</span> <span class="n">x</span> <span class="n">y</span> <span class="o">=</span> <span class="n">runMaybeT</span> <span class="o">$</span> <span class="kr">do</span>
+    <span class="n">user1</span> <span class="o">&lt;-</span> <span class="kt">MaybeT</span> <span class="o">$</span> <span class="n">findById</span> <span class="n">x</span>
+    <span class="n">user2</span> <span class="o">&lt;-</span> <span class="kt">MaybeT</span> <span class="o">$</span> <span class="n">findById</span> <span class="n">y</span>
+
+    <span class="n">return</span> <span class="p">(</span><span class="n">user1</span><span class="p">,</span> <span class="n">user2</span><span class="p">)</span>
+</code></pre>
+
+<p>Just to make it crystal clear what&rsquo;s going on here, the function without using
+<code>runMaybeT</code> would look as follows.</p>
+<pre class="highlight haskell"><code><span class="n">wrappedFindUsers</span> <span class="o">::</span> <span class="kt">Int</span> <span class="o">-&gt;</span> <span class="kt">Int</span> <span class="o">-&gt;</span> <span class="kt">MaybeT</span> <span class="kt">IO</span> <span class="p">(</span><span class="kt">User</span><span class="p">,</span> <span class="kt">User</span><span class="p">)</span>
+<span class="n">wrappedFindUsers</span> <span class="n">x</span> <span class="n">y</span> <span class="o">=</span> <span class="kr">do</span>
+    <span class="n">user1</span> <span class="o">&lt;-</span> <span class="kt">MaybeT</span> <span class="o">$</span> <span class="n">findById</span> <span class="n">x</span>
+    <span class="n">user2</span> <span class="o">&lt;-</span> <span class="kt">MaybeT</span> <span class="o">$</span> <span class="n">findById</span> <span class="n">y</span>
+
+    <span class="n">return</span> <span class="o">$</span> <span class="kt">Just</span> <span class="p">(</span><span class="n">user1</span><span class="p">,</span> <span class="n">user2</span><span class="p">)</span>
+</code></pre>
+
+<p>We can even introduce a type alias to have something called <code>MaybeIO</code> using the
+<code>MaybeT</code> transformer.</p>
+<pre class="highlight haskell"><code><span class="kr">type</span> <span class="kt">MaybeIO</span> <span class="n">a</span> <span class="o">=</span> <span class="kt">MaybeT</span> <span class="kt">IO</span> <span class="n">a</span>
+</code></pre>
+
+<p>This is actually how the well known monads such as <code>Reader</code>, <code>Writer</code> and
+<code>State</code> are defined. They&rsquo;re just type synonyms for the respective transformers
+using the <code>Identity</code> monad.</p>
+<pre class="highlight haskell"><code><span class="kr">type</span> <span class="kt">Reader</span> <span class="n">r</span> <span class="o">=</span> <span class="kt">ReaderT</span> <span class="n">r</span> <span class="kt">Identity</span>
+<span class="kr">type</span> <span class="kt">Writer</span> <span class="n">w</span> <span class="o">=</span> <span class="kt">WriterT</span> <span class="n">w</span> <span class="kt">Identity</span>
+<span class="kr">type</span> <span class="kt">State</span> <span class="n">s</span> <span class="o">=</span> <span class="kt">StateT</span> <span class="n">s</span> <span class="kt">Identity</span>
+</code></pre>
+
+<p>If you&rsquo;re interested in learning more about the <code>Identity</code> monad and how it can
+be used in some more advanced settings, take a look at <a href="../../../../blog.jakubarnold.cz/2014/07/14/lens-tutorial-introduction-part-1.html">my Introduction to
+Lenses
+article</a>
+where it&rsquo;s explained step by step in great detail.</p>
+
+<p>This concludes the first article in the series on Monad Transformers. Next time
+we&rsquo;ll take a look at how we can stack one transformer onto another and
+introduce the <code>MonadTrans</code> and <code>MonadIO</code> type classes.</p>
+<div class="form-box"><div class="left"><h1>Want to hear about my upcoming book,<br><strong>Haskell by Example</strong>?</h1><img alt="Haskell by Example Book" src="http://blog.jakuba.net/images/book.png" width="120" /><p>Subscribe to receive updates and free content from the book. You'll also get a discount when the final version of the book is released.</p></div><div class="right mailchimp-signup-form"><div class="col second"><form action="http://sensible.us7.list-manage.com/subscribe/post?u=e0956e52b1c70e11e3e473abd&amp;id=a251f4e777" class="form" method="post" name="mc-embedded-subscribe-form" novalidate="" target="_blank"><div class="form-group"><label for="mce-FNAME"> First Name</label><input class="form-control" name="FNAME" type="text" value="" /></div><div class="form-group"><label for="mce-EMAIL"> Email Address</label><input class="form-control" name="EMAIL" type="email" value="" /></div><!--real people should not fill this in and expect good things - do not remove this or risk form bot signups--><div style="position: absolute; left: -5000px;"><input name="b_e0956e52b1c70e11e3e473abd_a251f4e777" type="text" value="" /></div><div class="clear"><button class="btn btn-subscribe" name="subscribe" type="submit">Keep me updated</button></div></form></div></div></div></div><div id="disqus_thread"></div><script type="text/javascript">var disqus_shortname = 'jakubarnoldblog';
+
+(function() {
+    var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+    dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+    (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+})();</script></div><div class="span4"><div class="right-panel-box"><h3>Recent articles</h3><ul><li><a href="http://blog.jakuba.net/2015/08/08/fibonacci-numbers.html">Fibonacci Numbers</a></li><li><a href="http://blog.jakuba.net/2014/08/10/parsing-css-with-parsec.html">Parsing CSS with Parsec</a></li><li><a href="http://blog.jakuba.net/2014/08/06/lens-tutorial-stab-traversal-part-2.html">Lens Tutorial - Stab & Traversal (Part 2)</a></li><li><a href="http://blog.jakuba.net/2014/07/30/foldable-and-traversable.html">Foldable and Traversable</a></li><li><a href="building-monad-transformers-part-1.html">Building Monad Transformers - Part 1</a></li><li><a href="../20/mutable-state-in-haskell.html">Mutable State in Haskell</a></li><li><a href="http://blog.jakuba.net/2014/07/14/lens-tutorial-introduction-part-1.html">Lens Tutorial - Introduction (part 1)</a></li><li><a href="../10/using-phantom-types-in-haskell-for-extra-safety-part-2.html">Using Phantom Types in Haskell for Extra Safety - Part 2</a></li><li><a href="../08/using-phantom-types-for-extra-safety.html">Using Phantom Types for Extra Safety</a></li><li><a href="http://blog.jakuba.net/2014/06/23/evil-mode-how-to-switch-from-vim-to-emacs.html">Evil Mode: How I Switched From VIM to Emacs</a></li></ul><h3>Tags</h3><ul><li><a href="http://blog.jakuba.net/tags/clojure.html">clojure (1)</a></li><li><a href="http://blog.jakuba.net/tags/testing.html">testing (1)</a></li><li><a href="http://blog.jakuba.net/tags/rspec.html">rspec (1)</a></li><li><a href="http://blog.jakuba.net/tags/ruby.html">ruby (1)</a></li><li><a href="http://blog.jakuba.net/tags/refactoring.html">refactoring (1)</a></li><li><a href="http://blog.jakuba.net/tags/haskell.html">haskell (9)</a></li><li><a href="http://blog.jakuba.net/tags/emacs.html">emacs (1)</a></li><li><a href="http://blog.jakuba.net/tags/lens.html">lens (2)</a></li><li><a href="http://blog.jakuba.net/tags/algorithms.html">algorithms (1)</a></li></ul><h3>Archives</h3><ul><li><a href="http://blog.jakuba.net/2015.html">2015 (1)</a></li><li><a href="http://blog.jakuba.net/2014.html">2014 (13)</a></li><li><a href="http://blog.jakuba.net/2013.html">2013 (3)</a></li></ul><a href="https://plus.google.com/+JakubArnold?rel=author">Google+</a></div></div></div></div><script type="text/javascript">(function() {
+  var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+  po.src = 'https://apis.google.com/js/platform.js';
+  var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+})();</script><script type="text/javascript">!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="https://platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}}(document,"script","twitter-wjs");</script><script type="text/javascript">(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+(i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+})(window,document,'script','http://www.google-analytics.com/analytics.js','ga');
+
+ga('create', 'UA-44251100-2', 'blog.jakubarnold.cz');
+ga('send', 'pageview');</script><script type="text/javascript">var _gauges = _gauges || [];
+(function() {
+  var t   = document.createElement('script');
+  t.type  = 'text/javascript';
+  t.async = true;
+  t.id    = 'gauges-tracker';
+  t.setAttribute('data-site-id', '5325685a8bfdf76a52000c9b');
+  t.src = 'http://secure.gaug.es/track.js';
+  var s = document.getElementsByTagName('script')[0];
+  s.parentNode.insertBefore(t, s);
+})();</script><script src="http://jakubarnold.cz:9000/js/client.js"></script><script type="text/javascript">cat.init("3e4d686b-8b75-4c4b-ae2f-f05c6b7b5fce", "jakubarnold.cz", 9000);
+cat.broadcast("darthdeus", "someone is reading " + document.title);</script></body>
+<!-- Mirrored from blog.jakuba.net/2014/07/22/building-monad-transformers-part-1.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 11:03:45 GMT -->
+</html>

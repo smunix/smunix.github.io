@@ -1,0 +1,1496 @@
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
+
+<!-- Mirrored from andrew.gibiansky.com/blog/verification/writing-a-sat-solver/ by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 11:02:35 GMT -->
+<head>
+  <meta charset="utf-8">
+  <title>Writing a SAT Solver -  Andrew Gibiansky</title>
+  <meta name="author" content="Andrew Gibiansky">
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <link href='http://fonts.googleapis.com/css?family=Lato|News+Cycle:400,700&amp;subset=latin,latin-ext' rel='stylesheet' type='text/css'>
+  <link href="http://andrew.gibiansky.com/favicon.ico" rel="icon">
+  <link rel="stylesheet" href="http://cdnjs.cloudflare.com/ajax/libs/font-awesome/3.1.0/css/font-awesome.min.css">
+  <link href="http://andrew.gibiansky.com/css/asciidoctor-default.css" rel="stylesheet" type="text/css">
+  <link href="http://andrew.gibiansky.com/css/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
+  <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+
+  <script type="text/javascript">
+  window.MathJax = {
+      tex2jax: {
+        // Hack for Hakyll. Char code 86 is a dollar sign, which is used in templates...
+        inlineMath: [ [String.fromCharCode(36), String.fromCharCode(36)], ["\\(","\\)"] ],
+        processEscapes: true
+      }
+  };
+  </script>
+  <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+  <script>!window.jQuery && document.write(unescape('%3Cscript src="./javascripts/lib/jquery.min.js"%3E%3C/script%3E'))</script>
+
+  <style>
+  table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode {
+      margin: 0;
+      padding: 0;
+      vertical-align: baseline;
+      border: none;
+  }
+  table.sourceCode { 
+      width: 100%;
+      background-color: #2a211c;
+      color: #bdae9d;
+
+      line-height: 1.4;
+      font-size: 0.8em;
+  }
+  td.lineNumbers { 
+      text-align: right;
+      padding-right: 4px;
+      padding-left: 4px;
+      background-color: #2a211c;
+      color: #bdae9d;
+      border-right: 1px solid #bdae9d;
+  }
+  td.sourceCode { 
+      padding-left: 5px;
+  }
+
+  pre.sourceCode, code.sourceCode { 
+      color: #bdbdbd;
+      background-color: #000000;
+  }
+
+  code > span.dt { text-decoration: underline; }
+  code > span.dv { color: #44aa43; }
+  code > span.bn { color: #44aa43; }
+  code > span.fl { color: #44aa43; }
+  code > span.ch { color: #049b0a; }
+  code > span.st { color: #049b0a; }
+  code > span.al { color: #ffff00; }
+  code > span.er { font-weight: bold; }
+
+  code > span.co {
+      color: #ee5555;
+      font-style: italic;
+  }
+  code > span.fu { 
+      color: #ff9358;
+      font-weight: bold;
+  }
+  code > span.kw { 
+      color: #43a8ed;
+      font-weight: bold;
+  }
+  </style>
+
+  <style>
+  .center {
+      text-align: center;
+  }
+  .gist .line-data { width: 100% }
+
+  .entry-content figure {
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    text-align: center;
+    margin-bottom: 1em;
+    margin-top: 1em;
+  }
+  </style>
+
+  
+  <link href="http://andrew.gibiansky.com/css/ipython.css" rel="stylesheet" type="text/css">
+  <style>
+div.input_area {
+    border: none;
+}
+div.output_area { display: block; }
+.output_area > .output_subarea { display: inline-block; }
+.output_area > .prompt { display: inline-block; }
+  </style>
+  
+
+  <script type="text/javascript">
+var _gaq = _gaq || [];
+_gaq.push(['_setAccount', 'UA-40714888-1']);
+_gaq.push(['_trackPageview']);
+
+(function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+})();
+</script>
+
+</head>
+
+<body>
+  <header role="banner">
+    <hgroup>
+      <h1>
+        <a href="http://andrew.gibiansky.com/">
+          Andrew Gibiansky
+          &nbsp;&nbsp;::&nbsp;
+          &nbsp;<em>Math</em>&nbsp;&rarr;&nbsp;[<strong>Code</strong>]
+        </a>
+      </h1>
+    </hgroup>
+  </header>
+  <nav role="navigation"><ul class="main-navigation">
+  <li><a href="http://andrew.gibiansky.com/">Blog</a></li>
+  <li><a href="http://andrew.gibiansky.com/archive.html">Archive</a></li>
+  <li><a href="http://andrew.gibiansky.com/pages/about.html">About</a></li>
+</ul>
+</nav>
+  <div id="main">
+    <div id="content">
+        <div>
+<article class="hentry" role="article">
+
+  <header>
+    <!--
+    <div style="text-align: center; font-weight: bold; font-size: 1.3em; border-width: 2px; border-style: solid; border-radius: 20px; padding: 0.5em; background: none repeat scroll 0% 0% rgba(225, 68, 68, 0.2); overflow: hidden;"><div><img style="float: left; width: 70px; border: none; box-shadow: none;" src="http://www.kronosnotebook.com/static/imgs/logo.png" alt="Kronos Notebook logo"> <div style="">Check out <a href="http://www.kronosnotebook.com">Kronos Notebook</a>, my new <a href="http://www.ipython.org/notebook.html">IPython</a>-based Mac app for interactive computing and data analysis in Python or Haskell.</div></div></div> -->
+
+    <h1 class="entry-title">Writing a SAT Solver</h1>
+
+    <p class="meta">
+    Sunday, April  5, 2015
+    </p>
+</header>
+
+
+<div class="entry-content">
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="SAT-Solving-to-Software-Verification:-Part-1">SAT Solving to Software Verification: Part 1<a class="anchor-link" href="#SAT-Solving-to-Software-Verification:-Part-1"></a></h3>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>In this post, we'll look at how to teach computers to solve puzzles. Specifically, we'll look at a simple puzzle that can be expressed as a boolean constraint satisfaction problem, and we'll write a simple constraint solver (a SAT solver) and mention how our algorithm, when augmented with a few optimizations, is used in modern SAT solvers. The only requisite knowledge is a basic understanding of algorithms and the ability to read Haskell code.</p>
+<p>In future posts, we'll extend our puzzle solving abilities beyond boolean constratint satisfaction by writing an SMT solver; after that, we'll look at how these puzzle solving algorithms can be used for software verification.</p>
+<p>This is an exported <a href="http://www.github.com/gibiansky/IHaskell">IHaskell</a> notebook, and you can download the <a href="data/Writing-a-SAT-Solver.ipynb">original</a> to play around with the code.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Boolean-Constraint-Satisfaction">Boolean Constraint Satisfaction<a class="anchor-link" href="#Boolean-Constraint-Satisfaction"></a></h2><p>Let's start by jumping in with an example of a constraint satisfaction problem. Suppose that you need to go grocery shopping, and need to visit three stores: Costco, Home Depot, and Walmart. Costco is open in the morning and evening, Home Depot is open in the evening only, and Walmart is open in the morning only. You can only be in one place at a time, and shopping at a given store takes up the entire morning or evening. Can you go to all three stores in a day?</p>
+<p>To a human, it is intuitively obvious that the answer is no. Since Home Depot and Walmart offer us only one time option (evening and morning, respectively), then we have to go there at those times. However, this leaves no time for a Costco trip, so it's evident that this "puzzle" has no solution.</p>
+<p>Now suppose instead of three stores, you were given three thousand (each with its own schedule), and instead of two times, you were given all the hours of a day? At this point, the problem becomes intractable for a human. Luckily, though, cruching numbers and analyzing thousands of different options are what computers excel at.</p>
+<p>So, how would you encode the above problem in a way that a computer could understand?</p>
+<p>Computers are built upon boolean algebra, operating on true and false values. Thus, a natural way to encode our problem is to try to rewrite it as an expression involving boolean variables, which can either be true or false. For example, using the example of three stores and two times, let's make six variables:</p>
+<ul>
+<li>$C_e$: Whether we go to Costco in the evening.</li>
+<li>$C_m$: Whether we go to Costco in the morning.</li>
+<li>$H_e$: Whether we go to Home Depot in the evening.</li>
+<li>$H_m$: Whether we go to Home Depot in the morning.</li>
+<li>$W_e$: Whether we go to Walmart in the evening.</li>
+<li>$W_m$: Whether we go to Walmart in the morning.</li>
+</ul>
+<p>Each of these variables if true (or 1) if we visit the store at the corresponding time, and false otherwise. Next, we form some constraints on these variables, and express them in a unified form we could feed to a computer.</p>
+<p>First, we know that we can only be in one place at a given time. For example, if we are at Costco in the morning (that is, $C_m = 1$), then we cannot be at Home Depot or Walmart in the morning (and thus $H_m = W_m = 0$). Using $\wedge$ for "and", $\vee$ for "or", and $\overline{A}$ to indicate "not $A$", we can express that constraint as $C_m \wedge \overline{H_m} \wedge \overline{W_m}$. Note that this constraint <em>assumes</em> that $C_m = 1$; $C_m$ must be true in order to satisfy that constraint.</p>
+<p>Of course, we know that at a given time, we could go to Costco, Home Depot, <em>or</em> Walmart, so $C_m$ doesn't have to be true. Thus, the constraint that we only go to one place in the evening can be represented as</p>
+$$(C_e \wedge \overline{H_e} \wedge \overline{W_e}) \vee (\overline{C_e} \wedge {H_e} \wedge \overline{W_e}) \vee (\overline{C_e} \wedge \overline{H_e} \wedge {W_e})$$<p>Similarly, the constraint that we only go to one place in the morning is</p>
+$$(C_m \wedge \overline{H_m} \wedge \overline{W_m}) \vee (\overline{C_m} \wedge {H_m} \wedge \overline{W_m}) \vee (\overline{C_m} \wedge \overline{H_m} \wedge {W_m})$$<p>Next, we need a constraint that we go to Costco in either the morning or evening, which we can represent as $C_m \vee C_e$: either we go to Costco in the morning, or in the evening. We have similar constraints for Walmart and Home Depot, yielding the following constraint to represent that we must go to each store:</p>
+$$(C_m \vee C_e) \wedge (H_m \vee H_e) \wedge (M_m \vee M_e)$$<p>Thus, the full set of constraints for our problem is</p>
+$$\begin{align*}
+(C_m \vee C_e) \wedge (H_m \vee H_e) \wedge (M_m \vee M_e) &\wedge\\
+(C_m \wedge \overline{H_m} \wedge \overline{W_m}) \vee (\overline{C_m} \wedge {H_m} \wedge \overline{W_m}) \vee (\overline{C_m} \wedge \overline{H_m} \wedge {W_m}) &\wedge\\
+(C_e \wedge \overline{H_e} \wedge \overline{W_e}) \vee (\overline{C_e} \wedge {H_e} \wedge \overline{W_e}) \vee (\overline{C_e} \wedge \overline{H_e} \wedge {W_e}) &
+\end{align*}$$<p>To find out whether we can complete our shopping trip, we must find a set of true or false values for all our boolean variables such that the constraints are <strong>satisfied</strong>. This type of problem is known as the <a href="https://en.wikipedia.org/wiki/Boolean_satisfiability_problem">boolean satisfiability problem</a>, often abbreviated to just "SAT". A program that finds solutions to these problems is known as a SAT solver.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="SAT-Solving">SAT Solving<a class="anchor-link" href="#SAT-Solving"></a></h2><p>Let's write a simple SAT solver in Haskell. Once we have a simple solver, we'll discuss heuristics for speeding up solving.</p>
+<p>Let's start by defining a data type to store our constraints:</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[1]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-haskell"><pre><span class="kr">data</span> <span class="kt">Expr</span> <span class="ow">=</span> <span class="kt">Var</span> <span class="kt">Char</span>
+          <span class="o">|</span> <span class="kt">And</span> <span class="kt">Expr</span> <span class="kt">Expr</span>
+          <span class="o">|</span> <span class="kt">Or</span> <span class="kt">Expr</span> <span class="kt">Expr</span>
+          <span class="o">|</span> <span class="kt">Not</span> <span class="kt">Expr</span>
+          <span class="o">|</span> <span class="kt">Const</span> <span class="kt">Bool</span>
+  <span class="kr">deriving</span> <span class="p">(</span><span class="kt">Show</span><span class="p">,</span> <span class="kt">Eq</span><span class="p">)</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Note the <code>Var Char</code> constructor: in this simple expression data type, we use <code>Char</code> to represent variables. We also allow for <code>Const</code> constructors to represent concrete true or false values; this is particularly useful for intermediate computations.</p>
+<p>The most basic algorithm for SAT solving is a backtracking search. This search has the following steps:</p>
+<ol>
+<li>Find a variable in the constraint expression that <em>hasn't</em> been assigned (a free variable).</li>
+<li>Guess a value for this free variable.</li>
+<li>Replace all occurrences of the free variable with the guessed value.</li>
+<li>Simplify the expression. If the expression simplifies to true (one), then the values we've assigned work, and any variables that are unassigned do not matter. If the expression simplifies to false (zero), then undo the last assignment, and assign the opposite value.</li>
+</ol>
+<p>First, we implement step 1: finding free variables with <code>freeVariable :: Expr -&gt; Maybe Char</code>. Since not all expressions have a free variables, we return a <code>Maybe</code> value, and we can use <code>&lt;|&gt;</code> from the <code>Alternative</code> typeclass to choose the first <code>Just</code> we encounter.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[2]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-haskell"><pre><span class="kr">import</span> <span class="nn">Control.Applicative</span> <span class="p">((</span><span class="o">&lt;|&gt;</span><span class="p">))</span>
+
+<span class="c1">-- Return the first free variable in the boolean expression.</span>
+<span class="c1">-- If there are no free variables (it is Const), return Nothing.</span>
+<span class="nf">freeVariable</span> <span class="ow">::</span> <span class="kt">Expr</span> <span class="ow">-&gt;</span> <span class="kt">Maybe</span> <span class="kt">Char</span>
+<span class="nf">freeVariable</span> <span class="p">(</span><span class="kt">Const</span> <span class="kr">_</span><span class="p">)</span> <span class="ow">=</span> <span class="kt">Nothing</span>
+<span class="nf">freeVariable</span> <span class="p">(</span><span class="kt">Var</span> <span class="n">v</span><span class="p">)</span> <span class="ow">=</span> <span class="kt">Just</span> <span class="n">v</span>
+<span class="nf">freeVariable</span> <span class="p">(</span><span class="kt">Not</span> <span class="n">e</span><span class="p">)</span> <span class="ow">=</span> <span class="n">freeVariable</span> <span class="n">e</span> 
+<span class="nf">freeVariable</span> <span class="p">(</span><span class="kt">Or</span> <span class="n">x</span> <span class="n">y</span><span class="p">)</span> <span class="ow">=</span> <span class="n">freeVariable</span> <span class="n">x</span> <span class="o">&lt;|&gt;</span> <span class="n">freeVariable</span> <span class="n">y</span>
+<span class="nf">freeVariable</span> <span class="p">(</span><span class="kt">And</span> <span class="n">x</span> <span class="n">y</span><span class="p">)</span> <span class="ow">=</span> <span class="n">freeVariable</span> <span class="n">x</span> <span class="o">&lt;|&gt;</span> <span class="n">freeVariable</span> <span class="n">y</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Next, implement step 2: replacing free variables with a constant true or false guess value. At this point, we introduce <code>Const</code> constructors into our expression tree, replacing the appropriate <code>Var</code> constructors with them.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[3]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-haskell"><pre><span class="c1">-- Guess a value for a variable. This replaces all</span>
+<span class="c1">-- the appropriate Var constructors with a Const constructor.</span>
+<span class="nf">guessVariable</span> <span class="ow">::</span> <span class="kt">Char</span> <span class="ow">-&gt;</span> <span class="kt">Bool</span> <span class="ow">-&gt;</span> <span class="kt">Expr</span> <span class="ow">-&gt;</span> <span class="kt">Expr</span>
+<span class="nf">guessVariable</span> <span class="n">var</span> <span class="n">val</span> <span class="n">e</span> <span class="ow">=</span>
+  <span class="kr">case</span> <span class="n">e</span> <span class="kr">of</span> 
+    <span class="kt">Var</span> <span class="n">v</span> <span class="ow">-&gt;</span> <span class="kr">if</span> <span class="n">v</span> <span class="o">==</span> <span class="n">var</span>
+             <span class="kr">then</span> <span class="kt">Const</span> <span class="n">val</span>
+             <span class="kr">else</span> <span class="kt">Var</span> <span class="n">v</span>
+    <span class="kt">Not</span> <span class="n">e</span> <span class="ow">-&gt;</span> <span class="kt">Not</span> <span class="p">(</span><span class="n">guess</span> <span class="n">e</span><span class="p">)</span>
+    <span class="kt">Or</span> <span class="n">x</span> <span class="n">y</span> <span class="ow">-&gt;</span> <span class="kt">Or</span> <span class="p">(</span><span class="n">guess</span> <span class="n">x</span><span class="p">)</span> <span class="p">(</span><span class="n">guess</span> <span class="n">y</span><span class="p">)</span>
+    <span class="kt">And</span> <span class="n">x</span> <span class="n">y</span> <span class="ow">-&gt;</span> <span class="kt">And</span> <span class="p">(</span><span class="n">guess</span> <span class="n">x</span><span class="p">)</span> <span class="p">(</span><span class="n">guess</span> <span class="n">y</span><span class="p">)</span>
+    <span class="kt">Const</span> <span class="n">b</span> <span class="ow">-&gt;</span> <span class="kt">Const</span> <span class="n">b</span>
+  <span class="kr">where</span>
+    <span class="n">guess</span> <span class="ow">=</span> <span class="n">guessVariable</span> <span class="n">var</span> <span class="n">val</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Now that we've introduced <code>Const</code> constructors, our expression is no longer simplified. For example, we can now have expressions such as $x \wedge 0$ or $y \vee 1$, which should be simplified down to 0 and 1, respectively.</p>
+<p>Thus, we introduce <code>simplify</code>, which returns either a <code>Const</code> constructor or a simplified expression; if the result is not a <code>Const</code> constructor, it guarantees that there are no <code>Const</code> constructors in the <code>Expr</code> tree further down. (Note that we could encode this invariant in the type system! The best way to do this is left as an exercise to the reader.)</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[4]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-haskell"><pre><span class="nf">simplify</span> <span class="ow">::</span> <span class="kt">Expr</span> <span class="ow">-&gt;</span> <span class="kt">Expr</span>
+<span class="nf">simplify</span> <span class="p">(</span><span class="kt">Const</span> <span class="n">b</span><span class="p">)</span> <span class="ow">=</span> <span class="kt">Const</span> <span class="n">b</span>
+<span class="nf">simplify</span> <span class="p">(</span><span class="kt">Var</span> <span class="n">v</span><span class="p">)</span> <span class="ow">=</span> <span class="kt">Var</span> <span class="n">v</span>
+<span class="nf">simplify</span> <span class="p">(</span><span class="kt">Not</span> <span class="n">e</span><span class="p">)</span> <span class="ow">=</span>
+  <span class="kr">case</span> <span class="n">simplify</span> <span class="n">e</span> <span class="kr">of</span>
+    <span class="kt">Const</span> <span class="n">b</span> <span class="ow">-&gt;</span> <span class="kt">Const</span> <span class="p">(</span><span class="n">not</span> <span class="n">b</span><span class="p">)</span>
+    <span class="n">e</span> <span class="ow">-&gt;</span> <span class="kt">Not</span> <span class="n">e</span>
+<span class="nf">simplify</span> <span class="p">(</span><span class="kt">Or</span> <span class="n">x</span> <span class="n">y</span><span class="p">)</span> <span class="ow">=</span>
+  <span class="c1">-- Get rid of False values, which are irrelevant.</span>
+  <span class="kr">let</span> <span class="n">es</span> <span class="ow">=</span> <span class="n">filter</span> <span class="p">(</span><span class="o">/=</span> <span class="kt">Const</span> <span class="kt">False</span><span class="p">)</span> <span class="p">[</span><span class="n">simplify</span> <span class="n">x</span><span class="p">,</span> <span class="n">simplify</span> <span class="n">y</span><span class="p">]</span>
+  <span class="kr">in</span>
+    <span class="c1">-- If True is in a branch, the entire expression is True.</span>
+    <span class="kr">if</span> <span class="kt">Const</span> <span class="kt">True</span> <span class="p">`</span><span class="n">elem</span><span class="p">`</span> <span class="n">es</span>
+    <span class="kr">then</span> <span class="kt">Const</span> <span class="kt">True</span>
+    <span class="kr">else</span>
+      <span class="kr">case</span> <span class="n">es</span> <span class="kr">of</span>
+        <span class="c1">-- If all the values were False, this &#39;or&#39; is unsatisfied.</span>
+        <span class="kt">[]</span> <span class="ow">-&gt;</span> <span class="kt">Const</span> <span class="kt">False</span>
+        <span class="p">[</span><span class="n">e</span><span class="p">]</span> <span class="ow">-&gt;</span> <span class="n">e</span>
+        <span class="p">[</span><span class="n">e1</span><span class="p">,</span> <span class="n">e2</span><span class="p">]</span> <span class="ow">-&gt;</span> <span class="kt">Or</span> <span class="n">e1</span> <span class="n">e2</span>
+<span class="c1">-- Dual to the simplify (Or x y) definition.</span>
+<span class="nf">simplify</span> <span class="p">(</span><span class="kt">And</span> <span class="n">x</span> <span class="n">y</span><span class="p">)</span> <span class="ow">=</span>
+  <span class="kr">let</span> <span class="n">es</span> <span class="ow">=</span> <span class="n">filter</span> <span class="p">(</span><span class="o">/=</span> <span class="kt">Const</span> <span class="kt">True</span><span class="p">)</span> <span class="p">[</span><span class="n">simplify</span> <span class="n">x</span><span class="p">,</span> <span class="n">simplify</span> <span class="n">y</span><span class="p">]</span>
+  <span class="kr">in</span>
+    <span class="kr">if</span> <span class="kt">Const</span> <span class="kt">False</span> <span class="p">`</span><span class="n">elem</span><span class="p">`</span> <span class="n">es</span>
+    <span class="kr">then</span> <span class="kt">Const</span> <span class="kt">False</span>
+    <span class="kr">else</span>
+      <span class="kr">case</span> <span class="n">es</span> <span class="kr">of</span>
+        <span class="kt">[]</span> <span class="ow">-&gt;</span> <span class="kt">Const</span> <span class="kt">True</span>
+        <span class="p">[</span><span class="n">e</span><span class="p">]</span> <span class="ow">-&gt;</span> <span class="n">e</span>
+        <span class="p">[</span><span class="n">e1</span><span class="p">,</span> <span class="n">e2</span><span class="p">]</span> <span class="ow">-&gt;</span> <span class="kt">And</span> <span class="n">e1</span> <span class="n">e2</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>We now have all the building blocks of the backtracking algorithm described above. We can implement it as a depth first search, using recursion for backtracking:</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[5]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-haskell"><pre><span class="c1">-- Extract the boolean from the Const constructor.</span>
+<span class="nf">unConst</span> <span class="ow">::</span> <span class="kt">Expr</span> <span class="ow">-&gt;</span> <span class="kt">Bool</span>
+<span class="nf">unConst</span> <span class="p">(</span><span class="kt">Const</span> <span class="n">b</span><span class="p">)</span> <span class="ow">=</span> <span class="n">b</span>
+<span class="nf">unConst</span> <span class="kr">_</span> <span class="ow">=</span> <span class="ne">error</span> <span class="s">&quot;Not Const&quot;</span>
+
+<span class="nf">satisfiable</span> <span class="ow">::</span> <span class="kt">Expr</span> <span class="ow">-&gt;</span> <span class="kt">Bool</span>
+<span class="nf">satisfiable</span> <span class="n">expr</span> <span class="ow">=</span>
+  <span class="kr">case</span> <span class="n">freeVariable</span> <span class="n">expr</span> <span class="kr">of</span>
+    <span class="kt">Nothing</span> <span class="ow">-&gt;</span> <span class="n">unConst</span> <span class="n">expr</span>
+    <span class="kt">Just</span> <span class="n">v</span> <span class="ow">-&gt;</span>
+      <span class="c1">-- We have a variable to guess.</span>
+      <span class="c1">-- Construct the two guesses.</span>
+      <span class="c1">-- Return whether either one of them works.</span>
+      <span class="kr">let</span> <span class="n">trueGuess</span>  <span class="ow">=</span> <span class="n">simplify</span> <span class="p">(</span><span class="n">guessVariable</span> <span class="n">v</span> <span class="kt">True</span> <span class="n">expr</span><span class="p">)</span>
+          <span class="n">falseGuess</span> <span class="ow">=</span> <span class="n">simplify</span> <span class="p">(</span><span class="n">guessVariable</span> <span class="n">v</span> <span class="kt">False</span> <span class="n">expr</span><span class="p">)</span>
+      <span class="kr">in</span> <span class="n">satisfiable</span> <span class="n">trueGuess</span> <span class="o">||</span> <span class="n">satisfiable</span> <span class="n">falseGuess</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>We can test this backtracking search on a few trivial examples:</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[6]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-haskell"><pre><span class="p">(</span><span class="n">satisfiable</span> <span class="p">(</span><span class="kt">Const</span> <span class="kt">True</span><span class="p">),</span> <span class="n">satisfiable</span> <span class="p">(</span><span class="kt">Const</span> <span class="kt">False</span><span class="p">))</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area"><div class="prompt"></div>
+
+
+<div class="output_text output_subarea ">
+<pre>(True,False)</pre>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[7]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-haskell"><pre><span class="nf">satisfiable</span> <span class="o">$</span> <span class="kt">And</span> <span class="p">(</span><span class="kt">Var</span> <span class="sc">&#39;x&#39;</span><span class="p">)</span> <span class="p">(</span><span class="kt">Not</span> <span class="p">(</span><span class="kt">Var</span> <span class="sc">&#39;x&#39;</span><span class="p">))</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area"><div class="prompt"></div>
+
+
+<div class="output_text output_subarea ">
+<pre>False</pre>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[8]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-haskell"><pre><span class="nf">satisfiable</span> <span class="o">$</span> <span class="kt">Or</span> <span class="p">(</span><span class="kt">Var</span> <span class="sc">&#39;x&#39;</span><span class="p">)</span> <span class="p">(</span><span class="kt">Not</span> <span class="p">(</span><span class="kt">Var</span> <span class="sc">&#39;x&#39;</span><span class="p">))</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area"><div class="prompt"></div>
+
+
+<div class="output_text output_subarea ">
+<pre>True</pre>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Solving-Our-Puzzle">Solving Our Puzzle<a class="anchor-link" href="#Solving-Our-Puzzle"></a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>We can also use this to solve our earlier puzzle. For generality, we'll write the code to solve this puzzle for any set of stores and times, but only define a small number of them:</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[9]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-haskell"><pre><span class="c1">-- Stores we need to go to.</span>
+<span class="kr">data</span> <span class="kt">Store</span> <span class="ow">=</span> <span class="kt">Walmart</span> <span class="o">|</span> <span class="kt">HomeDepot</span> <span class="o">|</span> <span class="kt">Costco</span> <span class="kr">deriving</span> <span class="p">(</span><span class="kt">Show</span><span class="p">,</span> <span class="kt">Eq</span><span class="p">)</span>
+
+<span class="c1">-- Times the stores could be open.</span>
+<span class="kr">data</span> <span class="kt">Time</span> <span class="ow">=</span> <span class="kt">Morning</span> <span class="o">|</span> <span class="kt">Evening</span> <span class="kr">deriving</span> <span class="p">(</span><span class="kt">Show</span><span class="p">,</span> <span class="kt">Eq</span><span class="p">)</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Now that we have a data type to represent stores and times, let's encode (as a function) when each store is available. In a real application, this would be fetched from a database, or some other information source:</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[10]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-haskell"><pre><span class="c1">-- Times each store is open.</span>
+<span class="nf">availability</span> <span class="ow">::</span> <span class="kt">Store</span> <span class="ow">-&gt;</span> <span class="p">[</span><span class="kt">Time</span><span class="p">]</span>
+<span class="nf">availability</span> <span class="kt">Walmart</span> <span class="ow">=</span>  <span class="p">[</span><span class="kt">Morning</span><span class="p">]</span>
+<span class="nf">availability</span> <span class="kt">HomeDepot</span> <span class="ow">=</span> <span class="p">[</span><span class="kt">Evening</span><span class="p">]</span>
+<span class="nf">availability</span> <span class="kt">Costco</span> <span class="ow">=</span> <span class="p">[</span><span class="kt">Morning</span><span class="p">,</span> <span class="kt">Evening</span><span class="p">]</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Finally, create a set of constraints to satisfy. We'll first have to encode the variables ($C_m$, $C_e$, $H_m$, and so on) in our expression format, after which we can encode all our constraints:</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[11]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-haskell"><pre><span class="c1">-- A variable to represent visiting a store at a time.</span>
+<span class="nf">variable</span> <span class="ow">::</span> <span class="kt">Store</span> <span class="ow">-&gt;</span> <span class="kt">Time</span> <span class="ow">-&gt;</span> <span class="kt">Expr</span>
+<span class="nf">variable</span> <span class="kt">Walmart</span>   <span class="kt">Morning</span> <span class="ow">=</span> <span class="kt">Var</span> <span class="sc">&#39;a&#39;</span>
+<span class="nf">variable</span> <span class="kt">Walmart</span>   <span class="kt">Evening</span> <span class="ow">=</span> <span class="kt">Var</span> <span class="sc">&#39;b&#39;</span>
+<span class="nf">variable</span> <span class="kt">HomeDepot</span> <span class="kt">Morning</span> <span class="ow">=</span> <span class="kt">Var</span> <span class="sc">&#39;c&#39;</span>
+<span class="nf">variable</span> <span class="kt">HomeDepot</span> <span class="kt">Evening</span> <span class="ow">=</span> <span class="kt">Var</span> <span class="sc">&#39;d&#39;</span>
+<span class="nf">variable</span> <span class="kt">Costco</span>    <span class="kt">Morning</span> <span class="ow">=</span> <span class="kt">Var</span> <span class="sc">&#39;e&#39;</span>
+<span class="nf">variable</span> <span class="kt">Costco</span>    <span class="kt">Evening</span> <span class="ow">=</span> <span class="kt">Var</span> <span class="sc">&#39;f&#39;</span>
+
+<span class="c1">-- Create a constraint requiring us to visit a given store</span>
+<span class="c1">-- on *one* of the provided times. In our puzzle, the provided</span>
+<span class="c1">-- times are all the available ones.</span>
+<span class="nf">visitConstraint</span> <span class="ow">::</span> <span class="p">[</span><span class="kt">Time</span><span class="p">]</span> <span class="ow">-&gt;</span> <span class="kt">Store</span> <span class="ow">-&gt;</span> <span class="kt">Expr</span>
+<span class="nf">visitConstraint</span> <span class="n">times</span> <span class="n">store</span> <span class="ow">=</span>
+  <span class="n">foldl1</span> <span class="kt">Or</span> <span class="o">$</span> <span class="n">map</span> <span class="p">(</span><span class="n">variable</span> <span class="n">store</span><span class="p">)</span> <span class="n">times</span>
+
+<span class="c1">-- A constraint requiring us to visit all the stores.</span>
+<span class="nf">visitAllConstraint</span> <span class="ow">::</span> <span class="p">[</span><span class="kt">Store</span><span class="p">]</span> <span class="ow">-&gt;</span> <span class="p">[</span><span class="kt">Time</span><span class="p">]</span> <span class="ow">-&gt;</span> <span class="kt">Expr</span>
+<span class="nf">visitAllConstraint</span> <span class="n">stores</span> <span class="n">times</span> <span class="ow">=</span>
+  <span class="n">foldl1</span> <span class="kt">And</span> <span class="o">$</span> <span class="n">map</span> <span class="p">(</span><span class="n">visitConstraint</span> <span class="n">times</span><span class="p">)</span> <span class="n">stores</span>
+
+<span class="c1">-- mapMaybe :: (a -&gt; Maybe b) -&gt; [a] -&gt; [b]</span>
+<span class="c1">-- Apply a function and keep all the Just results.</span>
+<span class="kr">import</span> <span class="nn">Data.Maybe</span> <span class="p">(</span><span class="nf">mapMaybe</span><span class="p">)</span>
+
+<span class="c1">-- Generate a constraint enforcing the fact that</span>
+<span class="c1">-- we only visit stores when they are available.</span>
+<span class="nf">storeConstraint</span> <span class="ow">::</span> <span class="p">[</span><span class="kt">Time</span><span class="p">]</span> <span class="ow">-&gt;</span> <span class="kt">Store</span> <span class="ow">-&gt;</span> <span class="kt">Expr</span>
+<span class="nf">storeConstraint</span> <span class="n">allTimes</span> <span class="n">store</span> <span class="ow">=</span>
+  <span class="kr">case</span> <span class="n">mapMaybe</span> <span class="n">timeConstraint</span> <span class="n">allTimes</span> <span class="kr">of</span>
+    <span class="kt">[]</span> <span class="ow">-&gt;</span> <span class="kt">Const</span> <span class="kt">True</span> <span class="c1">-- We can go to this store any time.</span>
+    <span class="n">cs</span> <span class="ow">-&gt;</span> <span class="n">foldl1</span> <span class="kt">And</span> <span class="n">cs</span>
+  <span class="kr">where</span>
+    <span class="c1">-- Return Nothing is we can visit the store</span>
+    <span class="c1">-- at the time. Otherwise return a constraint</span>
+    <span class="c1">-- that must be satisfied which ensures that the</span>
+    <span class="c1">-- store is not visited at this time.</span>
+    <span class="n">timeConstraint</span> <span class="ow">::</span> <span class="kt">Time</span> <span class="ow">-&gt;</span> <span class="kt">Maybe</span> <span class="kt">Expr</span>
+    <span class="n">timeConstraint</span> <span class="n">time</span>
+      <span class="o">|</span> <span class="n">time</span> <span class="p">`</span><span class="n">elem</span><span class="p">`</span> <span class="n">availability</span> <span class="n">store</span> <span class="ow">=</span> <span class="kt">Nothing</span>
+      <span class="o">|</span> <span class="n">otherwise</span> <span class="ow">=</span> <span class="kt">Just</span> <span class="p">(</span><span class="kt">Not</span> <span class="p">(</span><span class="n">variable</span> <span class="n">store</span> <span class="n">time</span><span class="p">))</span>
+      
+<span class="c1">-- (\\) is set difference on lists.</span>
+<span class="kr">import</span> <span class="nn">Data.List</span> <span class="p">((</span><span class="o">\\</span><span class="p">))</span>
+
+<span class="c1">-- Constraints for each time, indicating that we cannot</span>
+<span class="c1">-- be in multiple places during one time.</span>
+<span class="nf">timeConstraint</span> <span class="ow">::</span> <span class="p">[</span><span class="kt">Store</span><span class="p">]</span> <span class="ow">-&gt;</span> <span class="kt">Time</span> <span class="ow">-&gt;</span> <span class="kt">Expr</span>
+<span class="nf">timeConstraint</span> <span class="n">allStores</span> <span class="n">time</span> <span class="ow">=</span>
+  <span class="n">foldl1</span> <span class="kt">Or</span> <span class="o">$</span> <span class="n">map</span> <span class="n">chooseStore</span> <span class="n">allStores</span>
+  <span class="kr">where</span>
+    <span class="c1">-- Generate a constraint requiring us to be in a given store at a time,</span>
+    <span class="c1">-- and no other stores at that same time.</span>
+    <span class="n">chooseStore</span> <span class="n">store</span> <span class="ow">=</span>
+      <span class="kt">And</span> <span class="p">(</span><span class="n">variable</span> <span class="n">store</span> <span class="n">time</span><span class="p">)</span> 
+          <span class="p">(</span><span class="n">foldl1</span> <span class="kt">And</span> <span class="p">(</span><span class="n">map</span> <span class="p">(</span><span class="kt">Not</span> <span class="o">.</span> <span class="n">flip</span> <span class="n">variable</span> <span class="n">time</span><span class="p">)</span> <span class="p">(</span><span class="n">allStores</span> <span class="o">\\</span> <span class="p">[</span><span class="n">store</span><span class="p">])))</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>With our main logic written we now formulate our full set of constraints:</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[12]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-haskell"><pre><span class="c1">-- All available stores and times in the puzzle.</span>
+<span class="nf">stores</span> <span class="ow">=</span> <span class="p">[</span><span class="kt">Walmart</span><span class="p">,</span> <span class="kt">HomeDepot</span><span class="p">,</span> <span class="kt">Costco</span><span class="p">]</span>
+<span class="nf">times</span> <span class="ow">=</span> <span class="p">[</span><span class="kt">Morning</span><span class="p">,</span> <span class="kt">Evening</span><span class="p">]</span>
+
+<span class="nf">constraints</span> <span class="ow">::</span> <span class="kt">Expr</span>
+<span class="nf">constraints</span> <span class="ow">=</span>
+  <span class="n">foldl1</span> <span class="kt">And</span> <span class="o">$</span>
+    <span class="p">[</span><span class="n">visitAllConstraint</span> <span class="n">stores</span> <span class="n">times</span><span class="p">]</span> <span class="o">++</span>
+    <span class="n">map</span> <span class="p">(</span><span class="n">storeConstraint</span> <span class="n">times</span><span class="p">)</span> <span class="n">stores</span> <span class="o">++</span>
+    <span class="n">map</span> <span class="p">(</span><span class="n">timeConstraint</span> <span class="n">stores</span><span class="p">)</span> <span class="n">times</span>
+
+<span class="c1">-- Look at the expression tree</span>
+<span class="c1">-- It&#39;s quite huge!</span>
+<span class="nf">constraints</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area"><div class="prompt"></div>
+
+
+<div class="output_text output_subarea ">
+<pre>And (And (And (And (And (And (And (Or (Var &apos;a&apos;) (Var &apos;b&apos;)) (Or (Var &apos;c&apos;) (Var &apos;d&apos;))) (Or (Var &apos;e&apos;) (Var &apos;f&apos;))) (Not (Var &apos;b&apos;))) (Not (Var &apos;c&apos;))) (Const True)) (Or (Or (And (Var &apos;a&apos;) (And (Not (Var &apos;c&apos;)) (Not (Var &apos;e&apos;)))) (And (Var &apos;c&apos;) (And (Not (Var &apos;a&apos;)) (Not (Var &apos;e&apos;))))) (And (Var &apos;e&apos;) (And (Not (Var &apos;a&apos;)) (Not (Var &apos;c&apos;)))))) (Or (Or (And (Var &apos;b&apos;) (And (Not (Var &apos;d&apos;)) (Not (Var &apos;f&apos;)))) (And (Var &apos;d&apos;) (And (Not (Var &apos;b&apos;)) (Not (Var &apos;f&apos;))))) (And (Var &apos;f&apos;) (And (Not (Var &apos;b&apos;)) (Not (Var &apos;d&apos;)))))</pre>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Can this be satisfied? As our human intuition immediately told us, no, it cannot:</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[13]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-haskell"><pre><span class="nf">satisfiable</span> <span class="n">constraints</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area"><div class="prompt"></div>
+
+
+<div class="output_text output_subarea ">
+<pre>False</pre>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>But now we know how to derive that result algorithmically, with a very simple SAT solver!</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Improving-our-Algorithm">Improving our Algorithm<a class="anchor-link" href="#Improving-our-Algorithm"></a></h2><p>Our simple backtracking algorithm, while it works, can be pretty slow. It's a brute-force solution to the problem: we simply search through all possible assignments of values to variables, and check whether any of them work. At worst, when given an expression with $N$ variables in it, backtracking search has to check $2^N$ different assignments; this happens if every single assignment is initially guessed incorrectly.</p>
+<p>Surprisingly enough, it's possible that asymptotically better algorithms don't exist, as some subsets of SAT (<a href="http://en.wikipedia.org/wiki/Boolean_satisfiability_problem#3-satisfiability">3-SAT</a>) are known to be NP-complete. The formal definition of NP-completeness involves a bit of math and complexity theory. Roughly speaking, NP problems are those that we can check but not necessarily solve in polynomial time, and NP-complete problems are problems that, if we could solve them in polynomial time, we could solve any NP problem in polynomial time. Computer scientists currently do not know if P is equal to NP; that is, whether all NP problems can be solved in polynomial times. Most people believe that that isn't the case, and that NP-complete problems <em>cannot</em> be solved efficiently (in polynomial time). Since 3-SAT is NP-complete, this means that it probably can't be solved in polynomial time, and so quite possibly the exponential asymptotics of backtracking search are the best we can do.</p>
+<p>However, even if asymptotically better algorithms cannot exist, that doesn't mean we can't have algorithms that are better in practice. One such algorithm, known as the DPLL Algorithm (named after it's creators, unabbreviated as the Davis–Putnam–Logemann–Loveland algorithm), is effectively a set of heuristics that optimize our simple backtracking search. Although the DPLL algorithm was invented decades ago (in the 60s), many modern SAT solvers still use DPLL as their base, adding many algorithmic tricks, data structures, and low-level optimizations to achieve high performance.</p>
+<h3 id="Conjunctive-Normal-Form-(CNF)">Conjunctive Normal Form (CNF)<a class="anchor-link" href="#Conjunctive-Normal-Form-(CNF)"></a></h3><p>The DPLL algorithm, unlike our backtracking search, requires that the input expressions be of a particular form, known as conjunctive normal form, or CNF. An expression is in CNF if it consists of conjunction of clauses, each of which is a disjunction of literals. In other words, we have a set of clauses; each clause consists of variables and negated variables which are all or-ed together; all the clauses are then and-ed together. For example, the expressions $A \wedge B \wedge (C \vee \overline A)$ and $(A \vee B) \wedge \overline A$ are in conjunctive normal form (CNF), but the expressions $\overline{\overline{A}} \vee B$ and $\overline{A \vee B}$ are not.</p>
+<p>It may seem at first that an algorithm that <em>only</em> works on such a restricted set of expressions is useless. Our backtracking search works on <em>any</em> bolean expression! What's the point of DPLL if it requires something in CNF?</p>
+<p>It turns out that any boolean expression can be <em>converted</em> to CNF fairly efficiently. If we apply <a href="http://en.wikipedia.org/wiki/De_Morgan%27s_laws">De Morgan's laws</a> and distribute "or"s over "ands" repeatedly, we eventually get an expression in CNF. Once we have our expression in CNF, we can feed it to DPLL.</p>
+<p>De Morgan's laws allow you to distribute negations over conjunctions (ands) and disjunctions (ors):</p>
+<ul>
+<li>$\overline{A \wedge B} = \overline{A} \vee \overline{B}$.</li>
+<li>$\overline{A \vee B} = \overline{A} \wedge \overline{B}$.
+Applying this repeatedly ensures that the only things inside a negation are literals like $A$ or $B$, and not compound expressions, like $A \wedge B$.</li>
+</ul>
+<p>Distributing disjunctions over conjunctions allows you to float the conjunctions to the outer layer, which we require for CNF:
+$$A \vee (X \wedge Y) = (A \vee X) \wedge (A \vee Y)$$</p>
+<p>Before discussing DPLL, let's go ahead and implement that conversion. We begin by two helper functions: one which tries to apply De Morgan's laws, and one which tries to distribute an or over an and:</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[14]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-haskell"><pre><span class="c1">-- Get rid of negations on everything but</span>
+<span class="c1">-- literals by applying De Morgan&#39;s laws</span>
+<span class="c1">-- and removing double negations.</span>
+<span class="nf">fixNegations</span> <span class="ow">::</span> <span class="kt">Expr</span> <span class="ow">-&gt;</span> <span class="kt">Expr</span>
+<span class="nf">fixNegations</span> <span class="n">expr</span> <span class="ow">=</span>
+  <span class="kr">case</span> <span class="n">expr</span> <span class="kr">of</span>
+    <span class="c1">-- Remove double negatives</span>
+    <span class="kt">Not</span> <span class="p">(</span><span class="kt">Not</span> <span class="n">x</span><span class="p">)</span> <span class="ow">-&gt;</span> <span class="n">fixNegations</span> <span class="n">x</span>
+    
+    <span class="c1">-- De Morgan&#39;s laws</span>
+    <span class="kt">Not</span> <span class="p">(</span><span class="kt">And</span> <span class="n">x</span> <span class="n">y</span><span class="p">)</span> <span class="ow">-&gt;</span> <span class="kt">Or</span> <span class="p">(</span><span class="n">fixNegations</span> <span class="o">$</span> <span class="kt">Not</span> <span class="n">x</span><span class="p">)</span> <span class="p">(</span><span class="n">fixNegations</span> <span class="o">$</span> <span class="kt">Not</span> <span class="n">y</span><span class="p">)</span>
+    <span class="kt">Not</span> <span class="p">(</span><span class="kt">Or</span> <span class="n">x</span> <span class="n">y</span><span class="p">)</span> <span class="ow">-&gt;</span> <span class="kt">And</span> <span class="p">(</span><span class="n">fixNegations</span> <span class="o">$</span> <span class="kt">Not</span> <span class="n">x</span><span class="p">)</span> <span class="p">(</span><span class="n">fixNegations</span> <span class="o">$</span> <span class="kt">Not</span> <span class="n">y</span><span class="p">)</span>
+    
+    <span class="c1">-- Deal with constants.</span>
+    <span class="kt">Not</span> <span class="p">(</span><span class="kt">Const</span> <span class="n">b</span><span class="p">)</span> <span class="ow">-&gt;</span> <span class="kt">Const</span> <span class="p">(</span><span class="n">not</span> <span class="n">b</span><span class="p">)</span>
+    
+    <span class="c1">-- Recurse on sub-terms.</span>
+    <span class="kt">Not</span> <span class="n">x</span> <span class="ow">-&gt;</span> <span class="kt">Not</span> <span class="p">(</span><span class="n">fixNegations</span> <span class="n">x</span><span class="p">)</span>
+    <span class="kt">And</span> <span class="n">x</span> <span class="n">y</span> <span class="ow">-&gt;</span> <span class="kt">And</span> <span class="p">(</span><span class="n">fixNegations</span> <span class="n">x</span><span class="p">)</span> <span class="p">(</span><span class="n">fixNegations</span> <span class="n">y</span><span class="p">)</span>
+    <span class="kt">Or</span> <span class="n">x</span> <span class="n">y</span> <span class="ow">-&gt;</span> <span class="kt">Or</span> <span class="p">(</span><span class="n">fixNegations</span> <span class="n">x</span><span class="p">)</span> <span class="p">(</span><span class="n">fixNegations</span> <span class="n">y</span><span class="p">)</span>
+    <span class="n">x</span> <span class="ow">-&gt;</span> <span class="n">x</span>
+    
+<span class="c1">-- Attempt to distribute Or over And.</span>
+<span class="c1">-- For example, A or (B and C) becomes (A or B) and (A or C).</span>
+<span class="nf">distribute</span> <span class="ow">::</span> <span class="kt">Expr</span> <span class="ow">-&gt;</span> <span class="kt">Expr</span>
+<span class="nf">distribute</span> <span class="n">expr</span> <span class="ow">=</span>
+  <span class="kr">case</span> <span class="n">expr</span> <span class="kr">of</span>
+    <span class="c1">-- Distribute over and in either position.</span>
+    <span class="kt">Or</span> <span class="n">x</span> <span class="p">(</span><span class="kt">And</span> <span class="n">y</span> <span class="n">z</span><span class="p">)</span> <span class="ow">-&gt;</span>
+      <span class="kt">And</span> <span class="p">(</span><span class="kt">Or</span> <span class="p">(</span><span class="n">distribute</span> <span class="n">x</span><span class="p">)</span> <span class="p">(</span><span class="n">distribute</span> <span class="n">y</span><span class="p">))</span>
+          <span class="p">(</span><span class="kt">Or</span> <span class="p">(</span><span class="n">distribute</span> <span class="n">x</span><span class="p">)</span> <span class="p">(</span><span class="n">distribute</span> <span class="n">z</span><span class="p">))</span>
+    <span class="kt">Or</span> <span class="p">(</span><span class="kt">And</span> <span class="n">y</span> <span class="n">z</span><span class="p">)</span> <span class="n">x</span> <span class="ow">-&gt;</span> 
+      <span class="kt">And</span> <span class="p">(</span><span class="kt">Or</span> <span class="p">(</span><span class="n">distribute</span> <span class="n">x</span><span class="p">)</span> <span class="p">(</span><span class="n">distribute</span> <span class="n">y</span><span class="p">))</span>
+          <span class="p">(</span><span class="kt">Or</span> <span class="p">(</span><span class="n">distribute</span> <span class="n">x</span><span class="p">)</span> <span class="p">(</span><span class="n">distribute</span> <span class="n">z</span><span class="p">))</span>
+          
+    <span class="c1">-- Recurse on sub-terms.</span>
+    <span class="kt">Or</span> <span class="n">x</span> <span class="n">y</span> <span class="ow">-&gt;</span> <span class="kt">Or</span> <span class="p">(</span><span class="n">distribute</span> <span class="n">x</span><span class="p">)</span> <span class="p">(</span><span class="n">distribute</span> <span class="n">y</span><span class="p">)</span>
+    <span class="kt">And</span> <span class="n">x</span> <span class="n">y</span> <span class="ow">-&gt;</span> <span class="kt">And</span> <span class="p">(</span><span class="n">distribute</span> <span class="n">x</span><span class="p">)</span> <span class="p">(</span><span class="n">distribute</span> <span class="n">y</span><span class="p">)</span>
+    <span class="kt">Not</span> <span class="n">x</span> <span class="ow">-&gt;</span> <span class="kt">Not</span> <span class="p">(</span><span class="n">distribute</span> <span class="n">x</span><span class="p">)</span>
+    <span class="n">x</span> <span class="ow">-&gt;</span> <span class="n">x</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Using these two helpers, we can now convert any expression to CNF by applying the two helpers repeatedly. As soon as they stop changing anything, we should have converged to CNF.</p>
+<p>In this implementation, we check this by comparing the result against the input, which requires traversing the entire tree an extra time. We could do this much more efficiently by returning whether or not the expression was modified, but we will not here, for the sake of clarity:</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[15]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-haskell"><pre><span class="c1">-- Convert an expression to CNF.</span>
+<span class="c1">-- This guarantees that the output is CNF.</span>
+<span class="nf">cnf</span> <span class="ow">::</span> <span class="kt">Expr</span> <span class="ow">-&gt;</span> <span class="kt">Expr</span>
+<span class="nf">cnf</span> <span class="n">expr</span> <span class="ow">=</span>
+  <span class="kr">if</span> <span class="n">updated</span> <span class="o">==</span> <span class="n">expr</span>
+  <span class="kr">then</span> <span class="n">expr</span>
+  <span class="kr">else</span> <span class="n">cnf</span> <span class="n">updated</span>
+  
+  <span class="kr">where</span>
+    <span class="n">updated</span> <span class="ow">=</span> <span class="n">distribute</span> <span class="p">(</span><span class="n">fixNegations</span> <span class="n">expr</span><span class="p">)</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>This can produce quite huge results. For example, take a look at the expression $A \vee \overline{B \wedge (A \vee C)}$ when converted to CNF:</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[16]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-haskell"><pre><span class="nf">cnf</span> <span class="o">$</span> <span class="kt">Or</span> <span class="p">(</span><span class="kt">Var</span> <span class="sc">&#39;a&#39;</span><span class="p">)</span> <span class="p">(</span><span class="kt">Not</span> <span class="p">(</span><span class="kt">And</span> <span class="p">(</span><span class="kt">Var</span> <span class="sc">&#39;b&#39;</span><span class="p">)</span> <span class="p">(</span><span class="kt">Or</span> <span class="p">(</span><span class="kt">Var</span> <span class="sc">&#39;a&#39;</span><span class="p">)</span> <span class="p">(</span><span class="kt">Var</span> <span class="sc">&#39;c&#39;</span><span class="p">))))</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area"><div class="prompt"></div>
+
+
+<div class="output_text output_subarea ">
+<pre>And (Or (Var &apos;a&apos;) (Or (Not (Var &apos;b&apos;)) (Not (Var &apos;a&apos;)))) (Or (Var &apos;a&apos;) (Or (Not (Var &apos;b&apos;)) (Not (Var &apos;c&apos;))))</pre>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>The result is a rather length $(A \vee \overline{B} \vee \overline{A}) \wedge (A \vee \overline{B} \vee \overline{C})$, which is indeed in CNF.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="The-DPLL-Algorithm">The DPLL Algorithm<a class="anchor-link" href="#The-DPLL-Algorithm"></a></h3><p>The DPLL algorithm adds two shortcuts to our backtracking search, and these two shortcuts require that the input be in CNF.</p>
+<p>First of all, in includes a <strong>literal elimination</strong> step. If some literal (like $A$) is seen in only one polarity (that is, it is always $A$ or $\overline{A}$), we can immediately determine the truth value of that literal. If it is in positive polarity, it must be true, and if it is only in negative polarity, it must be false. For example, in the expression $(A \vee B) \wedge (A \vee \overline{C})$, we can immediately assign true to $A$, since $A$ occurs in positive polarity only.</p>
+<p>Second, it includes a <strong>unit propagation</strong> step. If there exists a clause in the top-level conjunction that consists of only one literal, we can immediately assign a value to that literal. For example, in the expression $A \wedge (B \vee \overline{A})$, we immediately know that $A$ must be true, since it occurs alone.</p>
+<h4 id="Literal-Elimination">Literal Elimination<a class="anchor-link" href="#Literal-Elimination"></a></h4><p>To demonstrate, let's implement incredibliy simple variants of these two steps. We'll start with literal elimination, in which we build a list of all literals and then check whether each one occurs in only one polarity:</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[17]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-haskell"><pre><span class="kr">import</span> <span class="nn">Data.Set</span> <span class="p">(</span><span class="kt">Set</span><span class="p">)</span>
+<span class="kr">import</span> <span class="k">qualified</span> <span class="nn">Data.Set</span> <span class="k">as</span> <span class="n">Set</span>
+
+<span class="c1">-- Get all the literals in an expression.</span>
+<span class="nf">literals</span> <span class="ow">::</span> <span class="kt">Expr</span> <span class="ow">-&gt;</span> <span class="kt">Set</span> <span class="kt">Char</span>
+<span class="nf">literals</span> <span class="p">(</span><span class="kt">Var</span> <span class="n">v</span><span class="p">)</span> <span class="ow">=</span> <span class="kt">Set</span><span class="o">.</span><span class="n">singleton</span> <span class="n">v</span>
+<span class="nf">literals</span> <span class="p">(</span><span class="kt">Not</span> <span class="n">e</span><span class="p">)</span> <span class="ow">=</span> <span class="n">literals</span> <span class="n">e</span>
+<span class="nf">literals</span> <span class="p">(</span><span class="kt">And</span> <span class="n">x</span> <span class="n">y</span><span class="p">)</span> <span class="ow">=</span> <span class="kt">Set</span><span class="o">.</span><span class="n">union</span> <span class="p">(</span><span class="n">literals</span> <span class="n">x</span><span class="p">)</span> <span class="p">(</span><span class="n">literals</span> <span class="n">y</span><span class="p">)</span>
+<span class="nf">literals</span> <span class="p">(</span><span class="kt">Or</span> <span class="n">x</span> <span class="n">y</span><span class="p">)</span> <span class="ow">=</span> <span class="kt">Set</span><span class="o">.</span><span class="n">union</span> <span class="p">(</span><span class="n">literals</span> <span class="n">x</span><span class="p">)</span> <span class="p">(</span><span class="n">literals</span> <span class="n">y</span><span class="p">)</span>
+<span class="nf">literals</span> <span class="kr">_</span> <span class="ow">=</span> <span class="kt">Set</span><span class="o">.</span><span class="n">empty</span>
+
+<span class="c1">-- Literal polarity. Positive means the literal</span>
+<span class="c1">-- is never negated; negative means it always is.</span>
+<span class="kr">data</span> <span class="kt">Polarity</span> <span class="ow">=</span> <span class="kt">Positive</span> <span class="o">|</span> <span class="kt">Negative</span> <span class="o">|</span> <span class="kt">Mixed</span> <span class="kr">deriving</span> <span class="p">(</span><span class="kt">Show</span><span class="p">,</span> <span class="kt">Eq</span><span class="p">)</span>
+
+<span class="c1">-- Determine whether a literal has a polarity.</span>
+<span class="c1">-- Return Nothing if the literal doesn&#39;t appear in the expression.</span>
+<span class="nf">literalPolarity</span> <span class="ow">::</span> <span class="kt">Expr</span> <span class="ow">-&gt;</span> <span class="kt">Char</span> <span class="ow">-&gt;</span> <span class="kt">Maybe</span> <span class="kt">Polarity</span>
+
+<span class="c1">-- Literal in positive polarity</span>
+<span class="nf">literalPolarity</span> <span class="p">(</span><span class="kt">Var</span> <span class="n">v</span><span class="p">)</span> <span class="n">v&#39;</span>
+  <span class="o">|</span> <span class="n">v</span> <span class="o">==</span> <span class="n">v&#39;</span>   <span class="ow">=</span> <span class="kt">Just</span> <span class="kt">Positive</span>
+  <span class="o">|</span> <span class="n">otherwise</span> <span class="ow">=</span> <span class="kt">Nothing</span>  
+<span class="c1">-- Literal in negative polarity</span>
+<span class="nf">literalPolarity</span> <span class="p">(</span><span class="kt">Not</span> <span class="p">(</span><span class="kt">Var</span> <span class="n">v</span><span class="p">))</span> <span class="n">v&#39;</span>
+  <span class="o">|</span> <span class="n">v</span> <span class="o">==</span> <span class="n">v&#39;</span>   <span class="ow">=</span> <span class="kt">Just</span> <span class="kt">Negative</span>
+  <span class="o">|</span> <span class="n">otherwise</span> <span class="ow">=</span> <span class="kt">Nothing</span>
+
+<span class="c1">-- Combine polarities of sub expressions</span>
+<span class="nf">literalPolarity</span> <span class="n">e</span> <span class="n">v</span> <span class="ow">=</span>
+  <span class="kr">case</span> <span class="n">e</span> <span class="kr">of</span>
+    <span class="kt">And</span> <span class="n">x</span> <span class="n">y</span> <span class="ow">-&gt;</span> <span class="n">combinePolarities</span> <span class="p">[</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">]</span>
+    <span class="kt">Or</span> <span class="n">x</span> <span class="n">y</span> <span class="ow">-&gt;</span> <span class="n">combinePolarities</span> <span class="p">[</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">]</span>
+    <span class="kt">Not</span> <span class="n">x</span> <span class="ow">-&gt;</span> <span class="ne">error</span> <span class="o">$</span> <span class="s">&quot;Not in CNF: negation of a non-literal: &quot;</span> <span class="o">++</span> <span class="n">show</span> <span class="n">x</span>
+    <span class="kt">Const</span> <span class="kr">_</span> <span class="ow">-&gt;</span> <span class="kt">Nothing</span>
+  <span class="kr">where</span>
+    <span class="n">combinePolarities</span> <span class="n">es</span> <span class="ow">=</span>
+      <span class="kr">let</span> <span class="n">polarities</span> <span class="ow">=</span> <span class="n">mapMaybe</span> <span class="p">(</span><span class="n">flip</span> <span class="n">literalPolarity</span> <span class="n">v</span><span class="p">)</span> <span class="n">es</span>
+      <span class="kr">in</span> <span class="kr">case</span> <span class="n">polarities</span> <span class="kr">of</span>
+           <span class="kt">[]</span> <span class="ow">-&gt;</span> <span class="kt">Nothing</span>
+           <span class="n">ps</span> <span class="ow">-&gt;</span> <span class="kr">if</span> <span class="n">all</span> <span class="p">(</span><span class="o">==</span> <span class="kt">Positive</span><span class="p">)</span> <span class="n">ps</span>
+                 <span class="kr">then</span> <span class="kt">Just</span> <span class="kt">Positive</span>
+                 <span class="kr">else</span> <span class="kr">if</span> <span class="n">all</span> <span class="p">(</span><span class="o">==</span> <span class="kt">Negative</span><span class="p">)</span> <span class="n">ps</span>
+                      <span class="kr">then</span> <span class="kt">Just</span> <span class="kt">Negative</span>
+                      <span class="kr">else</span> <span class="kt">Just</span> <span class="kt">Mixed</span>
+
+<span class="c1">-- catMaybes :: [Maybe a] -&gt; [a]</span>
+<span class="c1">-- Extract only the Just values of a list.</span>
+<span class="kr">import</span> <span class="nn">Data.Maybe</span> <span class="p">(</span><span class="nf">catMaybes</span><span class="p">)</span>
+
+<span class="nf">literalElimination</span> <span class="ow">::</span> <span class="kt">Expr</span> <span class="ow">-&gt;</span> <span class="kt">Expr</span>
+<span class="nf">literalElimination</span> <span class="n">e</span> <span class="ow">=</span>
+  <span class="kr">let</span> <span class="n">ls</span> <span class="ow">=</span> <span class="kt">Set</span><span class="o">.</span><span class="n">toList</span> <span class="p">(</span><span class="n">literals</span> <span class="n">e</span><span class="p">)</span>
+      <span class="n">ps</span> <span class="ow">=</span> <span class="n">map</span> <span class="p">(</span><span class="n">literalPolarity</span> <span class="n">e</span><span class="p">)</span> <span class="n">ls</span>
+      
+      <span class="c1">-- Find assignments we can make</span>
+      <span class="n">extractPolarized</span> <span class="ow">::</span> <span class="kt">Char</span> <span class="ow">-&gt;</span> <span class="kt">Maybe</span> <span class="kt">Polarity</span> <span class="ow">-&gt;</span> <span class="kt">Maybe</span> <span class="p">(</span><span class="kt">Char</span><span class="p">,</span> <span class="kt">Bool</span><span class="p">)</span>
+      <span class="n">extractPolarized</span> <span class="n">v</span> <span class="p">(</span><span class="kt">Just</span> <span class="kt">Positive</span><span class="p">)</span> <span class="ow">=</span> <span class="kt">Just</span> <span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="kt">True</span><span class="p">)</span>
+      <span class="n">extractPolarized</span> <span class="n">v</span> <span class="p">(</span><span class="kt">Just</span> <span class="kt">Negative</span><span class="p">)</span> <span class="ow">=</span> <span class="kt">Just</span> <span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="kt">False</span><span class="p">)</span>
+      <span class="n">extractPolarized</span> <span class="kr">_</span> <span class="kr">_</span> <span class="ow">=</span> <span class="kt">Nothing</span>
+      
+      <span class="c1">-- Find *all* possible assignments</span>
+      <span class="n">assignments</span> <span class="ow">::</span> <span class="p">[(</span><span class="kt">Char</span><span class="p">,</span> <span class="kt">Bool</span><span class="p">)]</span>
+      <span class="n">assignments</span> <span class="ow">=</span> <span class="n">catMaybes</span> <span class="o">$</span> <span class="n">zipWith</span> <span class="n">extractPolarized</span> <span class="n">ls</span> <span class="n">ps</span>
+      
+      <span class="c1">-- Apply all the assignments.</span>
+      <span class="n">replacers</span> <span class="ow">::</span> <span class="p">[</span><span class="kt">Expr</span> <span class="ow">-&gt;</span> <span class="kt">Expr</span><span class="p">]</span>
+      <span class="n">replacers</span> <span class="ow">=</span> <span class="n">map</span> <span class="p">(</span><span class="n">uncurry</span> <span class="n">guessVariable</span><span class="p">)</span> <span class="n">assignments</span>
+      
+      <span class="n">replaceAll</span> <span class="ow">::</span> <span class="kt">Expr</span> <span class="ow">-&gt;</span> <span class="kt">Expr</span>
+      <span class="n">replaceAll</span> <span class="ow">=</span> <span class="n">foldl</span> <span class="p">(</span><span class="o">.</span><span class="p">)</span> <span class="n">id</span> <span class="n">replacers</span>
+  <span class="kr">in</span> <span class="n">replaceAll</span> <span class="n">e</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>We can verify that it works by testing it on our earlier example of $(A \vee B) \wedge (A \vee \overline{C})$:</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[18]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-haskell"><pre><span class="nf">literalElimination</span> <span class="o">$</span> <span class="kt">And</span> <span class="p">(</span><span class="kt">Or</span> <span class="p">(</span><span class="kt">Var</span> <span class="sc">&#39;a&#39;</span><span class="p">)</span> <span class="p">(</span><span class="kt">Var</span> <span class="sc">&#39;b&#39;</span><span class="p">))</span> <span class="p">(</span><span class="kt">Or</span> <span class="p">(</span><span class="kt">Var</span> <span class="sc">&#39;a&#39;</span><span class="p">)</span> <span class="p">(</span><span class="kt">Not</span> <span class="p">(</span><span class="kt">Var</span> <span class="sc">&#39;b&#39;</span><span class="p">)))</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area"><div class="prompt"></div>
+
+
+<div class="output_text output_subarea ">
+<pre>And (Or (Const True) (Var &apos;b&apos;)) (Or (Const True) (Not (Var &apos;b&apos;)))</pre>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>You'll note that the literal elimination left $B$ alone, since it appeared in positive and negative polarity, but replaced occurences of $A$ with an assignment of true, since all $A$s occurred in positive polarity.</p>
+<h4 id="Unit-Propagation">Unit Propagation<a class="anchor-link" href="#Unit-Propagation"></a></h4><p>Next, we'll implement the other DPLL heuristic, unit propagation, in which we find single-literal clauses and assign them a value. First, we'll determine which of the clauses are unit clauses (have only one literal):</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[19]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-haskell"><pre><span class="c1">-- Given a clause, determine whether it is a unit clause.</span>
+<span class="c1">-- If it is, then return the variable name and the polarity;</span>
+<span class="c1">-- if it isn&#39;t, return Nothing.</span>
+<span class="nf">unitClause</span> <span class="ow">::</span> <span class="kt">Expr</span> <span class="ow">-&gt;</span> <span class="kt">Maybe</span> <span class="p">(</span><span class="kt">Char</span><span class="p">,</span> <span class="kt">Bool</span><span class="p">)</span>
+<span class="nf">unitClause</span> <span class="p">(</span><span class="kt">Var</span> <span class="n">v</span><span class="p">)</span> <span class="ow">=</span> <span class="kt">Just</span> <span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="kt">True</span><span class="p">)</span>
+<span class="nf">unitClause</span> <span class="p">(</span><span class="kt">Not</span> <span class="p">(</span><span class="kt">Var</span> <span class="n">v</span><span class="p">))</span> <span class="ow">=</span> <span class="kt">Just</span> <span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="kt">False</span><span class="p">)</span>
+<span class="nf">unitClause</span> <span class="kr">_</span> <span class="ow">=</span> <span class="kt">Nothing</span>
+
+<span class="c1">-- Reduce an expression into a list of clauses.</span>
+<span class="c1">-- This has to traverse a tree of And constructors</span>
+<span class="c1">-- and create a list out of them.</span>
+<span class="nf">clauses</span> <span class="ow">::</span> <span class="kt">Expr</span> <span class="ow">-&gt;</span> <span class="p">[</span><span class="kt">Expr</span><span class="p">]</span>
+<span class="nf">clauses</span> <span class="p">(</span><span class="kt">And</span> <span class="n">x</span> <span class="n">y</span><span class="p">)</span> <span class="ow">=</span> <span class="n">clauses</span> <span class="n">x</span> <span class="o">++</span> <span class="n">clauses</span> <span class="n">y</span>
+<span class="nf">clauses</span> <span class="n">expr</span> <span class="ow">=</span> <span class="p">[</span><span class="n">expr</span><span class="p">]</span>
+
+<span class="c1">-- Extract all unit clauses from a CNF expression.</span>
+<span class="nf">allUnitClauses</span> <span class="ow">::</span> <span class="kt">Expr</span> <span class="ow">-&gt;</span> <span class="p">[(</span><span class="kt">Char</span><span class="p">,</span> <span class="kt">Bool</span><span class="p">)]</span>
+<span class="nf">allUnitClauses</span> <span class="ow">=</span> <span class="n">mapMaybe</span> <span class="n">unitClause</span> <span class="o">.</span> <span class="n">clauses</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Then, we effect our replacement for all the unit clauses, just like we did in literal elimination:</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[20]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-haskell"><pre><span class="nf">unitPropagation</span> <span class="ow">::</span> <span class="kt">Expr</span> <span class="ow">-&gt;</span> <span class="kt">Expr</span>
+<span class="nf">unitPropagation</span> <span class="n">expr</span> <span class="ow">=</span> <span class="n">replaceAll</span> <span class="n">expr</span>
+  <span class="kr">where</span>
+    <span class="n">assignments</span> <span class="ow">::</span> <span class="p">[(</span><span class="kt">Char</span><span class="p">,</span> <span class="kt">Bool</span><span class="p">)]</span>
+    <span class="n">assignments</span> <span class="ow">=</span> <span class="n">allUnitClauses</span> <span class="n">expr</span>
+  
+    <span class="n">replaceAll</span> <span class="ow">::</span> <span class="kt">Expr</span> <span class="ow">-&gt;</span> <span class="kt">Expr</span>
+    <span class="n">replaceAll</span> <span class="ow">=</span> <span class="n">foldl</span> <span class="p">(</span><span class="o">.</span><span class="p">)</span> <span class="n">id</span> <span class="p">(</span><span class="n">map</span> <span class="p">(</span><span class="n">uncurry</span> <span class="n">guessVariable</span><span class="p">)</span> <span class="n">assignments</span><span class="p">)</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Testing it on our earlier example of $A \wedge (B \vee \overline{A})$ yields what we expect:</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[21]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-haskell"><pre><span class="nf">unitPropagation</span> <span class="o">$</span> <span class="kt">And</span> <span class="p">(</span><span class="kt">Var</span> <span class="sc">&#39;a&#39;</span><span class="p">)</span> <span class="p">(</span><span class="kt">Or</span> <span class="p">(</span><span class="kt">Var</span> <span class="sc">&#39;b&#39;</span><span class="p">)</span> <span class="p">(</span><span class="kt">Not</span> <span class="p">(</span><span class="kt">Var</span> <span class="sc">&#39;a&#39;</span><span class="p">)))</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area"><div class="prompt"></div>
+
+
+<div class="output_text output_subarea ">
+<pre>And (Const True) (Or (Var &apos;b&apos;) (Not (Const True)))</pre>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Using unit propagation and literal elimination steps, we can augment our backtracking search to implement the DPLL algorithm. Note how the majority of the code looks identical to what we had before:</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[22]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-haskell"><pre><span class="c1">-- The only important thing that changed is the</span>
+<span class="c1">-- addition of the &#39;where&#39; clause.</span>
+<span class="nf">satisfiableDPLL</span> <span class="ow">::</span> <span class="kt">Expr</span> <span class="ow">-&gt;</span> <span class="kt">Bool</span>
+<span class="nf">satisfiableDPLL</span> <span class="n">expr</span> <span class="ow">=</span>
+  <span class="kr">case</span> <span class="n">freeVariable</span> <span class="n">expr&#39;</span> <span class="kr">of</span>
+    <span class="kt">Nothing</span> <span class="ow">-&gt;</span> <span class="n">unConst</span> <span class="o">$</span> <span class="n">simplify</span> <span class="n">expr&#39;</span>
+    <span class="kt">Just</span> <span class="n">v</span> <span class="ow">-&gt;</span>
+      <span class="kr">let</span> <span class="n">trueGuess</span>  <span class="ow">=</span> <span class="n">simplify</span> <span class="p">(</span><span class="n">guessVariable</span> <span class="n">v</span> <span class="kt">True</span> <span class="n">expr</span><span class="p">)</span>
+          <span class="n">falseGuess</span> <span class="ow">=</span> <span class="n">simplify</span> <span class="p">(</span><span class="n">guessVariable</span> <span class="n">v</span> <span class="kt">False</span> <span class="n">expr</span><span class="p">)</span>
+      <span class="kr">in</span> <span class="n">satisfiableDPLL</span> <span class="n">trueGuess</span> <span class="o">||</span> <span class="n">satisfiableDPLL</span> <span class="n">falseGuess</span>
+
+  <span class="kr">where</span>
+    <span class="c1">-- Apply our backtracking search *after* literal elimination</span>
+    <span class="c1">-- and unit propagation have been applied!</span>
+    <span class="n">expr&#39;</span> <span class="ow">=</span> <span class="n">literalElimination</span> <span class="o">$</span> <span class="n">cnf</span> <span class="o">$</span> <span class="n">unitPropagation</span> <span class="n">expr</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Luckily we get the same result on our puzzle:</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[23]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-haskell"><pre><span class="nf">satisfiableDPLL</span> <span class="n">constraints</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area"><div class="prompt"></div>
+
+
+<div class="output_text output_subarea ">
+<pre>False</pre>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>At this point, you should have a good understanding of backtracking search for SAT solving, as well as DPLL, which is the basis for all further optimizations and heuristics that must come together for a high performance SAT solver. As a disclaimer, note that the code above is <em>not</em> meant for performance; it makes a number of assumptions and uses data structures that are not optimal if you want a fast SAT solver.</p>
+<p>In the next section, we'll discuss what tricks can be used to make DPLL perform extraordinarily quickly, allowing modern SAT solvers to handle millions of variables and clauses in seconds. We won't focus any more on code, as it quickly gets too unweidly for a blog post when it comes to writing high performance code.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Further-Heuristics-and-Optimizations">Further Heuristics and Optimizations<a class="anchor-link" href="#Further-Heuristics-and-Optimizations"></a></h2><p>When discussing DPLL and backtracking, we've left a few key steps of the algorithm only partially specified. For example:</p>
+<ul>
+<li>If there are multiple free variables available in an expression, how do we choose which one to branch on?</li>
+<li>How do we decide whether we should guess true or false for a variable?</li>
+<li>What data structures should we use for storing clauses, and how do we detect unit clauses and polarized literals?</li>
+</ul>
+<p>Accelerating SAT solving relies on answering these, and other questions, in clever ways. As mentioned before, we can't improve the <em>asymptotic</em> complexity of our algorithms by answering these questions differently, but we can improve real-world efficiency of our solvers.</p>
+<p>Deciding on the next branching literal can be done in a number of ways. In our implementation, we simply used the first literal we encountered. This is not necessarily the best solution – one can imagine a situation in which the first encountered literal happens to conflict with the last chosen literal, and so if the wrong path is chosen, half the search space must be looked at before the error can be fixed.</p>
+<p>There exist a number of heuristics which have been used to compute branching literals. For example, you can find the literal that is mentioned in the most clauses. By doing so, you either reduce the search space dramatically (by reducing the number of clauses and maybe variables), or you quickly reach a conflict, which means you waste less time searching through that part of the solution space. While this heuristic is pretty good, it can be fairly expensive to keep track of how many times a literal is used, especially once you have thousands or millions of variables!</p>
+<p>Heuristics can also exist for the initial guess on a variable. For example, if a variable occurs more times in the negative than in the positive polarity, it may be better to guess a value of false for it before guessing true. Once again, the value of the heuristic has to be weighed against the cost of computing it.</p>
+<p>One last optimization worth mentioning is known as <strong>clause learning</strong>. Clause learning is based off two ideas. First of all, when we encounter a conflict, we can deduce what decisions we made to cause that conflict; from that, we can learn a new clause, forcing us not to make those decisions. Second, we can track which variable assignments imply other assignments, and when a conflict is reached, instead of backtracking one level higher, we can <em>backjump</em> as many levels up as necessary to fix the source of the conflict. Together, these two things allow quickly pruning large regions of the search space, dramatically increasing the number of clauses and variables SAT solvers can handle. Many modern SAT solvers are based off DPLL augmented with clause learning, yielding an algorithm known as Conflict-Driven Clause Learning (CDCL).</p>
+
+</div>
+</div>
+</div>
+</div>
+
+
+  <footer>
+    <p class="meta">
+      Sunday, April  5, 2015 - Posted in <a href="http://andrew.gibiansky.com/blog/categories/verification">verification</a>, <a href="http://andrew.gibiansky.com/blog/categories/haskell">haskell</a>
+    </p>
+
+    <p class="meta">
+      
+        <a class="basic-alignment left" href="http://andrew.gibiansky.com/blog/physics/lattice-boltzmann-method" title="Previous Post: Lattice Boltzmann Method">&laquo; Lattice Boltzmann Method</a>
+      
+      
+        <a class="basic-alignment right" href="http://andrew.gibiansky.com/blog/machine-learning/coding-intro-to-nns" title="Next Post: Quick Coding Intro to Neural Networks">Quick Coding Intro to Neural Networks &raquo;</a>
+      
+    </p>
+  </footer>
+
+</article>
+</div>
+
+<aside class="sidebar">
+  <section>
+    <h1>Contact</h1>
+
+    <p>
+      If you've got questions, comments, suggestions, or just want to talk, feel
+      free to email me at andrew.gibiansky on Gmail.
+    </p>
+
+    <img src="http://andrew.gibiansky.com/images/photo.jpg" alt="photo" />
+  </section>
+
+
+  <section>
+    <h1>Recent Posts <a href="http://andrew.gibiansky.com/feed.rss">(RSS)</a></h1>
+
+    <ul id="recent_posts">
+      
+        <li class="post">
+          <a href="http://andrew.gibiansky.com/blog/machine-learning/nram-2">NRAM: Theano Implementation</a>
+        </li>
+      
+        <li class="post">
+          <a href="http://andrew.gibiansky.com/blog/machine-learning/nram-1">NRAM: Neural Random Access Memory</a>
+        </li>
+      
+        <li class="post">
+          <a href="http://andrew.gibiansky.com/blog/command-line/jq-primer">jq Primer: Munging JSON Data</a>
+        </li>
+      
+        <li class="post">
+          <a href="http://andrew.gibiansky.com/blog/thoughts/engineering-practices">Creating a Culture of Good Engineering</a>
+        </li>
+      
+        <li class="post">
+          <a href="http://andrew.gibiansky.com/blog/genetics/technique-primers">Common Techniques in Molecular Biology</a>
+        </li>
+      
+        <li class="post">
+          <a href="http://andrew.gibiansky.com/blog/genetics/crispr">CRISPR Gene Editing</a>
+        </li>
+      
+        <li class="post">
+          <a href="http://andrew.gibiansky.com/blog/machine-learning/coding-intro-to-nns">Quick Coding Intro to Neural Networks</a>
+        </li>
+      
+        <li class="post">
+          <a href="http://andrew.gibiansky.com/blog/verification/writing-a-sat-solver">Writing a SAT Solver</a>
+        </li>
+      
+        <li class="post">
+          <a href="http://andrew.gibiansky.com/blog/physics/lattice-boltzmann-method">Lattice Boltzmann Method</a>
+        </li>
+      
+        <li class="post">
+          <a href="http://andrew.gibiansky.com/blog/haskell/finger-trees">Finger Trees</a>
+        </li>
+      
+        <li class="post">
+          <a href="http://andrew.gibiansky.com/blog/haskell/haskell-abstractions">Abstraction in Haskell (Monoids, Functors, Monads)</a>
+        </li>
+      
+        <li class="post">
+          <a href="http://andrew.gibiansky.com/blog/haskell/haskell-typeclasses">Typeclasses: Polymorphism in Haskell</a>
+        </li>
+      
+        <li class="post">
+          <a href="http://andrew.gibiansky.com/blog/haskell/haskell-gloss">Your First Haskell Application (with Gloss)</a>
+        </li>
+      
+        <li class="post">
+          <a href="http://andrew.gibiansky.com/blog/haskell/haskell-syntax">Intro to Haskell Syntax</a>
+        </li>
+      
+        <li class="post">
+          <a href="http://andrew.gibiansky.com/blog/linguistics/why-syntax">Linguistics and Syntax</a>
+        </li>
+      
+        <li class="post">
+          <a href="http://andrew.gibiansky.com/blog/machine-learning/speech-recognition-neural-networks">Speech Recognition with Neural Networks</a>
+        </li>
+      
+        <li class="post">
+          <a href="http://andrew.gibiansky.com/blog/mathematics/matrix-multiplication">Matrix Multiplication</a>
+        </li>
+      
+        <li class="post">
+          <a href="http://andrew.gibiansky.com/blog/machine-learning/recurrent-neural-networks">Recurrent Neural Networks</a>
+        </li>
+      
+        <li class="post">
+          <a href="http://andrew.gibiansky.com/blog/machine-learning/gauss-newton-matrix">Gauss Newton Matrix</a>
+        </li>
+      
+        <li class="post">
+          <a href="http://andrew.gibiansky.com/blog/machine-learning/convolutional-neural-networks">Convolutional Neural Networks</a>
+        </li>
+      
+        <li class="post">
+          <a href="http://andrew.gibiansky.com/blog/machine-learning/fully-connected-neural-networks">Fully Connected Neural Network Algorithms</a>
+        </li>
+      
+        <li class="post">
+          <a href="http://andrew.gibiansky.com/blog/machine-learning/hessian-free-optimization">Hessian Free Optimization</a>
+        </li>
+      
+        <li class="post">
+          <a href="http://andrew.gibiansky.com/blog/machine-learning/conjugate-gradient">Conjugate Gradient</a>
+        </li>
+      
+        <li class="post">
+          <a href="http://andrew.gibiansky.com/blog/machine-learning/gradient-descent">Gradient Descent Typeclasses in Haskell</a>
+        </li>
+      
+        <li class="post">
+          <a href="http://andrew.gibiansky.com/blog/linguistics/homophony-groups">Homophony Groups in Haskell</a>
+        </li>
+      
+        <li class="post">
+          <a href="http://andrew.gibiansky.com/blog/ipython/ipython-kernels">Creating Language Kernels for IPython</a>
+        </li>
+      
+        <li class="post">
+          <a href="http://andrew.gibiansky.com/blog/machine-learning/qpcr-blog-post">Detecting Genetic Copynumber with Gaussian Mixture Models</a>
+        </li>
+      
+        <li class="post">
+          <a href="http://andrew.gibiansky.com/blog/machine-learning/k-nearest-neighbors-simplest-machine-learning">K Nearest Neighbors: Simplest Machine Learning</a>
+        </li>
+      
+        <li class="post">
+          <a href="http://andrew.gibiansky.com/blog/mathematics/cool-linear-algebra-singular-value-decomposition">Cool Linear Algebra: Singular Value Decomposition</a>
+        </li>
+      
+        <li class="post">
+          <a href="http://andrew.gibiansky.com/blog/economics/accelerating-options-pricing-via-fourier-transforms">Accelerating Options Pricing via Fourier Transforms</a>
+        </li>
+      
+        <li class="post">
+          <a href="http://andrew.gibiansky.com/blog/economics/binomial-options-pricing-model">Pricing Stock Options via the Binomial Model</a>
+        </li>
+      
+        <li class="post">
+          <a href="http://andrew.gibiansky.com/blog/electrical-engineering/your-very-first-microprocessor">Your Very First Microprocessor</a>
+        </li>
+      
+        <li class="post">
+          <a href="http://andrew.gibiansky.com/blog/electrical-engineering/circuits-and-arithmetic">Circuits and Arithmetic</a>
+        </li>
+      
+        <li class="post">
+          <a href="http://andrew.gibiansky.com/blog/electrical-engineering/digital-design-tools-verilog-and-hdls">Digital Design Tools: Verilog and HDLs</a>
+        </li>
+      
+        <li class="post">
+          <a href="http://andrew.gibiansky.com/blog/physics/quadcopter-dynamics">Quadcopter Dynamics and Simulation</a>
+        </li>
+      
+        <li class="post">
+          <a href="http://andrew.gibiansky.com/blog/electrical-engineering/the-digital-state">The Digital State</a>
+        </li>
+      
+        <li class="post">
+          <a href="http://andrew.gibiansky.com/blog/electrical-engineering/computing-with-transistors">Computing with Transistors</a>
+        </li>
+      
+        <li class="post">
+          <a href="http://andrew.gibiansky.com/blog/machine-learning/machine-learning-neural-networks">Machine Learning: Neural Networks</a>
+        </li>
+      
+        <li class="post">
+          <a href="http://andrew.gibiansky.com/blog/machine-learning/machine-learning-the-basics">Machine Learning: the Basics</a>
+        </li>
+      
+        <li class="post">
+          <a href="http://andrew.gibiansky.com/blog/economics/iranian-political-embargoes-and-their-non-existent-impact-on-gasoline-prices">Iranian Political Embargoes, and their Non-Existent Impact on Gasoline Prices</a>
+        </li>
+      
+        <li class="post">
+          <a href="http://andrew.gibiansky.com/blog/physics/computational-fluid-dynamics">Computational Fluid Dynamics</a>
+        </li>
+      
+        <li class="post">
+          <a href="http://andrew.gibiansky.com/blog/physics/fluid-dynamics-the-navier-stokes-equations">Fluid Dynamics: The Navier-Stokes Equations</a>
+        </li>
+      
+        <li class="post">
+          <a href="http://andrew.gibiansky.com/blog/image-processing/image-morphing">Image Morphing</a>
+        </li>
+      
+    </ul>
+
+  </section>
+
+  <section>
+      <p>The content on this blog is licensed under the <a href="https://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA license</a>.</p>
+  </section>
+</aside>
+
+
+    </div>
+  </div>
+</body>
+
+<!-- Mirrored from andrew.gibiansky.com/blog/verification/writing-a-sat-solver/ by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 11:02:36 GMT -->
+</html>

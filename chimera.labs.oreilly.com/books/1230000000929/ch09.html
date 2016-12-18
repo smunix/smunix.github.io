@@ -1,0 +1,937 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<!-- Mirrored from chimera.labs.oreilly.com/books/1230000000929/ch09.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 11:04:16 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head><script type="text/javascript">var NREUMQ=NREUMQ||[];NREUMQ.push(["mark","firstbyte",new Date().getTime()]);</script>
+	<title>Parallel and Concurrent Programming in Haskell</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<link href="http://dwn0odqttrkhc.cloudfront.net/assets/book-f1caceafd9c9f3a6ff72d40c54d173ab.css" media="screen" rel="stylesheet" type="text/css" />
+	<link href="http://dwn0odqttrkhc.cloudfront.net/assets/default-24583441b4f47382b8932338cd56ed23.css" media="screen" rel="stylesheet" type="text/css" />
+	<script src="http://dwn0odqttrkhc.cloudfront.net/assets/application-47d6ffb0c77b868d29a43eb65e940505.js" type="text/javascript"></script>
+	<script src="http://dwn0odqttrkhc.cloudfront.net/assets/book-756862b9ed04d945ca53de5b8f106a83.js" type="text/javascript"></script>
+	<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+	<link href="http://dwn0odqttrkhc.cloudfront.net/assets/janrain-53eb5abed55992e21943b9d3373923e8.css" media="all" rel="stylesheet" type="text/css" />
+	<meta content="authenticity_token" name="csrf-param" />
+<meta content="WQ02oEFDbvBG99rmf8rwvGssMqcy27cCD64yZVVTcMY=" name="csrf-token" />
+	<script type="text/javascript" charset="utf-8">
+  	
+		app.data = new classes.Data({"controller":{"controller":"books","action":"html"},"capturable":{"capture_server":"https://oreilly.janraincapture.com","client_id":"6n5q2k9vesqgn93k3mhevka6c3c3rsre","app_url":"https://login.oreilly.com","app_id":"xsnca5wmqe9vxv97ygh5vfejkd","load_js":"d16s8pqtk4uodx.cloudfront.net/login.oreilly.com/load.js"},"user":{"id":null,"account":"LoggedOutAccount","email":"","name":null,"gravatar_url":"http://www.gravatar.com/avatar/d41d8cd98f00b204e9800998ecf8427e?s=40&d=identicon"},"book":{"isbn":"1230000000929","chapter":"ch09.html","toc_url":"/books/1230000000929/toc_html","metadata_url":"http://d4bb7yl96lyl1.cloudfront.net/1230000000929/metadata/metadata_9b2ac4d71a3220a7d463d8d4c80f9113048bb194.json"},"abilities":{"can_destroy_all_comments":false,"can_create_comments":false},"advertisement":{"body":"<style>      \r\n.ad-profile-image {\r\n  padding: 0;\r\n  margin: 0;\r\n  max-height: 30px;\r\n }\r\n\r\n.top-banner {\r\n  position: absolute;\r\n  right: 0;\r\n  top: 34px;\r\n  z-index: 99999;\r\n}\r\n\r\np.banner-text {\r\n  margin: 0;\r\n  text-align: center;\r\n  padding-right: 10px;\r\n  width: 450px;\r\n}\r\n\r\n@media screen and (max-width: 600px) {\r\n   p.banner-text {\r\n     width: 100%;\r\n     text-align: center;\r\n  }\r\n}\r\n\r\nspan.ebook-advantage {\r\n  font-size: smaller;\r\n  display: block;\r\n}\r\n\r\ndiv.banner-container {\r\n  margin: 0 auto;\r\n}\r\n\r\ndiv.banner-container ul {\r\n  margin: 0 auto;\r\n}\r\n\r\ndiv.topad { padding-bottom: 5px; }\r\n\r\ndiv.banner-container ul li {\r\n  display: inline-block;\r\n  vertical-align: middle;\r\n}\r\n\r\ndiv.banner-container li p {\r\n  padding-top: 0;\r\n  margin-top: 0;\r\n}\r\n\r\ndiv.banner-container li.sponsor {\r\n  border-right: 1px solid rgb(125, 154, 180);\r\n  margin-right: 5px;\r\n  padding-right: 10px;\r\n}\r\n\r\ndiv.banner-container .webbutton {\r\n  background-color: #3994b6;\r\n  display: inline-block;\r\n  padding: 10px;\r\n  -webkit-border-radius: 5px;\r\n  -moz-border-radius: 5px;\r\n  border-radius: 5px;\r\n  color: #FFF;\r\n  text-align: center;\r\n  text-decoration: none;\r\n  font-size: 12px;\r\n  font-weight: bold;\r\n}\r\n\r\n</style>\r\n   \r\n<div style=\"color: rgb(125, 154, 180);\">\r\n\r\n<div class=\"banner-container\">\r\n\r\n<ul>\r\n\r\n<li class=\"sponsor\">\r\n<!--CONFERENCE SPONSOR IMAGE-->\r\n<a href=\"http://www.oscon.com/oscon2013\">\r\n<!--<img src=\"http://orm-other.s3.amazonaws.com/fluent_logo.png\" class=\"ad-profile-image\"/>-->\r\n<img src=\"http://orm-other.s3.amazonaws.com/oscon_logo.png\" class=\"ad-profile-image\"/>\r\n<!--<img src=\"http://orm-other.s3.amazonaws.com/strata_logo.png\" class=\"ad-profile-image\"/>\r\n<img src=\"http://orm-other.s3.amazonaws.com/StrataRx_logo.png\" class=\"ad-profile-image\"/>\r\n<img src=\"http://orm-other.s3.amazonaws.com/velocity_logo.png\" class=\"ad-profile-image\"/>-->\r\n</a>\r\n</li>\r\n\r\n<li>\r\n<!--AD TEXT, 2 LINES, REPLACE LINK URL AS WELL-->\r\n<p class=\"banner-text\">Enjoy this online version of <em>Parallel and Concurrent Programming in Haskell</em>. Purchase and download the DRM-free ebook on <a href=\"http://shop.oreilly.com/product/0636920026365.do\">oreilly.com</a>.<span class=\"ebook-advantage\">Learn more about the O’Reilly <a href=\"http://shop.oreilly.com/category/ebooks.do\">Ebook Advantage</a>.</span></p>\r\n</li>\r\n\r\n<li>\r\n<!--BUY BUTTON-->\r\n<a class=\"webbutton\" href=\"http://shop.oreilly.com/product/0636920026365.do\">Buy the Ebook</a>\r\n</li> \r\n\r\n</ul>\r\n\r\n</div>\r\n\r\n<!--CORNER BANNER (IF NEEDED)-->\r\n<!--<a href=\"http://shop.oreilly.com/product/0636920026365.do\" class=\"top-banner\"><img src=\"http://orm-other.s3.amazonaws.com/banner.png\" /></a>-->\r\n\r\n</div>"}});
+
+		/* Janrain setup */
+  	var janrainModal = new JanrainView();
+  	$("head").append(janrainModal.render().el);
+
+  	/* segment.io setup */
+  	var analytics=analytics||[];analytics.load=function(e){var t=document.createElement("script");t.type="text/javascript",t.async=!0,t.src=("https:"===document.location.protocol?"https://":"http://")+"d2dq2ahtl5zl1z.cloudfront.net/analytics.js/v1/"+e+"/analytics.min.js";var n=document.getElementsByTagName("script")[0];n.parentNode.insertBefore(t,n);var r=function(e){return function(){analytics.push([e].concat(Array.prototype.slice.call(arguments,0)))}},i=["identify","track","trackLink","trackForm","trackClick","trackSubmit","pageview","ab","alias","ready"];for(var s=0;s<i.length;s++)analytics[i[s]]=r(i[s])};
+  	
+  	analytics.load("hg9h6b9pae");
+
+  	$(function() {
+			app.bookapp = new BookApp();
+		});
+	
+	</script>
+</head>
+<body>
+	<div id="menu">
+	
+		<ul id="menu-left">
+			<li id="home-link"><a href="http://chimera.labs.oreilly.com/"><i class="icon-house"></i></a></li>
+			<li><a href="http://chimera.labs.oreilly.com/books/1230000000929">Parallel and Concurrent Programming in Haskell</a></li>
+			<div class="clear"></div>
+		</ul>
+	
+		<ul id="menu-right">
+			<li id="comments-link"><a>&nbsp;</a></li>
+			<li>
+				<a href="#" class="dropdown-toggle" data-toggle="dropdown">Chapters</a>
+				<div id="toc-popup" class="dropdown-menu"></div>
+			</li>
+				<li><a href="#" class="capture_modal_open" id="capture_signin_link">Log In / Sign Up</a></li>
+			<li id="search-li">
+				<form accept-charset="UTF-8" action="http://chimera.labs.oreilly.com/searches" id="search-form" method="get"><div style="margin:0;padding:0;display:inline"><input name="utf8" type="hidden" value="&#x2713;" /></div>
+	<input name='search[q]' type="text" placeholder="Search book..." id="book-search" />
+
+	<input id="search_bookId" name="search[bookId]" type="hidden" value="1230000000929" />
+	
+	<div style='display:none'>
+		sorted by: 
+		<select name='search[sort]' >
+			<option value='relevance'>Relevance</option>
+			<option value='authors'>Author(s)</option>
+			<option value='title'>Title</option>
+		</select>
+		returning
+		<select name='search[limit]' >
+			<option value='5'>5</option>
+			<option value='10'>10</option>
+			<option value='20'>20</option>
+			<option selected="selected" value='50'>50</option>
+			<option value='100'>100</option>
+		</select>
+		values at a time.
+	</div>
+</form>
+			</li>
+			<div class="clear"></div>
+		</ul>
+		<div class="clear"></div>
+	
+</div>
+	<header><div class="navheader">
+<table style="width: 100%; ">
+<tr><td style="text-align: center; " colspan="3">Chapter 9. Cancellation and Timeouts</td></tr>
+<tr>
+<td style="width: 20%; text-align: left; ">
+<a accesskey="p" href="ch08.html">Prev</a> </td>
+<td style="width: 60%; text-align: center; ">Part II. Concurrent Haskell</td>
+<td style="width: 20%; text-align: right; "> <a accesskey="n" href="ch10.html">Next</a>
+</td>
+</tr>
+</table>
+<hr>
+</div></header><section class="chapter" data-original-filename="ch09_conc-asyncex.asciidoc" id="sec_cancellation"><div class="titlepage"><div><div><h2 class="title">Chapter 9. Cancellation and Timeouts</h2></div></div></div>
+<p id="conc-asyncex_00000002"><a id="ix_ch09_conc-asyncex-txt0" class="indexterm"></a><a id="ix_ch09_conc-asyncex-txt1" class="indexterm"></a><a id="ix_ch09_conc-asyncex-txt2" class="indexterm"></a>In an interactive application, it is often important for one thread to
+<span class="emphasis"><em>interrupt</em></span> the execution of another thread after the occurrence of some
+particular condition.  Some examples of this kind of behavior
+include the following:</p>
+<div class="itemizedlist" id="conc-asyncex_00000003"><ul class="itemizedlist">
+<li class="listitem">
+When the user clicks the "stop" button in a <a id="id443461" class="indexterm"></a><a id="id443467" class="indexterm"></a>web browser, the browser
+  may need to interrupt several activities, such as a thread downloading the
+  page, a thread rendering the page, and a thread running scripts.
+</li>
+<li class="listitem">
+A <a id="id443483" class="indexterm"></a>server application typically wants to give a client a set
+  amount of time to issue a request before closing its connection, so
+  as to avoid letting dormant connections use up resources.
+</li>
+<li class="listitem">
+An application that has a thread running a <a id="id443502" class="indexterm"></a>user interface and a
+  separate thread performing some compute-intensive task (say,
+  generating a visualization of some data) needs to interrupt the
+  computation when the user changes the parameters via the user
+  interface.
+</li>
+</ul></div>
+<p id="conc-asyncex_00000006">The crucial design decision in supporting cancellation is whether the
+intended victim should have to poll for the cancellation condition
+or whether the thread is immediately cancelled in some way.  This is a
+tradeoff:</p>
+<div class="orderedlist" id="conc-asyncex_00000007"><ol class="orderedlist" type="1">
+<li class="listitem">
+If the thread has to poll, then there is a danger that the programmer
+  may forget to poll regularly enough, and the thread will become
+  unresponsive, perhaps permanently so.  <a id="id443539" class="indexterm"></a><a id="id443547" class="indexterm"></a>Unresponsive threads lead to
+  hangs and deadlocks, which are particularly unpleasant from a
+  user’s perspective.
+</li>
+<li class="listitem">
+If cancellation happens asynchronously, critical sections that
+  modify state need to be protected from cancellation. Otherwise,
+  cancellation may occur mid-update, leaving some data in an
+  <a id="id443565" class="indexterm"></a>inconsistent state.
+</li>
+</ol></div>
+<p id="conc-asyncex_00000008">In fact, the choice is really between doing only (1) or doing both
+(1) and (2), because if (2) is the default, protecting a critical
+section amounts to switching to polling behavior for the duration of
+the critical section.</p>
+<p id="conc-asyncex_00000009">In most <a id="id443588" class="indexterm"></a>imperative languages, it is unthinkable for (2) to be the
+default, because so much code modifies state.  Haskell has a
+distinct advantage in this area because most code is purely
+functional, so it can be safely aborted or suspended and later
+resumed without affecting correctness.  Moreover, our hand is
+forced: by definition, purely functional code cannot poll for the
+cancellation condition, so it must be cancellable by default.</p>
+<p id="conc-asyncex_00000010">Therefore, fully <a id="id443607" class="indexterm"></a>asynchronous cancellation is the only sensible
+default in Haskell, and the design problem reduces to deciding how
+cancellation is handled by code in <a id="id443615" class="indexterm"></a>the <code class="literal">IO</code> monad.</p>
+<div class="sect1" data-original-filename="ch09_conc-asyncex.asciidoc" id="sec_async-exceptions">
+<div class="titlepage"><div><div><h2 class="title">Asynchronous Exceptions</h2></div></div></div>
+<p id="conc-asyncex_00000011"><a id="ix_ch09_conc-asyncex-txt3" class="indexterm"></a>Exceptions are already a fact of life in the <code class="literal">IO</code> monad, and the usual
+idioms for writing <code class="literal">IO</code> monad code include using functions <a id="id443673" class="indexterm"></a><a id="id443681" class="indexterm"></a>like
+<code class="literal">bracket</code> and <code class="literal">finally</code> to acquire and release resources in a reliable
+way (see <a class="xref" href="ch08.html#sec_exceptions" title="Exceptions in Haskell">“Exceptions in Haskell”</a>).  We would like <code class="literal">bracket</code> to work even if
+a thread is cancelled, so cancellation should behave like an
+exception.  However, there’s a fundamental difference between the kind
+of exception thrown by <code class="literal">openFile</code> when the file does not exist, for
+example, and an exception that may arise <span class="emphasis"><em>at any time</em></span> because the
+user pressed the “stop” button.  We call the latter kind <a id="id443730" class="indexterm"></a>an
+<span class="emphasis"><em>asynchronous</em></span> exception because it is asynchronous from the point of
+view of the "victim"; they didn’t ask for it.  Conversely, exceptions
+thrown using the normal <code class="literal">throw</code> and <code class="literal">throwIO</code> are <a id="id443758" class="indexterm"></a>called <span class="emphasis"><em>synchronous</em></span>
+exceptions.</p>
+<p id="conc-asyncex_00000012">To initiate an asynchronous exception, Haskell provides the <code class="literal">throwTo</code>
+primitive, which throws an exception from one thread to another:</p>
+<pre class="programlisting" data-language="haskell" id="throwto__exce"><code class="nf">throwTo</code> <code class="ow">::</code> <code class="kt">Exception</code> <code class="n">e</code> <code class="ow">=&gt;</code> <code class="kt">ThreadId</code> <code class="ow">-&gt;</code> <code class="n">e</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="nb">()</code></pre>
+<p id="conc-asyncex_00000014">As with synchronous exceptions, the type of the exception must be an
+instance of the <code class="literal">Exception</code> class.  <a id="id443862" class="indexterm"></a>The <code class="literal">ThreadId</code> is a value returned
+by a previous call to <code class="literal">forkIO</code>, and may refer to a thread in any
+state: running, blocked, or finished (in the latter case, <code class="literal">throwTo</code> is
+a no-op).</p>
+<p id="conc-asyncex_00000015">To illustrate the use <a id="id443893" class="indexterm"></a>of <code class="literal">throwTo</code>, we now elaborate on the example from
+<a class="xref" href="ch08.html#sec_conc-mvar-errors" title="Error Handling with Async">“Error Handling with Async”</a>, in which we downloaded several web pages
+concurrently, to allow the user to hit <code class="literal">'q'</code> at any time to stop the
+downloads.</p>
+<p id="conc-asyncex_00000016">First, we will extend our <code class="literal">Async</code> mini-API to allow cancellation.  We
+add one operation:</p>
+<pre class="programlisting" data-language="haskell" id="cancel__async_id1"><code class="nf">cancel</code> <code class="ow">::</code> <code class="kt">Async</code> <code class="n">a</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="nb">()</code></pre>
+<p id="conc-asyncex_00000018">This cancels an existing <code class="literal">Async</code>.  If the operation has
+already completed, then <code class="literal">cancel</code> has no effect.</p>
+<p id="conc-asyncex_00000019">To <a id="id444004" class="indexterm"></a>implement <code class="literal">cancel</code>, we need the <code class="literal">ThreadId</code> of the thread running
+the <code class="literal">Async</code>, so we must store that in the <code class="literal">Async</code> type along with
+the <code class="literal">MVar</code> that holds the result.  Hence the <code class="literal">Async</code> type now looks
+like:</p>
+<pre class="programlisting" data-language="haskell" id="data_async_a___id3"><code class="kr">data</code> <code class="kt">Async</code> <code class="n">a</code> <code class="ow">=</code> <code class="kt">Async</code> <code class="kt">ThreadId</code> <code class="p">(</code><code class="kt">MVar</code> <code class="p">(</code><code class="kt">Either</code> <code class="kt">SomeException</code> <code class="n">a</code><code class="p">))</code></pre>
+<p id="conc-asyncex_00000021">Given this, the implementation of <code class="literal">cancel</code> just throws an exception to
+the thread:</p>
+<pre class="programlisting" data-language="haskell" id="cancel__async_id2"><code class="nf">cancel</code> <code class="ow">::</code> <code class="kt">Async</code> <code class="n">a</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="nb">()</code>
+<code class="nf">cancel</code> <code class="p">(</code><code class="kt">Async</code> <code class="n">t</code> <code class="n">var</code><code class="p">)</code> <code class="ow">=</code> <code class="n">throwTo</code> <code class="n">t</code> <code class="kt">ThreadKilled</code></pre>
+<p id="conc-asyncex_00000023"><a id="id444247" class="indexterm"></a><a id="id444255" class="indexterm"></a><a id="id444261" class="indexterm"></a>The <code class="literal">ThreadKilled</code> exception is provided by the <code class="literal">Control.Exception</code>
+library and is typically used for cancelling threads in this way.)</p>
+<p id="conc-asyncex_00000024">For the example, we will <a id="id444290" class="indexterm"></a>need <code class="literal">waitCatch</code>, which has the same implementation
+it had in <a class="xref" href="ch08.html#sec_conc-mvar-errors" title="Error Handling with Async">“Error Handling with Async”</a>.  What happens if we call <code class="literal">waitCatch</code> on an <code class="literal">Async</code>
+that has been cancelled?  In that case, <code class="literal">cancel</code> throws the <code class="literal">ThreadKilled</code>
+exception to the thread, so <code class="literal">waitCatch</code> will return <code class="literal">Left
+ThreadKilled</code>.</p>
+<p id="conc-asyncex_00000025">The remaining piece of the implementation is the <code class="literal">async</code> operation,
+which must now store the <code class="literal">ThreadId</code> returned by <code class="literal">forkIO</code> in the
+<code class="literal">Async</code> constructor:</p>
+<pre class="programlisting" data-language="haskell" id="async__io_a__id1"><code class="nf">async</code> <code class="ow">::</code> <code class="kt">IO</code> <code class="n">a</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="p">(</code><code class="kt">Async</code> <code class="n">a</code><code class="p">)</code>
+<code class="nf">async</code> <code class="n">action</code> <code class="ow">=</code> <code class="kr">do</code>
+   <code class="n">m</code> <code class="ow">&lt;-</code> <code class="n">newEmptyMVar</code>
+   <code class="n">t</code> <code class="ow">&lt;-</code> <code class="n">forkIO</code> <code class="p">(</code><code class="kr">do</code> <code class="n">r</code> <code class="ow">&lt;-</code> <code class="n">try</code> <code class="n">action</code><code class="p">;</code> <code class="n">putMVar</code> <code class="n">m</code> <code class="n">r</code><code class="p">)</code>
+   <code class="n">return</code> <code class="p">(</code><code class="kt">Async</code> <code class="n">t</code> <code class="n">m</code><code class="p">)</code></pre>
+<p id="conc-asyncex_00000027">Now we can change the <code class="literal">main</code> function of the example to support
+cancelling the downloads:</p>
+<p id="conc-asyncex_00000028" class="caption"><span class="emphasis"><em>geturlscancel.hs</em></span>
+</p>
+<pre class="programlisting" data-language="haskell" id="main__do_as_"><code class="nf">main</code> <code class="ow">=</code> <code class="kr">do</code>
+  <code class="n">as</code> <code class="ow">&lt;-</code> <code class="n">mapM</code> <code class="p">(</code><code class="n">async</code> <code class="o">.</code> <code class="n">timeDownload</code><code class="p">)</code> <code class="n">sites</code>                     <code class="c1">-- </code><span id="CO33-1"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1"></span>
+
+  <code class="n">forkIO</code> <code class="o">$</code> <code class="kr">do</code>                                                 <code class="c1">-- </code><span id="CO33-2"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/2.png" alt="2"></span>
+     <code class="n">hSetBuffering</code> <code class="n">stdin</code> <code class="kt">NoBuffering</code>
+     <code class="n">forever</code> <code class="o">$</code> <code class="kr">do</code>
+        <code class="n">c</code> <code class="ow">&lt;-</code> <code class="n">getChar</code>
+        <code class="n">when</code> <code class="p">(</code><code class="n">c</code> <code class="o">==</code> <code class="sc">'q'</code><code class="p">)</code> <code class="o">$</code> <code class="n">mapM_</code> <code class="n">cancel</code> <code class="n">as</code>
+
+  <code class="n">rs</code> <code class="ow">&lt;-</code> <code class="n">mapM</code> <code class="n">waitCatch</code> <code class="n">as</code>                                     <code class="c1">-- </code><span id="CO33-3"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/3.png" alt="3"></span>
+  <code class="n">printf</code> <code class="s">"%d/%d succeeded</code><code class="se">\n</code><code class="s">"</code> <code class="p">(</code><code class="n">length</code> <code class="p">(</code><code class="n">rights</code> <code class="n">rs</code><code class="p">))</code> <code class="p">(</code><code class="n">length</code> <code class="n">rs</code><code class="p">)</code> <code class="c1">-- </code><span id="CO33-4"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/4.png" alt="4"></span></pre>
+<div class="calloutlist" id="conc-asyncex_00000031"><table style="border: 0; ">
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO33-1"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="starts_the_down">
+Starts the downloads as before.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO33-2"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/2.png" alt="2"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="forks_a_new_thr">
+Forks a new thread that repeatedly reads characters from the standard input
+and if a <code class="literal">q</code> is found, calls <code class="literal">cancel</code> on all the <code class="literal">Async</code>s.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO33-3"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/3.png" alt="3"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="waits_for_all_t">
+Waits for all the results (complete or cancelled).
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO33-4"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/4.png" alt="4"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="emits_a_summary">
+Emits a summary with a count of how many of the operations completed successfully.  If we run the sample and hit <code class="literal">q</code> fast enough, we see
+something like this:
+</p></td>
+</tr>
+</table></div>
+<pre class="screen" id="conc-asyncex_00000032">downloaded: http://www.google.com (14538 bytes, 0.17s)
+downloaded: http://www.bing.com (24740 bytes, 0.22s)
+q2/5 finished</pre>
+<p id="conc-asyncex_00000033">Note that this works even though the program is sitting atop a large
+and complicated <a id="id445020" class="indexterm"></a><a id="id445025" class="indexterm"></a>HTTP library that provides no direct support for
+either cancellation or asynchronous I/O.  Haskell’s support for
+cancellation is modular in this respect; most library code needs to do
+nothing to support it, although there are some simple and unintrusive
+rules that need to be followed when dealing with state, as we shall
+see in the next section.<a id="id445041" class="indexterm"></a></p>
+</div>
+<div class="sect1" data-original-filename="ch09_conc-asyncex.asciidoc" id="sec_mask">
+<div class="titlepage"><div><div><h2 class="title">Masking Asynchronous Exceptions</h2></div></div></div>
+<p id="conc-asyncex_00000034"><a id="ix_ch09_conc-asyncex-txt4" class="indexterm"></a><a id="ix_ch09_conc-asyncex-txt5" class="indexterm"></a>As we mentioned earlier, the danger with fully asynchronous exceptions
+is that one might fire while we are in the middle of updating some
+shared state, leaving the data in an <a id="id445093" class="indexterm"></a>inconsistent state, and with a
+high probability of leading to mayhem later.  Hence, we certainly need a
+way to control the delivery of asynchronous exceptions during critical
+sections.  But we must tread carefully: a natural idea is to provide
+operations to turn off asynchronous exception delivery and turn it on
+again, but this is not what we really need.</p>
+<p id="conc-asyncex_00000035">Consider the following problem: a thread wishes to call <code class="literal">takeMVar</code>,
+perform an operation depending on the value of the <code class="literal">MVar</code>, and finally
+put the result of the operation in the <code class="literal">MVar</code>.  The code must be
+responsive to asynchronous exceptions, but it should be safe. If an
+asynchronous exception arrives after the <code class="literal">takeMVar</code> but before the
+final <code class="literal">putMVar</code>, the <code class="literal">MVar</code> should not be left empty. Instead, the
+original value should be restored.</p>
+<p id="conc-asyncex_00000036">If we code this problem using the facilities we’ve seen so
+far, we might end up with something like the following function
+<code class="literal">problem</code>, which takes two arguments—<code class="literal">m</code>, an <code class="literal">MVar</code> to modify, and
+<code class="literal">f</code>, a function that takes the current value of the <code class="literal">MVar</code>—and
+computes a new value in the <code class="literal">IO</code> monad.</p>
+<pre class="programlisting" data-language="haskell" id="problem__mvar_id1"><code class="nf">problem</code> <code class="ow">::</code> <code class="kt">MVar</code> <code class="n">a</code> <code class="ow">-&gt;</code> <code class="p">(</code><code class="n">a</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="n">a</code><code class="p">)</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="nb">()</code>
+<code class="nf">problem</code> <code class="n">m</code> <code class="n">f</code> <code class="ow">=</code> <code class="kr">do</code>
+  <code class="n">a</code> <code class="ow">&lt;-</code> <code class="n">takeMVar</code> <code class="n">m</code>                                 <code class="c1">-- </code><span id="problem-1"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1"></span>
+  <code class="n">r</code> <code class="ow">&lt;-</code> <code class="n">f</code> <code class="n">a</code> <code class="p">`</code><code class="n">catch</code><code class="p">`</code> <code class="nf">\</code><code class="n">e</code> <code class="ow">-&gt;</code> <code class="kr">do</code> <code class="n">putMVar</code> <code class="n">m</code> <code class="n">a</code><code class="p">;</code> <code class="n">throw</code> <code class="n">e</code>  <code class="c1">-- </code><span id="problem-2"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/2.png" alt="2"></span>
+  <code class="n">putMVar</code> <code class="n">m</code> <code class="n">r</code>                                     <code class="c1">-- </code><span id="problem-3"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/3.png" alt="3"></span></pre>
+<p id="conc-asyncex_00000038">There are at least two points where, if an asynchronous
+exception strikes, the invariant will be violated.  If an exception
+strikes between <a class="xref" href="ch09.html#problem-1"><span><img src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1" border="0"></span></a> and <a class="xref" href="ch09.html#problem-2"><span><img src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/2.png" alt="2" border="0"></span></a> or between <a class="xref" href="ch09.html#problem-2"><span><img src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/2.png" alt="2" border="0"></span></a> and <a class="xref" href="ch09.html#problem-3"><span><img src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/3.png" alt="3" border="0"></span></a>, the <code class="literal">MVar</code>
+will be left empty.  In fact, there is no way to shuffle around the
+exception handlers to ensure the <code class="literal">MVar</code> is always left full.  To fix
+this problem, Haskell provides <a id="id445500" class="indexterm"></a>the <code class="literal">mask</code>
+<span class="keep-together">combinator</span>:<a href="#ftn.id445518" class="footnote"><sup class="footnote" id="id445518">[34]</sup></a></p>
+<pre class="programlisting" data-language="haskell" id="mask__io_a_"><code class="nf">mask</code> <code class="ow">::</code> <code class="p">((</code><code class="kt">IO</code> <code class="n">a</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="n">a</code><code class="p">)</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="n">b</code><code class="p">)</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="n">b</code></pre>
+<p id="conc-asyncex_00000040">The <code class="literal">mask</code> operation defers the delivery of asynchronous exceptions
+for the duration of its argument. The type might look a bit
+confusing, but bear with me. First, I’ll show an example of <code class="literal">mask</code> in
+use and then explain how it works:<a href="#ftn.id445651" class="footnote"><sup class="footnote" id="id445651">[35]</sup></a></p>
+<pre class="programlisting" data-language="haskell" id="problem__mvar_id2"><code class="nf">problem</code> <code class="ow">::</code> <code class="kt">MVar</code> <code class="n">a</code> <code class="ow">-&gt;</code> <code class="p">(</code><code class="n">a</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="n">a</code><code class="p">)</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="nb">()</code>
+<code class="nf">problem</code> <code class="n">m</code> <code class="n">f</code> <code class="ow">=</code> <code class="n">mask</code> <code class="o">$</code> <code class="nf">\</code><code class="n">restore</code> <code class="ow">-&gt;</code> <code class="kr">do</code>
+  <code class="n">a</code> <code class="ow">&lt;-</code> <code class="n">takeMVar</code> <code class="n">m</code>
+  <code class="n">r</code> <code class="ow">&lt;-</code> <code class="n">restore</code> <code class="p">(</code><code class="n">f</code> <code class="n">a</code><code class="p">)</code> <code class="p">`</code><code class="n">catch</code><code class="p">`</code> <code class="nf">\</code><code class="n">e</code> <code class="ow">-&gt;</code> <code class="kr">do</code> <code class="n">putMVar</code> <code class="n">m</code> <code class="n">a</code><code class="p">;</code> <code class="n">throw</code> <code class="n">e</code>
+  <code class="n">putMVar</code> <code class="n">m</code> <code class="n">r</code></pre>
+<p id="conc-asyncex_00000042"><code class="literal">mask</code> is applied to a <span class="emphasis"><em>function</em></span>, which takes as its argument a
+function <code class="literal">restore</code>.  <a id="id445956" class="indexterm"></a>The <code class="literal">restore</code> function can be used to restore the
+delivery of asynchronous exceptions to its present state during
+execution of the argument to <code class="literal">mask</code>.  If we imagine shading the entire
+argument to <code class="literal">mask</code> except for the expression <code class="literal">(f a)</code>, asynchronous
+exceptions cannot be raised in the shaded portions.</p>
+<p id="conc-asyncex_00000043">This solves the problem that we had previously because now an exception
+can be raised only while <code class="literal">(f a)</code> is working, and we have an exception
+handler to catch any exceptions in that case.  But a new problem has
+been introduced: <code class="literal">takeMVar</code> might block for a long time, but it is
+inside the <code class="literal">mask</code> so the thread will be unresponsive during that
+time.  Furthermore, there’s no good reason to mask exceptions <a id="ix_interruptibleoperations" class="indexterm"></a><a id="id446032" class="indexterm"></a>during
+<code class="literal">takeMVar</code>; it would be safe for exceptions to be raised right up
+until the point where <code class="literal">takeMVar</code> returns.  Hence, this is exactly the
+behavior that Haskell defines for <code class="literal">takeMVar</code>: a small
+number of operations, including <code class="literal">takeMVar</code>, are designated as <span class="emphasis"><em>interruptible</em></span>.
+Interruptible operations may receive asynchronous exceptions even
+inside <code class="literal">mask</code>.</p>
+<p id="conc-asyncex_00000044">What justifies this choice?  Think of <code class="literal">mask</code> as “switching to polling
+mode” for asynchronous exceptions.  Inside a <code class="literal">mask</code>, asynchronous
+exceptions are no longer asynchronous, but they can still be raised by
+certain operations.  In other words, asynchronous exceptions become
+<span class="emphasis"><em>synchronous</em></span> inside <code class="literal">mask</code>.</p>
+<p id="conc-asyncex_00000045">All operations that may block indefinitely are designated as interruptible.<a href="#ftn.id446115" class="footnote"><sup class="footnote" id="id446115">[36]</sup></a>  This
+turns out to be the ideal behavior in many situations, as in the previous
+<code class="literal">problem</code> example.</p>
+<p id="conc-asyncex_00000046">The observant reader may spot a new flaw. The <code class="literal">putMVar</code> function can also <a id="id446145" class="indexterm"></a>block
+indefinitely, so the definition of interruptible includes <code class="literal">putMVar</code>,
+and therefore the <code class="literal">problem</code> function above is still unsafe because an
+asynchronous exception could be raised by either <code class="literal">putMVar</code>.</p>
+<p id="conc-asyncex_00000047">However, thanks to a subtlety in the precise definition of
+interruptibility, we are still safe. An interruptible operation may
+receive an asynchronous exception only <span class="emphasis"><em>if it actually blocks</em></span>.  In
+the case of <code class="literal">problem</code> above, we know the <code class="literal">MVar</code> is definitely empty
+when we call <code class="literal">putMVar</code>, so <code class="literal">putMVar</code> cannot block, which means
+that it is not interruptible.<a id="id446209" class="indexterm"></a></p>
+<p id="conc-asyncex_00000048">How do we know that the <code class="literal">MVar</code> is definitely empty?  Strictly speaking,
+we don’t, because another thread might call <code class="literal">putMVar</code> on the same
+<code class="literal">MVar</code> after the <code class="literal">takeMVar</code> call in <code class="literal">problem</code>.  The guarantee
+therefore relies on the <code class="literal">MVar</code> being operated in a consistent way,
+where every operation consists of <code class="literal">takeMVar</code> followed by <code class="literal">putMVar</code>.
+This is a common requirement for many <code class="literal">MVar</code> operations—a particular
+use <a id="id446282" class="indexterm"></a>of <code class="literal">MVar</code> comes with a protocol that operations must follow or
+risk a deadlock<a id="id446297" class="indexterm"></a>.</p>
+<div class="tip" id="conc-asyncex_00000049">
+<p id="when_you_really">When you really need to call an interruptible
+function but can’t afford the possibility that an asynchronous
+exception might be raised, there is a last resort:</p>
+<pre class="programlisting" data-language="haskell" id="uninterruptible"><code class="nf">uninterruptibleMask</code> <code class="ow">::</code> <code class="p">((</code><code class="kt">IO</code> <code class="n">a</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="n">a</code><code class="p">)</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="n">b</code><code class="p">)</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="n">b</code></pre>
+<p id="conc-asyncex_00000051">This works just like <code class="literal">mask</code>, except that interruptible operations may
+not receive asynchronous exceptions.  Be very careful with
+<code class="literal">uninterruptibleMask</code>; accidental misuse may leave your application
+unresponsive.  Every instance of <code class="literal">uninterruptibleMask</code> should be
+treated with the utmost <a id="id446432" class="indexterm"></a><a id="id446441" class="indexterm"></a><a id="id446449" class="indexterm"></a><a id="id446457" class="indexterm"></a><a id="id446465" class="indexterm"></a><a id="id446471" class="indexterm"></a><a id="id446477" class="indexterm"></a><a id="id446483" class="indexterm"></a>suspicion.</p>
+</div>
+<div class="tip" id="conc-asyncex_00000062">
+<p id="for_debugging_">For debugging, it is sometimes handy to be able to find out whether
+the current thread is in the <code class="literal">mask</code> state or not.  The
+<code class="literal">Control.Exception</code> library provides a useful function for this purpose:</p>
+<pre class="programlisting" data-language="haskell" id="getmaskingstate"><code class="nf">getMaskingState</code> <code class="ow">::</code> <code class="kt">IO</code> <code class="kt">MaskingState</code>
+
+<code class="kr">data</code> <code class="kt">MaskingState</code>
+  <code class="ow">=</code> <code class="kt">Unmasked</code>
+  <code class="o">|</code> <code class="kt">MaskedInterruptible</code>
+  <code class="o">|</code> <code class="kt">MaskedUninterruptible</code></pre>
+<p id="conc-asyncex_00000065">The <code class="literal">getMaskingState</code> function returns one of the following constructors:</p>
+<div class="variablelist" id="conc-asyncex_00000066"><dl class="variablelist">
+<dt><span class="term">
+<code class="literal">Unmasked</code>
+</span></dt>
+<dd>
+The current thread is not inside <code class="literal">mask</code> or <code class="literal">uninterruptibleMask</code>.
+</dd>
+<dt><span class="term">
+<code class="literal">MaskedInterruptible</code>
+</span></dt>
+<dd>
+The current thread is inside <code class="literal">mask</code>.
+</dd>
+<dt><span class="term">
+<code class="literal">MaskedUninterruptible</code>
+</span></dt>
+<dd>
+The current thread is inside <code class="literal">uninterruptibleMask</code>.
+</dd>
+</dl></div>
+</div>
+<p id="conc-asyncex_00000052">We can provide higher-level combinators to insulate programmers from
+the need to use <code class="literal">mask</code> directly.  For example, the earlier <code class="literal">problem</code>
+function has general applicability when working with <code class="literal">MVar</code>s and is provided
+under the name<a id="id446700" class="indexterm"></a> <code class="literal">modifyMVar_</code> in the <code class="literal">Control.Concurrent.MVar</code> library:</p>
+<pre class="programlisting" data-language="haskell" id="modifymvar___"><code class="nf">modifyMVar_</code> <code class="ow">::</code> <code class="kt">MVar</code> <code class="n">a</code> <code class="ow">-&gt;</code> <code class="p">(</code><code class="n">a</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="n">a</code><code class="p">)</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="nb">()</code></pre>
+<p id="conc-asyncex_00000054">There is also a variant that allows the operation to return a separate
+result in addition to the new contents of the <code class="literal">MVar</code>:</p>
+<pre class="programlisting" data-language="haskell" id="modifymvar__m"><code class="nf">modifyMVar</code> <code class="ow">::</code> <code class="kt">MVar</code> <code class="n">a</code> <code class="ow">-&gt;</code> <code class="p">(</code><code class="n">a</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="p">(</code><code class="n">a</code><code class="p">,</code> <code class="n">b</code><code class="p">))</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="n">b</code></pre>
+<p id="conc-asyncex_00000056">Here’s a simple example <a id="id446911" class="indexterm"></a>of <code class="literal">modifyMVar</code>, used to implement the classic
+"compare-and-swap" operation:</p>
+<pre class="programlisting" data-language="haskell" id="casmvar__eq_a"><code class="nf">casMVar</code> <code class="ow">::</code> <code class="kt">Eq</code> <code class="n">a</code> <code class="ow">=&gt;</code> <code class="kt">MVar</code> <code class="n">a</code> <code class="ow">-&gt;</code> <code class="n">a</code> <code class="ow">-&gt;</code> <code class="n">a</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="kt">Bool</code>
+<code class="nf">casMVar</code> <code class="n">m</code> <code class="n">old</code> <code class="n">new</code> <code class="ow">=</code>
+  <code class="n">modifyMVar</code> <code class="n">m</code> <code class="o">$</code> <code class="nf">\</code><code class="n">cur</code> <code class="ow">-&gt;</code>
+    <code class="kr">if</code> <code class="n">cur</code> <code class="o">==</code> <code class="n">old</code>
+       <code class="kr">then</code> <code class="n">return</code> <code class="p">(</code><code class="n">new</code><code class="p">,</code><code class="kt">True</code><code class="p">)</code>
+       <code class="kr">else</code> <code class="n">return</code> <code class="p">(</code><code class="n">cur</code><code class="p">,</code><code class="kt">False</code><code class="p">)</code></pre>
+<p id="conc-asyncex_00000058">The <code class="literal">casMVar</code> function takes an <code class="literal">MVar</code>, an <code class="literal">old</code> value, and a <code class="literal">new</code>
+value.  If the current contents of the <code class="literal">MVar</code> are equal to <code class="literal">old</code>, then
+it is replaced by <code class="literal">new</code> and <code class="literal">cas</code> returns <code class="literal">True</code>; otherwise it is left
+unmodified and <code class="literal">cas</code> returns <code class="literal">False</code>.</p>
+<p id="working_on_mult">Working on multiple <code class="literal">MVar</code>s is possible by <a id="id447236" class="indexterm"></a><a id="id447244" class="indexterm"></a>nesting calls to
+<code class="literal">modifyMVar</code>.  For example, here is a function that modifies the
+contents of two <code class="literal">MVar</code>s safely:</p>
+<p id="modifytwohs_" class="caption"><span class="emphasis"><em>modifytwo.hs</em></span>
+</p>
+<pre class="programlisting" data-language="haskell" id="modifytwo__mv"><code class="nf">modifyTwo</code> <code class="ow">::</code> <code class="kt">MVar</code> <code class="n">a</code> <code class="ow">-&gt;</code> <code class="kt">MVar</code> <code class="n">b</code> <code class="ow">-&gt;</code> <code class="p">(</code><code class="n">a</code> <code class="ow">-&gt;</code> <code class="n">b</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="p">(</code><code class="n">a</code><code class="p">,</code><code class="n">b</code><code class="p">))</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="nb">()</code>
+<code class="nf">modifyTwo</code> <code class="n">ma</code> <code class="n">mb</code> <code class="n">f</code> <code class="ow">=</code>
+  <code class="n">modifyMVar_</code> <code class="n">mb</code> <code class="o">$</code> <code class="nf">\</code><code class="n">b</code> <code class="ow">-&gt;</code>
+    <code class="n">modifyMVar</code> <code class="n">ma</code> <code class="o">$</code> <code class="nf">\</code><code class="n">a</code> <code class="ow">-&gt;</code> <code class="n">f</code> <code class="n">a</code> <code class="n">b</code></pre>
+<p id="if_this_blocks_">If this blocks in the inner <code class="literal">modifyMVar</code> and an exception is raised,
+then the outer <code class="literal">modifyMVar_</code> will restore the contents of the <code class="literal">MVar</code> it
+took.</p>
+<div class="caution" id="when_taking_two_id1"><p id="when_taking_two_id2">When taking two or more <code class="literal">MVar</code>s, always take them in the same order.
+Otherwise, your program is likely to deadlock.  We’ll discuss this
+problem in more detail in <a class="xref" href="ch10.html" title="Chapter 10. Software Transactional Memory">Chapter 10</a>.<a id="id447552" class="indexterm"></a><a id="id447562" class="indexterm"></a></p></div>
+</div>
+<div class="sect1" data-original-filename="ch09_conc-asyncex.asciidoc" id="sec_bracket">
+<div class="titlepage"><div><div><h2 class="title">The bracket Operation</h2></div></div></div>
+<p id="conc-asyncex_00000059"><a id="id447586" class="indexterm"></a><a id="id447594" class="indexterm"></a>We saw <a id="id447601" class="indexterm"></a>the <code class="literal">bracket</code> function earlier; in fact, <code class="literal">bracket</code> is defined
+with <code class="literal">mask</code> to make it safe in the presence of asynchronous exceptions:</p>
+<pre class="programlisting" data-language="haskell" id="bracket__io_a_id3"><code class="nf">bracket</code> <code class="ow">::</code> <code class="kt">IO</code> <code class="n">a</code> <code class="ow">-&gt;</code> <code class="p">(</code><code class="n">a</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="n">b</code><code class="p">)</code> <code class="ow">-&gt;</code> <code class="p">(</code><code class="n">a</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="n">c</code><code class="p">)</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="n">c</code>
+<code class="nf">bracket</code> <code class="n">before</code> <code class="n">after</code> <code class="n">thing</code> <code class="ow">=</code>
+  <code class="n">mask</code> <code class="o">$</code> <code class="nf">\</code><code class="n">restore</code> <code class="ow">-&gt;</code> <code class="kr">do</code>
+    <code class="n">a</code> <code class="ow">&lt;-</code> <code class="n">before</code>
+    <code class="n">r</code> <code class="ow">&lt;-</code> <code class="n">restore</code> <code class="p">(</code><code class="n">thing</code> <code class="n">a</code><code class="p">)</code> <code class="p">`</code><code class="n">onException</code><code class="p">`</code> <code class="n">after</code> <code class="n">a</code>
+    <code class="kr">_</code> <code class="ow">&lt;-</code> <code class="n">after</code> <code class="n">a</code>
+    <code class="n">return</code> <code class="n">r</code></pre>
+<p id="the_io_actions_">The <code class="literal">IO</code> actions passed in as <code class="literal">before</code> and <code class="literal">after</code> are performed
+inside <code class="literal">mask</code>.  The <code class="literal">bracket</code> function guarantees that if <code class="literal">before</code>
+returns, <code class="literal">after</code> will be executed in the future. It is normal for
+<code class="literal">before</code> to contain a blocking operation; if an exception is raised
+while <code class="literal">before</code> is blocked, then no harm is done.  But <code class="literal">before</code> should perform only <span class="emphasis"><em>one</em></span> <a id="id447980" class="indexterm"></a>blocking operation. An exception raised by a second blocking operation would not result in <code class="literal">after</code> being executed.  If you
+need to perform two blocking operations, the right way is to nest
+calls to <code class="literal">bracket</code>, as we did with <code class="literal">modifyMVar</code>.</p>
+<p id="something_else_">Something else to watch out for here is using blocking operations in
+<code class="literal">after</code>. If you need to do this, then be aware that your blocking
+operation is interruptible and might receive an asynchronous
+exception.</p>
+</div>
+<div class="sect1" data-original-filename="ch09_conc-asyncex.asciidoc" id="sec_async-safety">
+<div class="titlepage"><div><div><h2 class="title">Asynchronous Exception Safety for Channels</h2></div></div></div>
+<p id="conc-asyncex_00000061"><a id="ix_ch09_conc-asyncex-txt6" class="indexterm"></a><a id="ix_ch09_conc-asyncex-txt7" class="indexterm"></a>In most <code class="literal">MVar</code> code, we can use operations like <code class="literal">modifyMVar_</code> instead
+of <code class="literal">takeMVar</code> and <code class="literal">putMVar</code> to make our code safe in the presence of
+asynchronous exceptions.  For example, consider the buffered channels
+that we defined in <a class="xref" href="ch07.html#sec_channels" title="MVar as a Building Block: Unbounded Channels">“MVar as a Building Block: Unbounded Channels”</a>.  As defined, the operations are
+not safe in the presence of asynchronous exceptions. For example<a id="id448099" class="indexterm"></a>, <code class="literal">readChan</code> was defined
+like this:</p>
+<pre class="programlisting" data-language="haskell" id="readchan__cha_id3"><code class="nf">readChan</code> <code class="ow">::</code> <code class="kt">Chan</code> <code class="n">a</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="n">a</code>
+<code class="nf">readChan</code> <code class="p">(</code><code class="kt">Chan</code> <code class="n">readVar</code> <code class="kr">_</code><code class="p">)</code> <code class="ow">=</code> <code class="kr">do</code>
+  <code class="n">stream</code> <code class="ow">&lt;-</code> <code class="n">takeMVar</code> <code class="n">readVar</code>
+  <code class="kt">Item</code> <code class="n">val</code> <code class="n">new</code> <code class="ow">&lt;-</code> <code class="n">readMVar</code> <code class="n">stream</code>
+  <code class="n">putMVar</code> <code class="n">readVar</code> <code class="n">new</code>
+  <code class="n">return</code> <code class="n">val</code></pre>
+<p id="conc-asyncex_00000068">If an asynchronous exception occurs after the first
+<code class="literal">takeMVar</code>, then the <code class="literal">readVar</code> will be left empty and subsequent
+readers of the <code class="literal">Chan</code> will deadlock.  To make it safe, we could
+use <code class="literal">modifyMVar</code>:</p>
+<p id="conc-asyncex_00000069" class="caption"><span class="emphasis"><em>chan3.hs</em></span>
+</p>
+<pre class="programlisting" data-language="haskell" id="readchan__cha_id4"><code class="nf">readChan</code> <code class="ow">::</code> <code class="kt">Chan</code> <code class="n">a</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="n">a</code>
+<code class="nf">readChan</code> <code class="p">(</code><code class="kt">Chan</code> <code class="n">readVar</code> <code class="kr">_</code><code class="p">)</code> <code class="ow">=</code> <code class="kr">do</code>
+  <code class="n">modifyMVar</code> <code class="n">readVar</code> <code class="o">$</code> <code class="nf">\</code><code class="n">stream</code> <code class="ow">-&gt;</code> <code class="kr">do</code>
+    <code class="kt">Item</code> <code class="n">val</code> <code class="n">tail</code> <code class="ow">&lt;-</code> <code class="n">readMVar</code> <code class="n">stream</code>
+    <code class="n">return</code> <code class="p">(</code><code class="n">tail</code><code class="p">,</code> <code class="n">val</code><code class="p">)</code></pre>
+<p id="conc-asyncex_00000070">However, this isn’t enough on its own. Remember <a id="id448516" class="indexterm"></a>that <code class="literal">readMVar</code> is defined
+like this:</p>
+<pre class="programlisting" data-language="haskell" id="readmvar__mva_id2"><code class="nf">readMVar</code> <code class="ow">::</code> <code class="kt">MVar</code> <code class="n">a</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="n">a</code>
+<code class="nf">readMVar</code> <code class="n">m</code> <code class="ow">=</code> <code class="kr">do</code>
+  <code class="n">a</code> <code class="ow">&lt;-</code> <code class="n">takeMVar</code> <code class="n">m</code>
+  <code class="n">putMVar</code> <code class="n">m</code> <code class="n">a</code>
+  <code class="n">return</code> <code class="n">a</code></pre>
+<p id="conc-asyncex_00000072">So it is possible that an exception arrives between the <code class="literal">takeMVar</code> and
+the <code class="literal">putMVar</code> in <code class="literal">readMVar</code>, which would leave the <code class="literal">MVar</code> empty.
+Hence we also need to use a safe <code class="literal">readMVar</code> here.  There are a few
+approaches that work. One would be to use <code class="literal">modifyMVar</code> again to
+restore the original value.  Another approach is to use a
+variant <a id="id448688" class="indexterm"></a>of <code class="literal">modifyMVar</code>:</p>
+<pre class="programlisting" data-language="haskell" id="withmvar__mva"><code class="nf">withMVar</code> <code class="ow">::</code> <code class="kt">MVar</code> <code class="n">a</code> <code class="ow">-&gt;</code> <code class="p">(</code><code class="n">a</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="n">b</code><code class="p">)</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="n">b</code></pre>
+<p id="conc-asyncex_00000074">This is like <code class="literal">modifyMVar</code> but does not change the contents of the
+<code class="literal">MVar</code>, and so would be more direct for the purposes of <code class="literal">readMVar</code>.</p>
+<p id="conc-asyncex_00000075">The simplest approach, and the one used by the <code class="literal">Control.Concurrent.MVar</code>
+library itself, is just to protect <code class="literal">readMVar</code> with a <code class="literal">mask</code>:</p>
+<pre class="programlisting" data-language="haskell" id="readmvar__mva_id3"><code class="nf">readMVar</code> <code class="ow">::</code> <code class="kt">MVar</code> <code class="n">a</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="n">a</code>
+<code class="nf">readMVar</code> <code class="n">m</code> <code class="ow">=</code>
+  <code class="n">mask_</code> <code class="o">$</code> <code class="kr">do</code>
+    <code class="n">a</code> <code class="ow">&lt;-</code> <code class="n">takeMVar</code> <code class="n">m</code>
+    <code class="n">putMVar</code> <code class="n">m</code> <code class="n">a</code>
+    <code class="n">return</code> <code class="n">a</code></pre>
+<p id="conc-asyncex_00000077"><a id="id448961" class="indexterm"></a>Here <code class="literal">mask_</code> is like <code class="literal">mask</code>, but it doesn’t pass a <code class="literal">restore</code>
+function.  We can get away with this simple definition because unlike
+<code class="literal">modifyMVar</code>, there is no operation to perform between the <code class="literal">takeMVar</code>
+and <code class="literal">putMVar</code>, and so no exception handler is required.</p>
+<p id="conc-asyncex_00000078"><a id="id449010" class="indexterm"></a>With <code class="literal">writeChan</code>, we have to be a little careful.  Here is the original
+definition:</p>
+<pre class="programlisting" data-language="haskell" id="writechan__ch_id2"><code class="nf">writeChan</code> <code class="ow">::</code> <code class="kt">Chan</code> <code class="n">a</code> <code class="ow">-&gt;</code> <code class="n">a</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="nb">()</code>
+<code class="nf">writeChan</code> <code class="p">(</code><code class="kt">Chan</code> <code class="kr">_</code> <code class="n">writeVar</code><code class="p">)</code> <code class="n">val</code> <code class="ow">=</code> <code class="kr">do</code>
+  <code class="n">newHole</code> <code class="ow">&lt;-</code> <code class="n">newEmptyMVar</code>
+  <code class="n">oldHole</code> <code class="ow">&lt;-</code> <code class="n">takeMVar</code> <code class="n">writeVar</code>
+  <code class="n">putMVar</code> <code class="n">oldHole</code> <code class="p">(</code><code class="kt">Item</code> <code class="n">val</code> <code class="n">newHole</code><code class="p">)</code>
+  <code class="n">putMVar</code> <code class="n">writeVar</code> <code class="n">newHole</code></pre>
+<p id="conc-asyncex_00000080">To make the code exception-safe, our first thought might be to try this:</p>
+<pre class="programlisting" data-language="haskell" id="wrongwritechan_"><code class="nf">wrongWriteChan</code> <code class="ow">::</code> <code class="kt">Chan</code> <code class="n">a</code> <code class="ow">-&gt;</code> <code class="n">a</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="nb">()</code>
+<code class="nf">wrongWriteChan</code> <code class="p">(</code><code class="kt">Chan</code> <code class="kr">_</code> <code class="n">writeVar</code><code class="p">)</code> <code class="n">val</code> <code class="ow">=</code> <code class="kr">do</code>
+  <code class="n">newHole</code> <code class="ow">&lt;-</code> <code class="n">newEmptyMVar</code>
+  <code class="n">modifyMVar_</code> <code class="n">writeVar</code> <code class="o">$</code> <code class="nf">\</code><code class="n">oldHole</code> <code class="ow">-&gt;</code> <code class="kr">do</code>
+    <code class="n">putMVar</code> <code class="n">oldHole</code> <code class="p">(</code><code class="kt">Item</code> <code class="n">val</code> <code class="n">newHole</code><code class="p">)</code>  <code class="c1">-- </code><span id="wrongWriteChan-1"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1"></span>
+    <code class="n">return</code> <code class="n">newHole</code>                      <code class="c1">-- </code><span id="wrongWriteChan-2"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/2.png" alt="2"></span>
+</pre>
+<p id="conc-asyncex_00000082">But that doesn’t work because an asynchronous exception could strike
+between <a class="xref" href="ch09.html#wrongWriteChan-1"><span><img src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1" border="0"></span></a> and <a class="xref" href="ch09.html#wrongWriteChan-2"><span><img src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/2.png" alt="2" border="0"></span></a>.  This would leave the <code class="literal">old_hole</code> full and
+<code class="literal">writeVar</code> pointing to it, which violates the invariants of the <a id="id449491" class="indexterm"></a>data
+structure.  Hence we need to prevent that possibility too, and the
+simplest way is just to <code class="literal">mask_</code> the whole sequence:</p>
+<pre class="programlisting" data-language="haskell" id="writechan__ch_id3"><code class="nf">writeChan</code> <code class="ow">::</code> <code class="kt">Chan</code> <code class="n">a</code> <code class="ow">-&gt;</code> <code class="n">a</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="nb">()</code>
+<code class="nf">writeChan</code> <code class="p">(</code><code class="kt">Chan</code> <code class="kr">_</code> <code class="n">writeVar</code><code class="p">)</code> <code class="n">val</code> <code class="ow">=</code> <code class="kr">do</code>
+  <code class="n">newHole</code> <code class="ow">&lt;-</code> <code class="n">newEmptyMVar</code>
+  <code class="n">mask_</code> <code class="o">$</code> <code class="kr">do</code>
+    <code class="n">oldHole</code> <code class="ow">&lt;-</code> <code class="n">takeMVar</code> <code class="n">writeVar</code>
+    <code class="n">putMVar</code> <code class="n">oldHole</code> <code class="p">(</code><code class="kt">Item</code> <code class="n">val</code> <code class="n">newHole</code><code class="p">)</code>
+    <code class="n">putMVar</code> <code class="n">writeVar</code> <code class="n">newHole</code></pre>
+<p id="conc-asyncex_00000084">Note that the <a id="id449726" class="indexterm"></a>two <code class="literal">putMVar</code>s are both guaranteed not to block, so they are not interruptible.<a id="id449742" class="indexterm"></a><a id="id449753" class="indexterm"></a></p>
+</div>
+<div class="sect1" data-original-filename="ch09_conc-asyncex.asciidoc" id="sec_timeout">
+<div class="titlepage"><div><div><h2 class="title">Timeouts</h2></div></div></div>
+<p id="conc-asyncex_00000085"><a id="ix_ch09_conc-asyncex-txt8" class="indexterm"></a><a id="ix_ch09_conc-asyncex-txt9" class="indexterm"></a>A useful illustration of programming with asynchronous exceptions is to write a function that can impose a time limit on a given action.  We
+want to provide the timeout wrapper as a combinator of the following
+type:</p>
+<pre class="programlisting" data-language="haskell" id="timeout__int__id1"><code class="nf">timeout</code> <code class="ow">::</code> <code class="kt">Int</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="n">a</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="p">(</code><code class="kt">Maybe</code> <code class="n">a</code><code class="p">)</code></pre>
+<p id="conc-asyncex_00000087"><a id="id449886" class="indexterm"></a>Where <code class="literal">timeout</code> <em class="replaceable"><code>t m</code></em> has the following behavior:</p>
+<div class="orderedlist" id="conc-asyncex_00000090"><ol class="orderedlist" type="1">
+<li class="listitem">
+<code class="literal">timeout</code> <em class="replaceable"><code>t m</code></em> behaves exactly like <code class="literal">fmap Just</code> <em class="replaceable"><code>m</code></em>, if <em class="replaceable"><code>m</code></em> returns a result or raises an exception (including an asynchronous exception)
+  within <em class="replaceable"><code>t</code></em> microseconds.
+</li>
+<li class="listitem">
+Otherwise, <em class="replaceable"><code>m</code></em> is sent an asynchronous exception of the form
+  <code class="literal">Timeout</code> <em class="replaceable"><code>u</code></em>. <code class="literal">Timeout</code> is a new data type that we define, and <em class="replaceable"><code>u</code></em>
+  is a unique value of type <code class="literal">Unique</code>, distinguishing this particular
+  instance of <code class="literal">timeout</code> from any other.  The call to <code class="literal">timeout</code> then
+  returns <code class="literal">Nothing</code>.
+</li>
+</ol></div>
+<p id="conc-asyncex_00000091">The implementation is not expected to implement real-time semantics,
+so in practice the timeout will only approximate the requested <em class="replaceable"><code>t</code></em> microseconds.
+Note that (1) requires that <em class="replaceable"><code>m</code></em> is executed in the context of the
+current thread because <em class="replaceable"><code>m</code></em> could call <code class="literal">myThreadId</code>, for example.  Also,
+another thread throwing an exception to the current thread with
+<code class="literal">throwTo</code> will expect to interrupt <em class="replaceable"><code>m</code></em>.  It should be possible <a id="id450038" class="indexterm"></a><a id="id450044" class="indexterm"></a>to <span class="emphasis"><em>nest</em></span> timeouts, with the expected behavior.</p>
+<p id="conc-asyncex_00000092">The code for <code class="literal">timeout</code>, shown below,
+was taken from the library <code class="literal">System.Timeout</code> (with some
+cosmetic changes for presentation here).  The implementation is tricky
+to get right.  The basic idea is to fork a new thread that will wait
+for <em class="replaceable"><code>t</code></em> microseconds and then call <code class="literal">throwTo</code> to throw the <code class="literal">Timeout</code>
+exception back to the original thread; that much seems straightforward
+enough.  If the operation completes within the time limit, then we must ensure
+that this <a id="id450093" class="indexterm"></a>thread never throws its <code class="literal">Timeout</code> exception, so
+<code class="literal">timeout</code> must kill the thread before returning<a id="id450115" class="indexterm"></a>.</p>
+<p id="conc-asyncex_00000093" class="caption"><span class="emphasis"><em>timeout.hs</em></span>
+</p>
+<pre class="programlisting" data-language="haskell" id="timeout_t_m__t"><code class="nf">timeout</code> <code class="n">t</code> <code class="n">m</code>
+    <code class="o">|</code> <code class="n">t</code> <code class="o">&lt;</code>  <code class="mi">0</code>    <code class="ow">=</code> <code class="n">fmap</code> <code class="kt">Just</code> <code class="n">m</code>                           <code class="c1">-- </code><span id="CO34-1"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1"></span>
+    <code class="o">|</code> <code class="n">t</code> <code class="o">==</code> <code class="mi">0</code>    <code class="ow">=</code> <code class="n">return</code> <code class="kt">Nothing</code>                        <code class="c1">-- </code><span id="CO34-2"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/2.png" alt="2"></span>
+    <code class="o">|</code> <code class="n">otherwise</code> <code class="ow">=</code> <code class="kr">do</code>
+        <code class="n">pid</code> <code class="ow">&lt;-</code> <code class="n">myThreadId</code>                               <code class="c1">-- </code><span id="CO34-3"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/3.png" alt="3"></span>
+        <code class="n">u</code> <code class="ow">&lt;-</code> <code class="n">newUnique</code>                                  <code class="c1">-- </code><span id="CO34-4"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/4.png" alt="4"></span>
+        <code class="kr">let</code> <code class="n">ex</code> <code class="ow">=</code> <code class="kt">Timeout</code> <code class="n">u</code>                              <code class="c1">-- </code><span id="CO34-5"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/5.png" alt="5"></span>
+        <code class="n">handleJust</code>                                      <code class="c1">-- </code><span id="CO34-6"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/6.png" alt="6"></span>
+           <code class="p">(</code><code class="nf">\</code><code class="n">e</code> <code class="ow">-&gt;</code> <code class="kr">if</code> <code class="n">e</code> <code class="o">==</code> <code class="n">ex</code> <code class="kr">then</code> <code class="kt">Just</code> <code class="nb">()</code> <code class="kr">else</code> <code class="kt">Nothing</code><code class="p">)</code> <code class="c1">-- </code><span id="CO34-7"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/7.png" alt="7"></span>
+           <code class="p">(</code><code class="nf">\</code><code class="kr">_</code> <code class="ow">-&gt;</code> <code class="n">return</code> <code class="kt">Nothing</code><code class="p">)</code>                       <code class="c1">-- </code><span id="CO34-8"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/8.png" alt="8"></span>
+           <code class="p">(</code><code class="n">bracket</code> <code class="p">(</code><code class="n">forkIO</code> <code class="o">$</code> <code class="kr">do</code> <code class="n">threadDelay</code> <code class="n">t</code>          <code class="c1">-- </code><span id="CO34-9"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/9.png" alt="9"></span>
+                                 <code class="n">throwTo</code> <code class="n">pid</code> <code class="n">ex</code><code class="p">)</code>
+                    <code class="p">(</code><code class="nf">\</code><code class="n">tid</code> <code class="ow">-&gt;</code> <code class="n">throwTo</code> <code class="n">tid</code> <code class="kt">ThreadKilled</code><code class="p">)</code>  <code class="c1">-- </code><span id="CO34-10"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/10.png" alt="10"></span>
+                    <code class="p">(</code><code class="nf">\</code><code class="kr">_</code> <code class="ow">-&gt;</code> <code class="n">fmap</code> <code class="kt">Just</code> <code class="n">m</code><code class="p">))</code>                <code class="c1">-- </code><span id="CO34-11"></span><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/11.png" alt="11"></span></pre>
+<p id="conc-asyncex_00000095">Here is how the implementation works, line by line<a id="id450691" class="indexterm"></a><a id="id450697" class="indexterm"></a>:</p>
+<div class="calloutlist" id="conc-asyncex_00000096"><table style="border: 0; ">
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO34-1"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/1.png" alt="1"></span></a> <a href="#CO34-2"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/2.png" alt="2"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="handle_the_easy">
+Handle the easy cases, where the timeout is negative or zero.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO34-3"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/3.png" alt="3"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="find_the_thread">
+Find the <code class="literal">ThreadId</code> of the current thread.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO34-4"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/4.png" alt="4"></span></a> <a href="#CO34-5"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/5.png" alt="5"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="make_a_new_time">
+Make a new <code class="literal">Timeout</code> exception by generating a unique value with
+  <code class="literal">newUnique</code>.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO34-6"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/6.png" alt="6"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; ">
+<p id="handlejust_is_a">
+<code class="literal">handleJust</code> is an exception handler, with the following type:
+</p>
+<pre class="programlisting" data-language="haskell" id="handlejust__e"><code class="nf">handleJust</code> <code class="ow">::</code> <code class="kt">Exception</code> <code class="n">e</code>
+           <code class="ow">=&gt;</code> <code class="p">(</code><code class="n">e</code> <code class="ow">-&gt;</code> <code class="kt">Maybe</code> <code class="n">b</code><code class="p">)</code> <code class="ow">-&gt;</code> <code class="p">(</code><code class="n">b</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="n">a</code><code class="p">)</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="n">a</code>
+           <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="n">a</code></pre>
+</td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO34-7"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/7.png" alt="7"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="the_first_argum_id6">
+The first argument to <code class="literal">handleJust</code> selects which exceptions to
+catch. We only want to catch a <code class="literal">Timeout</code> exception containing the unique
+value that we created earlier.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO34-8"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/8.png" alt="8"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="the_second_argu_id2">
+The second argument to <code class="literal">handleJust</code> is the exception handler,
+which in this case returns <code class="literal">Nothing</code> because timeout occurred.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO34-9"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/9.png" alt="9"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="the_computation">
+The computation to run inside <code class="literal">handleJust</code>.  Here, we fork the
+child thread, using <code class="literal">bracket</code> to ensure that the child thread is
+always killed before the <code class="literal">timeout</code> function returns. In the child thread, we wait for <code class="literal">t</code> microseconds with <code class="literal">threadDelay</code> and then throw the <code class="literal">Timeout</code> exception to the parent thread with <code class="literal">throwTo</code>.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO34-10"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/10.png" alt="10"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="always_kill_the">
+Always kill the child thread before returning.
+</p></td>
+</tr>
+<tr>
+<td style="width: 5%; vertical-align: top; text-align: left; "><p><a href="#CO34-11"><span><img style="border: 0; " src="http://orm-chimera-prod.s3.amazonaws.com/assets/callouts/11.png" alt="11"></span></a> </p></td>
+<td style="vertical-align: top; text-align: left; "><p id="the_body_of_bra">
+The body of <code class="literal">bracket</code>: run the computation <code class="literal">m</code> passed in as the
+second argument to <code class="literal">timeout</code> and wrap the result in <code class="literal">Just</code>.
+</p></td>
+</tr>
+</table></div>
+<p id="conc-asyncex_00000105">I encourage you to verify that the implementation works by thinking
+through the two cases: either <code class="literal">m</code> completes and returns a value, or
+the child thread throws its exception while <code class="literal">m</code> is still working.</p>
+<p id="conc-asyncex_00000106">There is one other tricky case to consider: what happens if <span class="emphasis"><em>both</em></span> the
+child thread and the parent thread try to call <code class="literal">throwTo</code> at the same
+time?  Who wins?</p>
+<p id="conc-asyncex_00000107">The answer depends on the semantics <a id="id451099" class="indexterm"></a>of <code class="literal">throwTo</code>.  In order for this
+implementation of <code class="literal">timeout</code> to work properly, the call to <code class="literal">bracket</code>
+must not be able to return while the <code class="literal">Timeout</code>
+exception can still be thrown; otherwise, the exception can leak.
+Hence, the call to <code class="literal">throwTo</code> that kills the child thread must be synchronous. Once this call returns, the child thread cannot
+throw its exception anymore.  Indeed, this guarantee is provided by
+the semantics of <code class="literal">throwTo</code>. A call to <code class="literal">throwTo</code> returns only after the
+exception has been raised in the target thread.  Hence <code class="literal">throwTo</code> may
+block if the child thread is currently masking asynchronous exceptions
+with <code class="literal">mask</code>, and because <code class="literal">throwTo</code> may <a id="id451172" class="indexterm"></a>block, it is therefore
+<span class="emphasis"><em>interruptible</em></span> and may itself receive asynchronous exceptions.</p>
+<p id="conc-asyncex_00000108">Returning to our “who wins” question above, the answer is "exactly
+one of them," and that is precisely what we require to ensure the
+correct behavior of <code class="literal">timeout</code>.<a id="id451199" class="indexterm"></a><a id="id451210" class="indexterm"></a></p>
+</div>
+<div class="sect1" data-original-filename="ch09_conc-asyncex.asciidoc" id="sec_catching-async-exceptions">
+<div class="titlepage"><div><div><h2 class="title">Catching Asynchronous Exceptions</h2></div></div></div>
+<p id="conc-asyncex_00000109"><a id="ix_ch09_conc-asyncex-txt10" class="indexterm"></a>Once thrown, an asynchronous exception propagates like a normal
+exception and can be caught <a id="id451252" class="indexterm"></a>by <code class="literal">catch</code> and the other
+exception-handling functions from <code class="literal">Control.Exception</code>. Suppose we
+catch an asynchronous exception and want to perform some operation
+as a result, but before we can do that, <span class="emphasis"><em>another</em></span> asynchronous
+exception is received by the current thread, interrupting the first
+<a id="id451276" class="indexterm"></a>exception handler.  This is undesirable: if asynchronous exceptions
+can interrupt exception handlers, it is hard to guarantee
+anything about cleanup actions performed in the event of an exception,
+for <span class="keep-together">example</span>.</p>
+<p id="conc-asyncex_00000110">We could fix the problem by wrapping all our calls to <code class="literal">catch</code> with <a id="id451305" class="indexterm"></a>a
+<code class="literal">mask</code> and <code class="literal">restore</code> pair, like so:</p>
+<pre class="programlisting" data-language="haskell" id="mask__restore">  <code class="n">mask</code> <code class="o">$</code> <code class="nf">\</code><code class="n">restore</code> <code class="ow">-&gt;</code>
+    <code class="n">restore</code> <code class="n">action</code> <code class="p">`</code><code class="n">catch</code><code class="p">`</code> <code class="n">handler</code></pre>
+<p id="conc-asyncex_00000112">And indeed some of our calls to <code class="literal">catch</code> already look like this.  But
+since we almost always want asynchronous exceptions masked inside an
+exception handler, Haskell does it automatically for you, without
+having to use an explicit <code class="literal">mask</code>.  After you return from the exception
+handler, exceptions are unmasked again.</p>
+<p id="conc-asyncex_00000113">There is one important pitfall to be aware of here: it is easy to
+accidentally remain inside the <a id="id451422" class="indexterm"></a>implicit <code class="literal">mask</code> by <a id="id451434" class="indexterm"></a><a id="id451443" class="indexterm"></a>tail-calling out of
+an exception handler.  Here’s an example program to illustrate the
+problem: the program takes a list of filenames on the command line
+and counts the number of lines in each file, ignoring files that do
+not exist.</p>
+<p id="conc-asyncex_00000114" class="caption"><span class="emphasis"><em>catch-mask.hs</em></span>
+</p>
+<pre class="programlisting" data-language="haskell" id="main__do_fs__id1"><code class="nf">main</code> <code class="ow">=</code> <code class="kr">do</code>
+  <code class="n">fs</code> <code class="ow">&lt;-</code> <code class="n">getArgs</code>
+  <code class="kr">let</code>
+     <code class="n">loop</code> <code class="o">!</code><code class="n">n</code> <code class="kt">[]</code> <code class="ow">=</code> <code class="n">return</code> <code class="n">n</code>
+     <code class="n">loop</code> <code class="o">!</code><code class="n">n</code> <code class="p">(</code><code class="n">f</code><code class="kt">:</code><code class="n">fs</code><code class="p">)</code>
+        <code class="ow">=</code> <code class="n">handle</code> <code class="p">(</code><code class="nf">\</code><code class="n">e</code> <code class="ow">-&gt;</code> <code class="kr">if</code> <code class="n">isDoesNotExistError</code> <code class="n">e</code>
+                           <code class="kr">then</code> <code class="n">loop</code> <code class="n">n</code> <code class="n">fs</code>
+                           <code class="kr">else</code> <code class="n">throwIO</code> <code class="n">e</code><code class="p">)</code> <code class="o">$</code>
+            <code class="kr">do</code>
+               <code class="n">getMaskingState</code> <code class="o">&gt;&gt;=</code> <code class="n">print</code>
+               <code class="n">h</code> <code class="ow">&lt;-</code> <code class="n">openFile</code> <code class="n">f</code> <code class="kt">ReadMode</code>
+               <code class="n">s</code> <code class="ow">&lt;-</code> <code class="n">hGetContents</code> <code class="n">h</code>
+               <code class="n">loop</code> <code class="p">(</code><code class="n">n</code> <code class="o">+</code> <code class="n">length</code> <code class="p">(</code><code class="n">lines</code> <code class="n">s</code><code class="p">))</code> <code class="n">fs</code>
+
+  <code class="n">n</code> <code class="ow">&lt;-</code> <code class="n">loop</code> <code class="mi">0</code> <code class="n">fs</code>
+  <code class="n">print</code> <code class="n">n</code></pre>
+<p id="conc-asyncex_00000116">The <code class="literal">loop</code> function recursively walks down the list of filenames,
+attempting to open and read each one, and keeping track of the total
+lines so far in the first argument <code class="literal">n</code>.  For each filename, first we
+call <code class="literal">handle</code> to set up an exception handler.  If the exception
+handler catches an exception that satisfies <code class="literal">isDoesNotExistError</code>
+(from <code class="literal">System.IO.Error</code>), indicating that the file we tried to open
+did not exist, the exception handler recursively calls <code class="literal">loop</code> to
+look at the rest of the files.</p>
+<p id="conc-asyncex_00000117">This program works, but it has a problem that is revealed by the
+<code class="literal">getMaskingState</code> call.  Suppose we run the program with a couple of
+filenames that don’t exist:</p>
+<pre class="screen" id="conc-asyncex_00000118">$ ./catch-mask xxx yyy
+Unmasked
+MaskedInterruptible
+0</pre>
+<p id="conc-asyncex_00000119">The first time around the loop, we are in the <code class="literal">Unmasked</code> state, as
+expected, but the second iteration of <code class="literal">loop</code> reports that we are now
+<code class="literal">MaskedInterruptible</code>!  This is clearly suboptimal, because we didn’t intend
+to mask asynchronous exceptions for the second loop iteration.</p>
+<p id="conc-asyncex_00000120">The problem arose because we made a <a id="id451936" class="indexterm"></a>recursive call to <code class="literal">loop</code> from the
+exception handler; thus the recursive call is made inside the implicit
+<code class="literal">mask</code> of <code class="literal">handle</code>.</p>
+<p id="conc-asyncex_00000121">A better way to code this example is to use <code class="literal">try</code> instead:</p>
+<p id="conc-asyncex_00000122" class="caption"><span class="emphasis"><em>catch-mask2.hs</em></span>
+</p>
+<pre class="programlisting" data-language="haskell" id="main__do_fs__id2"><code class="nf">main</code> <code class="ow">=</code> <code class="kr">do</code>
+  <code class="n">fs</code> <code class="ow">&lt;-</code> <code class="n">getArgs</code>
+  <code class="kr">let</code>
+     <code class="n">loop</code> <code class="o">!</code><code class="n">n</code> <code class="kt">[]</code> <code class="ow">=</code> <code class="n">return</code> <code class="n">n</code>
+     <code class="n">loop</code> <code class="o">!</code><code class="n">n</code> <code class="p">(</code><code class="n">f</code><code class="kt">:</code><code class="n">fs</code><code class="p">)</code> <code class="ow">=</code> <code class="kr">do</code>
+        <code class="n">getMaskingState</code> <code class="o">&gt;&gt;=</code> <code class="n">print</code>
+        <code class="n">r</code> <code class="ow">&lt;-</code> <code class="kt">Control</code><code class="o">.</code><code class="kt">Exception</code><code class="o">.</code><code class="n">try</code> <code class="p">(</code><code class="n">openFile</code> <code class="n">f</code> <code class="kt">ReadMode</code><code class="p">)</code>
+        <code class="kr">case</code> <code class="n">r</code> <code class="kr">of</code>
+          <code class="kt">Left</code> <code class="n">e</code> <code class="o">|</code> <code class="n">isDoesNotExistError</code> <code class="n">e</code> <code class="ow">-&gt;</code> <code class="n">loop</code> <code class="n">n</code> <code class="n">fs</code>
+                 <code class="o">|</code> <code class="n">otherwise</code>             <code class="ow">-&gt;</code> <code class="n">throwIO</code> <code class="n">e</code>
+          <code class="kt">Right</code> <code class="n">h</code> <code class="ow">-&gt;</code> <code class="kr">do</code>
+            <code class="n">s</code> <code class="ow">&lt;-</code> <code class="n">hGetContents</code> <code class="n">h</code>
+            <code class="n">loop</code> <code class="p">(</code><code class="n">n</code> <code class="o">+</code> <code class="n">length</code> <code class="p">(</code><code class="n">lines</code> <code class="n">s</code><code class="p">))</code> <code class="n">fs</code>
+
+  <code class="n">n</code> <code class="ow">&lt;-</code> <code class="n">loop</code> <code class="mi">0</code> <code class="n">fs</code>
+  <code class="n">print</code> <code class="n">n</code></pre>
+<p id="conc-asyncex_00000124">Now there is no <a id="id452419" class="indexterm"></a>exception handler as such (it is hidden inside <code class="literal">try</code>),
+so the recursive call to <code class="literal">loop</code> is not made within a <code class="literal">mask</code>.
+Moreover, we have narrowed the scope of the exception handling to just
+the <code class="literal">openFile</code> call, which is neater than before.</p>
+<p id="conc-asyncex_00000125">However, beware! If you need to handle <span class="emphasis"><em>asynchronous</em></span> exceptions, it’s
+usually important for the exception handler to be inside a <code class="literal">mask</code> so that
+you don’t get interrupted by another asynchronous exception before
+you’ve finished dealing with the first one.  For that reason, <code class="literal">catch</code>
+or <code class="literal">handle</code> might be more appropriate, because you can take advantage
+of the built-in <code class="literal">mask</code>.  Just be careful to return from the exception
+handler rather than tail-calling out of it, to avoid the problem
+described above.<a id="id452493" class="indexterm"></a></p>
+</div>
+<div class="sect1" data-original-filename="ch09_conc-asyncex.asciidoc" id="conc-asyncex_00000126">
+<div class="titlepage"><div><div><h2 class="title">mask and forkIO</h2></div></div></div>
+<p id="conc-asyncex_00000127"><a id="ix_ch09_conc-asyncex-txt11" class="indexterm"></a><a id="ix_ch09_conc-asyncex-txt12" class="indexterm"></a><a id="ix_ch09_conc-asyncex-txt13" class="indexterm"></a><a id="ix_ch09_conc-asyncex-txt14" class="indexterm"></a><a id="ix_ch09_conc-asyncex-txt15" class="indexterm"></a>Let’s return to our <code class="literal">Async</code> API for a moment, and in particular the
+<code class="literal">async</code> function:</p>
+<pre class="programlisting" data-language="haskell" id="async__io_a__id2"><code class="nf">async</code> <code class="ow">::</code> <code class="kt">IO</code> <code class="n">a</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="p">(</code><code class="kt">Async</code> <code class="n">a</code><code class="p">)</code>
+<code class="nf">async</code> <code class="n">action</code> <code class="ow">=</code> <code class="kr">do</code>
+   <code class="n">m</code> <code class="ow">&lt;-</code> <code class="n">newEmptyMVar</code>
+   <code class="n">t</code> <code class="ow">&lt;-</code> <code class="n">forkIO</code> <code class="p">(</code><code class="kr">do</code> <code class="n">r</code> <code class="ow">&lt;-</code> <code class="n">try</code> <code class="n">action</code><code class="p">;</code> <code class="n">putMVar</code> <code class="n">m</code> <code class="n">r</code><code class="p">)</code>
+   <code class="n">return</code> <code class="p">(</code><code class="kt">Async</code> <code class="n">t</code> <code class="n">m</code><code class="p">)</code></pre>
+<p id="conc-asyncex_00000129">In fact, there’s a bug here.  If <a id="id452803" class="indexterm"></a>this <code class="literal">Async</code> is cancelled, and the
+exception strikes just after the <code class="literal">try</code> but before the <code class="literal">putMVar</code>, then
+the thread will die without putting anything into the <code class="literal">MVar</code> and the
+application will deadlock when it tries to <code class="literal">wait</code> for the result of
+this <code class="literal">Async</code>.</p>
+<p id="conc-asyncex_00000130">We could close this hole with a <code class="literal">mask</code>, but there’s another one: the
+exception might also arrive just <span class="emphasis"><em>before</em></span> the <code class="literal">try</code>, with the same
+consequences.  So how do we mask asynchronous exceptions in that
+small window between the thread being created and the call to <code class="literal">try</code>?
+Putting a call to <code class="literal">mask</code> inside the <code class="literal">forkIO</code> isn’t enough. There is
+still a possibility that the exception might be thrown even before <code class="literal">mask</code> is called.</p>
+<p id="conc-asyncex_00000131">For this reason, <code class="literal">forkIO</code> is specified to create a thread that
+<span class="emphasis"><em>inherits</em></span> the <a id="id452914" class="indexterm"></a>masking state of the parent thread.  This means that we
+can create a thread that is born in the masked state by wrapping the
+call to <code class="literal">forkIO</code> in a <code class="literal">mask</code>, for example:</p>
+<pre class="programlisting" data-language="haskell" id="async__io_a__id3"><code class="nf">async</code> <code class="ow">::</code> <code class="kt">IO</code> <code class="n">a</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="p">(</code><code class="kt">Async</code> <code class="n">a</code><code class="p">)</code>
+<code class="nf">async</code> <code class="n">action</code> <code class="ow">=</code> <code class="kr">do</code>
+   <code class="n">m</code> <code class="ow">&lt;-</code> <code class="n">newEmptyMVar</code>
+   <code class="n">t</code> <code class="ow">&lt;-</code> <code class="n">mask</code> <code class="o">$</code> <code class="nf">\</code><code class="n">restore</code> <code class="ow">-&gt;</code>
+          <code class="n">forkIO</code> <code class="p">(</code><code class="kr">do</code> <code class="n">r</code> <code class="ow">&lt;-</code> <code class="n">try</code> <code class="p">(</code><code class="n">restore</code> <code class="n">action</code><code class="p">);</code> <code class="n">putMVar</code> <code class="n">m</code> <code class="n">r</code><code class="p">)</code>
+   <code class="n">return</code> <code class="p">(</code><code class="kt">Async</code> <code class="n">t</code> <code class="n">m</code><code class="p">)</code></pre>
+<p id="conc-asyncex_00000133">This pattern of performing some action when a thread has completed is
+fairly common, so we can embody it as a variant <a id="id453173" class="indexterm"></a>of <code class="literal">forkIO</code>:<a href="#ftn.id453188" class="footnote"><sup class="footnote" id="id453188">[37]</sup></a></p>
+<pre class="programlisting" data-language="haskell" id="forkfinally__"><code class="nf">forkFinally</code> <code class="ow">::</code> <code class="kt">IO</code> <code class="n">a</code> <code class="ow">-&gt;</code> <code class="p">(</code><code class="kt">Either</code> <code class="kt">SomeException</code> <code class="n">a</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="nb">()</code><code class="p">)</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="kt">ThreadId</code>
+<code class="nf">forkFinally</code> <code class="n">action</code> <code class="n">fun</code> <code class="ow">=</code>
+  <code class="n">mask</code> <code class="o">$</code> <code class="nf">\</code><code class="n">restore</code> <code class="ow">-&gt;</code>
+    <code class="n">forkIO</code> <code class="p">(</code><code class="kr">do</code> <code class="n">r</code> <code class="ow">&lt;-</code> <code class="n">try</code> <code class="p">(</code><code class="n">restore</code> <code class="n">action</code><code class="p">);</code> <code class="n">fun</code> <code class="n">r</code><code class="p">)</code></pre>
+<p id="conc-asyncex_00000135"><a id="id453418" class="indexterm"></a>The <code class="literal">forkFinally</code> function lets us simplify <code class="literal">async</code>:</p>
+<p id="geturlscancel" class="caption"><span class="emphasis"><em>geturlscancel2.hs</em></span></p>
+<pre class="programlisting" data-language="haskell" id="async__io_a__id4"><code class="nf">async</code> <code class="ow">::</code> <code class="kt">IO</code> <code class="n">a</code> <code class="ow">-&gt;</code> <code class="kt">IO</code> <code class="p">(</code><code class="kt">Async</code> <code class="n">a</code><code class="p">)</code>
+<code class="nf">async</code> <code class="n">action</code> <code class="ow">=</code> <code class="kr">do</code>
+   <code class="n">m</code> <code class="ow">&lt;-</code> <code class="n">newEmptyMVar</code>
+   <code class="n">t</code> <code class="ow">&lt;-</code> <code class="n">forkFinally</code> <code class="n">action</code> <code class="p">(</code><code class="n">putMVar</code> <code class="n">m</code><code class="p">)</code>
+   <code class="n">return</code> <code class="p">(</code><code class="kt">Async</code> <code class="n">t</code> <code class="n">m</code><code class="p">)</code></pre>
+<p id="conc-asyncex_00000137">Now the API is safe.  The rule of thumb is that any <a id="id453624" class="indexterm"></a>exception-handling function called as the first thing in a <code class="literal">forkIO</code> is better written using
+<code class="literal">forkFinally</code>.  In particular, if you find yourself writing
+<code class="literal">forkIO (x `finally` y)</code>, then write <code class="literal">forkFinally x (\_ -&gt; y)</code> instead.  Better
+still, use the <code class="literal">Async</code> API, which handles these details for you<a id="id453665" class="indexterm"></a><a id="id453675" class="indexterm"></a><a id="id453685" class="indexterm"></a><a id="id453695" class="indexterm"></a><a id="id453706" class="indexterm"></a>.<a href="#ftn.id453717" class="footnote"><sup class="footnote" id="id453717">[38]</sup></a></p>
+</div>
+<div class="sect1" data-original-filename="ch09_conc-asyncex.asciidoc" id="sec_async-reflections">
+<div class="titlepage"><div><div><h2 class="title">Asynchronous Exceptions: Discussion</h2></div></div></div>
+<p id="conc-asyncex_00000138">This chapter has been full of tricky and subtle details—such is
+life when dealing with exceptions that can strike at any moment.  The
+abstractions we’ve covered in this chapter like <code class="literal">timeout</code> and <code class="literal">Chan</code>
+are certainly hard to get right, but it is worth reminding ourselves
+that dealing with asynchronous exceptions at this level is something
+that Haskell programmers rarely have to do, for a couple of reasons:</p>
+<div class="itemizedlist" id="conc-asyncex_00000139"><ul class="itemizedlist">
+<li class="listitem">
+All non-IO Haskell code is automatically safe by construction.  This
+  is the one factor that makes asynchronous exceptions feasible.
+</li>
+<li class="listitem">
+We can use the abstractions provided, such <a id="id453785" class="indexterm"></a><a id="id453793" class="indexterm"></a>as <code class="literal">bracket</code>, to acquire
+  and release resources. These abstractions have
+  asynchronous-exception safety built in.  Similarly, when working
+  with <code class="literal">MVar</code>s, the <code class="literal">modifyMVar</code> family of operations provides
+  built-in safety.
+</li>
+</ul></div>
+<p id="conc-asyncex_00000141">We find that making <a id="id453828" class="indexterm"></a>most <code class="literal">IO</code> monad code safe is straightforward, but
+for those cases where things get a bit complicated, a couple
+of techniques can simplify matters:</p>
+<div class="itemizedlist" id="conc-asyncex_00000142"><ul class="itemizedlist">
+<li class="listitem">
+Large chunks of heavily stateful code can be wrapped in a <code class="literal">mask</code>,
+  which drops into polling mode for asynchronous exceptions. This is much
+  easier to work with. The problem then boils down to finding the
+  interruptible operations and ensuring that exceptions raised by
+  those will not cause problems.  The GHC I/O library uses this
+  technique: every <code class="literal">Handle</code> operation runs entirely inside <code class="literal">mask</code>.
+</li>
+<li class="listitem">
+Using software transactional memory (STM) instead of <code class="literal">MVar</code>s or
+  other state representations can sweep away all the complexity in one
+  go.  STM allows us to combine multiple operations in a single
+  <span class="emphasis"><em>atomic</em></span> unit, which means we don’t have to worry about restoring
+  state if an exception strikes in the middle.  We will describe STM
+  in <a class="xref" href="ch10.html" title="Chapter 10. Software Transactional Memory">Chapter 10</a>.
+</li>
+</ul></div>
+<p id="conc-asyncex_00000144">In exchange for asynchronous-exception-safety, Haskell’s approach to
+asynchronous exceptions confers some important benefits:</p>
+<div class="itemizedlist" id="conc-asyncex_00000145"><ul class="itemizedlist"><li class="listitem">
+Many exceptional conditions map naturally onto asynchronous
+  exceptions.  For example, <a id="id453924" class="indexterm"></a><a id="id453929" class="indexterm"></a>stack overflow and user interrupt
+  (e.g., Ctrl+C at the console) are mapped to asynchronous
+  exceptions in Haskell.  Hence, Ctrl+C not only aborts the program
+  but also does so cleanly, running all the exception handlers.  Haskell
+  programmers don’t have to do anything to enable this behavior.
+</li></ul></div>
+<div class="itemizedlist" id="conc-asyncex_00000146"><ul class="itemizedlist">
+<li class="listitem">
+Computation can always be <a id="id453955" class="indexterm"></a><a id="id453963" class="indexterm"></a><a id="id453971" class="indexterm"></a><a id="id453977" class="indexterm"></a><a id="id453983" class="indexterm"></a>interrupted, even if it is third-party
+  library code. (There is an exception to this, namely calls to
+  foreign functions, which we shall discuss in
+  <a class="xref" href="ch15.html#sec_conc-ffi-outcall" title="Threads and Foreign Out-Calls">“Threads and Foreign Out-Calls”</a>).
+</li>
+<li class="listitem">
+Threads never just die in Haskell. It is guaranteed that a
+  thread always gets a chance to clean up and run its exception
+  handlers.<a id="id454006" class="indexterm"></a><a id="id454016" class="indexterm"></a><a id="id454026" class="indexterm"></a>
+</li>
+</ul></div>
+</div>
+<div class="footnotes">
+<br><hr style="width: 100; align: left;">
+<div id="ftn.id445518" class="footnote"><p><a href="#id445518" class="simpara"><sup class="simpara">[34] </sup></a>Historical note: the original presentation of asynchronous exceptions used a pair of combinators, <code class="literal">block</code> and <code class="literal">unblock</code>, here, but <code class="literal">mask</code> was introduced in GHC 7.0.1 to provide a more modular behavior and to avoid using the overloaded term "block."</p></div>
+<div id="ftn.id445651" class="footnote"><p><a href="#id445651" class="simpara"><sup class="simpara">[35] </sup></a>For simplicity here, we are using a slightly less general version of <code class="literal">mask</code> than the real one in the <code class="literal">Control.Exception</code> library.</p></div>
+<div id="ftn.id446115" class="footnote"><p><a href="#id446115" class="simpara"><sup class="simpara">[36] </sup></a>An exception is foreign calls; see <a class="xref" href="ch15.html#sec_conc-ffi-async" title="Asynchronous Exceptions and Foreign Calls">“Asynchronous Exceptions and Foreign Calls”</a>.</p></div>
+<div id="ftn.id453188" class="footnote"><p><a href="#id453188" class="simpara"><sup class="simpara">[37] </sup></a>The <code class="literal">forkFinally</code> function is provided by <code class="literal">Control.Concurrent</code> from GHC 7.6.1.</p></div>
+<div id="ftn.id453717" class="footnote"><p><a href="#id453717" class="simpara"><sup class="simpara">[38] </sup></a>The full <code class="literal">Async</code> library is available in the <code class="literal">async</code> package on Hackage.</p></div>
+</div></section><footer><div class="navfooter">
+<hr>
+<table style="width: 100%; ">
+<tr>
+<td style="width: 40%; text-align: left; ">
+<a accesskey="p" href="ch08.html">Prev</a> </td>
+<td style="width: 20%; text-align: center; "><a accesskey="u" href="pt02.html">Up</a></td>
+<td style="width: 40%; text-align: right; "> <a accesskey="n" href="ch10.html">Next</a>
+</td>
+</tr>
+<tr>
+<td style="width: 40%; text-align: left; vertical-align: top; ">Chapter 8. Overlapping Input/Output </td>
+<td style="width: 20%; text-align: center; "><a accesskey="h" href="index.html">Home</a></td>
+<td style="width: 40%; text-align: right; vertical-align: top; "> Chapter 10. Software Transactional Memory</td>
+</tr>
+</table>
+</div></footer>
+
+
+	<div class="extra-footer">
+		<p>© 2013, O’Reilly Media, Inc.</p>
+		<ul>
+			<li><a href="http://oreilly.com/terms/">Terms of Service</a></li>
+			<li><a href="http://oreilly.com/oreilly/privacy.csp">Privacy Policy</a></li>
+			<li>Interested in <a href="mailto:scordesse@oreilly.com">sponsoring content?</a></li>
+		</ul>
+	</div>
+<script type="text/javascript">if (!NREUMQ.f) { NREUMQ.f=function() {
+NREUMQ.push(["load",new Date().getTime()]);
+var e=document.createElement("script");
+e.type="text/javascript";
+e.src=(("http:"===document.location.protocol)?"http:":"https:") + "//" +
+  "js-agent.newrelic.com/nr-100.js";
+document.body.appendChild(e);
+if(NREUMQ.a)NREUMQ.a();
+};
+NREUMQ.a=window.onload;window.onload=NREUMQ.f;
+};
+NREUMQ.push(["nrfj","bam.nr-data.net","3e361aebcf","2194180","IApbRUBZXg1WEEoHDAwORh5aQl8N",6,26,new Date().getTime(),"","","","",""]);</script></body>
+
+<!-- Mirrored from chimera.labs.oreilly.com/books/1230000000929/ch09.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 11:04:16 GMT -->
+</html>

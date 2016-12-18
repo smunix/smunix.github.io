@@ -1,0 +1,508 @@
+<!DOCTYPE html><html>
+<!-- Mirrored from blog.jakubarnold.cz/2014/07/14/lens-tutorial-introduction-part-1.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 11:03:45 GMT -->
+<head><title>Lens Tutorial - Introduction (part 1) -  Jakub Arnold Blog</title><meta charset="utf-8" /><meta content="C-7ZK-UEyHdN7MWkiZy4QWGfdErxcu3evJTENXdFHAY" name="google-site-verification" /><link href="http://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/2.3.2/css/bootstrap.min.css" rel="stylesheet" /><link href="http://cdnjs.cloudflare.com/ajax/libs/font-awesome/3.2.1/css/font-awesome.min.css" rel="stylesheet" /><script src="http://cdnjs.cloudflare.com/ajax/libs/jquery/2.0.0/jquery.js"></script><link href="http://blog.jakubarnold.cz/stylesheets/application.css" rel="stylesheet" /><link href="http://blog.jakubarnold.cz/images/favicon.ico" rel="shortcut icon" type="image/vnd.microsoft.icon" /><script src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML" type="text/javascript"></script><script type="text/x-mathjax-config">MathJax.Hub.Config({tex2jax: {inlineMath: [['$','$']], displayedMath: [['$$', '$$']]}});</script><link href="http://blog.jakubarnold.cz/feed.xml" rel="alternate" title="ATOM" type="application/atom+xml" /></head><body><div class="header"><div class="container"><section class="name"><a href="http://blog.jakubarnold.cz/">Jakub <strong>Arnold</strong></a></section></div></div><div class="container"><div class="row"><div class="span8"><div class="index-post"><div class="post-title"><h1><a href="lens-tutorial-introduction-part-1.html">Lens Tutorial - Introduction (part 1)</a><span class="when">Jul 14, 2014</span></h1></div><p>This article is the first in the upcoming series that aims to explain the
+Haskell&rsquo;s <a href="http://hackage.haskell.org/package/lens"><code>lens</code> library</a> and the
+ideas behind it in an approachable way. Don&rsquo;t worry if you&rsquo;re new to Haskell,
+the only prerequisites here should be understanding of the <code>Functor</code> type
+class, and understanding how records and algebraic data types work in Haskell.</p>
+
+<p>We won&rsquo;t be using the <code>lens</code> library in this article yet. The API we&rsquo;ll develop
+will be exactly the same, but for the sake of learning I&rsquo;ll try to show you how
+everything works and why it works by re-implementing it from scratch.</p>
+
+<p>Keep in mind that lenses are a very advanced topic in Haskell and it takes some
+time to truly understand them. Don&rsquo;t worry if you don&rsquo;t understand everything
+at first read.</p>
+
+<h2>The motivation behind lenses</h2>
+
+<p>If you&rsquo;re coming from an imperative language like Ruby or Java, you&rsquo;re probably
+used to seeing code like this:</p>
+<pre class="highlight ruby"><code><span class="n">project</span><span class="p">.</span><span class="nf">owner</span><span class="p">.</span><span class="nf">name</span> <span class="o">=</span> <span class="s2">"John"</span>
+</code></pre>
+
+<p>The OOP people would call this <strong>a violation of the Law of Demeter</strong>, but let&rsquo;s
+ignore that it&rsquo;s a bad practice for now. The question here is, can we achieve
+something similar in Haskell?</p>
+<pre class="highlight haskell"><code><span class="kr">data</span> <span class="kt">User</span> <span class="o">=</span> <span class="kt">User</span> <span class="p">{</span> <span class="n">name</span> <span class="o">::</span> <span class="kt">String</span><span class="p">,</span> <span class="n">age</span> <span class="o">::</span> <span class="kt">Int</span> <span class="p">}</span> <span class="kr">deriving</span> <span class="kt">Show</span>
+<span class="kr">data</span> <span class="kt">Project</span> <span class="o">=</span> <span class="kt">Project</span> <span class="p">{</span> <span class="n">owner</span> <span class="o">::</span> <span class="kt">User</span> <span class="p">}</span> <span class="kr">deriving</span> <span class="kt">Show</span>
+
+<span class="n">setOwnerName</span> <span class="o">::</span> <span class="kt">String</span> <span class="o">-&gt;</span> <span class="kt">Project</span> <span class="o">-&gt;</span> <span class="kt">Project</span>
+<span class="n">setOwnerName</span> <span class="n">newName</span> <span class="n">p</span> <span class="o">=</span> <span class="n">p</span> <span class="p">{</span> <span class="n">owner</span> <span class="o">=</span> <span class="p">(</span><span class="n">owner</span> <span class="n">p</span><span class="p">)</span> <span class="p">{</span> <span class="n">name</span> <span class="o">=</span> <span class="n">newName</span> <span class="p">}</span> <span class="p">}</span>
+</code></pre>
+
+<p>Now we can already see how this is less than ideal. In order to change the name
+of the <code>owner</code>, we need to re-assign the owner field in the <code>Project</code> with the
+new <code>User</code>, which is updated using the record syntax. We could do this in
+multiple steps as follows.</p>
+
+<p>Code blocks with <code>λ&gt;</code> denote GHCi session.</p>
+<pre class="highlight haskell"><code><span class="err">λ</span><span class="o">&gt;</span> <span class="kr">let</span> <span class="n">bob</span> <span class="o">=</span> <span class="kt">User</span> <span class="p">{</span> <span class="n">name</span> <span class="o">=</span> <span class="s">"Bob"</span><span class="p">,</span> <span class="n">age</span> <span class="o">=</span> <span class="mi">30</span> <span class="p">}</span>
+<span class="err">λ</span><span class="o">&gt;</span> <span class="kr">let</span> <span class="n">project</span> <span class="o">=</span> <span class="kt">Project</span> <span class="p">{</span> <span class="n">owner</span> <span class="o">=</span> <span class="n">bob</span> <span class="p">}</span>
+
+<span class="err">λ</span><span class="o">&gt;</span> <span class="kr">let</span> <span class="n">alice</span> <span class="o">=</span> <span class="n">bob</span> <span class="p">{</span> <span class="n">name</span> <span class="o">=</span> <span class="s">"Alice"</span> <span class="p">}</span>
+<span class="err">λ</span><span class="o">&gt;</span> <span class="kr">let</span> <span class="n">project2</span> <span class="o">=</span> <span class="n">project</span> <span class="p">{</span> <span class="n">owner</span> <span class="o">=</span> <span class="n">alice</span> <span class="p">}</span>
+</code></pre>
+
+<p>This is very tedious compared to the original Ruby example, especially since we
+need to keep re-building the original structure as we go deeper and deeper.</p>
+
+<h2>A naive lens implementation</h2>
+
+<p>This is where lenses come to help you out. In essence, lenses are just getters
+and setters which you can compose together. In a naive approach the type might
+look something like the following:</p>
+<pre class="highlight haskell"><code><span class="kr">data</span> <span class="kt">NaiveLens</span> <span class="n">s</span> <span class="n">a</span> <span class="o">=</span> <span class="kt">NaiveLens</span>
+                         <span class="p">{</span> <span class="n">view</span> <span class="o">::</span> <span class="n">s</span> <span class="o">-&gt;</span> <span class="n">a</span>
+                         <span class="p">,</span> <span class="n">set</span>  <span class="o">::</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="n">s</span> <span class="o">-&gt;</span> <span class="n">s</span> <span class="p">}</span>
+</code></pre>
+
+<p>Following the convention of <a href="http://lens.github.io/">the official lens library</a>
+I&rsquo;ve named the type parameters <code>s</code> and <code>a</code>, where <code>s</code> is the <em>object</em> and <code>a</code>
+is the <em>focus</em>. In our example above the <code>s</code> would be <code>Project</code> and <code>a</code> would
+be a <code>String</code>, since we&rsquo;re trying to change the name of the project&rsquo;s user.</p>
+
+<p>Now given a lens of type <code>NaiveLens User String</code> we can easily change the
+name of a user</p>
+<pre class="highlight haskell"><code><span class="err">λ</span><span class="o">&gt;</span> <span class="kr">let</span> <span class="n">john</span> <span class="o">=</span> <span class="kt">User</span> <span class="p">{</span> <span class="n">name</span> <span class="o">=</span> <span class="s">"John"</span><span class="p">,</span> <span class="n">age</span> <span class="o">=</span> <span class="mi">30</span> <span class="p">}</span>
+<span class="err">λ</span><span class="o">&gt;</span> <span class="n">set</span> <span class="n">nameLens</span> <span class="s">"Bob"</span> <span class="n">john</span>
+<span class="kt">User</span> <span class="p">{</span><span class="n">name</span> <span class="o">=</span> <span class="s">"Bob"</span><span class="p">,</span> <span class="n">age</span> <span class="o">=</span> <span class="mi">30</span><span class="p">}</span>
+</code></pre>
+
+<p>How is such lens implemented? It&rsquo;s simply a getter and a setter.</p>
+<pre class="highlight haskell"><code><span class="n">nameLens</span> <span class="o">::</span> <span class="kt">NaiveLens</span> <span class="kt">User</span> <span class="kt">String</span>
+<span class="n">nameLens</span> <span class="o">=</span> <span class="kt">NaiveLens</span> <span class="n">name</span> <span class="p">(</span><span class="nf">\</span><span class="n">a</span> <span class="n">s</span> <span class="o">-&gt;</span> <span class="n">s</span> <span class="p">{</span> <span class="n">name</span> <span class="o">=</span> <span class="n">a</span> <span class="p">})</span>
+</code></pre>
+
+<p>The problem with this approach of sticking a getter and a setter into a data
+type is that it doesn&rsquo;t scale very well. If we wanted to do something like
+<em>increment the value at the target by one</em>, we would have to first <code>view</code> the
+current value, apply +1 to it, and then <code>set</code> the new value. We could
+encapsulate this by providing the lens with a third function call <code>over</code>:</p>
+<pre class="highlight haskell"><code><span class="n">over</span> <span class="o">::</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="n">a</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">s</span> <span class="o">-&gt;</span> <span class="n">s</span>
+</code></pre>
+
+<p>We could use this similarly to <code>set</code>.</p>
+<pre class="highlight haskell"><code><span class="err">λ</span><span class="o">&gt;</span> <span class="kr">let</span> <span class="n">john</span> <span class="o">=</span> <span class="kt">User</span> <span class="p">{</span> <span class="n">name</span> <span class="o">=</span> <span class="s">"John"</span><span class="p">,</span> <span class="n">age</span> <span class="o">=</span> <span class="mi">30</span> <span class="p">}</span>
+<span class="err">λ</span><span class="o">&gt;</span> <span class="n">over</span> <span class="n">ageLens</span> <span class="p">(</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span> <span class="n">john</span>
+<span class="kt">User</span> <span class="p">{</span><span class="n">name</span> <span class="o">=</span> <span class="s">"John"</span><span class="p">,</span> <span class="n">age</span> <span class="o">=</span> <span class="mi">31</span><span class="p">}</span>
+</code></pre>
+<pre class="highlight haskell"><code><span class="n">ageLens</span> <span class="o">::</span> <span class="kt">NaiveLens</span> <span class="kt">User</span> <span class="kt">Int</span>
+<span class="n">ageLens</span> <span class="o">=</span> <span class="kt">NaiveLens</span> <span class="n">age</span>
+                     <span class="p">(</span><span class="nf">\</span><span class="n">a</span> <span class="n">s</span> <span class="o">-&gt;</span> <span class="n">s</span> <span class="p">{</span> <span class="n">age</span> <span class="o">=</span> <span class="n">a</span> <span class="p">})</span>
+                     <span class="p">(</span><span class="nf">\</span><span class="n">f</span> <span class="n">s</span> <span class="o">-&gt;</span> <span class="n">s</span> <span class="p">{</span> <span class="n">age</span> <span class="o">=</span> <span class="n">f</span> <span class="p">(</span><span class="n">age</span> <span class="n">s</span><span class="p">)</span> <span class="p">})</span>
+</code></pre>
+
+<p>The problem is that now we need to provide a getter and two setters for each
+lens, even if we just use one.</p>
+
+<p>If you&rsquo;ve been using Haskell for a while you&rsquo;ve probably seen the magical
+function <code>const</code>. It&rsquo;s actually not magical at all, it simply has a type of <code>a
+-&gt; b -&gt; a</code>, which allows us to turn <code>over :: (a -&gt; a) -&gt; s -&gt; s</code> into <code>set :: a
+-&gt; s -&gt; s</code> by partially applying it, which leads to the definition of <code>set</code> as
+follows.</p>
+<pre class="highlight haskell"><code><span class="n">set</span> <span class="o">::</span> <span class="kt">NaiveLens</span> <span class="n">s</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="n">s</span> <span class="o">-&gt;</span> <span class="n">s</span>
+<span class="n">set</span> <span class="n">ln</span> <span class="n">a</span> <span class="n">s</span> <span class="o">=</span> <span class="n">over</span> <span class="n">ln</span> <span class="p">(</span><span class="n">const</span> <span class="n">a</span><span class="p">)</span> <span class="n">s</span>
+</code></pre>
+
+<p>Here&rsquo;s how the whole code looks now</p>
+<pre class="highlight haskell"><code><span class="kr">data</span> <span class="kt">NaiveLens</span> <span class="n">s</span> <span class="n">a</span> <span class="o">=</span> <span class="kt">NaiveLens</span>
+                         <span class="p">{</span> <span class="n">view</span> <span class="o">::</span> <span class="n">s</span> <span class="o">-&gt;</span> <span class="n">a</span>
+                         <span class="p">,</span> <span class="n">over</span> <span class="o">::</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="n">a</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">s</span> <span class="o">-&gt;</span> <span class="n">s</span> <span class="p">}</span>
+
+<span class="n">set</span> <span class="o">::</span> <span class="kt">NaiveLens</span> <span class="n">s</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="n">s</span> <span class="o">-&gt;</span> <span class="n">s</span>
+<span class="n">set</span> <span class="n">ln</span> <span class="n">a</span> <span class="n">s</span> <span class="o">=</span> <span class="n">over</span> <span class="n">ln</span> <span class="p">(</span><span class="n">const</span> <span class="n">a</span><span class="p">)</span> <span class="n">s</span>
+</code></pre>
+
+<h2>Lenses with side effects and more</h2>
+
+<p>Now we can see that <code>over</code> is definitely useful, but what if our modifier
+function needs to perform some side effects? For example we might want to send
+the current value over the network to determine the new value. We could go on
+as before and add yet another function called <code>overIO</code>, which would look as the
+following:</p>
+<pre class="highlight haskell"><code><span class="n">overIO</span> <span class="o">::</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="kt">IO</span> <span class="n">a</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">s</span> <span class="o">-&gt;</span> <span class="kt">IO</span> <span class="n">s</span>
+</code></pre>
+
+<p>But this means our simple pair of a getter and a setter has grown into a getter
+and two setters again. Not to mention that we might want to use <code>over</code> in more
+settings than just <code>IO</code>. Here&rsquo;s how the type would look now.</p>
+<pre class="highlight haskell"><code><span class="kr">data</span> <span class="kt">NaiveLens</span> <span class="n">s</span> <span class="n">a</span> <span class="o">=</span> <span class="kt">NaiveLens</span>
+                         <span class="p">{</span> <span class="n">view</span>   <span class="o">::</span> <span class="n">s</span> <span class="o">-&gt;</span> <span class="n">a</span>
+                         <span class="p">,</span> <span class="n">over</span>   <span class="o">::</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="n">a</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">s</span> <span class="o">-&gt;</span> <span class="n">s</span>
+                         <span class="p">,</span> <span class="n">overIO</span> <span class="o">::</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="kt">IO</span> <span class="n">a</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">s</span> <span class="o">-&gt;</span> <span class="kt">IO</span> <span class="n">s</span> <span class="p">}</span>
+</code></pre>
+
+<p>This is the point where the magical generalization of what is called the <em>van
+Laarhoven lens</em> comes into play. First step is that we can write our <code>overIO</code>
+in a more general way by swapping <code>IO</code> for a <code>Functor</code>, which gives us the
+following type.</p>
+<pre class="highlight haskell"><code><span class="n">overF</span> <span class="o">::</span> <span class="kt">Functor</span> <span class="n">f</span> <span class="o">=&gt;</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="n">f</span> <span class="n">a</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">s</span> <span class="o">-&gt;</span> <span class="n">f</span> <span class="n">s</span>
+</code></pre>
+
+<p>For the sake of keeping this article short I&rsquo;m going to tell you that <code>overF</code>
+is everything we need in order to implement <code>view</code>, <code>set</code>, <code>over</code> and <code>overIO</code>.
+Which means we no longer need a <code>Lens</code> record type, since we&rsquo;ll have just one
+function.</p>
+<pre class="highlight haskell"><code><span class="kr">type</span> <span class="kt">Lens</span> <span class="n">s</span> <span class="n">a</span> <span class="o">=</span> <span class="kt">Functor</span> <span class="n">f</span> <span class="o">=&gt;</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="n">f</span> <span class="n">a</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">s</span> <span class="o">-&gt;</span> <span class="n">f</span> <span class="n">s</span>
+</code></pre>
+
+<p>By making this a type alias instead of a <code>newtype</code> or <code>data</code> we get one amazing
+property of lenses. You can define your own lenses without depending on the
+<code>lens</code> library. <strong>Any function which has the appropriate type signature is a
+lens</strong>, there is no magic.</p>
+
+<p>One thing to note here is that we do need to enable the
+<a href="http://www.haskell.org/haskellwiki/Rank-N_types"><code>RankNTypes</code></a> extension for
+this type alias to compile. To do that simply add the following snippet to the
+first line of your file.</p>
+<pre class="highlight haskell"><code><span class="cp">{-# LANGUAGE RankNTypes #-}</span>
+</code></pre>
+
+<p>or if you&rsquo;re following along in GHCi type <code>:set -XRankNTypes</code>. I won&rsquo;t be
+explaining this in this article since it&rsquo;s quite a complicated topic, but if
+you&rsquo;re interested in learning more, a simple google search will yield a lot of
+good results.</p>
+
+<hr>
+
+<h2>Implementing <code>over</code>, <code>set</code> and <code>view</code> in terms of <code>Lens s a</code></h2>
+
+<p>Let&rsquo;s summarize before we move on. We started with an idea that a lens
+represents a getter and a setter into some data type. Then we generalized the
+setter to work with functions (using <code>over</code>). Last we realized that <code>over</code> is
+not good enough when we want to do side effects, so we moved to <code>overIO</code> and
+finally generalized it to the <em>van Laarhoven</em> lens of <code>Functor f =&gt; (a -&gt; f a)
+-&gt; s -&gt; f s</code>.</p>
+
+<p>So far I&rsquo;ve only told you that our new <code>Lens s a</code> can behave like <code>over</code>, <code>set</code>
+and <code>view</code>, but we need to prove it to really understand why. In order to do
+this we&rsquo;ll make use to two <code>Functor</code> instances that come from the <code>base</code>
+library, namely <code>Data.Functor.Identity</code> and <code>Control.Applicative.Const</code>. Let&rsquo;s
+start with the simplest one, that is implementing <code>over</code> with the <code>Identity</code>
+functor.</p>
+
+<h2><code>over</code> with <code>Identity</code></h2>
+
+<p>First of all, here&rsquo;s the implementation of <code>Identity</code>.</p>
+<pre class="highlight haskell"><code><span class="kr">newtype</span> <span class="kt">Identity</span> <span class="n">a</span> <span class="o">=</span> <span class="kt">Identity</span> <span class="p">{</span> <span class="n">runIdentity</span> <span class="o">::</span> <span class="n">a</span> <span class="p">}</span>
+
+<span class="kr">instance</span> <span class="kt">Functor</span> <span class="kt">Identity</span> <span class="kr">where</span>
+  <span class="n">fmap</span> <span class="n">f</span> <span class="p">(</span><span class="kt">Identity</span> <span class="n">a</span><span class="p">)</span> <span class="o">=</span> <span class="kt">Identity</span> <span class="p">(</span><span class="n">f</span> <span class="n">a</span><span class="p">)</span>
+</code></pre>
+
+<p>The reason why this is useful is because we can put a value in, let it behave
+as a functor, and then take the value out.</p>
+
+<p>The final type of <code>over</code> that we&rsquo;re looking for is <code>over :: Lens s a -&gt; (a -&gt;
+a) -&gt; s -&gt; s</code>. We can read that as: <em>Given a lens focusing on an <code>a</code> inside of
+an <code>s</code>, and a function from <code>a</code> to <code>a</code>, and an <code>s</code>, I can give you back a
+modified <code>s</code> from applying the function to the focus point of the lens.</em></p>
+<pre class="highlight haskell"><code><span class="n">over</span> <span class="o">::</span> <span class="kt">Lens</span> <span class="n">s</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="n">a</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">s</span> <span class="o">-&gt;</span> <span class="n">s</span>
+<span class="n">over</span> <span class="n">ln</span> <span class="n">f</span> <span class="n">s</span> <span class="o">=</span> <span class="kr">_</span>
+</code></pre>
+
+<blockquote>
+<p>If you&rsquo;re on GHC 7.8.x you can copy the exact snippet above and get an error
+telling you what type is needed in place of <code>_</code> (this functionality is provided
+by so called type holes.) Also don&rsquo;t forget that you need to add the type alias
+for <code>Lens s a</code> and enable the <code>RankNTypes</code> extension as mentioned above.</p>
+</blockquote>
+
+<p>We&rsquo;ll inline the <code>Lens</code> type synonym, just so that we can see what is really
+going on. Don&rsquo;t worry if the type looks scary, it will all make sense in a
+short while.</p>
+<pre class="highlight haskell"><code><span class="n">over</span> <span class="o">::</span> <span class="p">(</span><span class="kt">Functor</span> <span class="n">f</span> <span class="o">=&gt;</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="n">f</span> <span class="n">a</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">s</span> <span class="o">-&gt;</span> <span class="n">f</span> <span class="n">s</span><span class="p">))</span> <span class="o">-&gt;</span> 
+        <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="n">a</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">s</span> <span class="o">-&gt;</span> <span class="n">s</span>
+<span class="n">over</span> <span class="n">ln</span> <span class="n">f</span> <span class="n">s</span> <span class="o">=</span> <span class="kr">_</span>
+</code></pre>
+
+<p>I&rsquo;ve added a few parentheses, especially around the <code>s -&gt; f s</code>, to make it
+clear as we go along with partial applications. Keep in mind that <code>Lens</code> is
+just a function, nothing more.</p>
+
+<p>We only have one function of the type <code>a -&gt; f a</code> available here to pass into
+the lens <code>ln</code>, and that is <code>Identity</code>.</p>
+<pre class="highlight haskell"><code><span class="n">over</span> <span class="o">::</span> <span class="kt">Lens</span> <span class="n">s</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="n">a</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">s</span> <span class="o">-&gt;</span> <span class="n">s</span>
+<span class="n">over</span> <span class="n">ln</span> <span class="n">f</span> <span class="n">s</span> <span class="o">=</span> <span class="kr">_</span> <span class="p">(</span><span class="n">ln</span> <span class="kt">Identity</span><span class="p">)</span>
+</code></pre>
+
+<h2>Using GHCi to play with types</h2>
+
+<p>If you want to play along in GHCi, there&rsquo;s a neat little trick you can do to
+interactively play with types. Say that you want to see the type of <code>ln
+Identity</code></p>
+<pre class="highlight haskell"><code><span class="err">λ</span><span class="o">&gt;</span> <span class="kr">let</span> <span class="n">ln</span> <span class="o">=</span> <span class="n">undefined</span> <span class="o">::</span> <span class="p">(</span><span class="kt">Functor</span> <span class="n">f</span> <span class="o">=&gt;</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="n">f</span> <span class="n">a</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">s</span> <span class="o">-&gt;</span> <span class="n">f</span> <span class="n">s</span><span class="p">))</span>
+<span class="err">λ</span><span class="o">&gt;</span> <span class="o">:</span><span class="n">t</span> <span class="n">ln</span> <span class="kt">Identity</span>
+<span class="o">::</span> <span class="n">s</span> <span class="o">-&gt;</span> <span class="kt">Identity</span> <span class="n">s</span>
+</code></pre>
+
+<p>The reason why this works is because the <code>undefined</code> can take on any type.
+Since we&rsquo;re just trying to make the types align, you won&rsquo;t get an error from
+trying to evaluate the <code>undefined</code>, you&rsquo;ll just a type error. This way you can
+keep trying to partially apply things to see if the types match as you expect.</p>
+
+<p>Anyway, moving on. We haven&rsquo;t really used our function <code>f</code> yet, and there will
+be no more <code>a</code> to apply it to ones we give something to the lens <code>ln</code>. This is
+why we need to apply it before we stick in the <code>Identity</code>, or compose it with
+the <code>Identity</code> to be specific.</p>
+<pre class="highlight haskell"><code><span class="n">over</span> <span class="o">::</span> <span class="kt">Lens</span> <span class="n">s</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="n">a</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">s</span> <span class="o">-&gt;</span> <span class="n">s</span>
+<span class="n">over</span> <span class="n">ln</span> <span class="n">f</span> <span class="n">s</span> <span class="o">=</span> <span class="kr">_</span> <span class="p">(</span><span class="n">ln</span> <span class="p">(</span><span class="kt">Identity</span> <span class="o">.</span> <span class="n">f</span><span class="p">))</span>
+</code></pre>
+
+<p>Now our current type hole if <code>(s -&gt; f s) -&gt; s</code>, which means we can stick in our
+<code>s</code>. To make this syntactically more pleasing we&rsquo;ll replace some parentheses
+with <code>$</code>.</p>
+<pre class="highlight haskell"><code><span class="n">over</span> <span class="o">::</span> <span class="kt">Lens</span> <span class="n">s</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="n">a</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">s</span> <span class="o">-&gt;</span> <span class="n">s</span>
+<span class="n">over</span> <span class="n">ln</span> <span class="n">f</span> <span class="n">s</span> <span class="o">=</span> <span class="kr">_</span> <span class="o">$</span> <span class="n">ln</span> <span class="p">(</span><span class="kt">Identity</span> <span class="o">.</span> <span class="n">f</span><span class="p">)</span> <span class="n">s</span>
+</code></pre>
+
+<p>Hang in, we&rsquo;re almost done. The last thing we need do, as our type hole tells
+us, is <code>f s -&gt; s</code>, which means we basically need to rip off the functor. This
+is easy to do as we&rsquo;re using the <code>Identity</code> functor, so we just apply
+<code>runIdentity</code>.</p>
+<pre class="highlight haskell"><code><span class="n">over</span> <span class="o">::</span> <span class="kt">Lens</span> <span class="n">s</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="n">a</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">s</span> <span class="o">-&gt;</span> <span class="n">s</span>
+<span class="n">over</span> <span class="n">ln</span> <span class="n">f</span> <span class="n">s</span> <span class="o">=</span> <span class="n">runIdentity</span> <span class="o">$</span> <span class="n">ln</span> <span class="p">(</span><span class="kt">Identity</span> <span class="o">.</span> <span class="n">f</span><span class="p">)</span> <span class="n">s</span>
+</code></pre>
+
+<p>If you&rsquo;re feeling adventurous, we can rewrite this using point free style.</p>
+<pre class="highlight haskell"><code><span class="n">over</span> <span class="o">::</span> <span class="kt">Lens</span> <span class="n">s</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="n">a</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">s</span> <span class="o">-&gt;</span> <span class="n">s</span>
+<span class="n">over</span> <span class="n">ln</span> <span class="n">f</span> <span class="o">=</span> <span class="n">runIdentity</span> <span class="o">.</span> <span class="n">ln</span> <span class="p">(</span><span class="kt">Identity</span> <span class="o">.</span> <span class="n">f</span><span class="p">)</span>
+</code></pre>
+
+<h2><code>view</code> with <code>Const</code></h2>
+
+<p>Now let&rsquo;s move on to <code>view</code>, where the type is simply <code>view :: Lens s a -&gt; s -&gt;
+a</code>. We can read this as: <em>Given a lens that focuses on an <code>a</code> inside of an <code>s</code>,
+and an <code>s</code>, I can give you an <code>a</code>.</em></p>
+
+<p>This part is probably the most magical, since the type of the <code>Lens s a</code> is <code>(a
+-&gt; f a) -&gt; s -&gt; f s</code> and we&rsquo;re trying to implement something that&rsquo;s <code>s -&gt; a</code>,
+which means we need to have a way to turn the final <code>f s</code> into an <code>a</code>. The key
+to this is the <code>Const</code> functor.</p>
+<pre class="highlight haskell"><code><span class="kr">newtype</span> <span class="kt">Const</span> <span class="n">a</span> <span class="n">b</span> <span class="o">=</span> <span class="kt">Const</span> <span class="p">{</span> <span class="n">getConst</span> <span class="o">::</span> <span class="n">a</span> <span class="p">}</span>
+
+<span class="kr">instance</span> <span class="kt">Functor</span> <span class="p">(</span><span class="kt">Const</span> <span class="n">a</span><span class="p">)</span> <span class="kr">where</span>
+  <span class="n">fmap</span> <span class="kr">_</span> <span class="p">(</span><span class="kt">Const</span> <span class="n">a</span><span class="p">)</span> <span class="o">=</span> <span class="kt">Const</span> <span class="n">a</span>
+</code></pre>
+
+<p>Let&rsquo;s break this down into steps and first explain how <code>Const</code> works. <code>Const</code>
+is a wrapper which takes a value, hides it deep inside, and then pretends to be
+a functor containing something else, which is why it ignores the function
+you&rsquo;re trying to <code>fmap</code> over const. Here&rsquo;s an example:</p>
+<pre class="highlight haskell"><code><span class="err">λ</span><span class="o">&gt;</span> <span class="o">:</span><span class="n">t</span> <span class="kt">Const</span> <span class="s">"hello"</span>
+<span class="o">::</span> <span class="kt">Const</span> <span class="kt">String</span> <span class="n">b</span>
+</code></pre>
+
+<p>We&rsquo;ve hidden a <code>&quot;hello&quot;</code> string inside a <code>Const</code>, now let&rsquo;s try to apply a
+boolean function to it using <code>fmap</code>.</p>
+<pre class="highlight haskell"><code><span class="err">λ</span><span class="o">&gt;</span> <span class="kr">let</span> <span class="n">boolBox</span> <span class="o">=</span> <span class="n">fmap</span> <span class="p">(</span><span class="o">&amp;&amp;</span> <span class="kt">False</span><span class="p">)</span> <span class="p">(</span><span class="kt">Const</span> <span class="s">"hello"</span><span class="p">)</span>
+<span class="err">λ</span><span class="o">&gt;</span> <span class="o">:</span><span class="n">t</span> <span class="n">boolBox</span>
+<span class="kt">Const</span> <span class="p">[</span><span class="kt">Char</span><span class="p">]</span> <span class="kt">Bool</span>
+</code></pre>
+
+<p>The <code>Const</code> has taken over to be a type of <code>Const String Bool</code>. If we <code>fmap</code>
+over a function <code>Bool -&gt; Double</code> we&rsquo;ll get a <code>Const String Double</code>.</p>
+<pre class="highlight haskell"><code><span class="err">λ</span><span class="o">&gt;</span> <span class="o">:</span><span class="n">t</span> <span class="n">fmap</span> <span class="p">(</span><span class="nf">\</span><span class="kr">_</span> <span class="o">-&gt;</span> <span class="mf">1.2</span> <span class="o">::</span> <span class="kt">Double</span><span class="p">)</span> <span class="n">boolBox</span>
+<span class="o">::</span> <span class="kt">Const</span> <span class="kt">String</span> <span class="kt">Double</span>
+</code></pre>
+
+<p>The important thing to keep in mind here is that the <code>Const</code> simply ignores the
+function we&rsquo;re fmapping and takes on the new type, while keeping our original
+<code>String</code> safe. We can extract it back at any time we want, no matter how many
+things we&rsquo;ve <code>fmap</code>ped.</p>
+<pre class="highlight haskell"><code><span class="err">λ</span><span class="o">&gt;</span> <span class="n">getConst</span> <span class="n">boolBox</span>
+<span class="s">"hello"</span>
+<span class="err">λ</span><span class="o">&gt;</span> <span class="n">getConst</span> <span class="o">$</span> <span class="n">fmap</span> <span class="p">(</span><span class="nf">\</span><span class="kr">_</span> <span class="o">-&gt;</span> <span class="mf">1.2</span> <span class="o">::</span> <span class="kt">Double</span><span class="p">)</span> <span class="n">boolBox</span>
+<span class="s">"hello"</span>
+</code></pre>
+
+<h2>The actual <code>view</code> implementation</h2>
+
+<p>Let&rsquo;s do this using type holes again.</p>
+<pre class="highlight haskell"><code><span class="n">view</span> <span class="o">::</span> <span class="kt">Lens</span> <span class="n">s</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="n">s</span> <span class="o">-&gt;</span> <span class="n">a</span>
+<span class="n">view</span> <span class="n">ln</span> <span class="n">s</span> <span class="o">=</span> <span class="kr">_</span>
+</code></pre>
+
+<p>We can approach this the same way as we did before when implementing <code>over</code>
+using <code>Identity</code>. First of all, here&rsquo;s the type of <code>Lens s a</code> again in case you
+forgot <code>Functor f =&gt; (a -&gt; f a) -&gt; s -&gt; f s</code>.</p>
+
+<p>If you squint hard enough you can see that if we somehow pass a function to
+<code>ln</code>, we&rsquo;ll get back another function of the type <code>s -&gt; f s</code>, which we can give
+our <code>s</code>, and then the only thing remaining is to extract the resulting <code>a</code> out
+of the <code>f s</code>. Again the only function  that fits here is <code>Const</code>.</p>
+<pre class="highlight haskell"><code><span class="n">view</span> <span class="o">::</span> <span class="kt">Lens</span> <span class="n">s</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="n">s</span> <span class="o">-&gt;</span> <span class="n">a</span>
+<span class="n">view</span> <span class="n">ln</span> <span class="n">s</span> <span class="o">=</span> <span class="kr">_</span> <span class="o">$</span> <span class="n">ln</span> <span class="kt">Const</span>
+</code></pre>
+
+<p>The type of the hole here is <code>(s -&gt; f s) -&gt; a</code>, which means we can apply our
+<code>s</code> on the right side as we did with <code>over</code>.</p>
+<pre class="highlight haskell"><code><span class="n">view</span> <span class="o">::</span> <span class="kt">Lens</span> <span class="n">s</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="n">s</span> <span class="o">-&gt;</span> <span class="n">a</span>
+<span class="n">view</span> <span class="n">ln</span> <span class="n">s</span> <span class="o">=</span> <span class="kr">_</span> <span class="o">$</span> <span class="n">ln</span> <span class="kt">Const</span> <span class="n">s</span>
+</code></pre>
+
+<p>Now all we&rsquo;re left with is <code>f s -&gt; a</code>, and because we know that the <code>f s</code> is
+actually <code>Const a s</code> we can get back the <code>a</code> using <code>getConst</code></p>
+<pre class="highlight haskell"><code><span class="n">view</span> <span class="o">::</span> <span class="kt">Lens</span> <span class="n">s</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="n">s</span> <span class="o">-&gt;</span> <span class="n">a</span>
+<span class="n">view</span> <span class="n">ln</span> <span class="n">s</span> <span class="o">=</span> <span class="n">getConst</span> <span class="o">$</span> <span class="n">ln</span> <span class="kt">Const</span> <span class="n">s</span>
+</code></pre>
+
+<p>And there you go, we got ourselves a <code>view</code>. I won&rsquo;t be showing how to
+implement <code>set</code> step by step, since it can be trivially defined either in terms
+of <code>over</code>, which is good enough for us.</p>
+<pre class="highlight haskell"><code><span class="n">set</span> <span class="o">::</span> <span class="kt">Lens</span> <span class="n">s</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="n">s</span> <span class="o">-&gt;</span> <span class="n">s</span>
+<span class="n">set</span> <span class="n">ln</span> <span class="n">x</span> <span class="o">=</span> <span class="n">over</span> <span class="n">ln</span> <span class="p">(</span><span class="n">const</span> <span class="n">x</span><span class="p">)</span>
+</code></pre>
+
+<h2>Writing our own lenses</h2>
+
+<p>In order to use lenses we actually need to have some lenses. As said earlier,
+we do not need the <code>lens</code> library to define a new lens, we only need a function
+with the type of <code>Functor f =&gt; (a -&gt; f a) -&gt; s -&gt; f s</code>. Let&rsquo;s make one!</p>
+
+<p>We&rsquo;ll start by implementing the <code>_1</code> lens, which focuses on a first element of
+a pair. The type will be <code>Lens (a,b) a</code> or specifically <code>Functor f =&gt; (a -&gt; f
+a) -&gt; (a,b) -&gt; f (a,b)</code>, in another words <em>Given a pair of <code>(a,b)</code> the lens
+focuses on the first element of the pair, which is <code>a</code></em>.</p>
+<pre class="highlight haskell"><code><span class="n">_1</span> <span class="o">::</span> <span class="kt">Functor</span> <span class="n">f</span> <span class="o">=&gt;</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="n">f</span> <span class="n">a</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">a</span><span class="p">,</span><span class="n">b</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">f</span> <span class="p">(</span><span class="n">a</span><span class="p">,</span><span class="n">b</span><span class="p">)</span>
+<span class="n">_1</span> <span class="n">f</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">)</span> <span class="o">=</span> <span class="kr">_</span>
+</code></pre>
+
+<p>An interesting thing about pure functions in Haskell is that more often than
+not, there is only one way to implement a function so that it typechecks. We
+can use the types as we did earlier to guide us while implementing this.</p>
+
+<p>Ok let&rsquo;s get going. We have three values available (via the function
+parameters), <code>f :: a -&gt; f a</code>, <code>x :: a</code> and <code>y :: b</code>. The only thing we can do
+here is apply <code>f</code> to <code>x</code>.</p>
+<pre class="highlight haskell"><code><span class="n">_1</span> <span class="o">::</span> <span class="kt">Functor</span> <span class="n">f</span> <span class="o">=&gt;</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="n">f</span> <span class="n">a</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">a</span><span class="p">,</span><span class="n">b</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">f</span> <span class="p">(</span><span class="n">a</span><span class="p">,</span><span class="n">b</span><span class="p">)</span>
+<span class="n">_1</span> <span class="n">f</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">)</span> <span class="o">=</span> <span class="n">f</span> <span class="n">x</span>
+</code></pre>
+
+<p>This will fail to typecheck, since we&rsquo;re trying to return <code>f a</code> instead of <code>f
+(a,b)</code>. What else can we do now? We know <code>f</code> is a <code>Functor</code>, which means we can
+use <code>fmap</code>. We also know that we need to somehow use <code>y</code> to compose the result.
+If you think about this for a while, all we can really do is <code>fmap</code> some
+function on the result of <code>f x</code></p>
+<pre class="highlight haskell"><code><span class="n">_1</span> <span class="o">::</span> <span class="kt">Functor</span> <span class="n">f</span> <span class="o">=&gt;</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="n">f</span> <span class="n">a</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">a</span><span class="p">,</span><span class="n">b</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">f</span> <span class="p">(</span><span class="n">a</span><span class="p">,</span><span class="n">b</span><span class="p">)</span>
+<span class="n">_1</span> <span class="n">f</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">)</span> <span class="o">=</span> <span class="n">fmap</span> <span class="kr">_</span> <span class="p">(</span><span class="n">f</span> <span class="n">x</span><span class="p">)</span>
+</code></pre>
+
+<p>The result is that the type of <code>_</code> in this case must be <code>a -&gt; (a, b)</code>. That&rsquo;s
+it, we only have one thing of type <code>b</code>, which is <code>y</code>, and the <code>a</code> we can take
+just form the parameter passed to the lambda, hence giving us the following.</p>
+<pre class="highlight haskell"><code><span class="n">_1</span> <span class="o">::</span> <span class="kt">Functor</span> <span class="n">f</span> <span class="o">=&gt;</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="n">f</span> <span class="n">a</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">a</span><span class="p">,</span><span class="n">b</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">f</span> <span class="p">(</span><span class="n">a</span><span class="p">,</span><span class="n">b</span><span class="p">)</span>
+<span class="n">_1</span> <span class="n">f</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">)</span> <span class="o">=</span> <span class="n">fmap</span> <span class="p">(</span><span class="nf">\</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">y</span><span class="p">))</span> <span class="p">(</span><span class="n">f</span> <span class="n">x</span><span class="p">)</span>
+</code></pre>
+
+<p>Whoa, did we just write an actual lens? I believe we did sir. Let&rsquo;s test things
+out!</p>
+
+<h2>Using lenses</h2>
+
+<p>Now that we got ourselves a <code>view</code> and <code>_1</code> lens, let&rsquo;s play!</p>
+<pre class="highlight haskell"><code><span class="err">λ</span><span class="o">&gt;</span> <span class="n">view</span> <span class="n">_1</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">)</span>
+<span class="mi">1</span>
+</code></pre>
+
+<p>We can also use <code>set</code> and <code>over</code> to change the value</p>
+<pre class="highlight haskell"><code><span class="err">λ</span><span class="o">&gt;</span> <span class="n">set</span> <span class="n">_1</span> <span class="mi">3</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">)</span>
+<span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">2</span><span class="p">)</span>
+<span class="err">λ</span><span class="o">&gt;</span> <span class="n">over</span> <span class="n">_1</span> <span class="p">(</span><span class="o">+</span><span class="mi">3</span><span class="p">)</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">)</span>
+<span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="mi">2</span><span class="p">)</span>
+</code></pre>
+
+<p>Let&rsquo;s see how to define a lens for the original <code>User</code> and <code>Project</code> types.</p>
+<pre class="highlight haskell"><code><span class="kr">data</span> <span class="kt">User</span> <span class="o">=</span> <span class="kt">User</span> <span class="p">{</span> <span class="n">name</span> <span class="o">::</span> <span class="kt">String</span><span class="p">,</span> <span class="n">age</span> <span class="o">::</span> <span class="kt">Int</span> <span class="p">}</span> <span class="kr">deriving</span> <span class="kt">Show</span>
+<span class="kr">data</span> <span class="kt">Project</span> <span class="o">=</span> <span class="kt">Project</span> <span class="p">{</span> <span class="n">owner</span> <span class="o">::</span> <span class="kt">User</span> <span class="p">}</span> <span class="kr">deriving</span> <span class="kt">Show</span>
+</code></pre>
+
+<p>We&rsquo;ll start with a lens for the <code>User</code>&rsquo;s <code>name</code>, which simply has the type
+<code>Lens User String</code>. There&rsquo;s no magic here, we&rsquo;ll just follow the same pattern
+as we did with the <code>_1</code> lens.</p>
+<pre class="highlight haskell"><code><span class="n">nameLens</span> <span class="o">::</span> <span class="kt">Lens</span> <span class="kt">User</span> <span class="kt">String</span>
+<span class="n">nameLens</span> <span class="n">f</span> <span class="n">user</span> <span class="o">=</span> <span class="n">fmap</span> <span class="p">(</span><span class="nf">\</span><span class="n">newName</span> <span class="o">-&gt;</span> <span class="n">user</span> <span class="p">{</span> <span class="n">name</span> <span class="o">=</span> <span class="n">newName</span> <span class="p">})</span> <span class="p">(</span><span class="n">f</span> <span class="p">(</span><span class="n">name</span> <span class="n">user</span><span class="p">))</span>
+</code></pre>
+
+<p>As you can see this is just mechanical work. We can define the other two lenses
+for <code>age</code> and <code>owner</code> by simply copy pasting the first one and changing a few
+things around.</p>
+<pre class="highlight haskell"><code><span class="n">ageLens</span> <span class="o">::</span> <span class="kt">Lens</span> <span class="kt">User</span> <span class="kt">Int</span>
+<span class="n">ageLens</span> <span class="n">f</span> <span class="n">user</span> <span class="o">=</span> <span class="n">fmap</span> <span class="p">(</span><span class="nf">\</span><span class="n">newAge</span> <span class="o">-&gt;</span> <span class="n">user</span> <span class="p">{</span> <span class="n">age</span> <span class="o">=</span> <span class="n">newAge</span> <span class="p">})</span> <span class="p">(</span><span class="n">f</span> <span class="p">(</span><span class="n">age</span> <span class="n">user</span><span class="p">))</span>
+
+<span class="n">ownerLens</span> <span class="o">::</span> <span class="kt">Lens</span> <span class="kt">Project</span> <span class="kt">User</span>
+<span class="n">ownerLens</span> <span class="n">f</span> <span class="n">project</span> <span class="o">=</span> <span class="n">fmap</span> <span class="p">(</span><span class="nf">\</span><span class="n">newOwner</span> <span class="o">-&gt;</span> <span class="n">project</span> <span class="p">{</span> <span class="n">owner</span> <span class="o">=</span> <span class="n">newOwner</span> <span class="p">})</span> <span class="p">(</span><span class="n">f</span> <span class="p">(</span><span class="n">owner</span> <span class="n">project</span><span class="p">))</span>
+</code></pre>
+
+<h2>Composing lenses together</h2>
+
+<p>Because lenses are just functions (remember that <code>Lens s a</code> is just a type
+alias) we can compose them using the ordinary function composition <code>.</code></p>
+<pre class="highlight haskell"><code><span class="n">ownerNameLens</span> <span class="o">::</span> <span class="kt">Lens</span> <span class="kt">Project</span> <span class="kt">String</span>
+<span class="n">ownerNameLens</span> <span class="o">=</span> <span class="n">ownerLens</span><span class="o">.</span><span class="n">nameLens</span>
+</code></pre>
+
+<p>Let&rsquo;s test this out:</p>
+<pre class="highlight haskell"><code><span class="err">λ</span><span class="o">&gt;</span> <span class="kr">let</span> <span class="n">john</span> <span class="o">=</span> <span class="kt">User</span> <span class="p">{</span> <span class="n">name</span> <span class="o">=</span> <span class="s">"John"</span><span class="p">,</span> <span class="n">age</span> <span class="o">=</span> <span class="mi">30</span> <span class="p">}</span>
+<span class="err">λ</span><span class="o">&gt;</span> <span class="kr">let</span> <span class="n">p</span> <span class="o">=</span> <span class="kt">Project</span> <span class="p">{</span> <span class="n">owner</span> <span class="o">=</span> <span class="n">john</span> <span class="p">}</span>
+<span class="err">λ</span><span class="o">&gt;</span> <span class="n">view</span> <span class="n">ownerNameLens</span> <span class="n">p</span>
+<span class="s">"John"</span>
+<span class="err">λ</span><span class="o">&gt;</span> <span class="n">set</span> <span class="n">ownerNameLens</span> <span class="s">"Bob"</span> <span class="n">p</span>
+<span class="kt">Project</span> <span class="p">{</span><span class="n">owner</span> <span class="o">=</span> <span class="kt">User</span> <span class="p">{</span><span class="n">name</span> <span class="o">=</span> <span class="s">"Bob"</span><span class="p">,</span> <span class="n">age</span> <span class="o">=</span> <span class="mi">30</span><span class="p">}}</span>
+</code></pre>
+
+<h2>Conclusion of part 1</h2>
+
+<p>Congratulations to you if you&rsquo;ve read this far, you now have a good
+understanding of how the basic <code>Lens s a</code> works. This is not the end though,
+since lenses are a very large subject and there is a lot of ground to cover.
+The followup posts to this one will cover the more general <code>Lens s t a b</code> type,
+folds, traversals, prisms, isos, using template haskell to generate lenses, and
+much more!</p>
+
+<p>If you&rsquo;re curious especially about the <code>Lens s t a b</code> type and what it means,
+it&rsquo;s basically just a small generalization of what we&rsquo;ve devleoped here.
+Compare the following two:</p>
+<pre class="highlight haskell"><code><span class="kr">type</span> <span class="kt">Lens'</span> <span class="n">s</span> <span class="n">a</span> <span class="o">=</span> <span class="kt">Functor</span> <span class="n">f</span> <span class="o">=&gt;</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="n">f</span> <span class="n">a</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">s</span> <span class="o">-&gt;</span> <span class="n">f</span> <span class="n">s</span>
+<span class="kr">type</span> <span class="kt">Lens</span> <span class="n">s</span> <span class="n">t</span> <span class="n">a</span> <span class="n">b</span> <span class="o">=</span> <span class="kt">Functor</span> <span class="n">f</span> <span class="o">=&gt;</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="n">f</span> <span class="n">b</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">s</span> <span class="o">-&gt;</span> <span class="n">f</span> <span class="n">t</span>
+</code></pre>
+
+<p>This might look weird at first, but it&rsquo;s not if you apply it to a specific data
+type, such as:</p>
+<pre class="highlight haskell"><code><span class="kt">Lens</span> <span class="p">(</span><span class="kt">Int</span><span class="p">,</span> <span class="kt">String</span><span class="p">)</span> <span class="p">(</span><span class="kt">Double</span><span class="p">,</span> <span class="kt">String</span><span class="p">)</span> <span class="kt">Int</span> <span class="kt">Double</span>
+<span class="p">(</span><span class="kt">Int</span> <span class="o">-&gt;</span> <span class="n">f</span> <span class="kt">Double</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="kt">Int</span><span class="p">,</span> <span class="kt">String</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">f</span> <span class="p">(</span><span class="kt">Double</span><span class="p">,</span> <span class="kt">String</span><span class="p">)</span>
+</code></pre>
+
+<p>It simply allows you to change the type of the underlying structure, but as I
+said earlier, we&rsquo;ll cover this more in one of the upcoming blog posts.</p>
+<div class="form-box"><div class="left"><h1>Want to hear about my upcoming book,<br><strong>Haskell by Example</strong>?</h1><img alt="Haskell by Example Book" src="http://blog.jakubarnold.cz/images/book.png" width="120" /><p>Subscribe to receive updates and free content from the book. You'll also get a discount when the final version of the book is released.</p></div><div class="right mailchimp-signup-form"><div class="col second"><form action="http://sensible.us7.list-manage.com/subscribe/post?u=e0956e52b1c70e11e3e473abd&amp;id=a251f4e777" class="form" method="post" name="mc-embedded-subscribe-form" novalidate="" target="_blank"><div class="form-group"><label for="mce-FNAME"> First Name</label><input class="form-control" name="FNAME" type="text" value="" /></div><div class="form-group"><label for="mce-EMAIL"> Email Address</label><input class="form-control" name="EMAIL" type="email" value="" /></div><!--real people should not fill this in and expect good things - do not remove this or risk form bot signups--><div style="position: absolute; left: -5000px;"><input name="b_e0956e52b1c70e11e3e473abd_a251f4e777" type="text" value="" /></div><div class="clear"><button class="btn btn-subscribe" name="subscribe" type="submit">Keep me updated</button></div></form></div></div></div></div><div id="disqus_thread"></div><script type="text/javascript">var disqus_shortname = 'jakubarnoldblog';
+
+(function() {
+    var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+    dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+    (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+})();</script></div><div class="span4"><div class="right-panel-box"><h3>Recent articles</h3><ul><li><a href="http://blog.jakubarnold.cz/2015/08/08/fibonacci-numbers.html">Fibonacci Numbers</a></li><li><a href="http://blog.jakubarnold.cz/2014/08/10/parsing-css-with-parsec.html">Parsing CSS with Parsec</a></li><li><a href="http://blog.jakubarnold.cz/2014/08/06/lens-tutorial-stab-traversal-part-2.html">Lens Tutorial - Stab & Traversal (Part 2)</a></li><li><a href="http://blog.jakubarnold.cz/2014/07/30/foldable-and-traversable.html">Foldable and Traversable</a></li><li><a href="http://blog.jakubarnold.cz/2014/07/22/building-monad-transformers-part-1.html">Building Monad Transformers - Part 1</a></li><li><a href="http://blog.jakubarnold.cz/2014/07/20/mutable-state-in-haskell.html">Mutable State in Haskell</a></li><li><a href="lens-tutorial-introduction-part-1.html">Lens Tutorial - Introduction (part 1)</a></li><li><a href="http://blog.jakubarnold.cz/2014/07/10/using-phantom-types-in-haskell-for-extra-safety-part-2.html">Using Phantom Types in Haskell for Extra Safety - Part 2</a></li><li><a href="http://blog.jakubarnold.cz/2014/07/08/using-phantom-types-for-extra-safety.html">Using Phantom Types for Extra Safety</a></li><li><a href="http://blog.jakubarnold.cz/2014/06/23/evil-mode-how-to-switch-from-vim-to-emacs.html">Evil Mode: How I Switched From VIM to Emacs</a></li></ul><h3>Tags</h3><ul><li><a href="http://blog.jakubarnold.cz/tags/clojure.html">clojure (1)</a></li><li><a href="http://blog.jakubarnold.cz/tags/testing.html">testing (1)</a></li><li><a href="http://blog.jakubarnold.cz/tags/rspec.html">rspec (1)</a></li><li><a href="http://blog.jakubarnold.cz/tags/ruby.html">ruby (1)</a></li><li><a href="http://blog.jakubarnold.cz/tags/refactoring.html">refactoring (1)</a></li><li><a href="http://blog.jakubarnold.cz/tags/haskell.html">haskell (9)</a></li><li><a href="http://blog.jakubarnold.cz/tags/emacs.html">emacs (1)</a></li><li><a href="http://blog.jakubarnold.cz/tags/lens.html">lens (2)</a></li><li><a href="http://blog.jakubarnold.cz/tags/algorithms.html">algorithms (1)</a></li></ul><h3>Archives</h3><ul><li><a href="http://blog.jakubarnold.cz/2015.html">2015 (1)</a></li><li><a href="http://blog.jakubarnold.cz/2014.html">2014 (13)</a></li><li><a href="http://blog.jakubarnold.cz/2013.html">2013 (3)</a></li></ul><a href="https://plus.google.com/+JakubArnold?rel=author">Google+</a></div></div></div></div><script type="text/javascript">(function() {
+  var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+  po.src = 'https://apis.google.com/js/platform.js';
+  var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+})();</script><script type="text/javascript">!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="https://platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}}(document,"script","twitter-wjs");</script><script type="text/javascript">(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+(i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+})(window,document,'script','http://www.google-analytics.com/analytics.js','ga');
+
+ga('create', 'UA-44251100-2', 'blog.jakubarnold.cz');
+ga('send', 'pageview');</script><script type="text/javascript">var _gauges = _gauges || [];
+(function() {
+  var t   = document.createElement('script');
+  t.type  = 'text/javascript';
+  t.async = true;
+  t.id    = 'gauges-tracker';
+  t.setAttribute('data-site-id', '5325685a8bfdf76a52000c9b');
+  t.src = 'http://secure.gaug.es/track.js';
+  var s = document.getElementsByTagName('script')[0];
+  s.parentNode.insertBefore(t, s);
+})();</script><script src="http://jakubarnold.cz:9000/js/client.js"></script><script type="text/javascript">cat.init("3e4d686b-8b75-4c4b-ae2f-f05c6b7b5fce", "jakubarnold.cz", 9000);
+cat.broadcast("darthdeus", "someone is reading " + document.title);</script></body>
+<!-- Mirrored from blog.jakubarnold.cz/2014/07/14/lens-tutorial-introduction-part-1.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 11:03:45 GMT -->
+</html>
