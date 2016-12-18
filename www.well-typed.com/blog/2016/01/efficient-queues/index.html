@@ -1,0 +1,330 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+    
+<!-- Mirrored from www.well-typed.com/blog/2016/01/efficient-queues/ by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 20:35:11 GMT -->
+<head>
+        <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+        <title>
+           
+           Well-Typed - The Haskell Consultants: Efficient Amortised and Real-Time Queues in Haskell
+           
+        </title>
+        <link rel="Stylesheet" type="text/css" href="http://www.well-typed.com/css/wt.css" />
+        <link rel="shortcut icon" type="image/x-icon" href="http://www.well-typed.com/favicon.ico" />
+        
+    </head>
+    <body class="normal">
+
+<div class="pagelogo">
+<div class="smalllogo">
+  <a href="http://www.well-typed.com/"><img src="http://www.well-typed.com/img/wtlogo-small.png" width="243" height="70" alt="Well-Typed, The Haskell Consultants" /></a>
+</div>
+</div>
+
+<div class="bar">
+  <div class="smallmenu">
+<ul class="menu">
+  <li class="header"><a href="http://www.well-typed.com/services">Services</a>
+    <ul class="submenu">
+      <li class="subheader"><a href="http://www.well-typed.com/services_applications">Development</a></li>
+      <li class="subheader"><a href="http://www.well-typed.com/services_libraries">Maintenance</a></li>
+      <li class="subheader"><a href="http://www.well-typed.com/services_advice">Advice</a></li>
+      <li class="subheader"><a href="http://www.well-typed.com/services_training">Training</a></li>
+    </ul>
+  </li>
+  <li class="header"><a href="http://www.well-typed.com/about_welltyped">About</a>
+    <ul class="submenu">
+      <li class="subheader"><a href="http://www.well-typed.com/community">Community</a></li>
+      <li class="subheader"><a href="http://www.well-typed.com/who_we_are">Who We Are</a></li>
+      <li class="subheader"><a href="http://www.well-typed.com/contact">Contact</a></li>
+    </ul>
+  </li>
+  <li class="header"><a href="http://www.well-typed.com/press_releases">Press Releases</a></li>
+  <li class="header" id="active"><a href="http://www.well-typed.com/blog">Blog</a></li>
+</ul>
+</div>
+<div style="clear: both;"></div>
+
+
+</div>
+
+<div class="body">
+<div class="text">
+
+  <h1><a href="http://www.well-typed.com/blog/2016/01/efficient-queues">Efficient Amortised and Real-Time Queues in Haskell</a></h1>
+
+<p style="text-align: right"><small>Friday, 15 January 2016, by <a href="http://www.well-typed.com/blog/people/edsko">Edsko de Vries</a>.<br />
+  Filed under <a href="http://www.well-typed.com/blog/tags/coding">coding</a>.</small></p>
+
+<!--
+~~~ {.haskell}
+{-# OPTIONS_GHC -Wall -fno-warn-incomplete-patterns #-}
+{-# LANGUAGE BangPatterns #-}
+import Prelude hiding (head, tail)
+import Control.Monad.ST.Lazy
+import Control.Monad.ST.Lazy.Unsafe
+import Data.STRef.Lazy
+import Debug.Trace
+~~~
+-->
+<p>A queue is a datastructure that provides efficient—O(1)—operations to remove an element from the <em>front</em> of the queue and to insert an element at the <em>rear</em> of the queue. In this blog post we will discuss how we can take advantage of laziness to implement such queues in Haskell, both with amortised and with worst-case O(1) bounds.</p>
+<p>The results in this blog post are not new, and can be found in Chris Okasaki’s book “Purely Functional Data Structures”. However, the implementation and presentation here is different from Okasaki’s. In particular, the technique we use for real-time datastructures is more explicit and should scale to datastructures other than queues more easily than Okasaki’s.</p>
+<!-- more -->
+<h2 id="non-solution-lists">Non-solution: Lists</h2>
+<p>To set the stage, consider this first attempt at implementing queues:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Queue</span> q <span class="kw">where</span>
+<span class="ot">  empty ::</span> q a
+<span class="ot">  head  ::</span> q a <span class="ot">-&gt;</span> a
+<span class="ot">  tail  ::</span> q a <span class="ot">-&gt;</span> q a
+<span class="ot">  snoc  ::</span> q a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> q a
+
+<span class="kw">data</span> <span class="dt">Queue0</span> a <span class="fu">=</span> <span class="dt">Q0</span> [a]
+
+<span class="kw">instance</span> <span class="dt">Queue</span> <span class="dt">Queue0</span> <span class="kw">where</span>
+  empty              <span class="fu">=</span> <span class="dt">Q0</span> []
+  head (<span class="dt">Q0</span> (x<span class="fu">:</span>_ ))   <span class="fu">=</span> x
+  tail (<span class="dt">Q0</span> (_<span class="fu">:</span>xs))   <span class="fu">=</span> <span class="dt">Q0</span> xs
+  snoc (<span class="dt">Q0</span> xs    ) x <span class="fu">=</span> <span class="dt">Q0</span> (xs <span class="fu">++</span> [x])</code></pre></div>
+<p>What is the complexity of <code>head</code> and <code>snoc</code> in this representation? Your first instinct might be to say that <code>head</code> has O(1) complexity (after all, it doesn’t do anything but a pattern match) and that <code>snoc</code> has O(<em>n</em>) complexity, because it needs to traverse the entire list before it can append the element.</p>
+<p>However, Haskell is a lazy language. All that happens when we call <code>snoc</code> is that we create a thunk (a suspended computation), which happens in O(1) time. Consider adding the elements <code>[1..5]</code> into an empty queue, one at a time:</p>
+<pre><code>Q0      []
+Q0     ([] ++ [1])
+Q0    (([] ++ [1]) ++ [2])
+Q0   ((([] ++ [1]) ++ [2]) ++ [3])
+Q0  (((([] ++ [1]) ++ [2]) ++ [3]) ++ [4])
+Q0 ((((([] ++ [1]) ++ [2]) ++ [3]) ++ [4]) ++ [5])</code></pre>
+<p>Now when we call <code>head</code> on the resulting queue, <code>(++)</code> needs to traverse this entire chain before it can find the first element; since that chain has O(<em>n</em>) length, the complexity of <code>head</code> is O(<em>n</em>).</p>
+<h2 id="strict-non-persistent-queues">Strict, Non-Persistent Queues</h2>
+<p>Thinking about complexity in a lazy setting can be confusing, so let’s first think about a spine strict queue. In order to define it, we will need a spine-strict list:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">StrictList</span> a <span class="fu">=</span> <span class="dt">SNil</span> <span class="fu">|</span> <span class="dt">SCons</span> a <span class="fu">!</span>(<span class="dt">StrictList</span> a)</code></pre></div>
+<p>A bang annotation here means each evaluating an <code>SCons</code> node to weak-head normal form (for instance by pattern matching on it) will also force its tail to weak head normal form, and hence the entire spine of the list; we cannot have an <code>SCons</code> node with a pointer to an unevaluated tail.</p>
+<p>We will also need a few operations on strict lists:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- | Append two strict lists</span>
+<span class="ot">app ::</span> <span class="dt">StrictList</span> a <span class="ot">-&gt;</span> <span class="dt">StrictList</span> a <span class="ot">-&gt;</span> <span class="dt">StrictList</span> a
+app <span class="dt">SNil</span> ys         <span class="fu">=</span> ys
+app (<span class="dt">SCons</span> x xs) ys <span class="fu">=</span> <span class="dt">SCons</span> x (app xs ys)
+
+<span class="co">-- | Reverse a strict list</span>
+<span class="ot">rev ::</span> <span class="dt">StrictList</span> a <span class="ot">-&gt;</span> <span class="dt">StrictList</span> a
+rev <span class="fu">=</span> go <span class="dt">SNil</span>
+  <span class="kw">where</span>
+<span class="ot">    go ::</span> <span class="dt">StrictList</span> a <span class="ot">-&gt;</span> <span class="dt">StrictList</span> a <span class="ot">-&gt;</span> <span class="dt">StrictList</span> a
+    go acc <span class="dt">SNil</span>         <span class="fu">=</span> acc
+    go acc (<span class="dt">SCons</span> x xs) <span class="fu">=</span> go (<span class="dt">SCons</span> x acc) xs</code></pre></div>
+<p>The definition of strict lists in hand, we can attempt our next queue implementation:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Queue1</span> a <span class="fu">=</span> <span class="dt">Q1</span> <span class="fu">!</span><span class="dt">Int</span> <span class="fu">!</span>(<span class="dt">StrictList</span> a) <span class="fu">!</span><span class="dt">Int</span> <span class="fu">!</span>(<span class="dt">StrictList</span> a)</code></pre></div>
+<p>Instead of using a single list, we split the queue into two parts: the <em>front</em> of the queue and the <em>rear</em> of the queue. The front of the queue will be stored in normal order, so that we can easily remove elements from the front of the queue; the rear of the queue will be stored in reverse order, so that we can also easily insert new elements at the end of the queue.</p>
+<p>In addition, we also record the size of both lists. We will use this to enforce the following invariant:</p>
+<blockquote style="border: 1px solid black;">
+<strong>Queue Invariant</strong>: The front of the queue cannot be shorter than the rear.
+</blockquote>
+<p>(Simpler invariants are also possible, but this invariant is the one we will need later so we will use it throughout this blogpost.)</p>
+<p>When the invariant is violated, we restore it by moving the elements from the rear of the queue to the front; since the rear of the queue is stored in reverse order, but the front is not, the rear must be reversed:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">inv1 ::</span> <span class="dt">Queue1</span> a <span class="ot">-&gt;</span> <span class="dt">Queue1</span> a
+inv1 q<span class="fu">@</span>(<span class="dt">Q1</span> f xs r ys)
+  <span class="fu">|</span> f <span class="fu">&lt;</span> r     <span class="fu">=</span> <span class="dt">Q1</span> (f<span class="fu">+</span>r) (xs <span class="ot">`app`</span> rev ys) <span class="dv">0</span> <span class="dt">SNil</span>
+  <span class="fu">|</span> otherwise <span class="fu">=</span> q</code></pre></div>
+<p>The invariant can be violated when we shrink the front or grow the rear, so we end up with this implementation of the <code>Queue</code> interface:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Queue</span> <span class="dt">Queue1</span> <span class="kw">where</span>
+  empty                           <span class="fu">=</span> <span class="dt">Q1</span> <span class="dv">0</span> <span class="dt">SNil</span> <span class="dv">0</span> <span class="dt">SNil</span>
+  head (<span class="dt">Q1</span> _ (<span class="dt">SCons</span> x _ ) _ _ )   <span class="fu">=</span> x
+  tail (<span class="dt">Q1</span> f (<span class="dt">SCons</span> _ xs) r ys)   <span class="fu">=</span> inv1 <span class="fu">$</span> <span class="dt">Q1</span> (f<span class="fu">-</span><span class="dv">1</span>) xs r ys
+  snoc (<span class="dt">Q1</span> f xs           r ys) y <span class="fu">=</span> inv1 <span class="fu">$</span> <span class="dt">Q1</span> f xs (r<span class="fu">+</span><span class="dv">1</span>) (<span class="dt">SCons</span> y ys)</code></pre></div>
+<h3 id="worst-case-versus-amortised-complexity">Worst-Case versus Amortised Complexity</h3>
+<p>Since we don’t have to think about laziness, the complexity of this queue implementation is a bit easier to determine. Clearly, <code>head</code> is O(1), and both <code>tail</code> and <code>snoc</code> have worst case <code>O(n)</code> complexity because <code>rev</code> has O(<em>n</em>) complexity. However, consider what happens when we insert [1..7] into an empty queue:</p>
+<pre><code>Q1 0 []     0 []
+Q1 1 [1]    0 []       -- invariant restored
+Q1 1 [1]    1 [2]
+Q1 3 [1..3] 0 []       -- invariant restored
+Q1 3 [1..3] 1 [4]
+Q1 3 [1..3] 2 [5,4]
+Q1 3 [1..3] 3 [6,5,4]
+Q1 7 [1..7] 0 []       -- invariant restored</code></pre>
+<p>Notice what happens: we only need to reverse <em>n</em> elements <strong>after having inserted <em>n</em> elements</strong>; we therefore say that the <em>amortised</em> complexity (the complexity averaged over all operations) of the reverse is in fact O(1)—with one proviso, as we shall see in the next section.</p>
+<h3 id="amortisation-versus-persistence">Amortisation versus Persistence</h3>
+<p>The analysis in the previous section conveniently overlooked one fact: since values are immutable in Haskell, nothing is stopping us from reusing a queue multiple times. For instance, if we started from</p>
+<pre><code>Q1 3 [1..3] 3 [6,5,4]</code></pre>
+<p>we might attempt to insert 7, then 8, then 9, and finally 10 into this (same) queue:</p>
+<pre><code>Q1 7 [1,2,3,4,5,6,7]  0 []  -- invariant restored
+Q1 7 [1,2,3,4,5,6,8]  0 []  -- invariant restored
+Q1 7 [1,2,3,4,5,6,9]  0 []  -- invariant restored
+Q1 7 [1,2,3,4,5,6,10] 0 []  -- invariant restored</code></pre>
+<p>Notice that <em>each</em> of these single insertions incurs the full cost of a reverse. Thus, claiming an amortised O(1) complexity is only valid if we use the queue linearly (i.e., never reusing queues). If we want to lift this restriction, we need to take advantage of laziness.</p>
+<h2 id="amortised-complexity-for-persistent-queues">Amortised Complexity for Persistent Queues</h2>
+<p>In order to get amortised constant time bounds even when the queue is not used linearly, we need to take advantage of lazy evaluation. We will change the front of the queue back to be a lazy list:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Queue2</span> a <span class="fu">=</span> <span class="dt">Q2</span> <span class="fu">!</span><span class="dt">Int</span> [a] <span class="fu">!</span><span class="dt">Int</span> <span class="fu">!</span>(<span class="dt">StrictList</span> a)</code></pre></div>
+<p>The remainder of the implementation is the same as it was for <code>Queue1</code>, except that reverse now needs to take a strict list as input and return a lazy list as result:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">rev' ::</span> <span class="dt">StrictList</span> a <span class="ot">-&gt;</span> [a]
+rev' <span class="fu">=</span> go []
+  <span class="kw">where</span>
+<span class="ot">    go ::</span> [a] <span class="ot">-&gt;</span> <span class="dt">StrictList</span> a <span class="ot">-&gt;</span> [a]
+    go acc <span class="dt">SNil</span>         <span class="fu">=</span> acc
+    go acc (<span class="dt">SCons</span> x xs) <span class="fu">=</span> go (x<span class="fu">:</span>acc) xs</code></pre></div>
+<p>All the other changes are just changing the operations on strict lists to operations on lazy lists:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">inv2 ::</span> <span class="dt">Queue2</span> a <span class="ot">-&gt;</span> <span class="dt">Queue2</span> a
+inv2 q<span class="fu">@</span>(<span class="dt">Q2</span> f xs r ys)
+  <span class="fu">|</span> f <span class="fu">&lt;</span> r     <span class="fu">=</span> <span class="dt">Q2</span> (f<span class="fu">+</span>r) (xs <span class="fu">++</span> rev' ys) <span class="dv">0</span> <span class="dt">SNil</span>
+  <span class="fu">|</span> otherwise <span class="fu">=</span> q
+
+<span class="kw">instance</span> <span class="dt">Queue</span> <span class="dt">Queue2</span> <span class="kw">where</span>
+  empty                     <span class="fu">=</span> <span class="dt">Q2</span> <span class="dv">0</span> [] <span class="dv">0</span> <span class="dt">SNil</span>
+  head (<span class="dt">Q2</span> _ (x<span class="fu">:</span>_ ) _ _ )   <span class="fu">=</span> x
+  tail (<span class="dt">Q2</span> f (_<span class="fu">:</span>xs) r ys)   <span class="fu">=</span> inv2 <span class="fu">$</span> <span class="dt">Q2</span> (f<span class="fu">-</span><span class="dv">1</span>) xs r ys
+  snoc (<span class="dt">Q2</span> f xs     r ys) y <span class="fu">=</span> inv2 <span class="fu">$</span> <span class="dt">Q2</span> f xs (r<span class="fu">+</span><span class="dv">1</span>) (<span class="dt">SCons</span> y ys)</code></pre></div>
+<p>The genius of this representation lies in two facts. First, notice that when we construct the thunk <code>(xs ++ rev' ys)</code>, we know that the <code>rev' ys</code> will not be forced until we have exhausted <code>xs</code>. Since we construct this thunk only when the rear is one longer than the front, we are indeed justified in saying that the cost of the reverse is amortised O(1).</p>
+<p>But what about reusing the same queue twice? This is where we rely crucially on laziness. Suppose we have a sequence of operations</p>
+<pre><code>Q2 4 [1,2,3,4] 4 [8,7,6,5]               -- initial queue
+Q2 9 ([1..4] ++ rev' [9,8,7,6,5]) 0 []   -- snoc (invariant restored)
+Q2 5 (rev' [9,8,7,6,5]) 0 []             -- tail 4 times</code></pre>
+<p>While it is true that we might call <code>tail</code> on this resulting queue any number of times, they will <em>not</em> each incur the full cost of <code>rev'</code>: since these thunks will all be shared, laziness will make sure that once this <code>rev'</code> has been evaluated (“forced”) once, it will not be forced again.</p>
+<p>Of course, if we started from that initial queue and inserted various elements, then each of those would create a separate (not shared) thunk with a call to <code>rev'</code>: but those calls to <code>rev'</code> will only be forced if for each of those separate queues we first do <code>f</code> calls to tail (in this case, 4 calls).</p>
+<h2 id="from-amortised-to-worst-case-bounds">From Amortised to Worst-Case Bounds</h2>
+<p>The queues from the previous section will suffice for lots of applications. However, in some applications amortised complexity bounds are not good enough. For instance, in real time systems having normally-cheap operations occassionally take a long time is not acceptable; each operation should take approximately the same amount of time, even if that means that the overall efficiency of the system is slightly lower.</p>
+<p>There are two sources of delays in the implementation from the previous section. The first is that when we come across the call to reverse, that whole reverse needs to happen in one go. The second source comes from the fact that we might still chain calls to append; consider what happens when we insert the elements <code>[1..7]</code>:</p>
+<pre><code>Q2 0 [] 0 []
+Q2 1 r1 0 []  -- invariant restored, r1 = [] ++ rev' [1]
+Q2 1 r1 1 [2]
+Q2 3 r2 0 []  -- invariant restored, r2 = r1 ++ rev' [3,2]
+Q2 3 r2 1 [4]
+Q2 3 r2 2 [5,4]
+Q2 3 r2 3 [6,5,4]
+Q2 7 r3 0 []  -- invariant restored, r3 = r2 ++ rev' [7,6,5,4]</code></pre>
+<p>This is similar to the behaviour we saw for the queues based on a single list, except we now have a maximum of O(log <em>n</em>) calls rather than O(<em>n</em>), because the distance between two calls to <code>reverse</code> doubles each time.</p>
+<p>Intuitively, we can solve both of these problems by doing a little bit of the append and a little bit of the reverse each time we call <code>tail</code> or <code>snoc</code>. We need to reestablish the invariant when <em>r</em> = <em>f</em> + 1. At this point the append will take <em>f</em> steps, and the reverse <em>r</em> steps, and we will not need to reestablish the invariant again until we have added <em>r + f + 2</em> elements to the rear of the queue (or added some to the rear and removed some from the front). This therefore gives us plenty of time to do the append and the reverse, if we take one step on each call to <code>tail</code> and <code>snoc</code>.</p>
+<h3 id="progress">Progress</h3>
+<p>How might we “do one step of a reverse”? This is where we diverge from Okasaki, and give a more direct implementation of this idea. We can implement a datatype that describes the “progress” of an operation:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Progress</span> <span class="fu">=</span> <span class="dt">Done</span> <span class="fu">|</span> <span class="dt">NotYet</span> <span class="dt">Progress</span></code></pre></div>
+<p>The idea is that we can execute one step of an operation by pattern matching on an appropriate value of type <code>Progress</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">step ::</span> <span class="dt">Progress</span> <span class="ot">-&gt;</span> <span class="dt">Progress</span>
+step <span class="dt">Done</span>       <span class="fu">=</span> <span class="dt">Done</span>
+step (<span class="dt">NotYet</span> p) <span class="fu">=</span> p</code></pre></div>
+<p>For <code>(++)</code> it is easy to construct a <code>Progress</code> value which will execute the append; all we need to do is force (part of) the spine of the resulting list:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">forceSpine ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> [a] <span class="ot">-&gt;</span> <span class="dt">Progress</span>
+forceSpine <span class="dv">0</span> _      <span class="fu">=</span> <span class="dt">Done</span>
+forceSpine _ []     <span class="fu">=</span> <span class="dt">Done</span>
+forceSpine n (_<span class="fu">:</span>xs) <span class="fu">=</span> <span class="dt">NotYet</span> (forceSpine (n<span class="fu">-</span><span class="dv">1</span>) xs)</code></pre></div>
+<p>For other operations this is more difficult. We need some way to express a computation split into multiple steps. We can use the following datatype for this purpose:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Delay</span> a <span class="fu">=</span> <span class="dt">Now</span> a <span class="fu">|</span> <span class="dt">Later</span> (<span class="dt">Delay</span> a)</code></pre></div>
+<p><code>Delay a</code> is a computation of an <code>a</code>, but we mark the various steps of the computation using the <code>Later</code> constructor (this datatype is variously known as the delay monad or the partiality monad, but we will not need the fact that it is a monad in this blog post). For example, here is reverse:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">revDelay ::</span> <span class="dt">StrictList</span> a <span class="ot">-&gt;</span> <span class="dt">Delay</span> [a]
+revDelay <span class="fu">=</span> go []
+  <span class="kw">where</span>
+<span class="ot">    go ::</span> [a] <span class="ot">-&gt;</span> <span class="dt">StrictList</span> a <span class="ot">-&gt;</span> <span class="dt">Delay</span> [a]
+    go acc <span class="dt">SNil</span>         <span class="fu">=</span> <span class="dt">Now</span> acc
+    go acc (<span class="dt">SCons</span> x xs) <span class="fu">=</span> <span class="dt">Later</span> <span class="fu">$</span> go (x<span class="fu">:</span>acc) xs</code></pre></div>
+<p>We then need to be able to execute one step of such a computation. For this purpose we can introduce</p>
+<div class="sourceCode"><pre class="sourceCode haskell ignore"><code class="sourceCode haskell"><span class="ot">runDelay ::</span> <span class="dt">Delay</span> a <span class="ot">-&gt;</span> (a, <span class="dt">Progress</span>)</code></pre></div>
+<p>which returns the final value, as well as a <code>Progress</code> value which allows us to execute the computation step by step. The definition of <code>runDelay</code> is somewhat difficult (see appendix, below), but the idea hopefully is clear: evaluating the resulting <code>Progress</code> <em>n</em> steps will execute precisely <em>n</em> steps of the computation; if you look at the resulting <code>a</code> value before having stepped the entire <code>Progress</code> the remainder of the computation will run at that point.</p>
+<p>Finally, we can execute two operations in lockstep by pattern matching on two <code>Progress</code> values at the same time:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">par ::</span> <span class="dt">Progress</span> <span class="ot">-&gt;</span> <span class="dt">Progress</span> <span class="ot">-&gt;</span> <span class="dt">Progress</span>
+par <span class="fu">!</span>p         <span class="dt">Done</span>        <span class="fu">=</span> p
+par <span class="dt">Done</span>       <span class="fu">!</span>p'         <span class="fu">=</span> p'
+par (<span class="dt">NotYet</span> p) (<span class="dt">NotYet</span> p') <span class="fu">=</span> <span class="dt">NotYet</span> (par p p')</code></pre></div>
+<!--
+~~~ {.haskell}
+traceStep :: Progress -> IO ()
+traceStep p = do
+    traceIO "Stepping now.."
+    case p of
+      Done      -> traceIO "Done"
+      NotYet p' -> traceStep p'
+
+traceFacDelay :: String -> Int -> Delay Int
+traceFacDelay label = go 1
+  where
+    go :: Int -> Int -> Delay Int
+    go acc 0 = trace (label ++ "0")    $ Now acc
+    go acc n = trace (label ++ show n) $ Later $ go (acc * n) (n - 1)
+
+testit :: IO ()
+testit = do
+    let (f1, p1) = runDelay $ traceFacDelay "fac"  5
+        (f2, p2) = runDelay $ traceFacDelay "fac'" 9
+    traceIO "Starting stepping"
+    traceStep (par p1 p2)
+    traceIO "Done stepping"
+    traceIO (show (f1, f2))
+~~~
+-->
+<h3 id="real-time-queues">Real-Time Queues</h3>
+<p>We can use the <code>Progress</code> datatype to implement real-time queues: queues where both insertion and deletion has O(1) worst case complexity. The representation is much like we used in the previous section, but we add a <code>Progress</code> field (<code>Progress</code> is an example implementation of what Okasaki calls a “schedule”):</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Queue3</span> a <span class="fu">=</span> <span class="dt">Q3</span> <span class="fu">!</span><span class="dt">Int</span> [a] <span class="fu">!</span><span class="dt">Int</span> <span class="fu">!</span>(<span class="dt">StrictList</span> a) <span class="fu">!</span><span class="dt">Progress</span></code></pre></div>
+<p>Re-establishing the invariant happens much as before, except that we record the resulting <code>Progress</code> on the queue:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">inv3 ::</span> <span class="dt">Queue3</span> a <span class="ot">-&gt;</span> <span class="dt">Queue3</span> a
+inv3 q<span class="fu">@</span>(<span class="dt">Q3</span> f xs r ys _)
+  <span class="fu">|</span> f <span class="fu">&lt;</span> r     <span class="fu">=</span> <span class="kw">let</span> (ys', p1) <span class="fu">=</span> runDelay <span class="fu">$</span> revDelay ys
+                    xs'       <span class="fu">=</span> xs <span class="fu">++</span> ys'
+                    p2        <span class="fu">=</span> forceSpine f xs'
+                <span class="kw">in</span> <span class="dt">Q3</span> (f<span class="fu">+</span>r) xs' <span class="dv">0</span> <span class="dt">SNil</span> (par p1 p2)
+  <span class="fu">|</span> otherwise <span class="fu">=</span> q</code></pre></div>
+<p>All that is left to do now is make sure we take a step of the background reverse and append actions on each call to <code>tail</code> and <code>snoc</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Queue</span> <span class="dt">Queue3</span> <span class="kw">where</span>
+  empty <span class="fu">=</span> <span class="dt">Q3</span> <span class="dv">0</span> [] <span class="dv">0</span> <span class="dt">SNil</span> <span class="dt">Done</span>
+  head (<span class="dt">Q3</span> _ (x<span class="fu">:</span>_ ) _ _  _)   <span class="fu">=</span> x
+  tail (<span class="dt">Q3</span> f (_<span class="fu">:</span>xs) r ys p)   <span class="fu">=</span> inv3 <span class="fu">$</span> <span class="dt">Q3</span> (f<span class="fu">-</span><span class="dv">1</span>) xs r ys (step p)
+  snoc (<span class="dt">Q3</span> f xs     r ys p) y <span class="fu">=</span> inv3 <span class="fu">$</span> <span class="dt">Q3</span> f xs (r<span class="fu">+</span><span class="dv">1</span>) (<span class="dt">SCons</span> y ys) (step p)</code></pre></div>
+<!--
+~~~ {.haskell}
+isEmpty :: Queue3 a -> Bool
+isEmpty (Q3 f _ _ _ _) = f == 0
+
+instance Foldable Queue3 where
+  foldr f e = go
+    where
+      go q | isEmpty q = e
+           | otherwise = head q `f` go (tail q)
+
+testQueue :: Int
+testQueue = foldr1 (+) (foldl snoc empty [1..100] :: Queue3 Int)
+~~~
+-->
+<h2 id="conclusions">Conclusions</h2>
+<p>It is difficult to develop data structures with amortised complexity bounds in strict but pure languages; laziness is essential for making sure that operations don’t unnecessarily get repeated. For applications where amortised bounds are insufficient, we can use an explicit schedule to make sure that operations get executed bit by bit; we can use this to develop a pure and persistent queue with O(1) insertion and deletion.</p>
+<p>In his book, Okasaki does not introduce a <code>Progress</code> datatype or any of its related functionality; instead he makes very clever use of standard datatypes to get the same behaviour somehow implicitly. Although this is very elegant, it also requires a lot of ingenuity and does not immediately suggest how to apply the same techniques to other datatypes. The <code>Progress</code> datatype we use here is perhaps somewhat cruder, but it might make it easier to implement other real-time data structures.</p>
+<p>Random access to (any of the variations on) the queue we implemented is still O(<em>n</em>); if you want a datastructure that provides O(1) insertion and deletion as well as O(log <em>n</em>) random access you could have a look at <a href="http://hackage.haskell.org/package/containers/docs/Data-Sequence.html">Data.Sequence</a>; be aware however that this datatype provides amortised, not real-time bounds. Modifying <code>Sequence</code> to provide worst-case complexity bounds is left an exercise for the reader ;-)</p>
+<h2 id="appendix-implementation-of-rundelay">Appendix: Implementation of <code>runDelay</code></h2>
+<p>The definition of <code>runDelay</code> is tricky. The most elegant way we have found is to use the <a href="http://hackage.haskell.org/package/base/docs/Control-Monad-ST-Lazy.html">lazy ST monad</a>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">runDelay ::</span> <span class="dt">Delay</span> a <span class="ot">-&gt;</span> (a, <span class="dt">Progress</span>)
+runDelay <span class="fu">=</span> \xs <span class="ot">-&gt;</span> runST <span class="fu">$</span> <span class="kw">do</span>  
+    r <span class="ot">&lt;-</span> newSTRef xs
+    x <span class="ot">&lt;-</span> unsafeInterleaveST <span class="fu">$</span> readSTRef r
+    p <span class="ot">&lt;-</span> next r
+    return (runNow x, p)
+  <span class="kw">where</span>
+<span class="ot">    next ::</span> <span class="dt">STRef</span> s (<span class="dt">Delay</span> a) <span class="ot">-&gt;</span> <span class="dt">ST</span> s <span class="dt">Progress</span>
+    next r <span class="fu">=</span> <span class="kw">do</span>
+      xs <span class="ot">&lt;-</span> readSTRef r
+      <span class="kw">case</span> xs <span class="kw">of</span>
+        <span class="dt">Now</span> _   <span class="ot">-&gt;</span> return <span class="dt">Done</span>
+        <span class="dt">Later</span> d <span class="ot">-&gt;</span> <span class="kw">do</span> writeSTRef r d
+                      p' <span class="ot">&lt;-</span> next r
+                      return <span class="fu">$</span> <span class="dt">NotYet</span> p'
+
+<span class="ot">    runNow ::</span> <span class="dt">Delay</span> a <span class="ot">-&gt;</span> a
+    runNow (<span class="dt">Now</span>   a) <span class="fu">=</span> a
+    runNow (<span class="dt">Later</span> d) <span class="fu">=</span> runNow d</code></pre></div>
+<p>In the lazy ST monad effects are only executed when their results are demanded, but are always executed in the same order. We take advantage of this to make sure that the calls to <code>next</code> only happen when pattern matching on the resulting <code>Progress</code> value. However, it is crucial that for the value of <code>x</code> we read the contents of the <code>STRef</code> only when the value of <code>x</code> is demanded, so that we can take advantage of any writes that <code>next</code> will have done in the meantime.</p>
+<p>This does leave us with a proof obligation that this code is safe; in particular, that the value of <code>x</code> that we return does not depend on <em>when</em> we execute this <code>readSTRef</code>; in other words, that invoking <code>next</code> any number of times does not change this value. However, hopefully this is relatively easy to see. Indeed, it follows from <a href="http://www.well-typed.com/blog/2015/05/parametricity/">parametricity</a>: since <code>runDelay</code> is polymorphic in <code>a</code>, the only <code>a</code> it can return is the one that gets passed in.</p>
+<p>To see that pattern matching on the resulting <code>Progress</code> has the intended effect, note that the ST ref starts with “cost <em>n</em>”, where <em>n</em> is the number of <code>Later</code> constructors, and note further that each call to <code>next</code> reduces <em>n</em> by one. Hence, by the time we reach <code>Done</code>, the computation has indeed been executed (reached the <code>Now</code> constructor).</p>
+<p>Note that for the case of the queue implementation, by the time we demand the value of the reversed list, we are sure that we will have fully evaluated it, so the definition</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">runNow (<span class="dt">Later</span> d) <span class="fu">=</span> runNow d</code></pre></div>
+<p>could actually be replaced by</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">runNow (<span class="dt">Later</span> _) <span class="fu">=</span> error <span class="st">&quot;something went horribly wrong!&quot;</span></code></pre></div>
+<p>Indeed, this can be used to debug designing these real time data structures to ensure that things are indeed fully evaluated by the time you expect them to. In general however it makes the <code>runDelay</code> combinator somewhat less general, and strictly speaking it also breaks referential transparency because now the value of <code>x</code> <em>does</em> depend on how much of the <code>Progress</code> value you evaluate.</p>
+<p>For more information about the (lazy) ST monad, see <em>Lazy Functional State Threads</em>, the original paper introducing it. Section 7.2, “Interleaved and parallel operations” discusses <code>unsafeInterleaveST</code>.</p>
+
+
+</div>
+<div class="footer">
+            <div class="copyright">
+               <address>Copyright &copy; 2008-2016, Well-Typed LLP.</address>
+            </div>
+</div>
+</div>
+
+    </body>
+
+<!-- Mirrored from www.well-typed.com/blog/2016/01/efficient-queues/ by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 20:35:11 GMT -->
+</html>
+
