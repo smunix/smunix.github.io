@@ -1,0 +1,712 @@
+<!doctype html>
+<html amp lang="en">
+
+<!-- Mirrored from cdsmith.wordpress.com/2009/04/20/code-for-manipulating-graphs-in-haskell/amp/ by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 20:20:32 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=UTF-8" /><!-- /Added by HTTrack -->
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no">
+	
+<!-- Jetpack Open Graph Tags -->
+<meta property="og:type" content="article" />
+<meta property="og:title" content="Code for Manipulating Graphs in Haskell" />
+<meta property="og:url" content="../index.html" />
+<meta property="og:description" content="Here&#8217;s a bunch of code I wrote, most of it about a year ago, for doing things with the graphs from the Data.Graph module in Haskell.  The choice of functions, from among the many generally us…" />
+<meta property="article:published_time" content="2009-04-20T23:48:45+00:00" />
+<meta property="article:modified_time" content="2009-04-20T23:48:45+00:00" />
+<meta property="og:site_name" content="Sententia cdsmithus" />
+<meta property="og:image" content="https://s0.wp.com/i/blank.jpg" />
+<meta property="og:locale" content="en_US" />
+<meta name="twitter:site" content="@wordpressdotcom" />
+<meta name="twitter:card" content="summary" />
+<meta property="fb:app_id" content="249643311490" />
+<meta property="article:publisher" content="https://www.facebook.com/WordPresscom" />
+	<title>Code for Manipulating Graphs in Haskell &#8211; Sententia cdsmithus</title>
+		<link rel="canonical" href="../index.html" />
+			<script custom-element="amp-ad" src="https://cdn.ampproject.org/v0/amp-ad-0.1.js" async></script>
+		<script src="https://cdn.ampproject.org/v0.js" async></script>
+			<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Merriweather:400,400italic,700,700italic">
+		<style amp-boilerplate>body{-webkit-animation:-amp-start 8s steps(1,end) 0s 1 normal both;-moz-animation:-amp-start 8s steps(1,end) 0s 1 normal both;-ms-animation:-amp-start 8s steps(1,end) 0s 1 normal both;animation:-amp-start 8s steps(1,end) 0s 1 normal both}@-webkit-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@-moz-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@-ms-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@-o-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}</style><noscript><style amp-boilerplate>body{-webkit-animation:none;-moz-animation:none;-ms-animation:none;animation:none}</style></noscript>
+		<script type="application/ld+json">{"@context":"http:\/\/schema.org","@type":"BlogPosting","mainEntityOfPage":"https:\/\/cdsmith.wordpress.com\/2009\/04\/20\/code-for-manipulating-graphs-in-haskell\/","publisher":{"@type":"Organization","name":"Sententia cdsmithus","logo":{"@type":"ImageObject","url":"https:\/\/s2.wp.com\/i\/favicons\/apple-touch-icon-60x60.png","width":60,"height":60}},"headline":"Code for Manipulating Graphs in Haskell","datePublished":"2009-04-20T17:48:45+00:00","dateModified":"2009-04-20T17:48:45+00:00","author":{"@type":"Person","name":"cdsmith"},"image":{"@type":"ImageObject","url":"https:\/\/1.gravatar.com\/avatar\/1e7f8859add1bf7ddd9b5fe9000b6a68?s=200&amp;d=identicon&amp;r=G","width":200,"height":200}}</script>
+		<style amp-custom>
+		/* Generic WP styling */
+
+.alignright {
+	float: right;
+}
+
+.alignleft {
+	float: left;
+}
+
+.aligncenter {
+	display: block;
+	margin-left: auto;
+	margin-right: auto;
+}
+
+.amp-wp-enforced-sizes {
+	/** Our sizes fallback is 100vw, and we have a padding on the container; the max-width here prevents the element from overflowing. **/
+	max-width: 100%;
+	margin: 0 auto;
+}
+
+.amp-wp-unknown-size img {
+	/** Worst case scenario when we can't figure out dimensions for an image. **/
+	/** Force the image into a box of fixed dimensions and use object-fit to scale. **/
+	object-fit: contain;
+}
+
+/* Template Styles */
+
+.amp-wp-content,
+.amp-wp-title-bar div {
+		margin: 0 auto;
+	max-width: 595px;
+	}
+
+html {
+	background: #0a89c0;
+}
+
+body {
+	background: #fff;
+	color: #353535;
+	font-family: 'Merriweather', 'Times New Roman', Times, Serif;
+	font-weight: 300;
+	line-height: 1.75em;
+}
+
+p,
+ol,
+ul,
+figure {
+	margin: 0 0 1em;
+	padding: 0;
+}
+
+a,
+a:visited {
+	color: #0a89c0;
+}
+
+a:hover,
+a:active,
+a:focus {
+	color: #353535;
+}
+
+/* Quotes */
+
+blockquote {
+	color: #353535;
+	background: rgba(127,127,127,.125);
+	border-left: 2px solid #0a89c0;
+	margin: 8px 0 24px 0;
+	padding: 16px;
+}
+
+blockquote p:last-child {
+	margin-bottom: 0;
+}
+
+/* UI Fonts */
+
+.amp-wp-meta,
+.amp-wp-header div,
+.amp-wp-title,
+.wp-caption-text,
+.amp-wp-tax-category,
+.amp-wp-tax-tag,
+.amp-wp-comments-link,
+.amp-wp-footer p,
+.back-to-top {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen-Sans", "Ubuntu", "Cantarell", "Helvetica Neue", sans-serif;
+}
+
+/* Header */
+
+.amp-wp-header {
+	background-color: #0a89c0;
+}
+
+.amp-wp-header div {
+	color: #fff;
+	font-size: 1em;
+	font-weight: 400;
+	margin: 0 auto;
+	max-width: calc(840px - 32px);
+	padding: .875em 16px;
+	position: relative;
+}
+
+.amp-wp-header a {
+	color: #fff;
+	text-decoration: none;
+}
+
+/* Site Icon */
+
+.amp-wp-header .amp-wp-site-icon {
+	/** site icon is 32px **/
+	background-color: #fff;
+	border: 1px solid #fff;
+	border-radius: 50%;
+	position: absolute;
+	right: 18px;
+	top: 10px;
+}
+
+/* Article */
+
+.amp-wp-article {
+	color: #353535;
+	font-weight: 400;
+	margin: 1.5em auto;
+	max-width: 840px;
+	overflow-wrap: break-word;
+	word-wrap: break-word;
+}
+
+/* Article Header */
+
+.amp-wp-article-header {
+	align-items: center;
+	align-content: stretch;
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: space-between;
+	margin: 1.5em 16px 1.5em;
+}
+
+.amp-wp-title {
+	color: #353535;
+	display: block;
+	flex: 1 0 100%;
+	font-weight: 900;
+	margin: 0 0 .625em;
+	width: 100%;
+}
+
+/* Article Meta */
+
+.amp-wp-meta {
+	color: #696969;
+	display: inline-block;
+	flex: 2 1 50%;
+	font-size: .875em;
+	line-height: 1.5em;
+	margin: 0;
+	padding: 0;
+}
+
+.amp-wp-article-header .amp-wp-meta:last-of-type {
+	text-align: right;
+}
+
+.amp-wp-article-header .amp-wp-meta:first-of-type {
+	text-align: left;
+}
+
+.amp-wp-byline amp-img,
+.amp-wp-byline .amp-wp-author {
+	display: inline-block;
+	vertical-align: middle;
+}
+
+.amp-wp-byline amp-img {
+	border: 1px solid #0a89c0;
+	border-radius: 50%;
+	position: relative;
+	margin-right: 6px;
+}
+
+.amp-wp-posted-on {
+	text-align: right;
+}
+
+/* Featured image */
+
+.amp-wp-article-featured-image {
+	margin: 0 0 1em;
+}
+.amp-wp-article-featured-image amp-img {
+	margin: 0 auto;
+}
+.amp-wp-article-featured-image.wp-caption .wp-caption-text {
+	margin: 0 18px;
+}
+
+/* Article Content */
+
+.amp-wp-article-content {
+	margin: 0 16px;
+}
+
+.amp-wp-article-content ul,
+.amp-wp-article-content ol {
+	margin-left: 1em;
+}
+
+.amp-wp-article-content amp-img {
+	margin: 0 auto;
+}
+
+.amp-wp-article-content amp-img.alignright {
+	margin: 0 0 1em 16px;
+}
+
+.amp-wp-article-content amp-img.alignleft {
+	margin: 0 16px 1em 0;
+}
+
+/* Captions */
+
+.wp-caption {
+	padding: 0;
+}
+
+.wp-caption.alignleft {
+	margin-right: 16px;
+}
+
+.wp-caption.alignright {
+	margin-left: 16px;
+}
+
+.wp-caption .wp-caption-text {
+	border-bottom: 1px solid #c2c2c2;
+	color: #696969;
+	font-size: .875em;
+	line-height: 1.5em;
+	margin: 0;
+	padding: .66em 10px .75em;
+}
+
+/* AMP Media */
+
+amp-carousel {
+	background: #c2c2c2;
+	margin: 0 -16px 1.5em;
+}
+amp-iframe,
+amp-youtube,
+amp-instagram,
+amp-vine {
+	background: #c2c2c2;
+	margin: 0 -16px 1.5em;
+}
+
+.amp-wp-article-content amp-carousel amp-img {
+	border: none;
+}
+
+amp-carousel > amp-img > img {
+	object-fit: contain;
+}
+
+.amp-wp-iframe-placeholder {
+	background: #c2c2c2 url( https://s2.wp.com/wp-content/plugins/amp/assets/images/placeholder-icon.png) no-repeat center 40%;
+	background-size: 48px 48px;
+	min-height: 48px;
+}
+
+/* Article Footer Meta */
+
+.amp-wp-article-footer .amp-wp-meta {
+	display: block;
+}
+
+.amp-wp-tax-category,
+.amp-wp-tax-tag {
+	color: #696969;
+	font-size: .875em;
+	line-height: 1.5em;
+	margin: 1.5em 16px;
+}
+
+.amp-wp-comments-link {
+	color: #696969;
+	font-size: .875em;
+	line-height: 1.5em;
+	text-align: center;
+	margin: 2.25em 0 1.5em;
+}
+
+.amp-wp-comments-link a {
+	border-style: solid;
+	border-color: #c2c2c2;
+	border-width: 1px 1px 2px;
+	border-radius: 4px;
+	background-color: transparent;
+	color: #0a89c0;
+	cursor: pointer;
+	display: block;
+	font-size: 14px;
+	font-weight: 600;
+	line-height: 18px;
+	margin: 0 auto;
+	max-width: 200px;
+	padding: 11px 16px;
+	text-decoration: none;
+	width: 50%;
+	-webkit-transition: background-color 0.2s ease;
+			transition: background-color 0.2s ease;
+}
+
+/* AMP Footer */
+
+.amp-wp-footer {
+	border-top: 1px solid #c2c2c2;
+	margin: calc(1.5em - 1px) 0 0;
+}
+
+.amp-wp-footer div {
+	margin: 0 auto;
+	max-width: calc(840px - 32px);
+	padding: 1.25em 16px 1.25em;
+	position: relative;
+}
+
+.amp-wp-footer h2 {
+	font-size: 1em;
+	line-height: 1.375em;
+	margin: 0 0 .5em;
+}
+
+.amp-wp-footer p {
+	color: #696969;
+	font-size: .8em;
+	line-height: 1.5em;
+	margin: 0 85px 0 0;
+}
+
+.amp-wp-footer a {
+	text-decoration: none;
+}
+
+.back-to-top {
+	bottom: 1.275em;
+	font-size: .8em;
+	font-weight: 600;
+	line-height: 2em;
+	position: absolute;
+	right: 16px;
+}
+				/* WordAds */
+		.wpcnt {
+			text-align: center;
+			line-height: 0;
+			display: block;
+			clear: both;
+			margin: 1em 0;
+		}
+
+		.rtl .wpcnt {
+			direction: ltr;
+		}
+
+		.wpa {
+			position: relative;
+			display: inline-block;
+			max-width: 100%;
+			text-align: left;
+			padding: 10px 0 0;
+			min-width: 300px;
+			-webkit-transform: translate3d(0, 0, 0);
+			transform: translate3d(0, 0, 0);
+		}
+
+		.wpa-about {
+			position: absolute;
+			top: 5px;
+			left: 0;
+			right: 0;
+			display: block;
+			min-width: 160px;
+			border-bottom: none;
+			font: 10px/1 "Open Sans", Arial, sans-serif;
+			text-align: left;
+			text-decoration: none;
+			opacity: 0.85;
+		}
+
+		.wpa-about:hover {
+			text-decoration: underline;
+			opacity: 1;
+		}
+
+		.wpa-about:hover, .wa_infobox a:hover {
+			text-decoration: underline;
+			color: #444;
+		}
+
+		.wpa .u>div, .wpadvert>div>* {
+			display: block;
+			margin-top: 5px;
+			margin-bottom: 1em;
+		}
+
+		div.wpa>div {
+			margin-top: 10px;
+		}	</style>
+</head>
+
+<body class="">
+
+<header id="#top" class="amp-wp-header">
+	<div>
+		<a href="https://cdsmith.wordpress.com/">
+						Sententia cdsmithus		</a>
+	</div>
+</header>
+
+<article class="amp-wp-article">
+
+	<header class="amp-wp-article-header">
+		<h1 class="amp-wp-title">Code for Manipulating Graphs in Haskell</h1>
+				<div class="amp-wp-meta amp-wp-byline">
+					<amp-img src="https://secure.gravatar.com/avatar/1e7f8859add1bf7ddd9b5fe9000b6a68?s=24&amp;d=identicon&amp;r=g" width="24" height="24" layout="fixed"></amp-img>
+				<span class="amp-wp-author author vcard">cdsmith</span>
+	</div>
+<div class="amp-wp-meta amp-wp-posted-on">
+	<time datetime="2009-04-20T17:48:45+00:00">
+		8 years ago	</time>
+</div>
+	</header>
+
+	
+	<div class="amp-wp-article-content">
+		<p>Here’s a bunch of code I wrote, most of it about a year ago, for doing things with the graphs from the Data.Graph module in Haskell.  The choice of functions, from among the many generally useful functions acting on graphs, comes from a specific project.  The actually functionality is pretty generic, though.  So I’m just throwing this out there.  If someone else wanted to package it and throw it on Hackage (likely with a different module name), they would be welcome to do so.</p>
+<p><!--more--></p>
+<blockquote>
+<pre>&#13;
+{-&#13;
+    Module containing utility functions for operating on Data.Graph.&#13;
+-}&#13;
+module GraphUtil where&#13;
+&#13;
+import Data.Graph&#13;
+import Data.List&#13;
+import Data.Tree&#13;
+import Data.Array&#13;
+import Data.Maybe&#13;
+import Data.Function (on)&#13;
+import qualified Data.Map as M&#13;
+import Data.Map (Map)&#13;
+&#13;
+{-&#13;
+    Computes all possible (directed) graphs over n vertices.  Allows&#13;
+    loops and antiparallel edges, but does not allow parallel edges.&#13;
+-}&#13;
+allGraphs n = map (buildG (1,n))&#13;
+                  (subsequences [ (a,b) | a &lt;- [1..n], b &lt;- [1..n] ])&#13;
+&#13;
+{-&#13;
+    Finds all cycles in a graph.  A cycle is given as a finite list of&#13;
+    the vertices in order of occurrence, where each vertex only appears&#13;
+    once.&#13;
+&#13;
+    The point where the cycle is broken to form a linear list is arbitrary, so&#13;
+    each cycle is merely one representative of the equivalence class&#13;
+    generated by the relation identifying (v:vs) with vs++[v].  In&#13;
+    particular, this function chooses the representative with the lowest&#13;
+    numbered starting vertex.&#13;
+-}&#13;
+cycles g = concatMap cycles' (vertices g)&#13;
+    where cycles' v   = build [] v v&#13;
+          build p s v =&#13;
+            let p'         = p ++ [v]&#13;
+                local      = [ p' | x &lt;- (g!v), x == s ]&#13;
+                good w     = w &gt; s &amp;&amp; not (w `elem` p')&#13;
+                ws         = filter good (g ! v)&#13;
+                extensions = concatMap (build p' s) ws&#13;
+            in  local ++ extensions&#13;
+&#13;
+{-&#13;
+    Computes a table of the number of loops at each vertex.&#13;
+-}&#13;
+loopdegree g = array (bounds g) [ (v, count v (g!v)) | v &lt;- vertices g]&#13;
+    where count v [] = 0&#13;
+          count v (x:xs) | x == v    = 1 + count v xs&#13;
+                         | otherwise = count v xs&#13;
+&#13;
+{-&#13;
+    Tests two graphs to see if they are isomorphic.  This is a worst-case&#13;
+    exponential algorithm, but should perform acceptably in practice on&#13;
+    small graphs.  It uses backtracking, associating vertices one by one&#13;
+    until it either finds a complete isomorphism, or reaches a vertex&#13;
+    that can't be matched with a remaining vertex in the other graph.&#13;
+-}&#13;
+isIsomorphic g1 g2 = let v1   = vertices g1&#13;
+                         v2   = vertices g2&#13;
+                     in  (length v1 == length v2) &amp;&amp; test [] v1 v2&#13;
+&#13;
+    where {-&#13;
+            Takes the first vertex v of g1, looks for vertices w of g2&#13;
+            that work "so far", and tries to construct an isomorphism&#13;
+            that maps v to w.&#13;
+          -}&#13;
+          test m []     [] = True&#13;
+          test m (v:vs) ws =&#13;
+            let cs = filter (similar m v) ws&#13;
+            in  any (\w -&gt; test ((v,w):m) vs (delete w ws)) cs&#13;
+&#13;
+          {-&#13;
+            Tests whether a given mapping v -&gt; w for v in g1, w in g2&#13;
+            works "so far".  In order for the mapping to work, the&#13;
+            vertices must agree on their in-degree, out-degree, and&#13;
+            number of loops; and already mapped adjacent vertices via&#13;
+            in- and out-edges must correspond.&#13;
+          -}&#13;
+          similar m v w    =    (in1   ! v) == (in2   ! w)&#13;
+                             &amp;&amp; (out1  ! v) == (out2  ! w)&#13;
+                             &amp;&amp; (loop1 ! v) == (loop2 ! w)&#13;
+                             &amp;&amp; match ((v,w):m) (g1 !v) (g2 !w)&#13;
+                             &amp;&amp; match ((v,w):m) (g1'!v) (g2'!w)&#13;
+&#13;
+          {-&#13;
+            Tests whether a list of vertices agrees in those edges that&#13;
+            are already mapped to each other via the association list m.&#13;
+          -}&#13;
+          match m vs ws =&#13;
+            let kvs = mapMaybe (\v -&gt; find ((== v) . fst) m) vs&#13;
+                kws = mapMaybe (\w -&gt; find ((== w) . snd) m) ws&#13;
+            in  sort kvs == sort kws&#13;
+&#13;
+          {-&#13;
+            Some global information about the graphs that can be&#13;
+            calculated only once to save time.  This includes the&#13;
+            degrees and number of loops at each vertex, and the&#13;
+            transpose of the graphs (used to find in-edges).&#13;
+          -}&#13;
+          g1'   = transposeG g1&#13;
+          g2'   = transposeG g2&#13;
+          in1   = outdegree  g1'&#13;
+          out1  = outdegree  g1&#13;
+          in2   = outdegree  g2'&#13;
+          out2  = outdegree  g2&#13;
+          loop1 = loopdegree g1&#13;
+          loop2 = loopdegree g2&#13;
+&#13;
+{-&#13;
+    Returns the degree sequence of a given graph.  The degree sequence is&#13;
+    a sorted sequence of tuples representing the in-degree, out-degree,&#13;
+    and loop-degree, respectively, of each vertex in the graph.  The&#13;
+    degree sequence has the desirable properties that it is:&#13;
+&#13;
+        (a) a graph property (that is, invariant under isomorphism)&#13;
+&#13;
+        (b) relatively cheap to compute, and&#13;
+&#13;
+        (c) classifies non-isomorphic graphs very effectively into small&#13;
+            groups.&#13;
+-}&#13;
+degsequence g = sort (zip3 (elems (indegree g))&#13;
+                           (elems (outdegree g))&#13;
+                           (elems (loopdegree g)))&#13;
+&#13;
+{-&#13;
+    Given a list of graphs, removes the duplicates up to isomorphism.&#13;
+&#13;
+    The implementation takes advantage of the fact that the degree&#13;
+    sequence is the same for any pair of isomorphic graphs.  Therefore,&#13;
+    the process maintains a map from degree sequences found so far to&#13;
+    their respective graphs.  This removes the need to compare most sets&#13;
+    of graphs in a normal list.  If the list contains only graphs with&#13;
+    the same degree sequence, then this function will be very slow, as&#13;
+    it will perform O(n^2) isomorphism tests, each of which are worst-case&#13;
+    exponential.&#13;
+-}&#13;
+isonub :: [Graph] -&gt; [Graph]&#13;
+isonub gs = go M.empty gs&#13;
+    where go hs []     = []&#13;
+          go hs (g:gs) =&#13;
+            let dseq = degsequence g&#13;
+                poss = M.findWithDefault [] dseq hs&#13;
+            in  if any (isIsomorphic g) poss&#13;
+                    then     go hs                          gs&#13;
+                    else g : go (M.insert dseq (g:poss) hs) gs&#13;
+&#13;
+{-&#13;
+    Finds the shortest paths from the given vertex to any other vertex&#13;
+    of the graph.  The paths returned are lists of vertices, so if there&#13;
+    are parallel edges in the graph, each result may actually correspond&#13;
+    to multiple paths.&#13;
+&#13;
+    The algorithm is essentially breadth first search, but done in bulk&#13;
+    for each increase in depth, ensuring that all shortest paths are&#13;
+    found for each vertex.&#13;
+-}&#13;
+shortestPaths g v = go (M.singleton v [[v]]) [v]&#13;
+    where go ans []  = M.map (map reverse) ans&#13;
+          go ans ws  = let new  = map (step ans) ws&#13;
+                           next = foldl (M.unionWith (++)) ans new&#13;
+                       in  go next (M.keys next \\ M.keys ans)&#13;
+          step ans w = let new   = filter (not . (`M.member` ans)) (g!w)&#13;
+                           soFar = ans M.! w&#13;
+                           paths = map (\x -&gt; map (x:) soFar) new&#13;
+                       in  M.fromList (zip new paths)&#13;
+&#13;
+{-&#13;
+    Computes all possible directed subforests of a given graph.  A&#13;
+    subforest is a subgraph with the property that there is at most one&#13;
+    edge entering any vertex.&#13;
+&#13;
+    The approach is to first choose the set of vertices, which may be&#13;
+    any subset of the vertices of the given graph, and then choose the&#13;
+    edge (if any) entering each vertex.  Parallel edges are ignored,&#13;
+    since they would lead to isomorphic subforests.&#13;
+-}&#13;
+subforests :: Graph -&gt; [Graph]&#13;
+subforests g = filter ((== []) . cycles)&#13;
+                $ concatMap subsAt&#13;
+                $ subsequences (vertices g)&#13;
+    where g'        = transposeG g&#13;
+          subsAt vs = let vmap      = zip vs [1..]&#13;
+                          tr v      = fromJust (lookup v vmap)&#13;
+                          tre (v,w) = (tr v, tr w)&#13;
+                          inAt v    = filter (`elem` vs) $ nub $ (g' ! v)&#13;
+                      in  [ buildG (1, length vs) fixedEdges&#13;
+                                | edges &lt;- [ [] : [ [(w,v)] | w &lt;- inAt v ] | v &lt;- vs ],&#13;
+                                  let fixedEdges = map tre (concat edges) ]&#13;
+</pre>
+</blockquote>
+		<div class="wpcnt">
+			<div class="wpa wpmrec">
+				<a class="wpa-about" href="https://wordpress.com/about-these-ads/" rel="nofollow">About these ads</a>
+				<div class="u">
+					<amp-ad width="300" height="250" type="pubmine" data-adsafe="1" data-section="2" data-siteid="2694" data-wordads="0"><div placeholder="" class="amp-wp-iframe-placeholder"></div>
+					</amp-ad></div>
+			</div>
+		</div>	</div>
+
+	<footer class="amp-wp-article-footer">
+			<div class="amp-wp-meta amp-wp-tax-category">
+		Categories: <a href="https://cdsmith.wordpress.com/category/uncategorized/" rel="category tag">Uncategorized</a>	</div>
+
+		<div class="amp-wp-meta amp-wp-comments-link">
+		<a href="../index.html#comments">
+			Leave a Comment		</a>
+	</div>
+	</footer>
+
+</article>
+
+<footer class="amp-wp-footer">
+	<div>
+		<h2>Sententia cdsmithus</h2>
+		<p>
+			<a href="https://wordpress.com/?ref=footer_website">Create a free website or blog at WordPress.com.</a>
+		</p>
+		<a href="#top" class="back-to-top">Back to top</a>
+	</div>
+</footer>
+
+	<amp-pixel src="https://pixel.wp.com/b.gif?rand=RANDOM&amp;host=cdsmith.wordpress.com&amp;ref=DOCUMENT_REFERRER&amp;amp=1&amp;blog=1158345&amp;v=wpcom&amp;tz=-7&amp;user_id=0&amp;post=67&amp;subd=cdsmith"></amp-pixel>
+	<amp-pixel src="https://pixel.wp.com/b.gif?rand=RANDOM&amp;v=wpcom-no-pv&amp;crypt=UE5XaGUuOTlwaD85flAmcm1mcmZsaDhkV11YdWFnNncxc1tjZG9XVXhRPUJGYUFhNUdZYm9TYWd2R2NSNUlQVXRtdXMsP3N1LFZDcl00WEw5QUt4JVBwRV9rR0p3eDhhQ0hxL0pSMGhTOXdsSVksbFtwb2NQWUQ1RzBoVmEzJlUxL3dNdlpJZk0sNUFKUWFbaWNkRjBtXUFsVi9VcFs%2FbWp4djg%2FbjAwSnE%2FTGguWzNKcjJvLUl%2BU3FOXWpZP11vQXUuQlhFP2V8Wm89Lw%3D%3D"></amp-pixel>
+	
+</body>
+
+<!-- Mirrored from cdsmith.wordpress.com/2009/04/20/code-for-manipulating-graphs-in-haskell/amp/ by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 20:20:32 GMT -->
+</html>
