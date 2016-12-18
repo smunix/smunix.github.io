@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','http://www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA-63779101-1', 'auto');
+  ga('send', 'pageview');
+</script>
+
+
+<!-- Mirrored from www.mattkeeter.com/projects/spacewar/ by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 11:59:43 GMT -->
+<head>
+<link rel="stylesheet" href="https://www.mattkeeter.com/style.css"/>
+<link rel="stylesheet" href="https://www.mattkeeter.com/font/css/icons.css">
+<link href="https://www.mattkeeter.com/atom.xml" type="application/atom+xml" rel="alternate" title="Atom feed"/>
+<meta http-equiv="content-type" content="text/html; charset=utf-8">
+<title>spacewΛr</title>
+</head>
+
+<body>
+<div id="header">
+<h1><a href="https://www.mattkeeter.com/">Matt Keeter</a> // spacewΛr</h1>
+
+<div>
+<ul id="navlist">
+<li><a href="https://www.mattkeeter.com/projects/">projects</a></li>
+<li><a href="https://www.mattkeeter.com/research/">research</a></li>
+<li><a href="https://www.mattkeeter.com/blog/">blog</a></li>
+<li><a href="https://www.mattkeeter.com/about">about</a></li>
+<li><a href="https://www.mattkeeter.com/links">links</a></li>
+<li><a href="https://www.mattkeeter.com/atom.xml"><span class="icon">&#xe805;</span> feed</a></li>
+</ul>
+</div>
+</div>
+
+<div id="content">
+<!-- End header -->
+<script>
+function play(){ document.getElementById("audio").play(); }
+</script>
+<p><audio id="audio" src="rimshot.mp3"></audio></p>
+<h2>overview</h2>
+<p>spacewΛr is a Haskell implementation of <a href="https://en.wikipedia.org/wiki/Spacewar_(video_game)">the classic video game</a>.
+It is backend-agnostic, adaptible to any device that can draw a set of vectors.</p>
+<p>The most interesting vector-graphics system I have access to is the optical
+engine from a <a href="http://formlabs.com/products/3d-printers/form-2/">Form 2</a>.
+In normal use, this system is responsible for scanning a laser into a vat
+of light-sensitive resin, selectively curing it to build up a solid model.</p>
+<p>Here, we'll repurpose it to play video games with <em>real lasers</em>!</p>
+<video width="600" autoplay loop>
+  <source src="spacewar.webmsd.webm" type="video/webm">
+  <source src="spacewar.mp4" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
+<h2>hardware</h2>
+<p>The Form 2 optical engine controls two
+<a href="https://en.wikipedia.org/wiki/Galvanometer#Modern_uses">galvonometers</a>
+and a laser.  The laser draws 2D cross-sections of a 3D model, selectively
+curing a UV-sensitive resin (a process known as <a href="https://en.wikipedia.org/wiki/Stereolithography">stereolithography</a>).
+By building up layer after layer, the printer creates solid objects from a vat of goo.</p>
+<p>Here's the annotated setup:</p>
+<p><img src="images/hardware.jpg" alt="Real-time subsystem" /></p>
+<p>The real-time control board is a piece of custom hardware from the Form 2,
+designed to quickly and precisely steer the galvos.  It's plugged into an
+adapter board that allows me to talk to it from my computer; in normal use,
+it plugs into the Form 2 motherboard.</p>
+<p><img src="images/rtkb.jpg" alt="Real-time control board" /></p>
+<p>The galvos are held in a machined metal block. Each one controls an axis of
+motion. The laser bounces off the X galvo then the Y galvo on its way to the
+optical window or screen.</p>
+<p><img src="images/galvos.jpg" alt="Galvo block" /></p>
+<p>The whole system is stored in a Form 1 cover for laser safety</p>
+<p>The laser reflects off a mirror mounted in the back of the case; the front of
+the case acts as a display surface.  Through the orange case, the blue-violet
+laser has a greenish tint:</p>
+<p><img src="images/front.jpg" alt="Fromt view" /></p>
+<h2>code</h2>
+<p>The source for spacewΛr is <a href="https://github.com/mkeeter/spacewar">available on Github</a>.
+The code is rough around the edges but still functional<a onclick="play()">;</a>
+I'm a Haskell novice, but the system works well enough.</p>
+<p>The system tracks an arbitrary number of <code>Ship</code> and <code>Shot</code> objects, stored as
+lists in a <code>State</code> (no relation to the <a href="https://wiki.haskell.org/State_Monad">monad</a>).</p>
+<p>Updates are handled by OpenGL callbacks (using <a href="https://hackage.haskell.org/package/GLUT">Graphics.UI.GLUT</a>).
+The keyboard callback updates an <code>IORef [Word8]</code>, representing a bitmask of
+pressed keys for each player; the idle callback updates an <code>IORef State</code> based
+on player inputs and rudimetary 2D physics.</p>
+<p>When a <code>Ship</code> is hit by a <code>Shot</code>, it becomes a <code>DeadShip</code>, containing a list
+of <code>Fragments</code> that slowly shrink to nothingness.  When only one live <code>Ship</code>
+(and no <code>Fragments</code>) remain, the game restarts.</p>
+<p>The game's <code>State</code> can be converted into a list of vector shapes using</p>
+<ul>
+<li><code>draw :: State -&gt; [[V2f]]</code></li>
+</ul>
+<p>I wrote a Haskell interface to the Form 2's real-time subsystem (which required
+<a href="https://github.com/basvandijk/usb/commit/3f94fe88c2472d7a5cdbfcde3afd4bde8bca3105">fixing a bug</a>
+in the <a href="http://hackage.haskell.org/package/bindings-libusb"><code>bindings-libusb</code></a> package).
+This interface takes a set of vector shapes and transfers positions and laser power
+to the galvo controller.</p>
+<p><img src="images/close.jpg" alt="Close-up" /></p>
+<p>To discourage people from disassembling their printers (and voiding their
+warranties), the repository is released with an OpenGL-based backend to try
+out at home:</p>
+<p style="text-align:center;"><img src="images/gl.gif" alt="OpenGL demo"></p>
+
+<!-- Begin footer -->
+</div>
+<div id="copyright">
+<p>© 2010-2016 Matthew Keeter</p>
+</div>
+<script type="text/javascript" src="https://www.mattkeeter.com/scripts/retina.js"></script>
+</body>
+
+
+<!-- Mirrored from www.mattkeeter.com/projects/spacewar/ by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 12:00:06 GMT -->
+</html>

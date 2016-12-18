@@ -1,0 +1,553 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','http://www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA-63779101-1', 'auto');
+  ga('send', 'pageview');
+</script>
+
+
+<!-- Mirrored from www.mattkeeter.com/projects/contours/ by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 11:59:27 GMT -->
+<head>
+<link rel="stylesheet" href="https://www.mattkeeter.com/style.css"/>
+<link rel="stylesheet" href="https://www.mattkeeter.com/font/css/icons.css">
+<link href="https://www.mattkeeter.com/atom.xml" type="application/atom+xml" rel="alternate" title="Atom feed"/>
+<meta http-equiv="content-type" content="text/html; charset=utf-8">
+<title>2D Contouring</title>
+</head>
+
+<body>
+<div id="header">
+<h1><a href="https://www.mattkeeter.com/">Matt Keeter</a> // 2D Contouring</h1>
+
+<div>
+<ul id="navlist">
+<li><a href="https://www.mattkeeter.com/projects/">projects</a></li>
+<li><a href="https://www.mattkeeter.com/research/">research</a></li>
+<li><a href="https://www.mattkeeter.com/blog/">blog</a></li>
+<li><a href="https://www.mattkeeter.com/about">about</a></li>
+<li><a href="https://www.mattkeeter.com/links">links</a></li>
+<li><a href="https://www.mattkeeter.com/atom.xml"><span class="icon">&#xe805;</span> feed</a></li>
+</ul>
+</div>
+</div>
+
+<div id="content">
+<!-- End header -->
+<link rel="stylesheet" href="https://www.mattkeeter.com/scripts/highlight/obsidian.css">
+<script src="https://www.mattkeeter.com/scripts/highlight/highlight.js"></script>
+<script>hljs.initHighlightingOnLoad();</script>
+<h2>About</h2>
+<p>The CAD systems that I design use <a href="https://en.wikipedia.org/wiki/Function_representation">functional representations</a>
+to represent solid models.  These f-reps need to be converted into meshes
+before they can be used in other programs (e.g. to be manufactured on a 3D
+printer).</p>
+<p>There are many meshing algorithms in the literature, but we want one that is:</p>
+<ul>
+<li>Watertight (without any cracks)</li>
+<li>Hierarchical (avoids many tiny triangles)</li>
+<li>Feature-preserving (corners and edges should remain sharp)</li>
+</ul>
+<p>This write-up explores 2D implementations of a few common algorithms.
+We start with <a href="https://en.wikipedia.org/wiki/Marching_squares">Marching Squares</a>,
+then upgrade to <a href="http://www.frankpetterson.com/publications/dualcontour/dualcontour.pdf">Dual Contouring</a>.</p>
+<p><img src="images/comparison.png" alt="Comparison" /></p>
+<p>Also, we'll be using <a href="https://xkcd.com/1312/">Haskell</a>.  Hold on to your hats!</p>
+<h2>Functional representations</h2>
+<p>We'll start by defining a type for 2D points and a type for our shape
+functions.</p>
+<pre><code class="language-haskell">type Point = (Double, Double)
+type Shape = Point -&gt; Double
+</code></pre>
+<p>A shape function takes an <code>(x,y)</code> tuple and and returns a value.  If this
+value is less than or equal to zero, the point <code>(x,y)</code> is inside the shape.</p>
+<p>Our first shape will be a circle:</p>
+<pre><code class="language-haskell">circle :: Point -&gt; Double -&gt; Shape
+circle (x0, y0) r (x, y) = sqrt ((x0 - x)**2 + (y0 - y)**2) - r
+</code></pre>
+<p>This function parameterizes a circle with a center and radius, then returns the
+distance from any point in the plane to the circle's edge.  Thanks to
+<a href="https://wiki.haskell.org/Partial_application">partial application</a>, you can
+call it with just <code>(x,y) r</code> arguments to get a <code>Shape</code> object out.</p>
+<pre><code class="language-haskell">λ&gt; let c = circle (0,0) 1
+λ&gt; c (0,0)      -- points inside the circle are negative
+-1.0
+λ&gt; c (1,0)      -- points on the contour are zero
+0.0
+λ&gt; c (2,0)      -- points outside the circle are positive
+1.0
+</code></pre>
+<p>We'll also define a set of half-planes, e.g. <code>left 1</code> means that all points
+<code>(x,y)</code> with <code>x &lt;= 1</code> are part of the shape:</p>
+<pre><code class="language-haskell">left :: Double -&gt; Shape
+left x0 (x, _) = x - x0
+
+right :: Double -&gt; Shape
+right x0 (x, _) = x0 - x
+
+lower :: Double -&gt; Shape
+lower y0 (_, y) = y - y0
+
+upper :: Double -&gt; Shape
+upper y0 (_, y) = y0 - y
+</code></pre>
+<p>Next, let's create operators for union, intersection, and negation:</p>
+<pre><code class="language-haskell">(∪) :: Shape -&gt; Shape -&gt; Shape
+a ∪ b = \p -&gt; min (a p) (b p)
+
+(∩) :: Shape -&gt; Shape -&gt; Shape
+a ∩ b  = \p -&gt; max (a p) (b p)
+
+inv :: Shape -&gt; Shape
+inv a = \p -&gt; -(a p)
+</code></pre>
+<p>The negation operator lets us make cutouts: subtracting <code>b</code> from <code>a</code> is given
+by <code>a ∩ (inv b)</code>.</p>
+<p>We can use these CSG operators and the half-planes defined above to create
+a rectangle, which is the intersection of four half-planes:</p>
+<pre><code class="language-haskell">type Min = Point
+type Max = Point
+
+rectangle :: Min -&gt; Max -&gt; Shape
+rectangle (xmin, ymin) (xmax, ymax) =
+    right xmin ∩ left xmax ∩ upper ymin ∩ lower ymax
+</code></pre>
+<p>Here's a simple test shape that we'll be using for the rest of this writeup:</p>
+<pre><code class="language-haskell">hi :: Shape
+hi = h ∪ i where
+    h = (rectangle (0.1, 0.1) (0.25, 0.9) ∪
+         rectangle (0.1, 0.1) (0.6, 0.35) ∪
+         circle (0.35, 0.35) 0.25) ∩ inv
+         (circle (0.35, 0.35) 0.1 ∪
+          rectangle (0.25, 0.1) (0.45, 0.35))
+    i = rectangle (0.75, 0.1) (0.9, 0.55) ∪
+        circle (0.825, 0.75) 0.1
+</code></pre>
+<p>Rendering this to a bitmap is a matter of evaluating the function on many
+<code>(x,y)</code> coordinates, then coloring them depending on the function's sign.
+This is a very naïve rendering strategy, but it's good enough to put
+pixels on the screen.</p>
+<p>Here's our testing shape, evaluated as a bitmap:</p>
+<p><img src="images/hi.png" alt="Hi!" /></p>
+<h2>Quadtrees</h2>
+<p><a href="https://en.wikipedia.org/wiki/Quadtree">Quadtrees</a> are a basic data
+structure in 2D graphics.  Quadtreees are hierarchical: a 2D region is
+recursively split into four quadrants; each quadrant is either a leaf cell or
+subdivided further.</p>
+<p>They are interesting because they represent a shape with fewer samples than a
+bitmap: areas that are completely filled or empty can be collapsed into a
+single cell.</p>
+<p>We'll use one type of hierarchical cell and three terminal cells in the tree:</p>
+<ul>
+<li><code>Root</code> cells contain four subtrees</li>
+<li><code>Leaf</code> cells are minimum-size and contain the contour</li>
+<li><code>Empty</code> and <code>Full</code> cells are collapsed cells that are empty or full respectively</li>
+</ul>
+<p>As motivation, here's a quadtree decomposition of our test shape.  Green, grey,
+and black squares represent <code>Leaf</code>, <code>Empty</code>, and <code>Full</code> cells respectively.</p>
+<p><img src="images/quadtree.png" alt="Quadtree of 'hi'" /></p>
+<p>Now that we know what we're looking for, let's start by creating our data type.
+Subtrees and corners will always be numbered as follows:</p>
+<p><img src="images/numbering.png" alt="Quadtree numbering" /></p>
+<p>For the purposes of this exercise, we'll make a generic <code>Tree_</code> type that
+stores some kind of data at each leaf, then specialize it to storing the
+leaf's corner positions.</p>
+<pre><code class="language-haskell">data Tree_ a = Root (Tree_ a) (Tree_ a) (Tree_ a) (Tree_ a) |
+               Empty | Full | Leaf a
+     deriving (Show, Eq)
+
+type Cell = (Min, Max)
+type Tree = Tree_ Cell
+</code></pre>
+<p>Now, let's build a complete tree structure:</p>
+<pre><code class="language-haskell">buildTree :: Min -&gt; Max -&gt; Int -&gt; Tree
+buildTree min max 0 = Leaf (min, max)
+buildTree (xmin, ymin) (xmax, ymax) i =
+    Root (buildTree (xmin, ymin) (xmid, ymid) (i - 1))
+         (buildTree (xmid, ymin) (xmax, ymid) (i - 1))
+         (buildTree (xmin, ymid) (xmid, ymax) (i - 1))
+         (buildTree (xmid, ymid) (xmax, ymax) (i - 1))
+    where xmid = (xmin + xmax) / 2
+          ymid = (ymin + ymax) / 2
+</code></pre>
+<p>This tree isn't specialized to any particular shape; it contains a uniform set of
+leaf cells filling a space.  For example:</p>
+<pre><code class="language-haskell">λ&gt; buildTree (0,0) (1,1) 2
+</code></pre>
+<p><img src="images/fulltree.png" alt="Full quadtree" /></p>
+<p>It may look like we're building a full tree here, but that's not quite the
+case.  Because Haskell is lazy, this tree will <em>actually</em> be constructed on an
+as-needed basis, so we need not feel guilty about building it naïvely.</p>
+<p>Now, let's think about collapsing cells.  Given a <code>Shape</code> function, we can mark
+cells that are entirely filled or empty, then recursively collapse them:</p>
+<pre><code class="language-haskell">collapse :: Shape -&gt; Tree -&gt; Tree
+
+collapse shape leaf@(Leaf ((xmin, ymin), (xmax, ymax))) =
+    if      all (&lt;  0) values then  Full
+    else if all (&gt;= 0) values then  Empty
+    else                            leaf
+    where values = [shape (x,y) | x &lt;- [xmin, xmax],
+                                  y &lt;- [ymin, ymax]]
+
+collapse shape (Root a b c d) =
+    collapse' $ map (collapse shape) [a, b, c, d]
+    where collapse' [Empty, Empty, Empty, Empty] = Empty
+          collapse' [Full, Full, Full, Full] = Full
+          collapse' [q, r, s, t] = Root q r s t
+
+collapse _ t = t
+</code></pre>
+<p>Here's what the first five quadtree levels look like on our example shape:</p>
+<p><img src="images/multiquad.png" alt="Quadtree" /></p>
+<p>Note that the contour-containing cells are all <code>Leaf</code> cells (and vice versa):</p>
+<ul>
+<li>Cells whose corners are different signs are not collapsed</li>
+<li>Cells that intersect the isosurface have corners of different signs</li>
+</ul>
+<p>Marching squares, which will be introduced shortly, operates on a single cell
+at a time.  To map it across all of the <code>Leaf</code> cells in the shape, let's make
+the <code>Tree_</code> type an instance of the
+<a href="https://hackage.haskell.org/package/base-4.8.1.0/docs/Data-Foldable.html"><code>Foldable</code></a>
+typeclass:</p>
+<pre><code class="language-haskell">instance Foldable Tree_ where
+    foldMap f (Leaf a) = f a
+    foldMap f (Root a b c d) = mconcat $
+                               map (foldMap f) [a, b, c, d]
+    foldMap _ _ = mempty
+</code></pre>
+<p>This means we can easily map functions across every <code>Leaf</code> in the tree (or,
+more strictly, across every <code>Cell</code> stored in a leaf).  For example, consider
+finding the centers of each leaf:</p>
+<pre><code class="language-haskell">λ&gt; let center ((x,y), (x',y')) = ((x+x')/2, (y+y')/2)
+λ&gt; foldMap (\cell -&gt; [center cell]) $ buildTree (0,0) (1,1) 2
+[(0.125,0.125),(0.375,0.125),(0.125,0.375),(0.375,0.375)
+ (0.625,0.125),(0.875,0.125),(0.625,0.375),(0.875,0.375),
+ (0.125,0.625),(0.375,0.625),(0.125,0.875),(0.375,0.875),
+ (0.625,0.625),(0.875,0.625),(0.625,0.875),(0.875,0.875)]
+</code></pre>
+<p><img src="images/leafs.png" alt="Leaf positions" /></p>
+<h2>Marching Squares</h2>
+<p><a href="https://en.wikipedia.org/wiki/Marching_squares">Marching Squares</a> is a
+fundamental algorithm for extracting isocontours from 2D samples.</p>
+<p>Here's the idea: for every cell, we examine the corners, which match one of
+sixteen cases:</p>
+<p><img src="images/squares.png" alt="Marching squares table" /></p>
+<p>Each case creates between zero and two edges.  Run this procedure on every
+contour-containing cell and you'll get your shape's contour.</p>
+<p>To get started, we'll encode the 16 cases shown above in a lookup table named
+<code>lut</code>.</p>
+<pre><code class="language-haskell">data Side = Upper | Lower | Left | Right deriving Show
+
+-- This lookup table takes a bitmask abcd and
+-- returns a list of edges between which we
+-- should draw contours (to outline the shape)
+lut :: [[(Side, Side)]]
+lut = [[],                          -- 0000
+       [(Upper,Right)],             -- 000d
+       [(Left,Upper)],              -- 00c0
+       [(Left,Right)],              -- 00cd
+       [(Right,Lower)],             -- 0b00
+       [(Upper,Lower)],             -- 0b0d
+       [(Right,Lower),(Left,Upper)],-- 0bc0
+       [(Left,Lower)],              -- 0bcd
+       [(Lower,Left)],              -- a000
+       [(Lower,Left),(Upper,Right)],-- a00d
+       [(Lower,Upper)],             -- a0c0
+       [(Lower,Right)],             -- a0cd
+       [(Right,Left)],              -- ab00
+       [(Upper,Left)],              -- ab0d
+       [(Right,Upper)],             -- abc0
+       []]                          -- abcd
+</code></pre>
+<p>Next, we'll write helper functions that go from a <code>Cell</code> to an index in
+the lookup table and then to a list of <code>Side</code> pairs.</p>
+<pre><code class="language-haskell">index :: Shape -&gt; Cell -&gt; Int
+index shape ((xmin, ymin), (xmax, ymax)) =
+    sum [if shape pt &lt; 0 then 2^(3 - i) else 0 |
+         (pt, i) &lt;- zip pts [0..]]
+    where pts = [(x,y) | y &lt;- [ymin, ymax], x &lt;- [xmin, xmax]]
+
+edges :: Shape -&gt; Cell -&gt; [(Side, Side)]
+edges shape c = lut !! index shape c
+</code></pre>
+<p>The <code>edges</code> function
+gives us pairs of cell sides between which we should draw edges; however,
+we need to pick the starting and ending point for each edge:</p>
+<p><img src="images/search.png" alt="Finding points" /></p>
+<p>In the image above, how do we find the green points?  Well, the green points
+should be points where the shape function is zero.  We'll assume that the
+shape function is monotonic along the edge and use binary search:</p>
+<pre><code>pt :: Shape -&gt; Cell -&gt; Side -&gt; Point
+pt shape ((xmin, ymin), (xmax, ymax)) side =
+    case side of Left  -&gt; zero shape (xmin, ymin) (xmin, ymax)
+                 Right -&gt; zero shape (xmax, ymin) (xmax, ymax)
+                 Lower -&gt; zero shape (xmin, ymin) (xmax, ymin)
+                 Upper -&gt; zero shape (xmin, ymax) (xmax, ymax)
+
+zero :: Shape -&gt; Point -&gt; Point -&gt; Point
+zero s a@(ax, ay) b@(bx, by)
+    | s a &gt;= 0 = zero s b a
+    | otherwise = zero' 0.5 0.25 10
+    where pos f = (ax * (1-f) + bx * f, ay * (1-f) + by * f)
+          zero' f step i =
+            if i == 0 then pos f
+            else if s (pos f) &lt; 0 then
+                    zero' (f + step) (step / 2) (i - 1)
+            else    zero' (f - step) (step / 2) (i - 1)
+</code></pre>
+<p>Finally, we can combine these functions into one that converts a cell into
+a set of contours.  Notice that this function can be applied to a tree with
+<code>foldMap</code>!</p>
+<pre><code>type Edge = (Point, Point)
+
+contours :: Shape -&gt; Cell -&gt; [Edge]
+contours shape cell = [(pt' a, pt' b) |
+                       (a, b) &lt;- edges shape cell]
+    where pt' = pt shape cell
+</code></pre>
+<p>Applying this to a tree extracts the shape's contours:</p>
+<pre><code>λ&gt; foldMap (contours hi) $ collapse hi $ buildTree (0,0) (1,1) 5
+</code></pre>
+<p>(factoring out <code>hi</code> with a monad is left as an exercise for the reader)</p>
+<p><img src="images/ms.png" alt="Marching squares" /></p>
+<h2>Sampled distance fields</h2>
+<p>There's an interesting nuance to our quadtrees:  the <code>collapse</code> function treats
+sampled data as a binary value (based on whether it's less than zero).  Can we
+do better by using the scalar value?</p>
+<p>Consider the following quadtree (with one level of subdivision):</p>
+<p><img src="images/sampled.png" alt="Sampled" /></p>
+<p>The internal samples have different boolean values (some are inside the shape,
+some are outside), but all of the internal sampled values can be reconstructed
+from the corner values using <a href="https://en.wikipedia.org/wiki/Bilinear_interpolation">bilinear interpolation</a>.</p>
+<p>This means that we can merge the cells without losing any information!<br />
+(This idea appears in the literature as <a href="http://www.merl.com/publications/docs/TR2000-15.pdf">Adaptively Sampled Distance Fields</a>).</p>
+<p>This may seem like an uncommon occurance, but it turns out that this kind of
+merging is possible whenever a cell's distance field is entirely determined by
+a single line (or face in 3D).  When working with flat surfaces, this happens
+a lot!</p>
+<p>Let's write some code to do this kind of reduction.  First, we'll create
+functions that measure the error that would be introduced by this kind
+of merging:</p>
+<pre><code class="language-haskell">-- interpolate samples a Shape at the four corners of a Cell,
+-- then uses those values to estimate the function's result at
+-- an arbitrary (x,y) position
+interpolate :: Shape -&gt; Cell -&gt; Point -&gt; Double
+interpolate shape ((xmin, ymin), (xmax, ymax)) (x,y) =
+    let dx = (x - xmin) / (xmax - xmin)
+        dy = (y - ymin) / (ymax - ymin)
+        ab = (shape (xmin, ymin)) * (1 - dx) +
+             (shape (xmax, ymin)) * dx
+        cd = (shape (xmin, ymax)) * (1 - dx) +
+             (shape (xmax, ymax)) * dx
+    in ab * (1 - dy) + cd * dy
+
+-- score returns the difference between an interpolated
+-- estimate and the function value at a given point
+score :: Shape -&gt; Cell -&gt; Point -&gt; Double
+score shape cell pt = abs $
+                      (interpolate shape cell pt) - shape pt
+</code></pre>
+<p>Now, we can use the score function and a user-defined cutoff to decide
+whether to merge a set of leaf cells.  Note the names for nodes and
+cells:</p>
+<p><img src="images/named.png" alt="Named" /></p>
+<pre><code class="language-haskell">merge :: Shape -&gt; Tree -&gt; Tree
+merge shape (Root a b c d) =
+    merge' a' b' c' d'
+    where [a', b', c', d'] = map (merge shape) [a, b, c, d]
+          merge' (Leaf (min, i)) (Leaf (q, r))
+                 (Leaf (s, t)) (Leaf (_, max)) =
+            let scores = map (score shape (min, max))
+                         [i, q, r, s, t]
+            in if all (&lt; 0.001) scores
+               then Leaf (min, max)
+               else Root a' b' c' d'
+          merge' _ _ _ _ = Root a' b' c' d'
+merge _ t = t
+</code></pre>
+<p>We apply this function before calling <code>collapse</code> to produce a sparser quadtree:</p>
+<pre><code class="language-haskell">λ&gt; collapse hi $ merge hi $ buildTree (0,0) (1,1) res
+</code></pre>
+<p><img src="images/sdf.png" alt="SDF" /></p>
+<p>As expected, we now see larger leaf cells containing a single flat edge.</p>
+<p>We can use the same contouring strategy on this sparser quadtree, producing a
+contour with fewer samples along flat edges:</p>
+<p><img src="images/sdf_cracks.png" alt="Contoured SDF" /></p>
+<p>This seems too easy — what's the catch?</p>
+<p>Our meshing strategy assumed that all leaf cells were the same size, so
+a pair of leaves that shared an edge performed the same zero-crossing
+search.  Now, with leaves of different sizes, the zero-crossing search
+will not be numerically identical, so the edges will not quite touch:</p>
+<p><img src="images/cracks_zoom.png" alt="Cracks" /></p>
+<p>This becomes a more significant issue in 3D: naïvely meshing a hierarchical
+structure will leave cracks in between cells of different sizes.</p>
+<h2>Dual contouring</h2>
+<p><a href="http://www.frankpetterson.com/publications/dualcontour/dualcontour.pdf">Dual Contouring</a>
+addresses two issues:</p>
+<ul>
+<li>Cracks between cells of different sizes</li>
+<li>Corners being bevelled</li>
+</ul>
+<p>It does so by considering the <a href="https://en.wikipedia.org/wiki/Dual_graph">dual graph</a>
+of the quadtree.  Instead of each leaf containing zero or more edges, each
+leaf stores a vertex; we connect these vertices to create the contour.</p>
+<p>In this image, the original quadtree is drawn in light grey and the dual grid
+is shown in black.</p>
+<p><img src="images/dualgrid.png" alt="Dual grid" /></p>
+<p>There are three important questions to answer:</p>
+<ul>
+<li>How do we choose which edges of the dual graph belong to the contour?</li>
+<li>How do we position the vertices of the dual graph within cells?</li>
+<li>How do we construct the dual graph?</li>
+</ul>
+<p>To answer the first question, we want to draw an edge between any two cells
+that share a side with a sign change.</p>
+<p><img src="images/signchange.png" alt="Sign change" /></p>
+<p>The answer to the second question is more subtle:
+we want to position vertices of the dual graph on features of the original
+shape.  For example, in a cell containing a corner, the vertex should be on
+that corner.  This strategy allows the algorithm to preserve sharp features.</p>
+<p>We'll find features by looking at the normals of the shape function, which
+are given by its partial derivatives.  In the past, I've
+<a href="https://github.com/mkeeter/antimony/blob/develop/lib/fab/src/tree/math/math_g.c">written my own</a>
+automatic differentiator; here, we'll do it numerically:</p>
+<pre><code class="language-haskell">deriv :: Shape -&gt; Point -&gt; Point
+deriv shape (x,y) =
+    let epsilon = 0.001
+        dx = shape (x + epsilon, y) - shape (x - epsilon, y)
+        dy = shape (x, y + epsilon) - shape (x, y - epsilon)
+        len = sqrt $ dx**2 + dy**2
+    in (dx / len, dy / len)
+</code></pre>
+<p>A circle's partial derivatives are always pointing outwards from the center:</p>
+<pre><code class="language-haskell">λ&gt; deriv (circle (0,0) 1) (0,1)
+(0.0,1.0)
+λ&gt; deriv (circle (0,0) 1) (1,1)
+(0.7071067811865476,0.7071067811865476)
+λ&gt; deriv (circle (0,0) 1) (1,0)
+(1.0,0.0)
+</code></pre>
+<p><img src="images/circlenorms.png" alt="Circle normals" /></p>
+<p>To find a feature in a cell, we find the position and normal of every point
+along the cell's sides that intersects the isosurface, then perform a
+least-squares fit to estimate the feature position.</p>
+<p>This is the same technique I use <a href="https://github.com/mkeeter/antimony/blob/develop/lib/fab/src/tree/triangulate/mesher.cpp#L283-L369">in Antimony</a>,
+though we'll skip the sanity-checking for simplicity.
+The details are described in
+<a href="https://www.graphics.rwth-aachen.de/publication/131/feature1.pdf">Feature Sensitive Surface Extraction from Volume Data</a>.</p>
+<p>The code below uses the <a href="https://hackage.haskell.org/package/hmatrix">HMatrix library</a>
+for matrix math.</p>
+<pre><code class="language-haskell">feature :: Shape -&gt; Cell -&gt; Maybe Point
+feature shape cell =
+    if length pts_ &gt;= 2 then
+        let pts = map fromTuple pts_
+            nms = map (fromTuple . deriv shape) pts_
+            center = sum pts / (fromIntegral $ length pts)
+
+            a = fromRows pts
+            b = col $ zipWith (\pt nm -&gt; (pt - center) &lt;·&gt; nm)
+                      pts nms
+
+            p = center + (toColumns $ linearSolveSVD a b) !! 0
+        in Just $ (\[x,y] -&gt; (x,y)) $ (toList p)
+    else Nothing
+    where pts_ = concatMap (\(a,b) -&gt; [a,b]) $ contours shape cell
+          fromTuple = \(x,y) -&gt; fromList [x,y]
+</code></pre>
+<p>We can run this function across every leaf cell to see where vertices are placed:</p>
+<pre><code>λ&gt; let tree = collapse hi $ merge hi $ buildTree (0,0) (1,1) 5
+λ&gt; catMaybes $ foldMap (\cell -&gt; [feature hi cell]) tree
+</code></pre>
+<p><img src="images/dc_pts.png" alt="DC point placement" /></p>
+<p>This looks promising!  There's one remaining step: to link these points
+together into a shape-outlining contour.</p>
+<p>We use a set of three recursive functions to isolate edges of the dual graph.
+They're tricky, so I'll present them three times: in a diagram, in plain
+English, and in code.</p>
+<p>First, the diagram:</p>
+<p><img src="images/dual_construction.png" alt="Dual construction" /></p>
+<p><code>faceProc</code> is called on one cell.  If that cell is a leaf, then it returns
+nothing.  If that cell is a root, it recurses by calling <code>faceProc</code> on each
+subtree, <code>edgeProcH</code> on each horizontal pair of cells, and <code>edgeProcV</code> on each
+vertical pair of cells.</p>
+<p><code>edgeProcH</code> is called on a pair of cells.  If both are leafs, it creates a
+contour edge between the two cells.  Otherwise, it recursively calls itself
+on two horizontal pairs of cells.</p>
+<p><code>edgeProcV</code> is identical to <code>edgeProcH</code>, but applies to vertical pairs of
+cells.</p>
+<p>Now, in code:</p>
+<pre><code class="language-haskell">dc :: Shape -&gt; Tree -&gt; Edge
+dc = faceProc
+
+faceProc :: Shape -&gt; Tree -&gt; [Edge]
+faceProc shape (Root a b c d) =
+    concatMap (faceProc shape) [a,b,c,d] ++
+    edgeProcH shape a b ++ edgeProcH shape c d ++
+    edgeProcV shape a c ++ edgeProcV shape b d
+faceProc _ _ = []
+
+edgeProcH :: Shape -&gt; Tree -&gt; Tree -&gt; [Edge]
+edgeProcH shape (Leaf a) (Leaf b) =
+    [(fromJust $ feature shape a, fromJust $ feature shape b)]
+edgeProcH shape leaf@(Leaf _) (Root a _ c _) =
+    edgeProcH shape leaf a ++ edgeProcH shape leaf c
+edgeProcH shape (Root _ b _ d) leaf@(Leaf _) =
+    edgeProcH shape b leaf ++ edgeProcH shape d leaf
+edgeProcH shape (Root _ b _ d) (Root a _ c _) =
+    edgeProcH shape b a ++ edgeProcH shape d c
+edgeProcH _ _ _ = []
+
+edgeProcV :: Shape -&gt; Tree -&gt; Tree -&gt; [Edge]
+edgeProcV shape (Leaf a) (Leaf b) = [(fromJust $ feature shape a,
+                                      fromJust $ feature shape b)]
+edgeProcV shape (Root _ _ c d) leaf@(Leaf _) =
+    edgeProcV shape c leaf ++ edgeProcV shape d leaf
+edgeProcV shape leaf@(Leaf _) (Root a b _ _) =
+    edgeProcV shape leaf a ++ edgeProcV shape leaf b
+edgeProcV shape (Root _ _ c d) (Root a b _ _) =
+    edgeProcV shape c a ++ edgeProcV shape d b
+edgeProcV _ _ _ = []
+</code></pre>
+<p>This completes our implementation of Dual Contouring:</p>
+<pre><code class="language-haskell">λ&gt; dc hi $ collapse hi $ merge hi $ buildTree (0,0) (1,1) res
+</code></pre>
+<p><img src="images/dc_contour.png" alt="Dual contouring in action" /></p>
+<p>At this point, we'll declare victory: the contour is a faithful representation
+of the original shape and point density along the contour scales with local
+complexity / curvature.</p>
+<p>There's plenty more to dive into in the literature, with references below.</p>
+<p>Thanks to Richard Bowen and Michael Gilik for their feedback on an early draft.</p>
+<p>Download the source <a href="dc.zip">here</a> (including code used to generate diagrams).</p>
+<h2>References</h2>
+<h3>Papers</h3>
+<ul>
+<li><a href="https://www.cs.virginia.edu/johntran/GLunch/marchingcubes.pdf">Marching cubes</a></li>
+<li><a href="https://www.graphics.rwth-aachen.de/publication/131/feature1.pdf">Feature Sensitive Surface Extraction from Volume Data</a></li>
+<li><a href="http://www.merl.com/publications/docs/TR2000-15.pdf">Adaptively Sampled Distance Fields</a></li>
+<li><a href="http://www.frankpetterson.com/publications/dualcontour/dualcontour.pdf">Dual Contouring</a></li>
+<li><a href="http://www.cs.rice.edu/~jwarren/papers/dmc.pdf">Dual Marching Cubes</a></li>
+<li><a href="http://www.csie.ntu.edu.tw/~cyy/publications/papers/Ho2005CMS.pdf">Cubical Marching Squares</a></li>
+</ul>
+<h3>Other sources</h3>
+<ul>
+<li><a href="http://www.cs.berkeley.edu/~jrs/meshs08/present/Andrews.pdf">Dual Marching Cubes</a> (presentation)</li>
+<li><a href="https://www.youtube.com/watch?v=8sf9soKi7j4">Cubical Marching Squares</a> (video)</li>
+</ul>
+
+<!-- Begin footer -->
+</div>
+<div id="copyright">
+<p>© 2010-2016 Matthew Keeter</p>
+</div>
+<script type="text/javascript" src="https://www.mattkeeter.com/scripts/retina.js"></script>
+</body>
+
+
+<!-- Mirrored from www.mattkeeter.com/projects/contours/ by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 11:59:43 GMT -->
+</html>
