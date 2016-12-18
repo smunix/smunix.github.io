@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+  
+<!-- Mirrored from www.kuznero.com/posts/haskell/2015-02-15-common-concurrency-abstractions-IORef-part-1.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 14:44:39 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width">
+    <title>Kuznero Blog - Common Concurrency Abstractions in Haskell, IORef</title>
+    <link rel="stylesheet" type="text/css" href="http://www.kuznero.com/css/default.css" />
+    <link rel="stylesheet" type="text/css" href="http://www.kuznero.com/css/syntax.css" />
+  </head>
+  <body background="http://www.kuznero.com/images/background.png">
+    <div id="container">
+      <div style="height: 20px;"></div>
+      <div id="header">
+        <table id="header">
+          <tr>
+            <td id="autowidth">
+              <div id="logo">
+                <a href="http://www.kuznero.com/">Kuznero Blog</a>
+              </div>
+            </td>
+            <td id="fullwidth">
+              <div id="remote">
+                <input class="typeahead" type="text" autofocus="autofocus" placeholder="Search posts ...">
+              </div>
+            </td>
+            <td id="autowidth">
+              <div id="navigation">
+                <a href="http://www.kuznero.com/archive.html">Archive</a>
+                <a href="http://www.kuznero.com/tags.html">Tags</a>
+                <!--<a href="/slides/index.html">Slides</a>-->
+                <a href="http://www.kuznero.com/cv.html">CV</a>
+                <a href="http://www.kuznero.com/projects.html">Projects</a>
+                <a href="http://www.kuznero.com/about.html">About</a>
+              </div>
+            </td>
+          </tr>
+        </table>
+      </div>
+      <div id="content">
+        <h1>Common Concurrency Abstractions in Haskell, IORef</h1>
+        <div class="info">
+  Posted
+  
+    in category <b>haskell</b>
+  
+  on <code class="date">2015-02-15</code>
+  
+</div>
+<div class="info">
+  
+    Tags: <a href="http://www.kuznero.com/tags/haskell.html">haskell</a>, <a href="http://www.kuznero.com/tags/concurrency.html">concurrency</a>
+  
+</div>
+
+<h2 class="nocount">Table of Contents</h2><div id="toc"><ul>
+<li><a href="#mutable-reference-in-io-monad-ioref">Mutable Reference in <code class="sourceCode haskell"><span class="dt">IO</span></code> monad, <code class="sourceCode haskell"><span class="dt">IORef</span></code></a></li>
+<li><a href="#references">References</a></li>
+<li><a href="#common-concurrency-abstractions-in-haskell-series">“Common Concurrency Abstractions in Haskell” Series</a></li>
+</ul></div>
+<p>Haskell is one of the languages that can be considered a laboratory for all sorts of crazy ideas in software development including most challenging areas for parallel and concurrent programming. We parallelize tasks with using threads - heavy operating system threads or lightweight runtime threads (so called green threads). And so, one of the most interesting type of questions in this area are questions related to coordinating work between threads and how to do it efficiently.</p>
+<p>Haskell has many concurrency abstractions built into the base library as well as lots more in the form of libraries. This series of blog posts starts with mutable reference in <code class="sourceCode haskell"><span class="dt">IO</span></code> monad, <code class="sourceCode haskell"><span class="dt">IORef</span></code>.</p>
+<h2 id="mutable-reference-in-io-monad-ioref">Mutable Reference in <code class="sourceCode haskell"><span class="dt">IO</span></code> monad, <code class="sourceCode haskell"><span class="dt">IORef</span></code></h2>
+<p>Official <code class="sourceCode haskell"><span class="dt">Data.IORef</span></code> module documentation can be found <a href="https://hackage.haskell.org/package/base/docs/Data-IORef.html">here</a>.</p>
+<p><code class="sourceCode haskell"><span class="dt">IORef</span></code> is the lowest level <strong>non-blocking</strong> synchronization mechanism available in Haskell. It is using <a href="http://en.wikipedia.org/wiki/Compare-and-swap">compare-and-swap</a> atomic instruction (CAS) that is supported on hardware level on multitude of existing hardware platforms.</p>
+<p>Here are some important functions from <code class="sourceCode haskell"><span class="dt">Data.IORef</span></code> module:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- | Creates a new IORef referencing a value (it needs to always reference value).</span>
+<span class="ot">newIORef ::</span> a <span class="ot">-&gt;</span> <span class="dt">IO</span> (<span class="dt">IORef</span> a)
+
+<span class="co">-- | Reads a value from IORef.</span>
+<span class="ot">readIORef ::</span> <span class="dt">IORef</span> a <span class="ot">-&gt;</span> <span class="dt">IO</span> a
+
+<span class="co">-- | Writes a new value into IORef (ordering is NOT guaranteed).</span>
+<span class="ot">writeIORef ::</span> <span class="dt">IORef</span> a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
+
+<span class="co">-- | Safely writes a new value into IORef (ordering is guaranteed).</span>
+<span class="ot">atomicWriteIORef ::</span> <span class="dt">IORef</span> a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
+
+<span class="co">-- | Modifies a value in IORef in a thread-safe way (ordering is guaranteed).</span>
+<span class="ot">atomicModifyIORef ::</span> <span class="dt">IORef</span> a <span class="ot">-&gt;</span> (a <span class="ot">-&gt;</span> (a, b)) <span class="ot">-&gt;</span> <span class="dt">IO</span> b</code></pre></div>
+<p>A very important and very inconvenient feature of <code class="sourceCode haskell">writeIORef</code> function is that it <strong>does not</strong> guarantee ordering, meaning that operations are not always observed in the same order that they go in the text of your program. This inconveniency is due to the memory model of an underlying computer architecture. With this drawback <code class="sourceCode haskell"><span class="dt">IORef</span></code> could have been too unreliable to be used. In order to ensure ordering <code class="sourceCode haskell">writeIORef</code> function should be replaced by <code class="sourceCode haskell">atomicWriteIORef</code> that has ordering guarantees built in, meaning that operations occur in strict program order.</p>
+<p>Most importantly, in order to be useful and thread-safe <code class="sourceCode haskell"><span class="dt">IORef</span></code> should make it possible to guarantee the atomicity of read-modify-write kind of operations. This is achieved with the <code class="sourceCode haskell">atomicModifyIORef</code> function that relies on CAS instructions. <code class="sourceCode haskell">atomicModifyIORef</code> guarantees ordering of operations and is implemented similar to following (pseudo implementation):</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- | Calls to a CAS instruction.</span>
+<span class="co">-- Compares old value supplied with value stored in IORef:</span>
+<span class="co">-- 1. When values are equal, swaps old value to a new one in IORef and returns True;</span>
+<span class="co">-- 2. When values are not equal any longer, returns False.</span>
+compareAndSwap
+<span class="ot">  ::</span> <span class="dt">IORef</span> a  <span class="co">-- ^ IORef holding a value.</span>
+  <span class="ot">-&gt;</span> a        <span class="co">-- ^ Old value.</span>
+  <span class="ot">-&gt;</span> a        <span class="co">-- ^ New value.</span>
+  <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">Bool</span>  <span class="co">-- ^ Returns True if old value can still be found in IORef, else False.</span>
+compareAndSwap <span class="fu">=</span> undefined
+
+<span class="co">-- | Pseudo implementation of atomicModifyIORef.</span>
+<span class="ot">atomicModifyIORef ::</span> <span class="dt">IORef</span> a <span class="ot">-&gt;</span> (a <span class="ot">-&gt;</span> (a, b)) <span class="ot">-&gt;</span> <span class="dt">IO</span> b
+atomicModifyIORef ref f <span class="fu">=</span> <span class="kw">do</span>
+  oldValue <span class="ot">&lt;-</span> readIORef ref                             <span class="co">-- begin transaction</span>
+  <span class="kw">let</span> (newValue, result) <span class="fu">=</span> f oldValue
+  succeeded <span class="ot">&lt;-</span> compareAndSwap ref oldValue newValue
+  <span class="kw">if</span> succeeded
+    <span class="kw">then</span> return result                                  <span class="co">-- commit transaction</span>
+    <span class="kw">else</span> atomicModifyIORef ref f                        <span class="co">-- retry transaction</span></code></pre></div>
+<p>It is somewhat like a mini-transaction over a single variable inside an <code class="sourceCode haskell"><span class="dt">IORef</span></code>: it reads a value from <code class="sourceCode haskell"><span class="dt">IORef</span></code>, calls a function to mutate it and then calls out to the CAS implementation. In case CAS fails, it simply retries until it succeeds. Here it is easy to see that the <code class="sourceCode haskell"><span class="dt">IORef</span></code> mechanism is non-blocking for updating a shared state, meaning that if other threads are stuck this current thread can proceed with shared state modification without getting blocked.</p>
+<p><code class="sourceCode haskell"><span class="dt">IORef</span></code> abstraction can be very efficient, but has a critical limitation – it is not composable, i.e. it is not possible to combine two <code class="sourceCode haskell"><span class="dt">IORef</span></code> variables and get same guarantees of atomicity during modification across both of them (it is possible with <code class="sourceCode haskell"><span class="dt">STM</span></code> as we will see later).</p>
+<p>As we just saw atomicity within single <code class="sourceCode haskell"><span class="dt">IORef</span></code> is guaranteed with using <code class="sourceCode haskell">atomicModifyIORef</code> function. On the other hand atomicity across several different instances of <code class="sourceCode haskell"><span class="dt">IORef</span></code> can not be guaranteed. In order to address this issue it is sometimes possible to:</p>
+<ol type="1">
+<li>Merge several <code class="sourceCode haskell"><span class="dt">IORef</span></code>’s into a single one where its values will also be merged into one, thus becoming unnecessarily complex. This approach is more like a workaround that may lead to some other inefficiencies.</li>
+<li>Use other concurrency abstractions like <code class="sourceCode haskell"><span class="dt">MVar</span></code> or <code class="sourceCode haskell"><span class="dt">STM</span></code> with potential performance overhead</li>
+</ol>
+<p>Another limitation or a benefit of <code class="sourceCode haskell"><span class="dt">IORef</span></code> dependning on how you see it is that the critical section can only be a pure function and cannot launch some missiles for you (note the signature of <code class="sourceCode haskell">atomicModifyIORef</code> function again).</p>
+<p>Here is a very simple example that demonstrates how several threads can update shared state with using <code class="sourceCode haskell"><span class="dt">IORef</span></code>:</p>
+<div class="sourceCode"><table class="sourceCode haskell numberLines"><tr class="sourceCode"><td class="lineNumbers"><pre>1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+</pre></td><td class="sourceCode"><pre><code class="sourceCode haskell"><span class="kw">module</span> <span class="dt">Main</span> <span class="kw">where</span>
+
+<span class="kw">import </span><span class="dt">Control.Concurrent</span> (forkIO)
+<span class="kw">import </span><span class="dt">Control.Monad</span> (void, liftM)
+<span class="kw">import </span><span class="dt">Data.IORef</span> (newIORef, readIORef, atomicModifyIORef')
+
+<span class="co">-- liftM :: Monad m =&gt; (a -&gt; b) -&gt; m a -&gt; m b</span>
+
+<span class="kw">data</span> <span class="dt">State</span>
+  <span class="fu">=</span> <span class="dt">MkState</span>
+  {<span class="ot"> stContainer ::</span> <span class="dt">String</span>
+  }
+
+<span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> <span class="kw">do</span>
+  st <span class="ot">&lt;-</span> newIORef <span class="fu">$</span> <span class="dt">MkState</span> <span class="st">&quot;&quot;</span>
+  void <span class="fu">$</span> forkIO <span class="fu">$</span> atomicModifyIORef' st (updateContainer <span class="ch">'A'</span>)
+  void <span class="fu">$</span> forkIO <span class="fu">$</span> atomicModifyIORef' st (updateContainer <span class="ch">'B'</span>)
+  void <span class="fu">$</span> forkIO <span class="fu">$</span> atomicModifyIORef' st (updateContainer <span class="ch">'C'</span>)
+  <span class="co">-- count &lt;- readIORef st &gt;&gt;= return . stContainer</span>
+  container <span class="ot">&lt;-</span> liftM stContainer <span class="fu">$</span> readIORef st
+  print container
+  <span class="kw">where</span>
+<span class="ot">    updateContainer ::</span> <span class="dt">Char</span> <span class="ot">-&gt;</span> <span class="dt">State</span> <span class="ot">-&gt;</span> (<span class="dt">State</span>, ())
+    updateContainer ch st <span class="fu">=</span> <span class="kw">do</span>
+      <span class="kw">let</span> container <span class="fu">=</span> stContainer st
+      (<span class="dt">MkState</span> <span class="fu">$</span> container <span class="fu">++</span> [ch], ())</code></pre></td></tr></table></div>
+<p>Let’s get possible confusions out of our way. <code class="sourceCode haskell">liftM</code> function in case you are not familiar with it - code on line <code class="sourceCode haskell"><span class="dv">21</span></code> is functionally equivalent to the commented code on line <code class="sourceCode haskell"><span class="dv">20</span></code>.</p>
+<p>In the next post, we will look into intermediate level <strong>blocking</strong> synchronization mechanism, <code class="sourceCode haskell"><span class="dt">MVar</span></code>.</p>
+<h2 id="references">References</h2>
+<ol type="1">
+<li><a href="http://community.haskell.org/~simonmar/papers/concurrent-data.pdf">“Comparing the performance of concurrent lined-list implementations in Haskell”</a> by Martin Sulzmann, Edmund S.L. Lam and Simon Marlow</li>
+</ol>
+<h2 id="common-concurrency-abstractions-in-haskell-series">“Common Concurrency Abstractions in Haskell” Series</h2>
+<ul>
+<li><strong>Mutable reference in <code class="sourceCode haskell"><span class="dt">IO</span></code> monad, <code class="sourceCode haskell"><span class="dt">IORef</span></code></strong></li>
+<li><a href="2015-07-31-common-concurrency-abstractions-MVar-part-2.html">Synchronized mutable variable, <code class="sourceCode haskell"><span class="dt">MVar</span></code></a></li>
+<li>Unbounded channel, <code class="sourceCode haskell"><span class="dt">Chan</span></code></li>
+<li>Simple quantity semaphore, <code class="sourceCode haskell"><span class="dt">QSem</span></code></li>
+<li>Parameterized quantity semaphore, <code class="sourceCode haskell"><span class="dt">QSemN</span></code></li>
+<li>Sample variable, <code class="sourceCode haskell"><span class="dt">SampleVar</span></code></li>
+<li>Software Transactional Memory, <code class="sourceCode haskell"><span class="dt">STM</span></code></li>
+<li>Actor-based Model</li>
+</ul>
+
+<!-- DISCUSS -->
+<div id="disqus_thread"></div>
+<script type="text/javascript">
+    /* * * CONFIGURATION VARIABLES: EDIT BEFORE PASTING INTO YOUR WEBPAGE * * */
+    var disqus_shortname = 'kuznero'; // required: replace example with your forum shortname
+
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<!-- END-DISCUSS -->
+
+      </div>
+      <div id="footer">
+        <div style="float: left;">
+          <a href="http://www.haskellers.com/user/2888">
+            <img src="http://www.kuznero.com/images/haskeller-badge.png" alt="I'm a Haskeller" style="vertical-align: middle;">
+          </a>
+          <a href="http://www.kuznero.com/rss.xml">
+            <img src="http://www.kuznero.com/images/rss.png" style="vertical-align: middle;">
+          </a>
+        </div>
+        Site proudly generated by
+        <a href="http://jaspervdj.be/hakyll">Hakyll</a>
+      </div>
+    </div>
+  </body>
+  <!-- <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script> -->
+  <script src="http://www.kuznero.com/scripts/MathJax.js"></script>
+  <script src="http://www.kuznero.com/scripts/extensions/MathMenu.js"></script>
+  <script src="http://www.kuznero.com/scripts/extensions/MathZoom.js"></script>
+  <script src="http://www.kuznero.com/scripts/jquery.min.js"></script>
+  <script src="http://www.kuznero.com/scripts/typeahead.bundle.min.js"></script>
+  <script src="http://www.kuznero.com/scripts/handlebars.js"></script>
+  <script src="http://www.kuznero.com/scripts/babyloncandle.js"></script>
+
+<!-- Mirrored from www.kuznero.com/posts/haskell/2015-02-15-common-concurrency-abstractions-IORef-part-1.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 14:44:39 GMT -->
+</html>

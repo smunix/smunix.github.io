@@ -1,0 +1,595 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+  
+<!-- Mirrored from www.kuznero.com/posts/haskell/2015-07-31-common-concurrency-abstractions-MVar-part-2.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 14:43:37 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width">
+    <title>Kuznero Blog - Common Concurrency Abstractions in Haskell, MVar</title>
+    <link rel="stylesheet" type="text/css" href="http://www.kuznero.com/css/default.css" />
+    <link rel="stylesheet" type="text/css" href="http://www.kuznero.com/css/syntax.css" />
+  </head>
+  <body background="http://www.kuznero.com/images/background.png">
+    <div id="container">
+      <div style="height: 20px;"></div>
+      <div id="header">
+        <table id="header">
+          <tr>
+            <td id="autowidth">
+              <div id="logo">
+                <a href="http://www.kuznero.com/">Kuznero Blog</a>
+              </div>
+            </td>
+            <td id="fullwidth">
+              <div id="remote">
+                <input class="typeahead" type="text" autofocus="autofocus" placeholder="Search posts ...">
+              </div>
+            </td>
+            <td id="autowidth">
+              <div id="navigation">
+                <a href="http://www.kuznero.com/archive.html">Archive</a>
+                <a href="http://www.kuznero.com/tags.html">Tags</a>
+                <!--<a href="/slides/index.html">Slides</a>-->
+                <a href="http://www.kuznero.com/cv.html">CV</a>
+                <a href="http://www.kuznero.com/projects.html">Projects</a>
+                <a href="http://www.kuznero.com/about.html">About</a>
+              </div>
+            </td>
+          </tr>
+        </table>
+      </div>
+      <div id="content">
+        <h1>Common Concurrency Abstractions in Haskell, MVar</h1>
+        <div class="info">
+  Posted
+  
+    in category <b>haskell</b>
+  
+  on <code class="date">2015-07-31</code>
+  
+</div>
+<div class="info">
+  
+    Tags: <a href="http://www.kuznero.com/tags/haskell.html">haskell</a>, <a href="http://www.kuznero.com/tags/concurrency.html">concurrency</a>
+  
+</div>
+
+<h2 class="nocount">Table of Contents</h2><div id="toc"><ul>
+<li><a href="#synchronized-mutable-variable-mvar">Synchronized mutable variable, <code class="sourceCode haskell"><span class="dt">MVar</span></code></a><ul>
+<li><a href="#typical-cross-thread-communication-scenarios-with-using-mvar">Typical cross-thread communication scenarios with using <code class="sourceCode haskell"><span class="dt">MVar</span></code></a><ul>
+<li><a href="#round-robin-request-handling">Round-robin request handling</a></li>
+<li><a href="#fan-in-request-handling">Fan-in request handling</a></li>
+<li><a href="#ensuring-boundaries-of-data-shared-state-container">Ensuring boundaries of data (shared state container)</a></li>
+<li><a href="#ensuring-boundaries-of-a-complex-critical-section">Ensuring boundaries of a complex critical section</a></li>
+</ul></li>
+<li><a href="#pitfalls-of-using-low-level-concurrency-abstractions">Pitfalls of using low-level concurrency abstractions</a><ul>
+<li><a href="#deadlocks">Deadlocks</a></li>
+<li><a href="#resource-management">Resource management</a></li>
+</ul></li>
+</ul></li>
+<li><a href="#references">References</a></li>
+<li><a href="#common-concurrency-abstractions-in-haskell-series">“Common Concurrency Abstractions in Haskell” Series</a></li>
+</ul></div>
+<p>Haskell has many concurrency abstractions built into the base library as well as lots more in the form of libraries. This series of blog posts continueus with synchronized mutable variable, <code class="sourceCode haskell"><span class="dt">MVar</span></code>.</p>
+<h2 id="synchronized-mutable-variable-mvar">Synchronized mutable variable, <code class="sourceCode haskell"><span class="dt">MVar</span></code></h2>
+<p>Official <code class="sourceCode haskell"><span class="dt">Control.Concurrent.MVar</span></code> module documentation can be found <a href="https://downloads.haskell.org/~ghc/7.4.2/docs/html/libraries/base/Control-Concurrent-MVar.html">here</a>.</p>
+<p><code class="sourceCode haskell"><span class="dt">MVar</span></code> is intermediate level <strong>blocking</strong> sycnhronization mechanism that allows threads to communicate with each other. Concept of synchronizing variable is similar to a box for just one single element - it is either full or empty. Therefore, logic for <code class="sourceCode haskell"><span class="dt">MVar</span></code> variable is very simple:</p>
+<ul>
+<li>It is only possible to put value into <code class="sourceCode haskell"><span class="dt">MVar</span></code> box when it <em>is empty</em></li>
+<li>It is only possible to get value from <code class="sourceCode haskell"><span class="dt">MVar</span></code> box when it is <em>not empty</em></li>
+</ul>
+<p><code class="sourceCode haskell"><span class="dt">MVar</span></code> implementation is <em>fair</em> in such a way that it blocks threads in a FIFO queue which provides some guarantees that as long as values are repeatedly replaced in a variable, all threads are gettings eventually unblocked.</p>
+<p>Overhead in using <code class="sourceCode haskell"><span class="dt">MVar</span></code> is typically higher than with <code class="sourceCode haskell"><span class="dt">IORef</span></code>. Most obvious reason is that <code class="sourceCode haskell"><span class="dt">IORef</span></code> is non-blocking mechanism that utilizes <a href="http://en.wikipedia.org/wiki/Compare-and-swap">compare-and-swap</a> low level atomic processor instruction, whether <code class="sourceCode haskell"><span class="dt">MVar</span></code> is a blocking mechanism that only lets single executing thread inside critical section at a time. Another reason is that <code class="sourceCode haskell"><span class="dt">MVar</span></code> allows to implement any logic inside a critical section that <strong>may</strong> contain side effects. This possess another risk – locking your little transaction for too long which is not desirable in most cases.</p>
+<p><code class="sourceCode haskell"><span class="dt">MVar</span></code> is used with the following set of key functions:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- | Creates a new variable holding a value.</span>
+<span class="ot">newMVar ::</span> a <span class="ot">-&gt;</span> <span class="dt">IO</span> (<span class="dt">MVar</span> a)
+
+<span class="co">-- | Creates a new variable holding no value.</span>
+<span class="ot">newEmptyMVar ::</span> <span class="dt">IO</span> (<span class="dt">MVar</span> a)
+
+<span class="co">-- | Gets value out of variable. Blocks if variable is yet empty.</span>
+<span class="ot">takeMVar ::</span> <span class="dt">MVar</span> a <span class="ot">-&gt;</span> <span class="dt">IO</span> a
+
+<span class="co">-- | Puts value into a variable. Blocks if variable is yet full.</span>
+<span class="ot">putMVar ::</span> a <span class="ot">-&gt;</span> <span class="dt">MVar</span> a <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
+
+<span class="co">-- | Atomically reads value from a variable. Blocks if variable is yet empty.</span>
+<span class="ot">readMVar ::</span> <span class="dt">MVar</span> a <span class="ot">-&gt;</span> <span class="dt">IO</span> a
+
+<span class="co">-- | Non-blocking version of readMVar.</span>
+<span class="ot">tryReadMVar ::</span> <span class="dt">MVar</span> a <span class="ot">-&gt;</span> <span class="dt">IO</span> (<span class="dt">Maybe</span> a)
+
+<span class="co">-- | Exception-safe way to modify the value of a variable.</span>
+<span class="co">-- This is a safe combination of takeMVar and putMVar.</span>
+<span class="ot">modifyMVar ::</span> <span class="dt">MVar</span> a <span class="ot">-&gt;</span> (a <span class="ot">-&gt;</span> <span class="dt">IO</span> (a, b)) <span class="ot">-&gt;</span> <span class="dt">IO</span> b
+
+<span class="co">-- | Exception-safe way to execute critical section on a value.</span>
+<span class="ot">withMVar ::</span> <span class="dt">MVar</span> a <span class="ot">-&gt;</span> (a <span class="ot">-&gt;</span> <span class="dt">IO</span> b) <span class="ot">-&gt;</span> <span class="dt">IO</span> b</code></pre></div>
+<p>Last two exception-safe versions of functions make sure that in case of any exception in a critical section, <code class="sourceCode haskell">putMVar</code> is always called making sure that lock is released and other threads waiting for it will not stall.</p>
+<h3 id="typical-cross-thread-communication-scenarios-with-using-mvar">Typical cross-thread communication scenarios with using <code class="sourceCode haskell"><span class="dt">MVar</span></code></h3>
+<p><code class="sourceCode haskell"><span class="dt">MVar</span></code> can be used in many different way. Here are some typical cross-thread communication scenarios:</p>
+<h4 id="round-robin-request-handling">Round-robin request handling</h4>
+<p><code class="sourceCode haskell"><span class="dt">MVar</span></code> can be used for handling requests in a round-robin fashion - next request is handled by first vacant handler. Please consider following example:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">module</span> <span class="dt">Main</span> <span class="kw">where</span>
+
+<span class="kw">import </span><span class="dt">Control.Concurrent</span>
+<span class="kw">import </span><span class="dt">Control.Monad</span>
+
+<span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> <span class="kw">do</span>
+  x <span class="ot">&lt;- newEmptyMVar ::</span> <span class="dt">IO</span> (<span class="dt">MVar</span> <span class="dt">Int</span>)
+  void <span class="fu">$</span> forkIO <span class="fu">$</span> forever <span class="fu">$</span> <span class="kw">do</span> <span class="co">-- request handler #1</span>
+    val <span class="ot">&lt;-</span> takeMVar x <span class="co">-- blocks until value is received</span>
+    putStrLn <span class="fu">$</span> <span class="st">&quot;Received value (Thread #1): &quot;</span> <span class="fu">++</span> show val
+  void <span class="fu">$</span> forkIO <span class="fu">$</span> forever <span class="fu">$</span> <span class="kw">do</span> <span class="co">-- request handler #2</span>
+    val <span class="ot">&lt;-</span> takeMVar x <span class="co">-- blocks until value is received</span>
+    putStrLn <span class="fu">$</span> <span class="st">&quot;Received value (Thread #2): &quot;</span> <span class="fu">++</span> show val
+  mapM_ (putMVar x) [<span class="dv">0</span><span class="fu">..</span><span class="dv">9</span>]
+  threadDelay <span class="dv">100000</span></code></pre></div>
+<p>Notice that <code class="sourceCode haskell">threadDelay <span class="dv">100000</span></code> is used after setting all values? It is there to ensure that forked thread will have a chance to complete its job before whole application will be stopped, since Haskell runtime will terminate all background threads upon the exit of the main thread including threads that have still something to do.</p>
+<p>This program will produce following trace:</p>
+<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash"><span class="co"># Received value (Thread #1): 0</span>
+<span class="co"># Received value (Thread #2): 1</span>
+<span class="co"># Received value (Thread #1): 2</span>
+<span class="co"># Received value (Thread #2): 3</span>
+<span class="co"># Received value (Thread #1): 4</span>
+<span class="co"># Received value (Thread #2): 5</span>
+<span class="co"># Received value (Thread #1): 6</span>
+<span class="co"># Received value (Thread #2): 7</span>
+<span class="co"># Received value (Thread #1): 8</span>
+<span class="co"># Received value (Thread #2): 9</span></code></pre></div>
+<p>As you can see each other request is handled by next vacant handler making them alternating.</p>
+<h4 id="fan-in-request-handling">Fan-in request handling</h4>
+<p><code class="sourceCode haskell"><span class="dt">MVar</span></code> can easily be used for creating simple one-way channels when logging thread(s) put something in <code class="sourceCode haskell"><span class="dt">MVar</span></code> while one other persisting thread receives it on the other side and then persists it in one way or another. A very straight forward example for such communication could be simple logger which exposes <code class="sourceCode haskell"><span class="dt">MVar</span></code> while other threads write into it.</p>
+<p>Consider following example:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">module</span> <span class="dt">Main</span> <span class="kw">where</span>
+
+<span class="kw">import </span><span class="dt">Control.Concurrent</span>
+<span class="kw">import </span><span class="dt">Control.Monad</span>
+
+<span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> <span class="kw">do</span>
+  x <span class="ot">&lt;-</span> startLogger
+  logInfo x <span class="st">&quot;Application started&quot;</span>
+  logInfo x <span class="st">&quot;Application is doing something useful&quot;</span>
+  void <span class="fu">$</span> forkIO <span class="fu">$</span> <span class="kw">do</span> <span class="co">-- start processor #1</span>
+    logInfo x <span class="st">&quot;Processor #1: starting&quot;</span>
+    logInfo x <span class="st">&quot;Processor #1: doing something interesting&quot;</span>
+    logInfo x <span class="st">&quot;Processor #1: stopping&quot;</span>
+  void <span class="fu">$</span> forkIO <span class="fu">$</span> <span class="kw">do</span> <span class="co">-- start processor #2</span>
+    logInfo x <span class="st">&quot;Processor #2: starting&quot;</span>
+    logInfo x <span class="st">&quot;Processor #2: doing something interesting&quot;</span>
+    logInfo x <span class="st">&quot;Processor #2: stopping&quot;</span>
+  threadDelay <span class="dv">100000</span>
+  logInfo x <span class="st">&quot;Application stopped&quot;</span>
+
+<span class="ot">startLogger ::</span> <span class="dt">IO</span> (<span class="dt">MVar</span> <span class="dt">String</span>)
+startLogger <span class="fu">=</span> <span class="kw">do</span>
+  x <span class="ot">&lt;-</span> newEmptyMVar
+  void <span class="fu">$</span> forkIO <span class="fu">$</span> forever <span class="fu">$</span> <span class="kw">do</span> <span class="co">-- start logger service</span>
+    line <span class="ot">&lt;-</span> takeMVar x
+    putStrLn line
+  return x
+
+<span class="ot">logInfo ::</span> <span class="dt">MVar</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
+logInfo <span class="fu">=</span> putMVar</code></pre></div>
+<p>This program emits following trace:</p>
+<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash"><span class="co"># Application started</span>
+<span class="co"># Application is doing something useful</span>
+<span class="co"># Processor #1: starting</span>
+<span class="co"># Processor #2: starting</span>
+<span class="co"># Processor #1: doing something interesting</span>
+<span class="co"># Processor #2: doing something interesting</span>
+<span class="co"># Processor #1: stopping</span>
+<span class="co"># Processor #2: stopping</span>
+<span class="co"># Application stopped</span></code></pre></div>
+<p>Log entries are mixed from different threads as they keep doing something.</p>
+<h4 id="ensuring-boundaries-of-data-shared-state-container">Ensuring boundaries of data (shared state container)</h4>
+<p><code class="sourceCode haskell"><span class="dt">MVar</span></code> ensures boundaries/consistency of enclosed data. Consider following example where there is a bank account with certain amount of money on it, and how multiple threads are all trying to withraw some money from it:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">module</span> <span class="dt">Main</span> <span class="kw">where</span>
+
+<span class="kw">import </span><span class="dt">Control.Concurrent</span>
+<span class="kw">import </span><span class="dt">Control.Monad</span>
+
+<span class="kw">type</span> <span class="dt">Amount</span> <span class="fu">=</span> <span class="dt">Int</span>
+<span class="kw">type</span> <span class="dt">Account</span> <span class="fu">=</span> <span class="dt">MVar</span> <span class="dt">Amount</span>
+
+<span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> <span class="kw">do</span>
+  account <span class="ot">&lt;-</span> newAccount <span class="dv">42</span>
+  void <span class="fu">$</span> forkIO <span class="fu">$</span> void <span class="fu">$</span> withdraw account <span class="dv">22</span>
+  void <span class="fu">$</span> forkIO <span class="fu">$</span> void <span class="fu">$</span> withdraw account <span class="dv">22</span>
+  void <span class="fu">$</span> forkIO <span class="fu">$</span> void <span class="fu">$</span> withdraw account <span class="dv">21</span>
+  void <span class="fu">$</span> forkIO <span class="fu">$</span> void <span class="fu">$</span> withdraw account <span class="dv">20</span>
+  threadDelay <span class="dv">100000</span>
+
+<span class="ot">newAccount ::</span> <span class="dt">Amount</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">Account</span>
+newAccount <span class="fu">=</span> newMVar
+
+<span class="ot">withdraw ::</span> <span class="dt">Account</span> <span class="ot">-&gt;</span> <span class="dt">Amount</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">Bool</span>
+withdraw account amount <span class="fu">=</span> modifyMVar account <span class="fu">$</span> \ currentAmount <span class="ot">-&gt;</span> <span class="kw">do</span>
+  <span class="kw">if</span> currentAmount <span class="fu">&lt;</span> amount
+    <span class="kw">then</span> <span class="kw">do</span>
+      putStrLn <span class="fu">$</span> show currentAmount <span class="fu">++</span> <span class="st">&quot;-&quot;</span> <span class="fu">++</span> show amount <span class="fu">++</span> <span class="st">&quot; = not enough money&quot;</span>
+      return (currentAmount, <span class="dt">False</span>)
+    <span class="kw">else</span> <span class="kw">do</span>
+      <span class="kw">let</span> netAmount <span class="fu">=</span> currentAmount <span class="fu">-</span> amount
+      putStrLn <span class="fu">$</span> show currentAmount <span class="fu">++</span> <span class="st">&quot;-&quot;</span> <span class="fu">++</span> show amount <span class="fu">++</span> <span class="st">&quot; = &quot;</span> <span class="fu">++</span> show netAmount <span class="fu">++</span> <span class="st">&quot; left&quot;</span>
+      return (netAmount, <span class="dt">True</span>)</code></pre></div>
+<p>This is what the program emits:</p>
+<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash"><span class="co"># 42-22 = 20 left</span>
+<span class="co"># 20-22 = not enough money</span>
+<span class="co"># 20-21 = not enough money</span>
+<span class="co"># 20-20 = 0 left</span></code></pre></div>
+<p>As you can see consistency of a bank account is ensured.</p>
+<h4 id="ensuring-boundaries-of-a-complex-critical-section">Ensuring boundaries of a complex critical section</h4>
+<p>It is rather typical to use <code class="sourceCode haskell"><span class="dt">MVar</span></code> as a lock around critical sections in the code. Taking a value from <code class="sourceCode haskell"><span class="dt">MVar</span></code> variable typically means acquiring the lock (starting a critical section) and putting changed value back into <code class="sourceCode haskell"><span class="dt">MVar</span></code> variable means releasing the lock (concluding a critical section) subsequently allowing next signle thread in the queue to acquire the lock.</p>
+<p>Now let’s take previous example and introduce another bank account. Our goal is to ensure consistency across all bank accounts this time.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">module</span> <span class="dt">Main</span> <span class="kw">where</span>
+
+<span class="kw">import </span><span class="dt">Control.Concurrent</span>
+<span class="kw">import </span><span class="dt">Control.Monad</span>
+
+<span class="kw">type</span> <span class="dt">Amount</span> <span class="fu">=</span> <span class="dt">Int</span>
+<span class="kw">data</span> <span class="dt">Account</span> <span class="fu">=</span> <span class="dt">Account</span> <span class="dt">String</span> (<span class="dt">MVar</span> <span class="dt">Amount</span>)
+
+<span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> <span class="kw">do</span>
+  lock <span class="ot">&lt;- newEmptyMVar ::</span> <span class="dt">IO</span> (<span class="dt">MVar</span> ())
+  account1 <span class="ot">&lt;-</span> newAccount <span class="st">&quot;account #1&quot;</span> <span class="dv">42</span>
+  account2 <span class="ot">&lt;-</span> newAccount <span class="st">&quot;account #2&quot;</span> <span class="dv">48</span>
+  void <span class="fu">$</span> forkIO <span class="fu">$</span> <span class="kw">do</span>
+    takeMVar lock <span class="fu">&gt;&gt;</span> putStrLn <span class="st">&quot;[transaction #1] - starting&quot;</span>
+    void <span class="fu">$</span> withdraw account1 <span class="dv">22</span>
+    void <span class="fu">$</span> withdraw account2 <span class="dv">22</span>
+    putStrLn <span class="st">&quot;[transaction #1] - done&quot;</span> <span class="fu">&gt;&gt;</span> putMVar lock ()
+  void <span class="fu">$</span> forkIO <span class="fu">$</span> <span class="kw">do</span>
+    takeMVar lock <span class="fu">&gt;&gt;</span> putStrLn <span class="st">&quot;[transaction #2] - starting&quot;</span>
+    void <span class="fu">$</span> withdraw account1 <span class="dv">22</span>
+    void <span class="fu">$</span> withdraw account2 <span class="dv">22</span>
+    putStrLn <span class="st">&quot;[transaction #2] - done&quot;</span> <span class="fu">&gt;&gt;</span> putMVar lock ()
+  putMVar lock () <span class="co">-- fire off all transactions</span>
+  threadDelay <span class="dv">100000</span>
+
+<span class="ot">newAccount ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Amount</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">Account</span>
+newAccount name amount <span class="fu">=</span> <span class="kw">do</span>
+  account <span class="ot">&lt;-</span> newMVar amount
+  return <span class="fu">$</span> <span class="dt">Account</span> name account
+
+<span class="ot">withdraw ::</span> <span class="dt">Account</span> <span class="ot">-&gt;</span> <span class="dt">Amount</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">Bool</span>
+withdraw (<span class="dt">Account</span> name account) amount <span class="fu">=</span> modifyMVar account <span class="fu">$</span> \ currentAmount <span class="ot">-&gt;</span> <span class="kw">do</span>
+  <span class="kw">if</span> currentAmount <span class="fu">&lt;</span> amount
+    <span class="kw">then</span> <span class="kw">do</span>
+      log name <span class="fu">$</span> show currentAmount <span class="fu">++</span> <span class="st">&quot;-&quot;</span> <span class="fu">++</span> show amount <span class="fu">++</span> <span class="st">&quot; = not enough money&quot;</span>
+      return (currentAmount, <span class="dt">False</span>)
+    <span class="kw">else</span> <span class="kw">do</span>
+      <span class="kw">let</span> netAmount <span class="fu">=</span> currentAmount <span class="fu">-</span> amount
+      log name <span class="fu">$</span> show currentAmount <span class="fu">++</span> <span class="st">&quot;-&quot;</span> <span class="fu">++</span> show amount <span class="fu">++</span> <span class="st">&quot; = &quot;</span> <span class="fu">++</span> show netAmount <span class="fu">++</span> <span class="st">&quot; left&quot;</span>
+      return (netAmount, <span class="dt">True</span>)
+  <span class="kw">where</span>
+<span class="ot">    log ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
+    log accountName line <span class="fu">=</span> putStrLn <span class="fu">$</span> accountName <span class="fu">++</span> <span class="st">&quot; :: &quot;</span> <span class="fu">++</span> line</code></pre></div>
+<p>This program emits following trace:</p>
+<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash"><span class="co"># [transaction #1] - starting</span>
+<span class="co"># account #1 :: 42-22 = 20 left</span>
+<span class="co"># account #2 :: 48-22 = 26 left</span>
+<span class="co"># [transaction #1] - done</span>
+<span class="co"># [transaction #2] - starting</span>
+<span class="co"># account #1 :: 20-22 = not enough money</span>
+<span class="co"># account #2 :: 26-22 = 4 left</span>
+<span class="co"># [transaction #2] - done</span></code></pre></div>
+<p>Notice, how different transactions are not overlapping each other ensuring consistency throughout multiple <code class="sourceCode haskell"><span class="dt">MVar</span></code> instance and not only within individual <code class="sourceCode haskell"><span class="dt">MVar</span></code> instances.</p>
+<h3 id="pitfalls-of-using-low-level-concurrency-abstractions">Pitfalls of using low-level concurrency abstractions</h3>
+<p>When choosing <code class="sourceCode haskell"><span class="dt">MVar</span></code>, it is necessary to be mindful about certain pitfalls it is easily possible to get into.</p>
+<h4 id="deadlocks">Deadlocks</h4>
+<blockquote>
+<p><code>Deadlock</code> is a situation in which several actions are waiting for each other to finish, and thus neither ever does.</p>
+</blockquote>
+<p>In general any blocking concurrency abstraction that has separate operations for acquiring and releasing locks is susceptible to deadlocks. This is exactly what we have with <code class="sourceCode haskell"><span class="dt">MVar</span></code> - <code class="sourceCode haskell">takeMVar</code> for acquiring a lock and <code class="sourceCode haskell">putMVar</code> for release it.</p>
+<p>Consider the following example with two <code class="sourceCode haskell"><span class="dt">MVar</span></code> variables and two different threads waiting until another one finishes:</p>
+<div class="sourceCode"><table class="sourceCode haskell numberLines"><tr class="sourceCode"><td class="lineNumbers"><pre>1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+</pre></td><td class="sourceCode"><pre><code class="sourceCode haskell"><span class="kw">module</span> <span class="dt">Main</span> <span class="kw">where</span>
+
+<span class="kw">import </span><span class="dt">Control.Concurrent</span>
+<span class="kw">import </span><span class="dt">Control.Monad</span>
+
+<span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> <span class="kw">do</span>
+  a <span class="ot">&lt;-</span> newMVar ()
+  b <span class="ot">&lt;-</span> newMVar ()
+  void <span class="fu">$</span> forkIO <span class="fu">$</span> <span class="kw">do</span> <span class="co">-- start thread #1</span>
+    void <span class="fu">$</span> takeMVar a
+    putStrLn <span class="st">&quot;Thread #1: started&quot;</span>
+    threadDelay <span class="dv">100000</span>
+    void <span class="fu">$</span> takeMVar b <span class="fu">&gt;&gt;</span> putMVar b () <span class="co">-- waiting for Thread #2 to complete</span>
+    void <span class="fu">$</span> putMVar a ()
+    putStrLn <span class="st">&quot;Thread #1: completed&quot;</span>
+  void <span class="fu">$</span> forkIO <span class="fu">$</span> <span class="kw">do</span> <span class="co">-- start thread #2</span>
+    void <span class="fu">$</span> takeMVar b
+    putStrLn <span class="st">&quot;Thread #2: started&quot;</span>
+    threadDelay <span class="dv">100000</span>
+    void <span class="fu">$</span> takeMVar a <span class="fu">&gt;&gt;</span> putMVar a () <span class="co">-- waiting for Thread #1 to complete</span>
+    void <span class="fu">$</span> putMVar b ()
+    putStrLn <span class="st">&quot;Thread #2: completed&quot;</span>
+  threadDelay <span class="dv">1000000</span> <span class="co">-- wait a bit</span>
+  result <span class="ot">&lt;-</span> tryReadMVar a <span class="fu">&gt;&gt;</span> tryReadMVar b
+  <span class="kw">case</span> result <span class="kw">of</span>
+    <span class="dt">Just</span> _ <span class="ot">-&gt;</span> putStrLn <span class="st">&quot;Ok&quot;</span>
+    <span class="dt">Nothing</span> <span class="ot">-&gt;</span> putStrLn <span class="st">&quot;Deadlocked!&quot;</span></code></pre></td></tr></table></div>
+<p>Here is the log of execution of the above program:</p>
+<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash"><span class="co"># Thread #1: started</span>
+<span class="co"># Thread #2: started</span>
+<span class="co"># Deadlocked!</span></code></pre></div>
+<p>Just to prove that the program works fine without waiting for another action to finish, comment out lines <code class="sourceCode haskell"><span class="dv">14</span></code> and <code class="sourceCode haskell"><span class="dv">21</span></code>. The program looks like following now:</p>
+<div class="sourceCode"><table class="sourceCode haskell numberLines"><tr class="sourceCode"><td class="lineNumbers"><pre>1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+</pre></td><td class="sourceCode"><pre><code class="sourceCode haskell"><span class="kw">module</span> <span class="dt">Main</span> <span class="kw">where</span>
+
+<span class="kw">import </span><span class="dt">Control.Concurrent</span>
+<span class="kw">import </span><span class="dt">Control.Monad</span>
+
+<span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> <span class="kw">do</span>
+  a <span class="ot">&lt;-</span> newMVar ()
+  b <span class="ot">&lt;-</span> newMVar ()
+  void <span class="fu">$</span> forkIO <span class="fu">$</span> <span class="kw">do</span> <span class="co">-- start thread #1</span>
+    void <span class="fu">$</span> takeMVar a
+    putStrLn <span class="st">&quot;Thread #1: started&quot;</span>
+    threadDelay <span class="dv">100000</span>
+    <span class="co">-- void $ takeMVar b &gt;&gt; putMVar b () -- waiting for Thread #2 to complete</span>
+    void <span class="fu">$</span> putMVar a ()
+    putStrLn <span class="st">&quot;Thread #1: completed&quot;</span>
+  void <span class="fu">$</span> forkIO <span class="fu">$</span> <span class="kw">do</span> <span class="co">-- start thread #2</span>
+    void <span class="fu">$</span> takeMVar b
+    putStrLn <span class="st">&quot;Thread #2: started&quot;</span>
+    threadDelay <span class="dv">100000</span>
+    <span class="co">-- void $ takeMVar a &gt;&gt; putMVar a () -- waiting for Thread #1 to complete</span>
+    void <span class="fu">$</span> putMVar b ()
+    putStrLn <span class="st">&quot;Thread #2: completed&quot;</span>
+  threadDelay <span class="dv">1000000</span> <span class="co">-- wait a bit</span>
+  result <span class="ot">&lt;-</span> tryReadMVar a <span class="fu">&gt;&gt;</span> tryReadMVar b
+  <span class="kw">case</span> result <span class="kw">of</span>
+    <span class="dt">Just</span> _ <span class="ot">-&gt;</span> putStrLn <span class="st">&quot;Ok&quot;</span>
+    <span class="dt">Nothing</span> <span class="ot">-&gt;</span> putStrLn <span class="st">&quot;Deadlocked!&quot;</span></code></pre></td></tr></table></div>
+<p>Then execution log will look way better:</p>
+<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash"><span class="co"># Thread #1: started</span>
+<span class="co"># Thread #2: started</span>
+<span class="co"># Thread #2: completed</span>
+<span class="co"># Thread #1: completed</span>
+<span class="co"># Ok</span></code></pre></div>
+<p>This was probably simplest deadlock scenario with using <code class="sourceCode haskell"><span class="dt">MVar</span></code>. There are many more other ways to deadlock your pragrams most of which are not as easy to resolve as in the above example, so be careful.</p>
+<h4 id="resource-management">Resource management</h4>
+<p>Due to the fact that acquiring and releasing a lock are two distinct operations might lead to another kind of problem – reliable resource management. Consider the following program:</p>
+<div class="sourceCode"><table class="sourceCode haskell numberLines"><tr class="sourceCode"><td class="lineNumbers"><pre>1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+</pre></td><td class="sourceCode"><pre><code class="sourceCode haskell"><span class="kw">module</span> <span class="dt">Main</span> <span class="kw">where</span>
+
+<span class="kw">import </span><span class="dt">Control.Concurrent</span>
+<span class="kw">import </span><span class="dt">Control.Monad</span>
+
+<span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> <span class="kw">do</span>
+  a <span class="ot">&lt;-</span> newMVar ()
+  <span class="co">-- start thread #1</span>
+  void <span class="fu">$</span> forkIO <span class="fu">$</span> <span class="kw">do</span>
+    void <span class="fu">$</span> takeMVar a
+    putStrLn <span class="st">&quot;Thread #1: started&quot;</span>
+    void <span class="fu">$</span> fail <span class="st">&quot;Unexpected reason ...&quot;</span> <span class="co">-- &lt;-- unexpected failure</span>
+    void <span class="fu">$</span> putMVar a ()                 <span class="co">-- &lt;-- release the lock (never happens)</span>
+    putStrLn <span class="st">&quot;Thread #1: completed&quot;</span>
+  threadDelay <span class="dv">500000</span>
+  <span class="co">-- start thread #2</span>
+  void <span class="fu">$</span> forkIO <span class="fu">$</span> <span class="kw">do</span>
+    void <span class="fu">$</span> takeMVar a                   <span class="co">-- &lt;-- waits for Thread #1</span>
+    putStrLn <span class="st">&quot;Thread #2: started&quot;</span>
+    <span class="co">-- doing something useful</span>
+    void <span class="fu">$</span> putMVar a ()
+    putStrLn <span class="st">&quot;Thread #2: completed&quot;</span>
+  <span class="co">-- wait a bit</span>
+  threadDelay <span class="dv">1000000</span>
+  result <span class="ot">&lt;-</span> tryReadMVar a
+  <span class="kw">case</span> result <span class="kw">of</span>
+    <span class="dt">Just</span> _ <span class="ot">-&gt;</span> putStrLn <span class="st">&quot;Ok&quot;</span>
+    <span class="dt">Nothing</span> <span class="ot">-&gt;</span> putStrLn <span class="st">&quot;Deadlocked!&quot;</span></code></pre></td></tr></table></div>
+<p>Between <code class="sourceCode haskell"><span class="dv">12</span><span class="fu">~</span><span class="dv">13</span></code> lines is the critical section for <code>Thread #1</code> which in this case fails. This leads to the situation when the lock is never released (line <code class="sourceCode haskell"><span class="dv">14</span></code>). As a result no other thread can acquire it again – somewhat a deadlock.</p>
+<p>In order to avoid these kinds of errors one could either fallback to using exception-safe functions like <code class="sourceCode haskell">withMVar</code> or implement try-finally pattern manually. Here is how <code class="sourceCode haskell">withMVar</code> function is implemented in the base package:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">withMVar ::</span> <span class="dt">MVar</span> a <span class="ot">-&gt;</span> (a <span class="ot">-&gt;</span> <span class="dt">IO</span> b) <span class="ot">-&gt;</span> <span class="dt">IO</span> b
+withMVar m io <span class="fu">=</span>
+  mask <span class="fu">$</span> \restore <span class="ot">-&gt;</span> <span class="kw">do</span>
+    a <span class="ot">&lt;-</span> takeMVar m
+    b <span class="ot">&lt;-</span> restore (io a) <span class="ot">`onException`</span> putMVar m a
+    putMVar m a
+    return b</code></pre></div>
+<p>Aside from all the interesting functions (like <code class="sourceCode haskell">mask</code>, <code class="sourceCode haskell">onException</code>) this code does a very simple thing - it makes sure that in case of any unforeseen error <code class="sourceCode haskell">putMVar</code> will anyway be called, thus a lock will be released in any case. So, let’s see how our previous example would look like with using <code class="sourceCode haskell">withMVar</code> instead of using explicit pair of <code class="sourceCode haskell">takeMVar</code> and <code class="sourceCode haskell">putMVar</code>:</p>
+<div class="sourceCode"><table class="sourceCode haskell numberLines"><tr class="sourceCode"><td class="lineNumbers"><pre>1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+</pre></td><td class="sourceCode"><pre><code class="sourceCode haskell"><span class="kw">module</span> <span class="dt">Main</span> <span class="kw">where</span>
+
+<span class="kw">import </span><span class="dt">Control.Concurrent</span>
+<span class="kw">import </span><span class="dt">Control.Monad</span>
+
+<span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> <span class="kw">do</span>
+  a <span class="ot">&lt;-</span> newMVar ()
+  void <span class="fu">$</span> forkIO <span class="fu">$</span> void <span class="fu">$</span> withMVar a <span class="fu">$</span> \_ <span class="ot">-&gt;</span> <span class="kw">do</span> <span class="co">-- start thread #1</span>
+    putStrLn <span class="st">&quot;Thread #1: started&quot;</span>
+    void <span class="fu">$</span> fail <span class="st">&quot;Unexpected reason ...&quot;</span> <span class="co">-- &lt;-- unexpected failure</span>
+    putStrLn <span class="st">&quot;Thread #1: completed&quot;</span>
+  threadDelay <span class="dv">500000</span>
+  void <span class="fu">$</span> forkIO <span class="fu">$</span> void <span class="fu">$</span> withMVar a <span class="fu">$</span> \_ <span class="ot">-&gt;</span> <span class="kw">do</span> <span class="co">-- start thread #2</span>
+    putStrLn <span class="st">&quot;Thread #2: started&quot;</span>
+    <span class="co">-- doing something useful</span>
+    putStrLn <span class="st">&quot;Thread #2: completed&quot;</span>
+  threadDelay <span class="dv">1000000</span> <span class="co">-- wait a bit</span>
+  result <span class="ot">&lt;-</span> tryReadMVar a
+  <span class="kw">case</span> result <span class="kw">of</span>
+    <span class="dt">Just</span> _ <span class="ot">-&gt;</span> putStrLn <span class="st">&quot;Ok&quot;</span>
+    <span class="dt">Nothing</span> <span class="ot">-&gt;</span> putStrLn <span class="st">&quot;Deadlocked!&quot;</span></code></pre></td></tr></table></div>
+<p>This program will run with the following trace, demonstrating that this time any unforeseen errors are handled correctly with regards to releasing a shared resource (lock in this case):</p>
+<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash"><span class="co"># Thread #1: started</span>
+<span class="co"># Program.hs: user error (Unexpected reason ...)</span>
+<span class="co"># Thread #2: started</span>
+<span class="co"># Thread #2: completed</span>
+<span class="co"># Ok</span></code></pre></div>
+<h2 id="references">References</h2>
+<ol type="1">
+<li><a href="../../../book.realworldhaskell.org/read/concurrent-and-multicore-programming.html">“Concurrent and Multicore Programming”</a> chapter in Real World Haskell Book</li>
+<li><a href="../../../chimera.labs.oreilly.com/books/1230000000929/ch07.html">“Basic Concurrency: Threads and MVars”</a> chapter in the exceptional Simon Marlow’s book, “Parallel and Concurrent Programming in Haskell”</li>
+</ol>
+<h2 id="common-concurrency-abstractions-in-haskell-series">“Common Concurrency Abstractions in Haskell” Series</h2>
+<ul>
+<li><a href="2015-02-15-common-concurrency-abstractions-IORef-part-1.html">Mutable reference in <code class="sourceCode haskell"><span class="dt">IO</span></code> monad, <code class="sourceCode haskell"><span class="dt">IORef</span></code></a></li>
+<li><strong>Synchronized mutable variable, <code class="sourceCode haskell"><span class="dt">MVar</span></code></strong></li>
+<li>Unbounded channel, <code class="sourceCode haskell"><span class="dt">Chan</span></code></li>
+<li>Simple quantity semaphore, <code class="sourceCode haskell"><span class="dt">QSem</span></code></li>
+<li>Parameterized quantity semaphore, <code class="sourceCode haskell"><span class="dt">QSemN</span></code></li>
+<li>Sample variable, <code class="sourceCode haskell"><span class="dt">SampleVar</span></code></li>
+<li>Software Transactional Memory, <code class="sourceCode haskell"><span class="dt">STM</span></code></li>
+<li>Actor-based Model</li>
+</ul>
+
+<!-- DISCUSS -->
+<div id="disqus_thread"></div>
+<script type="text/javascript">
+    /* * * CONFIGURATION VARIABLES: EDIT BEFORE PASTING INTO YOUR WEBPAGE * * */
+    var disqus_shortname = 'kuznero'; // required: replace example with your forum shortname
+
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<!-- END-DISCUSS -->
+
+      </div>
+      <div id="footer">
+        <div style="float: left;">
+          <a href="http://www.haskellers.com/user/2888">
+            <img src="http://www.kuznero.com/images/haskeller-badge.png" alt="I'm a Haskeller" style="vertical-align: middle;">
+          </a>
+          <a href="http://www.kuznero.com/rss.xml">
+            <img src="http://www.kuznero.com/images/rss.png" style="vertical-align: middle;">
+          </a>
+        </div>
+        Site proudly generated by
+        <a href="http://jaspervdj.be/hakyll">Hakyll</a>
+      </div>
+    </div>
+  </body>
+  <!-- <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script> -->
+  <script src="http://www.kuznero.com/scripts/MathJax.js"></script>
+  <script src="http://www.kuznero.com/scripts/extensions/MathMenu.js"></script>
+  <script src="http://www.kuznero.com/scripts/extensions/MathZoom.js"></script>
+  <script src="http://www.kuznero.com/scripts/jquery.min.js"></script>
+  <script src="http://www.kuznero.com/scripts/typeahead.bundle.min.js"></script>
+  <script src="http://www.kuznero.com/scripts/handlebars.js"></script>
+  <script src="http://www.kuznero.com/scripts/babyloncandle.js"></script>
+
+<!-- Mirrored from www.kuznero.com/posts/haskell/2015-07-31-common-concurrency-abstractions-MVar-part-2.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 14:43:37 GMT -->
+</html>

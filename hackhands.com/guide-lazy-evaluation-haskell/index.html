@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html class="no-js" lang="">
+
+<!-- Mirrored from hackhands.com/guide-lazy-evaluation-haskell/ by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 14:44:23 GMT -->
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>The Incomplete Guide to Lazy Evaluation (in Haskell) - HackHands</title>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1" />
+
+    <link rel="apple-touch-icon" href="https://hackhands.com/apple-touch-icon.png">
+    <link rel="icon" href="https://hackhands.com/favicon.ico?v=1.1" type="image/x-icon">
+    <link rel="shortcut icon" href="https://hackhands.com/favicon.ico?v=1.1">
+
+    <meta name="author" content="hackhands.com">
+
+    <link rel="profile" href="http://gmpg.org/xfn/11" />
+    <meta property="og:site_name" content="HackHands" />
+    <meta property="og:image" content="https://hackhands.com/assets/branding/face_cover.png" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:type" content="article" />
+    <meta property="article:section" content="Uncategorized" />
+
+    <link rel='canonical' href='#' />
+    <meta name="description" content="Originally, I wanted to write a complete guide to lazy evaluation, but then.Lazy evaluation is the most widely used method for executing Haskell program code on a computer. It determines the time ..."/>
+
+    <meta property="og:title" content="The Incomplete Guide to Lazy Evaluation (in Haskell)" />
+    <meta property="og:description" content="Originally, I wanted to write a complete guide to lazy evaluation, but then.Lazy evaluation is the most widely used method for executing Haskell program code on a computer. It determines the time ..." />
+    <meta property="og:url" content="" />
+    <meta property="article:published_time" content="Mon Mar 09 2015 00:00:00 GMT+0000 (UTC)" />
+    <meta property="article:modified_time" content="Mon Mar 09 2015 00:00:00 GMT+0000 (UTC)" />
+    <meta property="og:updated_time" content="Mon Mar 09 2015 00:00:00 GMT+0000 (UTC)" />
+
+
+    <!-- Twitter Card data! -->
+    <meta name="twitter:card" content="HackHands">
+    <meta name="twitter:site" content="@hackhands">
+    <meta name="twitter:title" content="The Incomplete Guide to Lazy Evaluation (in Haskell)">
+    <meta name="twitter:description" content="Originally, I wanted to write a complete guide to lazy evaluation, but then.Lazy evaluation is the most widely used method for executing Haskell program code on a computer. It determines the time ...">
+    <!-- Twitter Summary card images must be at least 120x120px -->
+    <meta name="twitter:image" content="https://hackhands.com/assets/branding/face_cover.png">
+
+
+    <!--
+    <link rel="alternate" type="application/rss+xml" title="RSS Feed for HackHands Blog" href="https://hackhands.com/feed/" />
+    -->
+
+    <!-- build:css(./public) /_css/main.css -->
+    <link rel="stylesheet" href="https://hackhands.com/assets/bower_components/normalize.css/normalize.css">
+
+    <link rel="stylesheet" href="https://hackhands.com/assets/bower_components/owlcar/owl-carousel/owl.carousel.css">
+    <link rel="stylesheet" href="https://hackhands.com/assets/bower_components/owlcar/owl-carousel/owl.theme.css">
+    <link rel="stylesheet" href="https://hackhands.com/assets/bower_components/selectize/dist/css/selectize.default.css">
+    <link rel="stylesheet" href="https://hackhands.com/assets/bower_components/tooltipster/css/tooltipster.css">
+    <link rel="stylesheet" href="https://hackhands.com/assets/bower_components/nouislider/distribute/jquery.nouislider.min.css">
+    <link rel="stylesheet" href="https://hackhands.com/assets/bower_components/nouislider/distribute/jquery.nouislider.pips.min.css">
+
+    <link rel="stylesheet" href="https://hackhands.com/assets/bower_components/highlightjs/styles/default.css">
+    <link rel="stylesheet" href="https://hackhands.com/assets/bower_components/highlightjs/styles/monokai_sublime.css">
+
+    <link rel="stylesheet" href="https://hackhands.com/assets/bower_components/multiple-select/multiple-select.css">
+
+    <link rel="stylesheet" href="https://hackhands.com/assets/bower_components/unsemantic/assets/stylesheets/unsemantic-grid-responsive-tablet.css">
+    <link rel="stylesheet" href="https://hackhands.com/assets/fonts/hh-tag/styles.css?version=3826902">
+    <link rel="stylesheet" href="https://hackhands.com/assets/fonts/hackhands/styles.css?version=3826902">
+    <link rel="stylesheet" href="https://hackhands.com/assets/fonts/whitney/font.css?version=3826902">
+    <link rel="stylesheet" href="https://hackhands.com/assets/css/hackhands.css?version=3826902">
+    <link rel="stylesheet" href="http://cloud.typography.com/6966154/691568/css/fonts.css">
+
+    <!-- endbuild -->
+
+
+
+
+    <!--[if lt IE 9]>
+        <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <!-- build:js(./public) /_js/head-scripts.js -->
+    <script src="https://hackhands.com/assets/bower_components/modernizr/modernizr.js"></script>
+    <script src="https://hackhands.com/assets/js/utils.js"></script>
+    <!-- endbuild -->
+
+</head>
+<body>
+
+    <!--[if lt IE 10]>
+    <p class="browserupgrade">You are using an <strong>outdated</strong> browser. Please <a href="http://browsehappy.com/">upgrade your browser</a> to improve your experience.</p>
+    <![endif]-->
+
+
+
+    <header>
+        <!-- Header -->
+<div class="topNavigation">
+
+    
+		<a href="https://hackhands.com/"><img title="HackHands" alt="HackHands" src="https://hackhands.com/assets/branding/hackhands_ps.svg"/></a>
+    
+
+	<ul class="menu hide-on-mobile hide-on-tablet">
+		<li><a href="https://hackhands.com/how-it-works/">How it works</a></li>
+		<li><a href="https://hackhands.com/blog/">Posts</a></li>
+
+		<li class="stateLogout"><a href="https://hackhands.com/create-expert-account/" class="btTopCTA1 bt bt-purple">Become an Expert</a></li>
+		<li class="stateLogout"><a href="https://hackhands.com/login/" data-no-instant  class="btTopCTA2 homeLogin doLogIn bt bt-border-hh">Sign In</a></li>
+
+		<li style="display:none" class="stateLogin"><a href="#" onclick="HH_Helpers.goToDashboard(); return false" class="btTopCTA1 bt bt-purple">enter Dashboard</a></li>
+		<li style="display:none" class="stateLogin"><a href="#" onclick="HH_Helpers.logout(); return false;" data-no-instant class="btTopCTA2 homeLogin doLogIn bt bt-border-hh">Logout</a></li>
+
+	</ul>
+
+	<ul class="menu hide-on-desktop">
+		<li class="stateLogout hide-on-mobile"><a href="https://hackhands.com/create-expert-account/" class="bt bt-purple">Become an Expert</a></li>
+		<li class="stateLogout hide-on-mobile"><a href="https://hackhands.com/login/" class="homeLogin bt bt-border-hh">Sign In</a></li>
+
+		<li style="display:none" class="stateLogin hide-on-mobile"><a href="#" onclick="HH_Helpers.goToDashboard(); return false" class="bt bt-purple">Dashboard</a></li>
+		<li style="display:none" class="stateLogin hide-on-mobile"><a href="#" onclick="HH_Helpers.logout(); return false;" class="homeLogin bt bt-border-hh">Logout</a></li>
+
+		<li>
+			<div id="hamburguer" >
+				<span></span>
+				<span></span>
+				<span></span>
+				<span></span>
+			</div>
+		</li>
+	</ul>
+</div>
+
+
+
+
+
+<div id="hamburguerSlider">
+	<div class="menuMobile">
+		<ul>
+			<li><a href="https://hackhands.com/how-it-works/" class="bt bt-border-hh">How it works</a></li>
+			<li><a href="https://hackhands.com/blog/" class="bt bt-border-hh">Posts</a></li>
+
+			<li><a href="https://hackhands.com/faq/" class="bt bt-border-hh">FAQ</a></li>
+			<li><a href="https://hackhands.com/jobs/" class="bt bt-border-hh">Jobs</a></li>
+			<li><a href="https://hackhands.com/success-stories/" class="bt bt-border-hh">Success Stories</a></li>
+			<li><a href="https://hackhands.com/contact/" class="bt bt-border-hh">Contact us</a></li>
+
+			<li class="stateLogout"><a href="https://hackhands.com/create-expert-account/" class="bt bt-border-hh">Become an Expert</a></li>
+			<li class="stateLogout"><a href="https://hackhands.com/login/" class="bt bt-border-hh">Sign In</a></li>
+
+			<li style="display:none" class="stateLogin"><a href="#" onclick="HH_Helpers.goToDashboard(); return false;" class="bt bt-border-hh">Dashboard</a></li>
+			<li style="display:none" class="stateLogin"><a href="#" onclick="HH_Helpers.logout(); return false;" class="bt bt-border-hh">Logout</a></li>
+
+		</ul>
+	</div>
+</div>
+<!-- [END] Header -->
+    </header>
+
+
+<!-- POST page -->
+
+<div class="header">
+	<div class="grid-container">
+		<h3 class="fontSizeH3">hack.hands() is an online service for live programing help available 24/7. <a href="https://hackhands.com/dashboard/request/expert"  onclick="HH_Helpers.mainCTA(); return false;" class="bt bt-border-white">Get Started</a></h3>
+	</div>
+</div>
+
+<div class="page-BlogPost">
+	<div class="grid-container post">
+
+		
+		<div class="grid-25 hide-on-tablet hide-on-mobile">
+			<div class="postAuthor">
+				<img class="thumb" src="https://secure.gravatar.com/avatar/bcf3c21ce05cfb6788e25dcc3821b3c7?s=100&amp;d=https%3A%2F%2Fmentors-api-prod.s3-us-west-2.amazonaws.com%2Fstatic%2Favatar%2Favatar_normal.jpg"/>
+				<div class="label" >Written by</div>
+				<div class="name" ><a href="https://hackhands.com/apfelmus">Heinrich Apfelmus</a></div>
+				<div class="location" >Europe/Berlin</div>
+				
+				<div class="bio" >Haskell programmer for more than 10 years. I maintain several open source libraries, currently focusing on graphical user interfaces (GUI) and functional reactive programming (FRP). Background in mathematics, physics and theoretical computer science. Besides teaching in person, I also try to pass on what I learned in the form of tutorials and blog posts. You can find them either here on HackHands, or on my personal website.</div>
+				
+				
+				<div class="links">
+					
+					<a rel="nofollow" target="_blank" href="https://stackoverflow.com/users/403805/heinrich-apfelmus"><i class="icon icon-stackoverflow"></i></a> 
+					
+					
+				</div>
+				
+				<div class="requestExpert">
+					<a href="https://hackhands.com/dashboard/request/apfelmus/preferred" class="bt bt-hh">Request Expert</a>
+					$2 / min
+				</div>
+			</div>
+		</div>
+		
+
+		<div class="grid-75 tablet-grid-100">
+
+			<div class="grid-parent">
+				<div class="grid-50 date">Posted on March 9th 2015</div>
+				<div class="grid-50 social">
+					<a href="#" onclick="share('google'); return false;"><i class="icon icon-google-plus"></i></a><a href="#" onclick="share('facebook'); return false;"><i class="icon icon-facebook"></i></a><a href="#" onclick="share('twitter'); return false;"><i class="icon icon-twitter"></i></a><a href="#" onclick="share('pinterest'); return false;"><i class="icon icon-pinterest"></i></a><a href="#" onclick="share('linkedin'); return false;"><i class="icon icon-linkedin"></i></a>
+					</div>
+			</div>
+
+
+			<h1>The Incomplete Guide to Lazy Evaluation (in Haskell)</h1>
+			<!-- <div class="date">Posted on March 9th 2015</div>-->
+
+			<!--<div class="tags">Posted on:  <a href="/blog/{{tag}}/" rel="tag">{{tag}}</a>{% if forloop.last != true %},{% endif %}{% endfor %}</div>
+			-->
+
+			<div class="body">
+				<p><em>Originally, I wanted to write a complete guide to lazy evaluation, but then.</em></p>
+<p>Lazy evaluation is the most widely used method for executing Haskell program code on a computer. It determines the time and memory usage of Haskell programs, and it allows new and powerful ways to write modular code. To make full use of purely functional programming, a good understanding of lazy evaluation is very helpful.</p>
+<p>Here at HackHands, we have a series of tutorials to help you get a thorough introduction to this important topic:</p>
+<ol>
+<li><a target="_blank"  rel="nofollow" href="https://hackhands.com/lazy-evaluation-works-haskell/" title="How Lazy Evaluation Works in Haskell">How does Lazy Evaluation Work in Haskell?</a> — Start here. This tutorial explains how expressions are evaluated using lazy evaluation, and what that means for time and memory usage.</li>
+<li><a target="_blank"  rel="nofollow" href="https://hackhands.com/modular-code-lazy-evaluation-haskell/" title="Modular Code and Lazy Evaluation in Haskell">Modular Code and Lazy Evaluation in Haskell</a> — Why use lazy evaluation in the first place? This tutorial explains the power of lazy evaluation and how it can help us to write clear and modular code. In particular, it will tell you about <strong>infinite lists</strong>.</li>
+<li><a target="_blank"  rel="nofollow" href="https://hackhands.com/non-strict-semantics-haskell">Haskell&#39;s Non-Strict Semantics – What Exactly does Lazy Evaluation Calculate?</a> – This tutorial explains how we can avoid to do lazy evaluation in detail when trying to understand a Haskell program, via a method called <strong>denotational semantics</strong>. It also covers the important notion of a <strong>strict</strong> function, which shows up in many discussions about optimizing Haskell programs.</li>
+</ol>
+<p>Let me know in the comments if you have questions or would like me to cover additional topics. Of course, you can always ask for live help as well.</p>
+
+			</div>
+
+
+			
+			<div class="postAuthor mobile hide-on-desktop">
+				<img class="thumb" src="https://secure.gravatar.com/avatar/bcf3c21ce05cfb6788e25dcc3821b3c7?s=100&amp;d=https%3A%2F%2Fmentors-api-prod.s3-us-west-2.amazonaws.com%2Fstatic%2Favatar%2Favatar_normal.jpg"/>
+				<div class="label" >Written by</div>
+				<div class="name" ><a href="https://hackhands.com/apfelmus">Heinrich Apfelmus</a></div>
+				<div class="location" >Europe/Berlin</div>
+				<div class="bio" >Haskell programmer for more than 10 years. I maintain several open source libraries, currently focusing on graphical user interfaces (GUI) and functional reactive programming (FRP). Background in mathematics, physics and theoretical computer science. Besides teaching in person, I also try to pass on what I learned in the form of tutorials and blog posts. You can find them either here on HackHands, or on my personal website.</div>
+
+				
+				<div class="links">
+					<a rel="nofollow" target="_blank" href="https://stackoverflow.com/users/403805/heinrich-apfelmus"><i class="icon icon-stackoverflow"></i></a> 
+					
+					</div>
+				
+
+				<div class="requestExpert">
+					<a href="https://hackhands.com/dashboard/request/apfelmus/preferred" class="bt bt-hh">Request Expert</a>
+					$2 / min
+				</div>
+			</div>
+			
+
+			<div id="disqus_thread"></div>
+
+		</div>
+
+
+	</div>
+</div>
+<!-- [END] POST page -->
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!-- Footer Newsletter -->
+<div class="component-subscribeNews">
+
+	<form class="form" method="post" id="formNewsletter">
+
+	<div class="grid-container" id="success">
+		<div class="grid-100">
+			<div class="title"><i class="icon-check" ></i> Get on the mailing list!</div>
+			<div class="subTitle">The latest major updates, and nothing else.</div>
+		</div>
+
+
+		<div id="formNews">
+			<div class="grid-25">
+				<div class="field">
+					<i class="icon icon-x formError" title=""></i>
+					<input type="text" name="news_name" placeholder="your name"/>
+				</div>
+			</div>
+
+			<div class="grid-25">
+				<div class="field">
+					<i class="icon icon-x formError" title=""></i>
+					<input type="text" name="news_email" placeholder="you@domain.com"/>
+				</div>
+			</div>
+			<div class="grid-35">
+				<div class="field">
+					<div class="custom-select">
+						<select multiple="multiple" name="news_languages" class="testselect2" style="display: none;">
+							
+								<option value="Node.html">Node.js</option>
+							
+								<option value="Git">Git</option>
+							
+								<option value="Perl">Perl</option>
+							
+								<option value="JavaScript &amp; jQuery">JavaScript &amp; jQuery</option>
+							
+								<option value="HTML &amp; CSS">HTML &amp; CSS</option>
+							
+								<option value="Python &amp; Django">Python &amp; Django</option>
+							
+								<option value="PHP">PHP</option>
+							
+								<option value="Angular.html">Angular.js</option>
+							
+								<option value="SQL (MySQL &amp; Postgres)">SQL (MySQL &amp; Postgres)</option>
+							
+								<option value="Coffee Script">Coffee Script</option>
+							
+								<option value="Backbone.html">Backbone.js</option>
+							
+								<option value="Ruby on Rails">Ruby on Rails</option>
+							
+								<option value="React">React</option>
+							
+								<option value="Laravel">Laravel</option>
+							
+								<option value="Groovy on Grails">Groovy on Grails</option>
+							
+								<option value="Redis">Redis</option>
+							
+								<option value="Drupal">Drupal</option>
+							
+								<option value="ShellScript">ShellScript</option>
+							
+								<option value="Scala">Scala</option>
+							
+								<option value="Clojure">Clojure</option>
+							
+								<option value="Haskell">Haskell</option>
+							
+								<option value="Java &amp; J EE">Java &amp; J EE</option>
+							
+								<option value="Objective-C &amp; Swift">Objective-C &amp; Swift</option>
+							
+								<option value="C# &amp; .NET">C# &amp; .NET</option>
+							
+								<option value="C &amp; C++">C &amp; C++</option>
+							
+								<option value="Go">Go</option>
+							
+								<option value="Android">Android</option>
+							
+								<option value="CoffeeScript">CoffeeScript</option>
+							
+								<option value="Meteor.html">Meteor.js</option>
+							
+								<option value="NoSQL (MongoDB)">NoSQL (MongoDB)</option>
+							
+								<option value="XML">XML</option>
+							
+								<option value="Ember.html">Ember.js</option>
+							
+								<option value="Visual Basic">Visual Basic</option>
+							
+								<option value="ActionScript">ActionScript</option>
+							
+								<option value="Erlang">Erlang</option>
+							
+								<option value="Lua">Lua</option>
+							
+								<option value="Unity3d">Unity3d</option>
+							
+								<option value="DevOps &amp; SysAdmin">DevOps &amp; SysAdmin</option>
+							
+								<option value="R">R</option>
+							
+								<option value="F#">F#</option>
+							
+								<option value="MATLAB">MATLAB</option>
+							
+						</select>
+					</div>
+				</div>
+			</div>
+			<div class="grid-15">
+				<button class="bt bt-hh" id="subscribe"  >subscribe</button>
+			</div>
+		</div>
+
+
+	</div>
+</form>
+
+</div>
+<!-- [END] Footer Newsletter -->
+
+
+
+
+
+
+
+
+
+<!-- Footer -->
+<footer class="component-departments subscribeNews">
+
+<!-- Categories -->
+	<div class="grid-container categories">
+		<div class="grid-25 ">
+			<div class="title">
+				Get live help for these popular subjects <span>plus many more!</span>
+			</div>
+		</div>
+
+		<div class="grid-75 cloud">
+
+			<div class="row">
+				<span class="w_1"><a href="https://hackhands.com/dashboard/request/expert?department=java">Java</a></span>
+				<span class="w_3"><a href="https://hackhands.com/dashboard/request/expert?department=node">Node.js</a></span>
+				<span class="w_3"><a href="https://hackhands.com/dashboard/request/expert?department=android">Android</a></span>
+				<span class="w_1"><a href="https://hackhands.com/dashboard/request/expert?department=csharp-dotnet">C# & .NET</a></span>
+				<span class="w_1"><a href="https://hackhands.com/dashboard/request/expert?department=php">PHP</a></span>
+			</div>
+
+			<div class="row">
+				<span class="w_1"><a href="https://hackhands.com/dashboard/request/expert?department=ember">Ember.js</a></span>
+				<span class="w_3"><a href="https://hackhands.com/dashboard/request/expert?department=objectivec-swift">iOS</a></span>
+				<span class="w_5"><a href="https://hackhands.com/dashboard/request/expert?department=javascript">Javascript</a></span>
+				<span class="w_3"><a href="https://hackhands.com/dashboard/request/expert?department=angular">Angular.js</a></span>
+				<span class="w_3"><a href="https://hackhands.com/dashboard/request/expert?department=go">Golang</a></span>
+			</div>
+
+			<div class="row">
+				<span class="w_1"><a href="https://hackhands.com/dashboard/request/expert?department=meteor">Meteor.js</a></span>
+				<span class="w_1"><a href="https://hackhands.com/dashboard/request/expert?department=sql">SQL</a></span>
+				<span class="w_3"><a href="https://hackhands.com/dashboard/request/expert?department=ruby-on-rails">Ruby on Rails</a></span>
+				<span class="w_5"><a href="https://hackhands.com/dashboard/request/expert?department=html-css">HTML & CSS</a></span>
+				<span class="w_1"><a href="https://hackhands.com/dashboard/request/expert?department=coffeescript">CoffeeScript</a></span>
+			</div>
+
+			<div class="row">
+				<span class="w_1"><a href="https://hackhands.com/dashboard/request/expert?department=haskell">Haskell</a></span>
+				<span class="w_4"><a href="https://hackhands.com/dashboard/request/expert?department=python-django">Python & Django</a></span>
+				<span class="w_1"><a href="https://hackhands.com/dashboard/request/expert?department=scala">Scala</a></span>
+			</div>
+
+		</div>
+
+
+	</div>
+<!-- [END] Categories -->
+
+
+<!-- Footer Menu -->
+	<div class="grid-container">
+		<div class="grid-100">
+			<div class="menuDown">
+				<ul>
+					<li><a href="https://hackhands.com/create-expert-account/">Become an expert</a></li>
+					<li><a href="https://hackhands.com/login/">Login</a></li>
+					<li><a href="https://hackhands.com/blog/">Posts</a></li>
+					<li><a href="https://hackhands.com/faq/">FAQ</a></li>
+					<li><a href="https://hackhands.com/jobs/">Jobs</a></li>
+					<li><a href="https://hackhands.com/how-it-works/">How it works</a></li>
+					<li><a href="https://hackhands.com/success-stories/">Success stories</a></li>
+					<li><a href="https://hackhands.com/contact/">Contact us</a></li>
+				</ul>
+			</div>
+		</div>
+	</div>
+<!-- [END] Footer Menu -->
+
+
+<!-- SOCIAL + COPY -->
+	<div class="grid-container social">
+		<div class="grid-15 socialIcons">
+			<a target="_blank" href="https://twitter.com/hackhands"><i class="icon icon-twitter"></i></a>
+			<a target="_blank" href="https://www.facebook.com/hackhands"><i class="icon icon-facebook"></i></a>
+		</div>
+		<div class="grid-35 hide-on-mobile hide-on-tablet copyZone">
+			<div class="hackhandsTxt">hack.hands( )</div>
+			<div class="copyright">© 2015 HackHands Inc. All rights reserved.</div>
+			<a href="https://hackhands.com/terms-of-service/">Terms of use</a> | <a href="https://hackhands.com/terms-of-service/">Privacy Policy</a>
+		</div>
+		<div class="grid-50 tweetOfDay">
+
+			<script type="text/html" id="tweetTPL">
+			<$ for ( var i = 0; i < tweets.length; i++ ) { $>
+				<div>
+					<div class="intro"><i class="icon icon-twitter-1"></i> Latest Tweets - <a target="_blank"  href="https://twitter.com/hackhands">@hackhands</a></div>
+					<$=linkify($('<div/>').text(tweets[i].text).html()) $>
+				</div>
+			<$ } $>
+			</script>
+
+			<div id="tweetTPLRender">
+				<div class="loading">
+					<!-- loading tweets -->
+				</div>
+			</div>
+
+		</div>
+		<div class="grid-100 hide-on-desktop copyZone">
+			<div class="hackhandsTxt">hack.hands( )</div>
+			<div class="copyright">© 2016 HackHands Inc. All rights reserved.</div>
+			<a href="https://hackhands.com/terms-of-service/">Terms of use</a> | <a href="https://hackhands.com/terms-of-service/">Privacy Policy</a>
+		</div>
+	</div>
+<!-- [END] Social + Copy -->
+
+
+</footer>
+<!-- [END] footer -->
+
+
+
+<script type="text/javascript">
+	var hhFooter = true;
+</script>
+
+
+	<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+<script>window.jQuery || document.write('<script src="https://hackhands.com/assets/bower_components/jquery/jquery.min.js"><\/script>')</script>
+
+
+<!-- build:js(./public) /_js/plugins.js -->
+<script type="text/javascript" src="https://hackhands.com/assets/bower_components/velocity/velocity.min.js"></script>
+<script type="text/javascript" src="https://hackhands.com/assets/bower_components/velocity/velocity.ui.min.js"></script>
+<script type="text/javascript" src="https://hackhands.com/assets/bower_components/owlcar/owl-carousel/owl.carousel.js"></script>
+<script type="text/javascript" src="https://hackhands.com/assets/bower_components/vide/dist/jquery.vide.min.js"></script>
+<script type="text/javascript" src="https://hackhands.com/assets/bower_components/malarkey/dist/malarkey.min.js"></script>
+<script type="text/javascript" src="https://hackhands.com/assets/bower_components/selectize/dist/js/standalone/selectize.min.js"></script>
+<script type="text/javascript" src="https://hackhands.com/assets/bower_components/tooltipster/js/jquery.tooltipster.min.js"></script>
+<script type="text/javascript" src="https://hackhands.com/assets/bower_components/nouislider/distribute/jquery.nouislider.all.min.js"></script>
+<script type="text/javascript" src="https://hackhands.com/assets/bower_components/momentjs/min/moment.min.js"></script>
+<script type="text/javascript" src="https://hackhands.com/assets/bower_components/validate/validate.min.js"></script>
+<script type="text/javascript" src="https://hackhands.com/assets/bower_components/js-cookie/src/js.cookie.js"></script>
+<script type="text/javascript" src="https://hackhands.com/assets/bower_components/multiple-select/jquery.multiple.select.js"></script>
+<!-- endbuild -->
+
+
+<!-- build:js(./public) /_js/script.js -->
+<script type="text/javascript" src="https://hackhands.com/assets/js/plugins.js"></script>
+<script type="text/javascript" src="https://hackhands.com/assets/js/hackhands.js?version=3826902"></script>
+<script type="text/javascript" src="https://hackhands.com/assets/js/hackhands_controllers.js?version=3826902"></script>
+<!-- endbuild -->
+
+<!--
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/instantclick/3.0.1/instantclick.min.js" data-no-instant></script>
+<script data-no-instant>InstantClick.init();</script>
+-->
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','http://www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA-44821373-1', 'auto');
+  ga('send', 'pageview');
+</script>
+
+<!-- start Mixpanel -->
+<script type="text/javascript">(function(f,b){if(!b.__SV){var a,e,i,g;window.mixpanel=b;b._i=[];b.init=function(a,e,d){function f(b,h){var a=h.split(".");2==a.length&&(b=b[a[0]],h=a[1]);b[h]=function(){b.push([h].concat(Array.prototype.slice.call(arguments,0)))}}var c=b;"undefined"!==typeof d?c=b[d]=[]:d="mixpanel";c.people=c.people||[];c.toString=function(b){var a="mixpanel";"mixpanel"!==d&&(a+="."+d);b||(a+=" (stub)");return a};c.people.toString=function(){return c.toString(1)+".people (stub)"};i="disable track track_pageview track_links track_forms register register_once alias unregister identify name_tag set_config people.set people.set_once people.increment people.append people.union people.track_charge people.clear_charges people.delete_user".split(" ");
+for(g=0;g<i.length;g++)f(c,i[g]);b._i.push([a,e,d])};b.__SV=1.2;a=f.createElement("script");a.type="text/javascript";a.async=!0;a.src="undefined"!==typeof MIXPANEL_CUSTOM_LIB_URL?MIXPANEL_CUSTOM_LIB_URL:"//cdn.mxpnl.com/libs/mixpanel-2-latest.min.js";e=f.getElementsByTagName("script")[0];e.parentNode.insertBefore(a,e)}})(document,window.mixpanel||[]);
+mixpanel.init('51a513c708903848de49444c60805484');</script>
+<!-- end Mixpanel -->
+<script type="text/javascript">
+mixpanel.track('Page Viewed', {
+   'page name' : document.title,
+   'url' : window.location.pathname
+});
+</script>
+
+
+</body>
+
+<!-- Mirrored from hackhands.com/guide-lazy-evaluation-haskell/ by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 18 Dec 2016 14:44:28 GMT -->
+</html>  
+
+
+
+
+
+
+
+
+
+<div id="disqus_thread"></div>
+<script type="text/javascript">
+    /* * * CONFIGURATION VARIABLES * * */
+    // Required: on line below, replace text in quotes with your forum shortname
+    var disqus_shortname = 'hackhands';
+	var disqus_url = 'index.html';
+	var disqus_title = "The Incomplete Guide to Lazy Evaluation (in Haskell)";
+
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a></noscript>
