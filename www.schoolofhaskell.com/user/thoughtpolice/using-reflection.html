@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html>
+<!-- Mirrored from www.schoolofhaskell.com/user/thoughtpolice/using-reflection by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 21:54:52 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head><title>Reflecting values to types and back - School of Haskell | School of Haskell</title><meta http-equiv="x-ua-compatible" content="IE=9"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="google-site-verification" content="Rfxk2TdeMMXEXHgJ2_OO8Rt3hPbQSDao0OXQV_n6z_s" /><link href="http://fonts.googleapis.com/css?family=Merriweather" rel="stylesheet" type="text/css"><link href="https://www.schoolofhaskell.com/recent-content/feed" type="application/rss+xml" rel="alternate" title="Recently published content">
+<link rel="stylesheet" href="https://www.schoolofhaskell.com/static/combined/UlwEHVcM.css"><style>#hident3 .like-count{margin-right:0.5em}#hident3 .likes{font-family:merriweather;float:right;margin-bottom:1em;border:1px solid #eee;font-size:1.1em;padding:0.25em;border-radius:0.25em;display:inline-block;text-align:center;color:#468847;background-color:#dff0d8;border-color:#d6e9c6}#hident3 .likes:hover{text-decoration:none;cursor:pointer}#hident3 .likes-liked i{opacity:0.25}#hident3 .likes-liked .like-count{font-weight:bold }#hident3 .like-not-logged-in *{cursor:default}.social{margin-right:1em}h1{font-family:Merriweather !important}article{font-family:Merriweather !important}article li{font-family:Merriweather !important;line-height:1.6em}h1,h2,h3,h4,h4,h5{font-family:Merriweather !important}.editor p{font-family:Frutiger, "Frutiger Linotype", Univers, Calibri, "Gill Sans", "Gill Sans MT", "Myriad Pro", Myriad, "DejaVu Sans Condensed", "Liberation Sans", "Nimbus Sans L", Tahoma, Geneva, "Helvetica Neue", Helvetica, Arial, sans-serif}.article-footer{border-top:1px solid #ddd;padding-top:1em;margin-top:1em}body{font-size:16px !important}.navbar .navbar-inner{background:#3c3f41}.navbar .brand{font-size:14px}.navbar .brand img{width:6em}.navbar .icon-wrench{margin:0 -0.5em 0 -0.5em;padding:0 1em 0 1em;height:20px}.navbar-inverse .nav .active a{background:#333638}.navbar-inverse .nav > li > a{color:#a7a7a7
+}.navbar-inverse .btn-navbar{background:#333638}.navbar-inverse .nav > li a:hover,.navbar-inverse .btn{background:#333537 !important}@media (max-width: 979px) {.icon-wrench{padding-left:1em !important}}.breadcrumb{border-top-left-radius:0;border-top-right-radius:0}h1{margin-top:20px}.breadcrumb-container + .main-content h1{margin-top:0}.footer{padding:30px 0;margin-top:70px;border-top:1px solid #e5e5e5;background-color:#f5f5f5}.footer ul.footer-menu{list-style-type:none}.footer ul.footer-menu li{display:inline-block}.footer ul.footer-menu li + li{margin-left:0.5em}.footer ul.footer-menu li + li:before{margin-right:0.5em;content:"·";color:#999}.footer ul.menu li{display:inline-block}.footer ul.menu li + li{margin-left:0.5em}.footer .copyright{margin-left:25px}.main-content{min-height:100%}.gravatar{width:80px;height:80px;border-radius:2px;background:#eee}.empty-gravatar{width:0}.container{font-family:"Segoe UI", Candara, "Bitstream Vera Sans", "DejaVu Sans", "Bitstream Vera Sans", "Trebuchet MS", Verdana, "Verdana Ref", sans-serif}.container h1,.container h2,.container h4,.container h4,.container h5{font-family:"Segoe UI", Candara, "Bitstream Vera Sans", "DejaVu Sans", "Bitstream Vera Sans", "Trebuchet MS", Verdana, "Verdana Ref", sans-serif}article{font-family:Merriweather !important}article h1{font-family:Merriweather !important}article li{font-family:Merriweather !important;line-height:1.6em}article li + li{margin-top:0.5em}article div.code{background:#f9f9f9;border:1px solid #d1d1d1;position:relative;border-radius:0.2em;margin:0.25em 0 0.75em 0;min-height:2.5em}article code{color:#005580;font-size:14px;white-space:pre}article a.hoogle > code{color:#0088cc;font-size:14px;white-space:pre;border:0}article .expand-code{display:none}article pre{overflow:auto;word-wrap:normal}article code.active{display:block;max-height:430px}article h1{font-size:31.5px}article h3{font-size:17.5px}article h4{font-size:14px}article h5,article h6{font-size:11.9px}article p{line-height:1.7em}article h1 code,article h2 code,article h3 code,article h4 code,article h5 code,article h6 code{font-size:inherit !important}article h1 a,article h2 a,article h3 a,article h4 a,article h5 a,article h6 a{color:#444}article h1 a:before,article h2 a:before,article h3 a:before,article h4 a:before,article h5 a:before,article h6 a:before{margin-left:-1.5em;padding-right:0.5em;font-family:fontawesome;content:"\f0c1";font-size:20px;color:#fff}article h1 a:hover,article h2 a:hover,article h3 a:hover,article h4 a:hover,article h5 a:hover,article h6 a:hover{text-decoration:none;color:#0088cc}article h1 a:hover:before,article h2 a:hover:before,article h3 a:hover:before,article h4 a:hover:before,article h5 a:hover:before,article h6 a:hover:before{color:#888}article h2{font-size:24.5px}article .popover{font-family:actor}article .popover h3.popover-title{font-family:actor !important;font-size:1em}article .popover .popover-content{width:15em;font-size:1em}article .controlsRun{display:block;padding:0.5em;text-align:right;background:#f2f2f2}article .controlsRun a.clone{margin-right:1em;font-family:actor;text-decoration:none}article .controlsRun a.clone span{padding-left:0.5em}article .controlsRun a.run,article .controlsRun a.reset,article .controlsRun a.show-code{font-size:16px}article .controlsRun a.run span,article .controlsRun a.reset span,article .controlsRun a.show-code span{display:none}article .controlsRun a.reset{margin-left:0.5em;color:#a2becc}article .controlsRun a.reset{display:none}article .controlsRun a.show-code{margin-right:0.75em}article .controlsRun a.run:hover,article .controlsRun a.show-code:hover{text-decoration:none}article .controlsRun a.show-code.active{color:#DC0D0D}article .controlsRun a[disabled]{color:#a2becc;cursor:default}article .collapse-area .collapse-header{background:#0088cc;color:#fff;padding:0.3em;cursor:pointer}article .collapse-area .hidden-toggle:before{content:"\f0d7";font-family:fontawesome;margin-right:0.5em;margin-left:0.25em}article .collapse-area .collapsed-files{overflow:auto;height:auto}article .collapse-area.collapse-disabled{display:none}article .collapse-area.collapse-area-off .collapsed-files{height:0px;overflow:hidden}article .collapse-area.collapse-area-off .hidden-toggle:before{content:"\f0da"}article .snippet-stdio .stdout{margin:0.5em;padding-right:2em;position:relative;word-wrap:break-word}article .snippet-stdio .stdin{-webkit-box-shadow:none;-moz-box-shadow:none;box-shadow:none;-webkit-transition:none;-moz-transition:none;-o-transition:none;transition:none;padding:0;margin:0}article .hoogle-results{margin:0.25em}article .hoogle-results .hoogle-inner{background:#fff;padding:0.5em;border-radius:3px;border:1px solid #ddd}article .hoogle-results .hoogle-inner .close-link{position:relative;float:right;margin-top:-0.5em;margin-right:-0.5em}article .snippet-output-errors{margin:1em 0.5em 0.5em 0.5em;position:relative}article .snippet-output-errors ul{list-style-type:none;margin:0;position:relative}article .snippet-output-errors pre{border:0;border-radius:0;padding:0.25em;margin:0;background:inherit;color:inherit}article .snippet-output-errors .close-link{color:inherit;background:inherit}article .snippet-editors{z-index:0;padding:0.25em}article .close-link{padding:0.5em;background:#eaeaea;border-bottom-left-radius:0.2em;border-top-right-radius:0.2em;position:absolute;top:0;right:0}article .close-link:hover{text-decoration:none}article .snippet-title{padding:0.5em 0 0 0.5em}article .snippet-title .snippet-icon{font-family:FontAwesome;display:inline-block;margin-right:0.5em}article .fullModuleCode + div .snippet-title{margin-top:0.5em;border-top:1px solid #ccc;padding-top:0.5em}article .CodeMirror{height:auto;min-height:1em;line-height:1.5em;background:transparent;font-size:14px !important}article .CodeMirror .highlighted{background:rgba(250, 210, 0, 0.45) !important}article .CodeMirror-widget{margin-left:2em;line-height:1.8}article .CodeMirror.collapsed{height:10em !important}article .editor .expander{text-align:center;display:block;padding:0.5em;text-decoration:none;border-bottom-left-radius:2px;border-bottom-right-radius:2px}article .editor .expander .ellipsis{background:white;border:1px solid #ccc;padding:0 0.5em;height:1em;line-height:0.5em;display:inline-block;color:#555;cursor:pointer}article .editor .expander .ellipsis:hover{background:#ddd;color:#333}article .web-runner{margin:0.5em;padding:0.5em;border:1px solid #ccc;border-radius:3px;background:#f5f5f5}article .web-runner iframe{border:0;margin-top:0.5em;margin-bottom:0;background:white}article .web-runner .controls i{cursor:pointer;color:#0088cc}article .web-runner .controls i:hover{color:#222}article .web-runner .controls i + i{margin-left:0.5em}article .web-runner .controls .icon-remove{float:right}article .hidden{display:block;visibility:visible}article .controlsShowHide{margin-bottom:0.5em}.tutorial-body{float:left !important}.tutorial-nav{float:right !important}@media (max-width: 979px) {.related-content{float:right}.author-name{display:block;margin-left:20px !important;padding-left:5px;margin-top:5px}article h1 a:hover:before,article h2 a:hover:before,article h3 a:hover:before,article h4 a:hover:before,article h5 a:hover:before,article h6 a:hover:before{color:#fff}.tutorial-nav{float:none !important;width:auto !important}.tutorial-body{float:none !important;width:auto !important}}@media (min-width: 980px) and (max-width: 1199px) {.navbar-search{display:none}.tutorial-nav{width:200px}.tutorial-body{width:720px}}#accountPage h1{margin:20px 0 0 0}#accountPage h2{font-size:20px}.group-contents .span8{float:left}.group-contents .span4{float:right}.container > .alert-block{margin-top:1em}.alert{color:#aa874a
+}.social{margin-bottom:.8em;display:block}.social a{text-decoration:none}.social i{font-size:1.1em;color:#fff;padding:0.25em;border-radius:0.25em;width:1em;display:inline-block;text-align:center}.social i.icon-twitter{background:#0088cc}.social i.icon-facebook{background:#3b5998
+  }.social i.icon-google-plus{background:#dd4b39
+  }.well pre{background:#fcfcfc}.well h2{margin-top:0}code{color:#005580;font-size:14px;white-space:pre}</style><!--[if lt IE 8]><link rel="stylesheet" href="https://www.schoolofhaskell.com/static/design/css/ie7.css?etag=TSMl9x1V"><![endif]--><!--[if lt IE 9]><script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script><![endif]--></head><body class="not-logged-in" itemscope itemtype="http://schema.org/Product"><noscript><iframe src="http://www.googletagmanager.com/ns.html?id=GTM-H62P" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript><script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='http://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','GTM-H62P');</script><div class="navbar navbar-inverse navbar-static-top"><div class="navbar-inner"><div class="container"><a class="btn btn-navbar" type="button" data-toggle="collapse" data-target=".nav-collapse"><span class="icon-bar"></span>
+<span class="icon-bar"></span>
+<span class="icon-bar"></span>
+</a>
+<a class="brand" href="https://www.schoolofhaskell.com/"><img src="https://www.schoolofhaskell.com/static/img/ide-logo.png" title="School of Haskell">
+</a>
+<div class="nav-collapse collapse"><ul class="nav"><li><a href="https://www.schoolofhaskell.com/">School</a>
+</li>
+<li><a href="https://www.schoolofhaskell.com/user">Users</a>
+</li>
+</ul>
+<form class="navbar-search pull-left" action="https://www.schoolofhaskell.com/search"><input class="search-query" type="text" placeholder="Search" name="search">
+</form>
+<ul class="nav pull-right"><li><a href="https://www.schoolofhaskell.com/auth/login">Login</a>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+<div class="container breadcrumb-container"><div class="row"><div class="span12"><ul class="breadcrumb"><li><a href="https://www.schoolofhaskell.com/user/thoughtpolice">Austin Seipp</a>
+<span class="divider">/</span>
+</li>
+<li><a href="using-reflection.html">Reflecting values to types and back</a>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="container main-content"><div class="row"><div class="span12"><p class="alert">Interactive code snippets not yet available for SoH 2.0, see our <a href=https://www.fpcomplete.com/blog/2016/01/soh-status>Status of
+ of School of Haskell 2.0 blog post</a></p>
+</div>
+</div>
+<div class="row"><div class="span12"><h1 itemprop="name">Reflecting values to types and back</h1>
+</div>
+</div>
+<div class="row"><div class="span7 meta"><p><span class="date">28 Aug 2013</span>
+<span class="author"><a href="https://www.schoolofhaskell.com/user/thoughtpolice">Austin Seipp</a>
+</span>
+<span class="view-edit-link pull-right"><a class="view-source-link" href="https://www.schoolofhaskell.com/tutorial-raw/6175/5fcb3470361af086a2991123713e2862f6e95063">View Markdown source</a>
+</span>
+</p>
+<p class="tags"></p>
+</div>
+</div>
+<div class="row"><div class="span7 meta"><div id="hident3"></div>
+
+<span class="sociallinksunicode social">
+<a href="https://twitter.com/home?status=$url$" target="_blank"><i class="icon-twitter"></i></a>&nbsp;
+<a href="http://www.facebook.com/sharer/sharer.php?u=$url$" target="_blank"><i class="icon-facebook"></i></a>&nbsp;
+<a href="https://plus.google.com/share?url=$url$" target="_blank"><i class="icon-google-plus"></i></a></span>
+</div>
+</div>
+<div class="row" itemprop="desc"><div class="span4 tutorial-nav"><div class="related-content"><ul class="nav nav-tabs nav-stacked"><li><script>reddit_target='fpcomplete'</script>
+<script src="https://redditstatic.s3.amazonaws.com/button/button1.js"></script>
+</li>
+<li><a href="https://www.schoolofhaskell.com/user/thoughtpolice">See all content by Austin Seipp</a>
+</li>
+</ul>
+
+</div>
+<div class="aside"><h3>Sections</h3>
+<ul><li><a href="#the-configurations-problem">The configurations problem</a></li><li><a href="#a-look-under-the-hood">A look under the hood</a><ul><li><a href="#type-class-elaboration-and-the-single-method-dictionary">Type-class elaboration and the single-method dictionary</a></li><li><a href="#from-reify-to-reflect-to-nothing-at-all">From reify to reflect to nothing at all</a></li></ul></li><li><a href="#dynamically-constructing-type-class-instances">Dynamically constructing type-class instances</a><ul><li><a href="#but-what-about-manual-dictionaries-">But what about manual dictionaries?</a></li></ul></li><li><a href="#turning-up-the-magic-to-over-9000">Turning up the magic to over 9000</a></li><li><a href="#conclusion">Conclusion</a></li></ul></div>
+</div>
+<div class="span8 tutorial-body" data-environment="ghc-7.8-stable-14.09">
+<article><p><i>This week, on <a href="http://reddit.com/r/haskell">/r/haskell</a></i>:</p><p>&quot;<i>I still want a <code>reflection</code> tutorial!</i>&quot; - <a href="http://www.reddit.com/r/haskell/comments/1l64oe/lensaeson_traversalprism/cbw5rmb">Oliver Charles</a></p><h1 id="the-configurations-problem"><a href="#the-configurations-problem">The configurations problem</a></h1><p>Several years ago, Oleg Kiselyov and Chung-chieh Shan wrote a paper entitled &quot;<a href="http://www.cs.rutgers.edu/~ccshan/prepose/prepose.pdf">Functional Pearl: Implicit configurations</a>&quot;. It's actually a very fascinating paper and it's very readable too (I encourage tackling it if you're an intermediate Haskeller.) In the paper, they propose a solution the <i>configurations problem</i>:</p><blockquote><p>The conﬁgurations problem is to propagate run-time preferences
+throughout a program, allowing multiple concurrent conﬁguration
+sets to coexist safely under statically guaranteed separation...</p><p>In our approach, a term expression can refer to run-time
+conﬁguration parameters as if they were compile-time constants
+in global scope ... We can propagate any type of conﬁguration data -- numbers, strings, <code>IO</code> actions, polymorphic functions, closures, and abstract data types.</p></blockquote><p>This may remind you of an extension our lovely GHC supports - <code>ImplicitParams</code> - which tries to make this sort of behavior lightweight. Unfortunately, <code>ImplicitParams</code> has a number of drawbacks, one being that they are 'infectuous' in areas like scoping (and they have other concerns too.) The solution in this case is to instead propogate values around <i>via types</i>, rather than the kind of dynamic binding which <code>ImplicitParams</code> gives us.</p><p>Well, our very own Edward Kmett of course packaged this up into a library, which he calls <a href="http://hackage.haskell.org/package/reflection">reflection</a>. This tutorial going to both show you <i>how</i> it works, and what it allows. <b>NB</b>: This writeup isn't really going to concern itself with Kiselyov's original presentation, and instead focuses on Eds from this point on. (On one hand, this implementation 'cheats' the premise by using unsafe features, where the original paper didn't - and as we will understand, makes our implementation significantly faster. On the other hand it's possibly the only Oleg paper I'm aware of which was reduced to, like, 7 lines of code.)</p><p>The <code>reflection</code> API can be boiled down to three very simple things:</p><pre><code class="haskell">-- #1: A 'Proxy' value which we can tag with types.
+data Proxy k = Proxy
+
+-- #2: A class to 'reflect' values back into terms
+class Reifies s a | s -&gt; a where
+  reflect :: proxy s -&gt; a
+
+-- #3: A function to reify values *into* types
+-- 
+-- NB: refiy's second argument has a rank2 type. The 's' type variable will
+-- guarantee that two competing `Proxy s` values cannot unify with each other or be leaked.
+reify :: forall a r. a -&gt; (forall (s :: *). Reifies s a =&gt; Proxy s -&gt; r) -&gt; r</code></pre><p>Here's an example of this:</p><pre><code class="active haskell">module Main (main) where
+import Data.Reflection
+
+-- show
+main :: IO ()
+main = print example
+  where
+    example :: Int
+    example = reify 10 $ \p -&gt; (reflect p) + (reflect p)
+-- /show</code></pre><p>In this example, we reify the value 10 <i>over the enclosed lambda</i>. Inside the lambda, we can <code>reflect</code> the <code>p</code> value to get our <code>10 :: Int</code> back. But if we look at the type of <code>reify</code>, the lambda accepts a parameter of type <code>Proxy s</code>! And we never had any instances of <code>Reifies</code> for our types. So how does it know what value to return, given the <code>Proxy</code>? What's going on?</p><p>(Again, one important thing to note - although we won't mention it anymore - is the rank2 type of <code>reify</code>. This trick is similar to what we do to <code>ST</code>, to ensure we can't 'leak' a reference to a <code>Proxy s</code> and reuse it later.)</p><h1 id="a-look-under-the-hood"><a href="#a-look-under-the-hood">A look under the hood</a></h1><p>To understand what's going on, the easiest way to look at the source of <code>reify</code>, and see how it elaborates to GHC Core. As a warning, if you consider yourself a very purist Haskeller, the following definition is probably going to make you feel pretty uncomfortable.</p><p>Below is an implementation of the entire basic <code>reflection</code> API</p><pre><code class="haskell">import Unsafe.Coerce
+
+data Proxy k = Proxy
+
+class Reifies s a | s -&gt; a where
+  reflect :: proxy s -&gt; a
+
+newtype Magic a r = Magic (forall (s :: *). Reifies s a =&gt; Proxy s -&gt; r)
+
+reify :: forall a r. a -&gt; (forall (s :: *). Reifies s a =&gt; Proxy s -&gt; r) -&gt; r
+reify a k = unsafeCoerce (Magic k :: Magic a r) (const a) Proxy
+{-# INLINE reify #-}
+</code></pre><p>Before we can fully understand this though, we need to understand what GHC does when faced with type classes during compilation.</p><h2 id="type-class-elaboration-and-the-single-method-dictionary"><a href="#type-class-elaboration-and-the-single-method-dictionary">Type-class elaboration and the single-method dictionary</a></h2><p>Before we continue, I'd recommend you go ahead and install <a href="http://hackage.haskell.org/package/ghc-core">ghc-core</a> from Hackage, which will make life much easier. It makes the default output of Core much more readable (although we will clean it up even further with a few extra options.) Work along with the examples. Here, I'm using GHC 7.6.3, although the specifics haven't really changed much in the last few versions.</p><p>Consider the following program:</p><pre><code class="haskell">module Main (main, test1, test2) where
+
+main :: IO ()
+main = return ()
+
+class Foo a where
+  bar :: a -&gt; Int
+  baz :: a -&gt; Bool
+
+instance Foo Int where
+  bar x = x+1
+  baz x = x==0
+
+instance Foo Bool where
+  bar True  = 0
+  bar False = 1
+  baz x     = x
+
+lorem :: Foo a =&gt; a -&gt; (Int, Bool)
+lorem x = (bar x, baz x)
+{-# NOINLINE lorem #-}
+
+test1 = lorem (1::Int)
+test2 = lorem True</code></pre><p>When GHC compiles the definition of <code>lorem</code>, it needs to be able to dispatch calls to <code>bar</code> and <code>baz</code> depending on the argument type. In order to do this, we perform a process called <i>dictionary elaboration</i>, in which we essentially replace a <i>constraint</i> (like <code>Foo a</code>) with a compiler-generated dictionary, which contains the methods to call. So the compiler produces something like this:</p><pre><code class="haskell">foo'Int'bar :: Int -&gt; Int
+foo'Int'bar x = x+1
+
+foo'Int'baz :: Int -&gt; Bool
+foo'Int'baz x = x==0
+
+foo'Bool'bar :: Bool -&gt; Int
+foo'Bool'bar True  = 0
+foo'Bool'bar False = 1
+
+foo'Bool'baz :: Bool -&gt; Bool
+foo'Bool'baz x     = x
+
+data FooDict a =
+  FooDict { fooDict'bar :: a -&gt; Int
+          , fooDict'baz :: a -&gt; Bool
+          }
+
+lorem :: FooDict a -&gt; a -&gt; (Int, Bool)
+lorem dict x = (fooDict'bar dict x, fooDict'baz dict x)
+
+test1 = lorem (FooDict foo'Int'bar foo'Int'baz) 1
+test2 = lorem (FooDict foo'Bool'bar foo'Bool'baz) True</code></pre><p>As we can see, the type class is totally eliminated and instead replaced by a data type, containing our type class methods (note that <code>FooDict a</code> isomorphic to <code>(a -&gt; Int, a -&gt; Bool)</code>) The compiler then manually plumbs around the correct dictionaries at the call site of <code>lorem</code>.</p><p>Let's verify this using <code>ghc-core</code>. Stuff the above code into a file, and compile it like so:</p><pre><code>ghc-core --no-asm --no-cast -- -dsuppress-var-kinds -dsuppress-type-applications -dsuppress-uniques Foo.hs</code></pre><p>The arguments suppress a lot of the unnecessary output in this case, so the output looks slightly more like 'simple haskell' as opposed to 'compiler intermediate language.' But it's still pretty verbose.</p><p>We see output similar to the following:</p><pre><code class="haskell">$fFooBool2 :: Int
+$fFooBool2 = I# 1
+
+lorem [InlPrag=NOINLINE]
+  :: forall a. Foo a =&gt; a -&gt; (Int, Bool)
+lorem =
+  \ (@ a) ($dFoo :: Foo a) (x :: a) -&gt;
+    (bar $dFoo x, baz $dFoo x)
+
+test1 :: (Int, Bool)
+test1 = lorem $fFooInt $fFooBool2
+
+test2 :: (Int, Bool)
+test2 = lorem $fFooBool True</code></pre><p>(Quick tip: in System FC, the GHC Core language, <i>types</i> as well as values are explicit as arguments. The syntax <code>(@ a)</code> does not refer to a <i>value argument</i> - it instead says <code>lorem</code> is a function which takes a singular <i>type argument</i> called <code>a</code>, as well as two value arguments: a dictionary of type <code>Foo a</code> and a value of type <code>a</code>.)</p><p>So we see everything is as we expect. Both <code>test1</code> and <code>test2</code> pass a dictionary as the first argument to <code>lorem</code>, which dispatches on the <code>Foo a</code> dictionary to call the right functions. (Check the remainder of the output to see the rest, including how <code>$fFooInt</code> for example is actually a dictionary of <code>$fFooInt_$cbar</code> and <code>$fFooInt_$cbaz</code>)</p><p>But there is an important special case here: <i>if a type class only has one method, we simply pass around the method itself</i>. This is obvious - if a type class only contains a method <code>foo :: Bar =&gt; a -&gt; Int</code>, there is no need to create a <code>data FooDict = FooDict (a -&gt; Int)</code>, when instead we can just pass around the <code>(a -&gt; Int)</code> on its own. Let's verify that with the following code:</p><pre><code class="haskell">module Main (main, test1) where
+
+main :: IO ()
+main = return ()
+
+class Foobar a where
+  foobar :: a -&gt; Int
+
+instance Foobar Int where
+  foobar x = x*x
+
+ipsum :: Foobar a =&gt; a -&gt; Int
+ipsum a = (foobar a) + 10
+{-# NOINLINE ipsum #-}
+
+test1 = ipsum (10::Int)
+</code></pre><p>Load it into <code>ghc-core</code>, and we see:</p><pre><code class="haskell">
+$fFoobarInt_$cfoobar :: Int -&gt; Int
+$fFoobarInt_$cfoobar =
+  \ (x :: Int) -&gt; $fNumInt_$c* x x
+
+ipsum :: forall a. Foobar a =&gt; a -&gt; Int
+ipsum =
+  \ (@ a) ($dFoobar :: Foobar a) (a :: a) -&gt;
+    case ($dFoobar `cast` ...) a of _ { I# x -&gt;
+    I# (+# x 10)
+    }
+
+test1 :: Int
+test1 =
+  ipsum ($fFoobarInt_$cfoobar `cast` ...) test2
+
+</code></pre><p>We see something different here: instead, <code>test1</code> passes <i>the function</i> <code>$fFoobarInt_$cfoobar</code> as an argument to <code>ipsum</code>, after coercing it using a <code>`cast`</code> expression. <code>ipsum</code> then uses it and applies it as a function to the argument <code>a</code> in the <code>case</code> expression. This shows we are correct: single-method 'dictionaries' for a type class are really just functions by themselves.</p><p>Side note: you may be wondering what the deal with <code>cast</code> is. It's a little too complex to go into here, but essentially, GHC Core has a notion of <i>coercion variables</i> which allow us to witness the equivalence <i>between two types</i>. Coercions allow us to establish equality between two types which are not syntactically equal - in the above case, we establish the fact that the dictionary type <code>Foobar Int</code> is <i>the same</i> as the type <code>Int -&gt; Int</code>. If we made another instance, say <code>Foobar Bool</code>, and then somewhere else said <code>ipsum False</code>, we would get a coercion variable that establishes <code>Foobar Bool</code> as equivalent to <code>Bool -&gt; Int</code>. <code>ipsum</code> also uses a coercion variable, more generally stating that <code>Foobar a</code> is equal to <code>a -&gt; Int</code>. This is really about all you need to know.</p><p>While this trick is fairly obvious when you think about it, it is <i>critical</i> to the implementation of <code>reflection</code>, as we shall shortly see. (Maybe you already see where this is going...)</p><h2 id="from-reify-to-reflect-to-nothing-at-all"><a href="#from-reify-to-reflect-to-nothing-at-all">From reify to reflect to nothing at all</a></h2><p>We're about 80% of the way to understanding <code>reflection</code>. Only 80% left!</p><p>The core of it all is this:</p><pre><code class="haskell">newtype Magic a r = Magic (forall (s :: *). Reifies s a =&gt; Proxy s -&gt; r)
+
+reify :: forall a r. a -&gt; (forall (s :: *). Reifies s a =&gt; Proxy s -&gt; r) -&gt; r
+reify a k = unsafeCoerce (Magic k :: Magic a r) (const a) Proxy</code></pre><p>The first thing to note is that <i>a newtype has the same representation as its underlying type</i>. That means that in the above case, a value <code>Magic k</code> has the same runtime representation as <code>k</code> by itself. (GHC discharges such newtype-equivalences based on the same coercion variables we mentioned before. Newtypes are turned into coercions very early in the compilation process.)</p><p>Second, we must remember that <i>at the Core level, <code>k</code> takes two arguments, not one</i>. After elaboration, the first argument is the 'dictionary', but because <code>Reifies</code> only has one method, the first argument to <code>k</code> will be a function of type <code>proxy s -&gt; a</code>. The second argument is of type <code>Proxy s</code>:</p><pre><code>Given:
+
+  k :: forall (s :: *). Reifies s a =&gt; Proxy s -&gt; r
+= { dictionary elaboration }
+  k :: forall (s :: *). Reifies s a -&gt; Proxy s -&gt; r
+= { Reifies is a single-method class; thus a dictionary is a fn }
+  k :: forall (s :: *). (proxy s -&gt; a) -&gt; Proxy s -&gt; r</code></pre><p>So at runtime, <code>k</code> takes two arguments, not one. The trick here is that the <i>types</i> of <code>k</code> and <code>Magic k</code> are different at the Haskell level.</p><p>We add a 'layer' of <code>Magic</code> onto the type of <code>k</code>, and then <code>unsafeCoerce</code> it away. In doing so, we basically give <code>k</code> the final type above. By exploiting the fact <code>newtype</code> doesn't really exist at runtime, and <code>Reifies</code> actually becomes an argument, we can use <code>unsafeCoerce</code> to <i>expose the runtime representation of <code>k</code></i>.</p><p>Remember: <code>unsafeCoerce</code> pays no attention to runtime representation. It just sidesteps the typechecker. In this case, however, we are coercing a value for which we are <i>certain</i> of the runtime representation. This lets us get away with 'slipping in' our own argument.</p><p>Let's go to our original example and step through it (with slight psuedo-syntax and hand-waving)</p><pre><code>Given:
+
+  reify 10 $ \p -&gt; (reflect p) + (reflect p)
+= { defn of reify }
+  unsafeCoerce (Magic $ \p -&gt; (reflect p) + (reflect p)) (const 10) Proxy
+= { dictionary elaboration }
+  unsafeCoerce (Magic $ \dReflect p -&gt; (dReflect p) + (dReflect p)) (const 10) Proxy
+= { unsafeCoerce Magic elimination }
+  (\dReflect p -&gt; (dReflect p) + (dReflect p)) (const 10) Proxy
+= { beta reduction }
+  (\p -&gt; (const 10 p) + (const 10 p)) Proxy
+= { beta reduction }
+  (const 10 Proxy) + (const 10 Proxy)
+= { defn of const }
+  10 + 10
+= { addition }
+  20</code></pre><p>More generally, we can use a similar hand-waving to establish the following: <code>reify a reflect = a</code>:</p><pre><code>Given:
+
+  reify a reflect
+= { eta expand }
+  reify a (\p -&gt; reflect p)
+= { defn of reify }
+  unsafeCoerce (Magic $ \p -&gt; reflect p) (const a) Proxy
+= { dictionary elaboration }
+  unsafeCoerce (Magic $ \dReflect p -&gt; dReflect p) (const a) Proxy
+= { unsafeCoerce Magic elimination }
+  (\dReflect p -&gt; dReflect p) (const a) Proxy
+= { beta reduction }
+  (\p -&gt; const a p) Proxy
+= { beta reduction }
+  const a Proxy
+= { defn of const }
+  a</code></pre><p>And that's about it! It should now also be clear why this implementation is so fast: it has almost no extra runtime overhead.</p><p>There are some important things to reiterate. By now, you should see why we never need an instance of <code>Reifies</code> for anything: because we create the dictionary ourselves, and use <code>const a</code> in its place. And thus <code>reflect p = const a p = a</code>, where <code>a</code> is the configuration you provided.</p><p>Second, it's important to note (as always!) that <code>unsafeCoerce</code>/<code>Magic</code> here really <i>don't</i> have a justifying rule to reason about them with. The above 'proof' is operational and a bit hand-wavy. You can't <i>really</i> apply many deductive reasoning steps like above to such operators. It all simply works because we <code>unsafeCoerce</code> a value with a guaranteed expectation of what it will look like at runtime. We could say that the 'unsafeCoerce Magic elimination' rule above is simply a truth to be assumed - that it will yield an appropriate function.</p><p>Third, you may still be wondering about the weird type <code>reflect :: proxy s -&gt; a</code>. The reason for this will become clear, but in a nutshell, we do this because we want to unify the type variable <code>s</code> with the <code>s</code> at a call site, but we don't care about the actual <code>proxy</code> type itself - since <code>reflect</code> never actually uses its argument anyway.</p><h1 id="dynamically-constructing-type-class-instances"><a href="#dynamically-constructing-type-class-instances">Dynamically constructing type-class instances</a></h1><p>With our new power, it's possible to do something we couldn't before. We can create <i>dynamically create type class instances for a given type</i>. The trick is that we wrap our actual values into a <code>newtype</code>, and the instance of that <code>newtype</code> actually uses <code>reflect</code> to pull methods from the scope which <code>reify</code> creates. This allows you to pass in whatever dictionary you want to <code>reify</code>.</p><p>Here's an example. We'll create a type over which we can dynamically construct an <code>Ord</code> instance.</p><pre><code class="active haskell">{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE UndecidableInstances  #-}
+module Main where
+import Data.Proxy
+import Data.Reflection
+
+-- show
+-- Values of type 'a' in our dynamically constructed 'Ord' instance
+newtype O a s  = O { runO :: a }
+ 
+-- A dictionary describing an 'Ord' instance.
+newtype Ord_ a = Ord_ { compare_ :: a -&gt; a -&gt; Ordering }
+ 
+-- Utility
+isEq :: Ordering -&gt; Bool
+isEq EQ = True
+isEq _  = False
+ 
+instance Reifies s (Ord_ a) =&gt; Eq (O a s) where
+  a == b = isEq (compare_ (reflect a) (runO a) (runO b))
+ 
+instance (Eq (O a s), Reifies s (Ord_ a)) =&gt; Ord (O a s) where
+  compare a b = compare_ (reflect a) (runO a) (runO b)
+ 
+-- Dynamically construct an 'Ord' instance out of a comparsion operator.
+withOrd :: (a -&gt; a -&gt; Ordering) -&gt; (forall s. Reifies s (Ord_ a) =&gt; O a s) -&gt; a
+withOrd f v = reify (Ord_ f) (runO . asProxyOf v)
+  where
+    asProxyOf :: f s -&gt; Proxy s -&gt; f s
+    asProxyOf v _ = v
+
+-- Regular ord instance
+example1 :: Int
+example1 = withOrd compare $ max (O 1) (O 2)
+
+-- Backwards ord instance
+example2 :: Int
+example2 = withOrd (flip compare) $ max (O 1) (O 2)
+ 
+main :: IO ()
+main = print example1 &gt;&gt; print example2
+-- /show</code></pre><p>The above examples show we can compare these Ord-like values, but change out the actual dictionary at runtime!</p><p>Note in the instance declaration, we say <code>reflect a</code>, where <code>a :: O a s</code>. This goes back to what I said earlier about <code>reflect :: proxy s -&gt; a</code> - we want the <code>s</code> type variables to unify, but we <i>don't</i> care that the outer type constructor is <code>O a :: * -&gt; *</code>. In other words, <code>proxy</code> unifies with anything specifically because it's irrelevant as to what it is.</p><h2 id="but-what-about-manual-dictionaries-"><a href="#but-what-about-manual-dictionaries-">But what about manual dictionaries?</a></h2><p>The above might just seem like a parlor trick, although there is real value. Indeed - what about manual dictionaries, you ask yourself? We could feasibly just construct a type where the dictionary argument is <i>explicit</i> and we feed it in. Then we can shuffle it around in the associated type-class instance, and it works similarly to the API above. We construct a dictionary, and scope its use over some computation.</p><p>In the following example, <code>Mon1</code> is a monoid with a <i>manually managed</i> dictionary argument, while <code>Mon2</code> has its monoid instance managed by <code>reflection</code> instead.</p><pre><code class="active haskell">{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE UndecidableInstances  #-}
+module Main where
+import Data.Proxy
+import Data.Monoid
+import Data.Reflection
+
+-- show
+-- Dynamically constructed monoid values.
+data Monoid_ a = Monoid_ { mappend_ :: a -&gt; a -&gt; a, mempty_ :: a }
+
+-- Monoids which explicitly hold their own dictionary
+newtype Mon1 a = Mon1 (Monoid_ a -&gt; a)
+instance Monoid (Mon1 a) where
+  mempty                  = Mon1 mempty_
+  Mon1 f `mappend` Mon1 g = Mon1 $ \m -&gt; mappend_ m (f m) (g m)
+ 
+embed1 :: a -&gt; Mon1 a
+embed1 x = Mon1 (\_ -&gt; x)
+ 
+run1 :: (a -&gt; a -&gt; a) -&gt; a -&gt; Mon1 a -&gt; a
+run1 f z (Mon1 v) = v (Monoid_ f z)
+
+-- Monoids with a reflection-managed dictionary.
+newtype Mon2 a s = Mon2 { unMon2 :: a }
+instance Reifies s (Monoid_ a) =&gt; Monoid (Mon2 a s) where
+  mappend a b        = Mon2 $ mappend_ (reflect a) (unMon2 a) (unMon2 b)
+  mempty = a where a = Mon2 $ mempty_ (reflect a)
+ 
+embed2 :: a -&gt; Mon2 a s
+embed2 x = Mon2 x
+ 
+run2 :: (a -&gt; a -&gt; a) -&gt; a -&gt; (forall s. Reifies s (Monoid_ a) =&gt; Mon2 a s) -&gt; a
+run2 f z v = reify (Monoid_ f z) (unMon2 . asProxyOf v)
+  where
+    asProxyOf :: f s -&gt; Proxy s -&gt; f s
+    asProxyOf v _ = v
+ 
+-- Examples
+sixteen :: Monoid m =&gt; m -&gt; m
+sixteen one = eight &lt;&gt; eight
+  where
+    eight   = four &lt;&gt; four
+    four    = two  &lt;&gt; two
+    two     = one  &lt;&gt; one
+{-# INLINE sixteen #-}
+ 
+ex1 :: Int
+ex1 = run1 (+) 0 (sixteen $ embed1 2)
+ 
+ex2 :: Int
+ex2 = run2 (+) 0 (sixteen $ embed2 2)
+
+main :: IO ()
+main = print ex1 &gt;&gt; print ex2
+-- /show</code></pre><p>The problem with this, though, is sharing. There is a huge difference between <code>ex1</code> and <code>ex2</code>.</p><p>Note the embedding of values into their monoid counterparts:</p><pre><code class="haskell">embed1 :: a -&gt; Mon1 a
+embed1 x = Mon1 (\_ -&gt; x)
+
+embed2 :: a -&gt; Mon2 a s
+embed2 x = Mon2 x</code></pre><p>Given these definitions, the definitions of <code>ex1</code> and <code>ex2</code> have very different runtime characteristics. In <code>ex1</code>, we <i>share the lambdas</i> in our computation, not the results. <code>ex2</code> however, does properly share the results.</p><p>We can confirm this with a quick look at the Core. <code>ex1</code>:</p><pre><code class="haskell">ex1_x :: Int
+ex1_x = I# 2
+
+$wa1
+  :: (Int -&gt; Int -&gt; Int)
+     -&gt; Int
+$wa1 =
+  \ (ww :: Int -&gt; Int -&gt; Int) -&gt;
+    ww
+      (ww (ww ex1_x ex1_x) (ww ex1_x ex1_x))
+      (ww (ww ex1_x ex1_x) (ww ex1_x ex1_x))
+
+ex1 :: Int
+ex1 =
+  case $wa1 $fNumInt_$c+ of _ { I# x -&gt;
+  I# (+# x x)
+  }
+</code></pre><p>vs <code>ex2</code>:</p><pre><code class="haskell">ex2_z :: Int
+ex2_z = I# 0
+
+ex2_x :: Monoid_ Int
+ex2_x = Monoid_ $fNumInt_$c+ ex2_z
+
+ex3 :: Any * -&gt; Monoid_ Int
+ex3 = \ _ -&gt; ex2_x
+
+ex2 :: Int
+ex2 =
+  ((\ (@ s)
+      ($dReifies
+         :: Data.Reflection.Reifies * s (Monoid_ Int)) -&gt;
+      let {
+        eight [Dmd=Just L] :: Mon2 Int s
+
+        eight =
+          let {
+            four [Dmd=Just L] :: Mon2 Int s
+
+            four =
+              let {
+                two [Dmd=Just L] :: Mon2 Int s
+
+                two =
+                  case ($dReifies `cast` ...) (ex1_x `cast` ...)
+                  of _ { Monoid_ ds _ -&gt;
+                  (ds ex1_x ex1_x) `cast` ...
+                  } } in
+              case ($dReifies `cast` ...) two of _ { Monoid_ ds _ -&gt;
+              (ds (two `cast` ...) (two `cast` ...)) `cast` ...
+              } } in
+          case ($dReifies `cast` ...) four of _ { Monoid_ ds _ -&gt;
+          (ds (four `cast` ...) (four `cast` ...)) `cast` ...
+          } } in
+      case ($dReifies `cast` ...) eight of _ { Monoid_ ds _ -&gt;
+      let {
+        a1 [Dmd=Just S] :: Int
+
+        a1 = ds (eight `cast` ...) (eight `cast` ...) } in
+      \ _ -&gt; a1
+      })
+   `cast` ...)
+    ex3 (Data.Proxy.Proxy)</code></pre><p>None of the work is shared in <code>ex1</code>, but all of it is in <code>ex2</code>.</p><p>And looking at <code>embed1</code>, this is rather obvious: we must recompute the lambda for every 'step'. This means that while <code>ex1</code> takes 16 reductions (one for every instance of <code>one</code>), <code>ex2</code> only takes 4 reductions thanks to the fact the results are shared. This sharing loss thus explodes pretty quickly.</p><p>(Incidentally, this exact problem is the reason Edward wrote <code>reflection</code> in the first place.)</p><h1 id="turning-up-the-magic-to-over-9000"><a href="#turning-up-the-magic-to-over-9000">Turning up the magic to over 9000</a></h1><p>Finally, we're going to do something even scarier. With our above examples of creating type class instances, one drawback is we have to manually 'annotate' our values by wrapping them in a <code>newtype</code>. The newtype with the phantom <code>s</code> parameter is what A) keeps instance resolution happy, and B) lets us have a modicum of safety by not leaking <code>Proxy</code> values. But that's kind of inconvenient - is there another way?</p><p>Of course there is. By the power of <code>ConstraintKinds</code>, <code>TypeFamilies</code> and <code>unsafeCoerce</code>, what could possibly stop us?</p><p>First, we'll build some machinery to help abstract out the common patterns of creating these dynamic instances. This will rely on Edward's other package known as <a href="http://hackage.haskell.org/package/constraints">constraints</a>. This helps reduce boilerplate and makes usage more consistent. If you're not already familiar with <code>constraints</code>, <a href="http://neocontra.blogspot.com/2013/06/controlcategory-now-with-kind.html">I have a blog post about the general mechanism</a>, concerning <code>:-</code> (called <code>|-</code> in my article) and <code>Sub</code>/<code>Dict</code>.</p><p>Let us first define <code>Lift</code>, which essentially tags a value of type <code>a</code> with an <code>s</code> phantom type (for the rank2 context,) and <i>also</i> a phantom for a <i><code>Constraint</code> constructor</i>.</p><pre><code class="haskell">newtype Lift (p :: * -&gt; Constraint) (a :: *) (s :: *) = Lift { lower :: a }</code></pre><p><code>Lift p a s</code> describes a value of type <code>a</code>, with associated phantoms <code>s</code> and <code>p</code>. <code>p</code> in this case, is some type constructor which will produce a <code>Constraint</code> when given a type. We'll be applying <code>p</code> to <code>a</code> to yield a <code>Constraint</code> as we'll shortly see.</p><p>Now, we can define a type class which will tie a given class <code>Constraint</code> <i>to a representation of its dictionary</i>. We do this using <code>TypeFamilies</code>: for any given instance of the type class, we define a data constructor representing it.</p><pre><code class="haskell">class ReifiableConstraint p where
+  data Def (p :: * -&gt; Constraint) (a :: *) :: *
+  reifiedIns :: Reifies s (Def p a) :- p (Lift p a s)</code></pre><p>We'll get back to <code>reifiedIns</code> in a minute.</p><p><code>ReifiableConstraint</code> makes more sense when you see it being used:</p><pre><code class="haskell">instance ReifiableConstraint Monoid where
+  data Def Monoid a = Monoid { mappend_ :: a -&gt; a -&gt; a, mempty_ :: a }
+  reifiedIns = Sub Dict</code></pre><p>This means that we represent the <code>Monoid</code> constraint (a type constructor of kind <code>* -&gt; Constraint</code>) as a dictionary, containing its <code>mappend</code> and <code>mempty</code> methods, like earlier. Hence, <code>ReifiableConstraint</code> associates a given <code>Constraint</code> with its 'reified form' as a value. Now we can tie <code>Def Monoid a</code> and <code>Lift Monoid a s</code> into an <code>Monoid</code> instance:</p><pre><code class="haskell">instance Reifies s (Def Monoid a) =&gt; Monoid (Lift Monoid a s) where
+  mappend a b        = Lift $ mappend_ (reflect a) (lower a) (lower b)
+  mempty = a where a = Lift $ mempty_ (reflect a)</code></pre><p>Finally, we define the general <code>with</code> utility. This can be used to create dynamic instances <i>for any <code>Lift</code>ed value which is tied to a <code>ReifiableConstraint</code></i>.</p><pre><code class="haskell">with :: Def p a -&gt; (forall s. Reifies s (Def p a) =&gt; Lift p a s) -&gt; a
+with d v = reify d (lower . asProxyOf v)
+  where
+    asProxyOf :: f s -&gt; Proxy s -&gt; f s
+    asProxyOf x _ = x</code></pre><p>And now we can say:</p><pre><code class="haskell">with (Monoid (+) 0) $ mempty &lt;&gt; Lift 10 &lt;&gt; Lift 12 -- evaluates to 22
+with (Monoid (*) 1) $ mempty &lt;&gt; Lift 10 &lt;&gt; Lift 12 -- evaluates to 120</code></pre><p>If we define instances for <code>Eq</code> and <code>Ord</code>, both <code>with</code> and <code>Lift</code> will work perfectly for them, too. If we put all the types together, we can sort of see how this plays out: given a <code>Lift p a s</code> value, over some constraint <code>p</code>, we derive the appropriate <code>Reifies</code> context with the associated <code>Def</code> value, and in the instance itself, we pull the methods from <code>Def</code> and use them, like we did earlier. This is mostly just generalizing out all of the type variables/type constructors we specialized initially.</p><p>So that's part one. We have some general machinery to ease implementing these special dictionaries and use them generically. Now we get to the scarier part, and we come back to <code>reifiedIns</code>. Its type is very important. It says:</p><blockquote><p>The type <code>Reifies s (Def p a)</code> entails <code>p (Lift p a s)</code></p></blockquote><p>So, in any context where <code>p (Lift p a s)</code> occurs as a <code>Constraint</code>, it is safe to replace it with the constraint <code>Reifies s (Def p a)</code>. This is because the latter constraint <i>implies</i> the former constraint. However, <code>Lift p a s</code> is really just a wrapper around a value of type <code>a</code>. So in a sense, <code>p a</code> should be able to imply <code>p (Lift p a s)</code> too. By the property of transitivity, this would mean the simple context <code>p a</code> could then imply <code>Reifies s (Def p a)</code>.</p><p>Using some unsafety, we can create this bridge:</p><pre><code class="haskell">using :: forall p a. ReifiableConstraint p =&gt; Def p a -&gt; (p a =&gt; a) -&gt; a
+using d m = reify d $ \(_ :: Proxy s) -&gt;
+  let replaceProof :: Reifies s (Def p a) :- p a
+      replaceProof = trans proof reifiedIns
+        where proof = unsafeCoerceConstraint :: p (Lift p a s) :- p a
+  in m \\ replaceProof</code></pre><p>Note carefully the definition here. It basically says, in step:</p><ul><li><code>reifiedIns</code> is a proof that the constraint <code>p (Lift p a s)</code> can be replaced by <code>Reifies s (Def p a)</code></li><li><code>proof</code> is an <i>unsafe proof</i> saying that the constraint <code>p a</code> can be replaced by <code>p (Lift p a s)</code></li><li>By transitivity of these two proofs, we have proof <code>p a</code> may be replaced by <code>Reifies s (Def p a)</code></li><li>Given the term <code>m</code> of type <code>a</code> appears in the context <code>p a</code>, and a proof that <code>Reifies s (Def p a) :- p a</code>, we can replace the context <code>p a =&gt; a</code> with <code>Reifies s (Def p a) =&gt; a</code>, which is exactly the type <code>reify</code> expects. Note we directly consume the <code>Proxy</code> with <code>ScopedTypeVariables</code> to bring the <code>s</code> type parameter into scope, so we can unify with it.</li></ul><p>And with that magic, we can now say:</p><pre><code class="haskell">using (Monoid (+) 0) $ mempty &lt;&gt; 10 &lt;&gt; 12 -- evaluates to 22
+using (Monoid (*) 1) $ mempty &lt;&gt; 10 &lt;&gt; 12 -- evaluates to 120</code></pre><h1 id="conclusion"><a href="#conclusion">Conclusion</a></h1><p>The code from the last section is below for completeness.</p><p>Many thanks to Edward for the discussions we had about these libraries, and the tips he gave me when approaching <code>reflection</code> from a pedagogical standpoint. And, of course, for writing the libraries themselves.</p><pre><code class="active haskell">-- show
+{-# LANGUAGE Rank2Types, FlexibleContexts, UndecidableInstances, TypeFamilies #-}
+{-# LANGUAGE ConstraintKinds, KindSignatures, PolyKinds, TypeOperators #-}
+{-# LANGUAGE FlexibleInstances, MultiParamTypeClasses, ScopedTypeVariables #-}
+{-# LANGUAGE FunctionalDependencies #-}
+module Main where
+import Data.Proxy
+import Data.Monoid
+import Data.Reflection
+import Data.Constraint
+import Data.Constraint.Unsafe
+
+--------------------------------------------------------------------------------
+-- Lift/ReifiableConstraint machinery.
+ 
+newtype Lift (p :: * -&gt; Constraint) (a :: *) (s :: *) = Lift { lower :: a }
+ 
+class ReifiableConstraint p where
+  data Def (p :: * -&gt; Constraint) (a :: *) :: *
+  reifiedIns :: Reifies s (Def p a) :- p (Lift p a s)
+ 
+with :: Def p a -&gt; (forall s. Reifies s (Def p a) =&gt; Lift p a s) -&gt; a
+with d v = reify d (lower . asProxyOf v)
+  where
+    asProxyOf :: f s -&gt; Proxy s -&gt; f s
+    asProxyOf x _ = x
+
+--------------------------------------------------------------------------------
+-- Kicking it up to over 9000
+
+using :: forall p a. ReifiableConstraint p =&gt; Def p a -&gt; (p a =&gt; a) -&gt; a
+using d m = reify d $ \(_ :: Proxy s) -&gt;
+  let replaceProof :: Reifies s (Def p a) :- p a
+      replaceProof = trans proof reifiedIns
+        where proof = unsafeCoerceConstraint :: p (Lift p a s) :- p a
+  in m \\ replaceProof
+ 
+--------------------------------------------------------------------------------
+-- Examples of `ReifiableConstraint`
+
+instance ReifiableConstraint Eq where
+  data Def Eq a = Eq { eq_ :: a -&gt; a -&gt; Bool }
+  reifiedIns = Sub Dict
+ 
+instance Reifies s (Def Eq a) =&gt; Eq (Lift Eq a s) where
+  a == b = eq_ (reflect a) (lower a) (lower b)
+ 
+instance ReifiableConstraint Ord where
+  data Def Ord a = Ord { compare_ :: a -&gt; a -&gt; Ordering }
+  reifiedIns = Sub Dict
+ 
+instance Reifies s (Def Ord a) =&gt; Eq (Lift Ord a s) where
+  a == b = (compare a b == EQ)
+ 
+instance Reifies s (Def Ord a) =&gt; Ord (Lift Ord a s) where
+  compare a b = compare_ (reflect a) (lower a) (lower b)
+ 
+instance ReifiableConstraint Monoid where
+  data Def Monoid a = Monoid { mappend_ :: a -&gt; a -&gt; a, mempty_ :: a }
+  reifiedIns = Sub Dict
+ 
+instance Reifies s (Def Monoid a) =&gt; Monoid (Lift Monoid a s) where
+  mappend a b        = Lift $ mappend_ (reflect a) (lower a) (lower b)
+  mempty = a where a = Lift $ mempty_ (reflect a)
+-- /show
+
+main :: IO ()
+main = return ()</code></pre></article>
+
+
+</div>
+</div>
+<div class="row article-footer"><div class="span7 meta"><span class="sociallinksunicode social">
+<a href="https://twitter.com/home?status=$url$" target="_blank"><i class="icon-twitter"></i></a>&nbsp;
+<a href="http://www.facebook.com/sharer/sharer.php?u=$url$" target="_blank"><i class="icon-facebook"></i></a>&nbsp;
+<a href="https://plus.google.com/share?url=$url$" target="_blank"><i class="icon-google-plus"></i></a></span>
+</div>
+</div>
+</div>
+<div class="footer"><div class="container"><div class="row"><div class="span12"><ul class="menu"><li><a href="https://www.schoolofhaskell.com/">School</a>
+</li>
+<li><a href="https://www.schoolofhaskell.com/user">Users</a>
+</li>
+<li><a href="https://www.schoolofhaskell.com/auth/login">Log In</a>
+</li>
+<li><a href="https://www.schoolofhaskell.com/auth/page/email/register">Sign Up</a>
+</li>
+</ul>
+</div>
+</div>
+<div class="row"><div class="span12"></div>
+</div>
+</div>
+</div>
+<link rel="stylesheet" type="text/css" href="https://www.schoolofhaskell.com/static/bootstrap/css/bootstrap-responsive.css" />
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script><script src="https://www.schoolofhaskell.com/static/combined/cKRLBd-P.js"></script><script>window.fpco = window.fpco || {};
+window.fpco.keyMap = "";
+
+        function hident2() {
+            if (navigator.id) {
+                navigator.id.watch({
+                    onlogin: function (assertion) {
+                        if (assertion) {
+                            document.location = "https://www.schoolofhaskell.com/auth/page/browserid/" + assertion;
+                        }
+                    },
+                    onlogout: function () {}
+                });
+                navigator.id.request({
+                    returnTo: "/auth/login" + "?autologin=true"
+                });
+            }
+            else {
+                alert("Loading, please try again");
+            }
+        }
+    
+        (function(){
+            var bid = document.createElement("script");
+            bid.async = true;
+            bid.src = "https://login.persona.org/include.js";
+            var s = document.getElementsByTagName('script')[0];
+            s.parentNode.insertBefore(bid, s);
+        })();
+    $(function(){
+    var url = "https://www.schoolofhaskell.com/like-content/3611";
+    var $self = $("#hident3");
+    $.getJSON(url, function(state){
+        var $a, $likeCount;
+
+        $a = $('<a class="likes" href="/auth/login"></a>');
+        $likeCount = $('<span class="like-count"></span>');
+        $thumbs = $("<i class='icon-thumbs-up' title='Unlike this :-('>");
+        $a.append($likeCount);
+        $a.append($thumbs);
+        $self.append($a);
+
+        updateView();
+
+        $a.click(function(){
+            if(state.myLike == 'not-logged-in') {
+                return true;
+            } else {
+                var $a = $(this);
+                $.post(url, state.myLike !== 'no-like' ? {unlike:true} : {}, function(data){
+                    state.myLike = state.myLike == 'no-like'? 'like' : 'no-like';
+                    state.likes = data.likes;
+                    updateView();
+                });
+                return false;
+            }
+        });
+
+        function updateView(){
+            var liked = state.myLike !== 'not-logged-in' && state.myLike !== 'no-like';
+            if(liked) $a.addClass('likes-liked');
+            else $a.removeClass('likes-liked');
+
+            $likeCount.text(state.likes);
+
+            if(state.myLike !== 'not-logged-in') {
+                if (liked) $thumbs.attr('title','Unlike this');
+                else $thumbs.attr('title','Like this!');
+
+                if (liked) $a.addClass('likes-liked');
+                else $a.removeClass('likes-liked');
+            } else {
+                $a.addClass('like-not-logged-in');
+                $thumbs.attr('title','Please login to vote!');
+            }
+        }
+    });
+});
+$(function(){
+  $("a.logout").click(function(){
+    var form = $("<form method='post'/>");
+    form.attr("action", $(this).attr("href"));
+    $("body").append(form);
+    form.submit();
+    return false;
+  });
+});
+
+$(function(){
+    $('.sociallinksunicode a').each(function(){
+        $(this).attr('href',$(this).attr('href').replace('$url$',document.location));
+    });
+});
+
+$(function(){
+  // If we need to select a user/select a password then show the
+  // details confirmation form, otherwise enable the getting started
+  // section.
+  if($('.alert-block a').text().match(/(selected a username|change your password)/)) {
+    $("#confirm-details").show();
+    $("#confirm-details #inputUsername").focus();
+  } else {
+    $("#get-started").removeClass('disabled').addClass('enabled');
+  }
+
+  // For lack of a plain HTML validation story this will do.
+  $('.welcome-page').each(function(){
+    $('form').submit(check);
+  });
+  function check(){
+    setTimeout(check,500);
+    var error = false;
+    $('.error').removeClass('error');
+    $('#enter-details input').each(function(){
+      if($(this).val() == '') {
+        $(this).parent().parent().addClass('error');
+        error = true;
+      }
+    });
+    if(error) return false;
+    if($('[name=password]').val() == $('[name=confirm]').val()) {
+      $('#confirm').removeClass('error');
+      return true;
+    } else {
+      $('#confirm').addClass('error');
+      return false;
+    }
+  }
+});
+
+$(function(){
+  // When scrolling over a snippet editor, activate the "clone in IDE" popovers
+  $('article').each(function(){
+    var n = 100;
+    var wait = 10000;
+    function check(){
+      if($('.clone').length == 0) {
+        setTimeout(check,n);
+        return;
+      }
+      var activated = $.cookie('clone-popover');
+      if (activated) return;
+      var activate = false;
+      $('.controlsRun:onScreen').each(function(){
+        $.cookie('clone-popover', 'true', { expires: 30, path: '/' });
+        activate = true;
+        return false;
+      });
+      if(activate) {
+          $('.clone').each(function(){
+              // The bootstrap API is rather unreasonable to say the
+              // least.
+              next = $(this).parent();
+              var title = next.attr('title');
+              next.attr('data-content',$(this).attr('data-content'));
+              next.attr('title',$(this).attr('title'));
+              next.popover('show',{
+                  title: $(this).attr('title')
+              });
+              next.attr('title',title);
+          });
+          setTimeout(function(){
+              $('.clone').each(function(){
+                  $(this).parent().popover('hide');
+              });
+          },wait);
+      } else {
+        setTimeout(check,n);
+      }
+    }
+    setTimeout(check,n);
+  });
+});
+
+// onScreen jQuery plugin v0.2.1
+// (c) 2011-2013 Ben Pickles
+//
+// http://benpickles.github.com/onScreen
+//
+// Released under MIT license.
+(function(a){a.expr[":"].onScreen=function(b){var c=a(window),d=c.scrollTop(),e=c.height(),f=d+e,g=a(b),h=g.offset().top,i=g.height(),j=h+i;return h>=d&&h<f||j>d&&j<=f||i>e&&h<=d&&j>=f}})(jQuery);
+
+/*!
+ * jQuery Cookie Plugin v1.1
+ * https://github.com/carhartl/jquery-cookie
+ *
+ * Copyright 2011, Klaus Hartl
+ * Dual licensed under the MIT or GPL Version 2 licenses.
+ * http://www.opensource.org/licenses/mit-license.php
+ * http://www.opensource.org/licenses/GPL-2.0
+ */
+(function($, document) {
+
+  var pluses = /\+/g;
+  function raw(s) {
+    return s;
+  }
+  function decoded(s) {
+    return decodeURIComponent(s.replace(pluses, ' '));
+  }
+
+  $.cookie = function(key, value, options) {
+
+    // key and at least value given, set cookie...
+    if (arguments.length > 1 && (!/Object/.test(Object.prototype.toString.call(value)) || value == null)) {
+      options = $.extend({}, $.cookie.defaults, options);
+
+      if (value == null) {
+	options.expires = -1;
+      }
+
+      if (typeof options.expires === 'number') {
+	var days = options.expires, t = options.expires = new Date();
+	t.setDate(t.getDate() + days);
+      }
+
+      value = String(value);
+
+      return (document.cookie = [
+	encodeURIComponent(key), '=', options.raw ? value : encodeURIComponent(value),
+	options.expires ? '; expires=' + options.expires.toUTCString() : '', // use expires attribute, max-age is not supported by IE
+	options.path    ? '; path=' + options.path : '',
+	options.domain  ? '; domain=' + options.domain : '',
+	options.secure  ? '; secure' : ''
+      ].join(''));
+    }
+
+    // key and possibly options given, get cookie...
+    options = value || $.cookie.defaults || {};
+    var decode = options.raw ? raw : decoded;
+    var cookies = document.cookie.split('; ');
+    for (var i = 0, parts; (parts = cookies[i] && cookies[i].split('=')); i++) {
+      if (decode(parts.shift()) === key) {
+	return decode(parts.join('='));
+      }
+    }
+    return null;
+  };
+  $.cookie.defaults = {};})(jQuery, document);
+</script><!--[if lt IE 10]><script src="https://www.schoolofhaskell.com/static/design/js/ie.js?etag=ayV2DuJ0"></script><![endif]--><script>if(!window.location.href.match(/localhost/)){var track = '/tutorial/user/thoughtpolice/using-reflection';
+window._gaq = [['_setAccount','UA-36928035-1'],track != ''? ['_trackPageview',track] : ['_trackPageview']
+,['_trackPageLoadTime']];window._gaq.push(['_setCustomVar',1,'Section','School of Haskell',3]);
+window._gaq.push(['_setCustomVar',2,'User Type','Visitor',1]);
+(function() {
+  var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+  ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+  var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+
+})();}</script>
+<!-- Prompt IE 6 users to install Chrome Frame. Remove this if you want to support IE 6.  chromium.org/developers/how-tos/chrome-frame-getting-started --><!--[if lt IE 7 ]><script src="//ajax.googleapis.com/ajax/libs/chrome-frame/1.0.3/CFInstall.min.js"></script><script>window.attachEvent('onload',function(){CFInstall.check({mode:'overlay'})})</script><![endif]--></body>
+<!-- Mirrored from www.schoolofhaskell.com/user/thoughtpolice/using-reflection by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 21:54:52 GMT -->
+</html>
