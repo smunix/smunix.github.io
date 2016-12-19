@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2016-01-26-transformers-free-monads-mtl-laws.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>Monad transformers, free monads, mtl, laws and a new approach</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>Monad transformers, free monads, mtl, laws and a new approach</h1>
+<p>If you’ve been following the hot topics of Haskell over the last few years, you’ll probably have noticed a lot of energy around the concepts of effects. By effects, we are generally talking about the types of computations we traditionally express using monads in Haskell – IO, non-determinism, exceptions, and so on. I believe the main reason that this has been a popular topic is that none of the existing solutions are particularly nice. Now “nice” isn’t a particularly well defined concept, but for something to fit in well with Haskell’s philosophy we’re looking for a system that is:</p>
+<ol style="list-style-type: decimal">
+<li><strong>Extensible</strong>. The approach we take should be <em>open</em>, allowing us to define new effects.</li>
+<li><strong>Composable</strong>. It should be possible to mix different effects with well defined, predictable behaviour.</li>
+<li><strong>Efficient</strong>. We should only have to pay a minimal cost for the use of the abstraction.</li>
+<li><strong>Terse</strong>. Haskell is generally not verbose, and whatever system we use should allow us to avoid excessive verbosity. The system should work with us, we should not have to work for it.</li>
+</ol>
+<p>I would also add in a 5th point</p>
+<ol start="5" style="list-style-type: decimal">
+<li><strong>Inferable</strong>. Type annotations should not be required for successful compilation.</li>
+</ol>
+<p>With this list in mind, what are the current solutions, and how do they measure up?</p>
+<h2 id="monad-transformers">Monad Transformers</h2>
+<p>Starting with the most basic, we can simply choose a concrete monad that does everything we need and work entirely in that – which is usually going to be <code>IO</code>. In a sense this is composable – certainly all programs in one monad compose together – but it’s composable in the same sense that dynamically typed languages fit together. Often choosing a single monad for each individual computation is too much, and it becomes very difficult to work out exactly what effects are being used in our individual functions: does this computation use <code>IO</code>? Will it throw exceptions? Fork threads? You don’t know without reading the source code.</p>
+<p>Building a concrete monad can also be a lot of work. Consider a computation that needs access to some local state, a fixed environment and arbitrary <code>IO</code>. This has a type such as</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">newtype</span> <span class="dt">M</span> a <span class="fu">=</span> <span class="dt">M</span> (<span class="dt">Environment</span> <span class="ot">-&gt;</span> <span class="dt">State</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> (a, <span class="dt">State</span>))</code></pre></div>
+<p>However, to actually interact with the rest of the Haskell ecosystem we need to define (at least) instances of <code>Functor</code>, <code>Applicative</code> and <code>Monad</code>. This is boilerplate code and entirely determined by the choice of effects – and that means we should strive to have the compiler write it for us.</p>
+<p>To combat this, we can make use of monad transformers. Unlike monads, monad transformers compose, which means we can build larger monads by stacking a collection of monad transformers together. The above monad <code>M</code> can now be defined using off-the-shelf components, but crucially we can derive all the necessary type classes in one fell swoop with the <code>GeneralizedNewtypeDeriving</code> language extension</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">{-# LANGUAGE GeneralizedNewtypeDeriving #-}</span>
+
+<span class="kw">newtype</span> <span class="dt">M</span> a <span class="fu">=</span> <span class="dt">M</span> (<span class="dt">ReaderT</span> <span class="dt">Environment</span> (<span class="dt">StateT</span> <span class="dt">State</span> <span class="dt">IO</span>) a)
+  <span class="kw">deriving</span> (<span class="dt">Functor</span>, <span class="dt">Applicative</span>, <span class="dt">Monad</span>)</code></pre></div>
+<p>This saves typing considerably, and is a definite improvement. We’ve achieved more of points 1 and 2 (extenability and composability) by having both programs <em>and</em> effects compose. Point 4 (terseness) is improved by the use of <code>GeneralizedNewtypeDeriving</code>. There is a slight risk in terms of efficiency, but I believe if <code>transformers</code> would just <code>INLINE</code> a few more definitions, the cost can be entirely erased. All of this code will infer as we’d expect, as we’re working entirely with explicit types</p>
+<p>However, while we had to type less to <em>define</em> the effects, we have to type more to <em>use</em> the effects! If we want to access the environment for example, we can use the <code>ask</code> operation from <code>Control.Monad.Trans.Reader</code>, but we have to wrap this up in the <code>M</code> <code>newtype</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">env ::</span> <span class="dt">M</span> <span class="dt">Environment</span>
+env <span class="fu">=</span> <span class="dt">M</span> ask</code></pre></div>
+<p>However, if we want to retrieve the current state in the computation, we can use <code>get</code> from <code>Control.Monad.Trans.State</code>, but we also have to <code>lift</code> that into the <code>ReaderT</code> monad that is wrapping <code>StateT</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">currentState ::</span> <span class="dt">M</span> <span class="dt">State</span>
+currentState <span class="fu">=</span> <span class="dt">M</span> (lift get)</code></pre></div>
+<p>This is unfortunate – <code>lift</code> is mostly noise that we don’t want to be concerned with. There is also the problem in that the amount of <code>lift</code>s to perform is tied directly to the underlying definition of <code>M</code>. If I later decide I want to layer in the chance of failure (perhaps with <code>MaybeT</code>), I now have to change almost <em>all</em> code using <code>lift</code>, by adding an extra one in!</p>
+<p><code>lift</code> is a mechanical operation that is determined by the type of monad transformer stack and the operation that we want to perform. As we noted, for different stacks, the amount of <code>lift</code>ing will vary, but it is determined by the type of stack. This suggests that these <code>lift</code>s could be inferred by the use of type classes, and this is the purpose of the monad transformer library – <code>mtl</code>.</p>
+<h2 id="the-monad-transformer-library-mtl">The Monad Transformer Library (mtl)</h2>
+<p>The <code>mtl</code> is a library consisting of type classes that abstract over the operations provided by each monad transformer. For <code>ReaderT</code>, we have the <code>ask</code> operation, and likewise for <code>StateT</code> we have <code>get</code> and <code>put</code> operations. The novelty in this library is that the instances for these type classes are defined inductively over monad transformer stacks. A subset of the instances for <code>MonadReader</code> for example, show</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">MonadReader</span> r m <span class="fu">|</span> m <span class="ot">-&gt;</span> r <span class="kw">where</span>
+<span class="ot">  ask ::</span> m r
+
+<span class="kw">instance</span> <span class="dt">Monad</span> m <span class="ot">=&gt;</span> <span class="dt">MonadReader</span> r (<span class="dt">ReaderT</span> r m) <span class="kw">where</span>
+  ask <span class="fu">=</span> Control.Monad.Trans.ReaderT.ask
+
+<span class="kw">instance</span> (<span class="dt">MonadReader</span> r m) <span class="ot">=&gt;</span> <span class="dt">MonadReader</span> r (<span class="dt">StateT</span> s) <span class="kw">where</span>
+  ask <span class="fu">=</span> lift ask</code></pre></div>
+<p>We can read this as:</p>
+<ul>
+<li><p>a <em>base case</em> if the outermost transformer is <code>ReaderT</code>, in which case no <code>lift</code>ing has to be performed.</p></li>
+<li><p>an <em>inductive case</em>, stating that <em>if</em> we know there is a <code>MonadReader</code> instance somewhere within the stack (that is, somewhere in the stack we are using <code>ReaderT</code>), then the outer monad transformer (in this case <code>StateT</code>) is also an instance of <code>MonadReader</code> by simply passing those operations through to the underlying instance via one application of <code>lift</code>.</p></li>
+</ul>
+<p>With these instances the lifting now becomes automatic entirely at the use of the respective operations. But not only does it become easier to use the operations, our programs also become more generic and easier to reason about. For example, while <code>env</code> previously had the type <code>M Environment</code>, it could now generalise to simply</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">env ::</span> (<span class="dt">MonadReader</span> <span class="dt">Environment</span> m) <span class="ot">=&gt;</span> m <span class="dt">Environment</span>
+env <span class="fu">=</span> ask</code></pre></div>
+<p>Stating that <code>env</code> is reusable in <em>any</em> computation that has access to <code>Environment</code>. This leads to both more options for composition (we’re not tied to working in <code>M</code>), but also types that are more expressive of what effects are actually being used by the computation. In this case, we didn’t use <code>StateT</code>, so we didn’t incur a <code>MonadState</code> type class constraint on <code>m</code>.</p>
+<p>Type classes open up a risk of losing type inference, and the approach in <code>mtl</code> is to use functional dependencies. <code>mtl</code> makes use of functional dependencies in order to retain type inference, but this comes at a compositional cost – the selected effect proceeds by induction from the outer most monad transformer until we reach the <em>first</em> matching instance. This means that even if there are multiple possible matches, the first one encountered will be selected. The following program demonstrates this, and will fail to type check:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">getTheString ::</span> <span class="dt">ReaderT</span> <span class="dt">Int</span> (<span class="dt">ReaderT</span> <span class="dt">String</span> <span class="dt">IO</span>) <span class="dt">String</span>
+getTheString <span class="fu">=</span> ask</code></pre></div>
+<pre><code>    Couldn't match type ‘Int’ with ‘[Char]’
+    arising from a functional dependency between:
+      constraint ‘MonadReader String (ReaderT Int (ReaderT String IO))’
+        arising from a use of ‘ask’</code></pre>
+<p>When we used <code>ask</code> induction proceeded from the outermost transformer - <code>ReaderT Int</code>. This is an instance of <code>MonadReader</code>, and due to the functional dependency will be selected even though it doesn’t contain the <code>String</code> that we’re looking for. This manifests as a type error, which can be frustrating.</p>
+<p>In practice, I’m not convinced this is really a problem, but in the scenario where environments don’t match up we have a few options:</p>
+<ol style="list-style-type: decimal">
+<li><p>Adapt the environment with tools like <code>mapReaderT</code> or <code>magnify</code> (from <code>lens</code>).</p></li>
+<li><p>Use <code>monad-classes</code> which uses a little more type level computation to allow this to work. I’m not entirely sure what the story for inference is here, but I think there <em>may</em> be a risk of less inference.</p></li>
+<li><p>Forgo the functional dependencies, as in <code>mtl-unleashed</code>. In this case you really do give up type inference, and I don’t consider it a viable option (it fails to satisfy point 5 in my criteria in the intro).</p></li>
+</ol>
+<p>Interestingly, the generality we gained by being polymorphic over our choice of monad also opens the door to something we couldn’t do with monad transformers, which is to choose a different implementation of the type class. For example, here’s a different implementation of <code>MonadReader</code> for <code>M</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">MonadReader</span> <span class="dt">Environment</span> <span class="dt">M</span> <span class="kw">where</span>
+  ask <span class="fu">=</span> <span class="kw">do</span>
+    env <span class="ot">&lt;-</span> <span class="dt">M</span> ask
+    liftIO (putStrLn <span class="st">&quot;Requesting environment&quot;</span>)
+    liftIO (putStrLn (<span class="st">&quot;It is currently &quot;</span> <span class="fu">++</span> show env)
+    return env</code></pre></div>
+<p>While a slightly contrived example, we see that we now have the ability to provide a different interpretation for <code>ask</code> which makes use of the underlying <code>IO</code> in <code>M</code> by logging whenever a computation looks at the environment. This technique is even more useful when you start defining domain specific effects, as it gives you the option to provide a pure variant that uses mock data, which can be useful for unit testing.</p>
+<h2 id="free-monads">Free monads</h2>
+<p>Let’s move away from monad transformer stacks and see what the other options are. One option that’s getting a lot of attention is the use of <em>free monads</em>. A free monad is essentially a type of construction that adds just enough structure over some data in order to have the structure of a monad – and nothing extra. We spend our days working with monads, and the reason the approach afforded by free monads is appealing is due to the way that we build them – namely, we just specify the syntax! To illustrate this, let me the consider the almost traditional example of free monads, the syntax of “teletype” programs.</p>
+<p>To begin with, I have to define the syntax of teletype programs. These programs have access to two operations - printing a line to the screen, and reading a line from the operator.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">TeletypeF</span> a <span class="fu">=</span> <span class="dt">PrintLine</span> <span class="dt">String</span> a
+                 <span class="fu">|</span> <span class="dt">GetLine</span> (<span class="dt">String</span> <span class="ot">-&gt;</span> a)
+  <span class="kw">deriving</span> (<span class="dt">Functor</span>)</code></pre></div>
+<p>This functor defines the syntax of our programs - namely programs that read and write to the terminal. The parameter <code>a</code> allows us to chain programs together, such as this <code>echo</code> program that prints whatever the user types:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">echo ::</span> <span class="dt">TeletypeF</span> (<span class="dt">TeletypeF</span> ())
+echo <span class="fu">=</span> <span class="dt">GetLine</span> (\line <span class="ot">-&gt;</span> <span class="dt">PrintLine</span> line ())</code></pre></div>
+<p>However, this is kind of messy. The free monad construction allows us to generate a monad out of this functor, which provides the following presentation:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">echo ::</span> <span class="dt">Free</span> <span class="dt">TeletypeF</span> ()
+echo <span class="fu">=</span> <span class="kw">do</span>
+  l <span class="ot">&lt;-</span> getLine
+  printLine l
+
+getLine<span class="ot"> ::</span> <span class="dt">Free</span> <span class="dt">TeletypeF</span> <span class="dt">String</span>
+getLine <span class="fu">=</span> liftF (<span class="dt">GetLine</span> id)
+
+<span class="ot">printLine ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Free</span> <span class="dt">TeletypeF</span> ()
+printLine l <span class="fu">=</span> liftF (<span class="dt">PrintLine</span> l ())</code></pre></div>
+<p>This definition of <code>echo</code> looks much more like the programs we are used to writing.</p>
+<p>The remaining step is to provide an interpretation of these programs, which means we can actually run them. We can interpret our teletype programs by using <code>STDOUT</code> and <code>STDIN</code> from <code>IO</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">runTeletype ::</span> <span class="dt">Free</span> <span class="dt">TeletypeF</span> a <span class="ot">-&gt;</span> <span class="dt">IO</span> a
+runTeletype <span class="fu">=</span>
+  iterM (\op <span class="ot">-&gt;</span>
+           <span class="kw">case</span> op <span class="kw">of</span>
+             <span class="dt">GetLine</span> k <span class="ot">-&gt;</span> readLine <span class="fu">&gt;&gt;=</span> k
+             <span class="dt">PrintLine</span> l k <span class="ot">-&gt;</span> putStrLn l <span class="fu">&gt;&gt;</span> k)</code></pre></div>
+<p>This rather elegant separation between syntax and semantics suggests a new approach to writing programs – rather than working under a specific monad, we can instead work under a free monad for some suitable functor that encodes all the operations we can perform in our programs.</p>
+<p>That said, the approach we’ve looked at so far is not particularly extensible between different classes of effects, as everything is currently required to be in a single functor. Knowing that free monads are generated by functors, we can start to look at the constructions we can perform on functors. One very nice property of functors is that given <em>any</em> two functors, we can compose them. The following functors below witness three possible ways to compose functors:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Sum</span> f g a <span class="fu">=</span> <span class="dt">InL</span> (f a) <span class="fu">|</span> <span class="dt">InR</span> (g a) <span class="kw">deriving</span> (<span class="dt">Functor</span>)
+<span class="kw">data</span> <span class="dt">Product</span> f g a <span class="fu">=</span> <span class="dt">Product</span> (f a) (g a) <span class="kw">deriving</span> (<span class="dt">Functor</span>)
+<span class="kw">data</span> <span class="dt">Compose</span> f g a <span class="fu">=</span> g (f a) <span class="kw">deriving</span> (<span class="dt">Functor</span>)</code></pre></div>
+<p>Assuming <code>f</code> and <code>g</code> are <code>Functor</code>s, all of these are also <code>Functor</code>s - which means we can use them to build monads with <code>Free</code>.</p>
+<p>The most interesting of these constructions (for our purposes) is <code>Sum</code>, which lets us choose between two different <code>Functor</code>s. Taking a more concrete example, I’ll repeat part of <a href="http://degoes.net/articles/modern-fp">John A. De Goes “Modern FP”</a> article. In this, he defines two independent functors for programs that can access files in the cloud, and another for programs that can perform basic logging.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">CloudFilesF</span> a
+  <span class="fu">=</span> <span class="dt">SaveFile</span> <span class="dt">Path</span> <span class="dt">Bytes</span> a
+  <span class="fu">|</span> <span class="dt">ListFiles</span> <span class="dt">Path</span> (<span class="dt">List</span> <span class="dt">Path</span> <span class="ot">-&gt;</span> a)
+  <span class="kw">deriving</span> (<span class="dt">Functor</span>)
+
+<span class="kw">data</span> <span class="dt">LoggingF</span> a
+  <span class="fu">=</span> <span class="dt">Log</span> <span class="dt">Level</span> <span class="dt">String</span> a
+  <span class="kw">deriving</span> (<span class="dt">Functor</span>)</code></pre></div>
+<p>Both of these can now be turned into monads with <code>Free</code> as we saw before, but we can also combine both of these to write programs that have access to both the <code>CloudFilesF</code> API <em>and</em> <code>LoggingF</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">M</span> a <span class="fu">=</span> <span class="dt">Free</span> (<span class="dt">Sum</span> <span class="dt">CloudFilesF</span> <span class="dt">LoggingF</span>) a</code></pre></div>
+<p>However, in order to use our previous API, we’ll have to perform another round of lifting:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- API specific to individual functors</span>
+log<span class="ot"> ::</span> <span class="dt">Level</span> <span class="ot">-&gt;</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Free</span> <span class="dt">LoggingF</span> ()
+log l s <span class="fu">=</span> liftF (<span class="dt">Log</span> l s ())
+
+<span class="ot">saveFile ::</span> <span class="dt">Path</span> <span class="ot">-&gt;</span> <span class="dt">Bytes</span> <span class="ot">-&gt;</span> <span class="dt">Free</span> <span class="dt">CloudFilesF</span> ()
+saveFile p b <span class="fu">=</span> lift (<span class="dt">SaveFile</span> p b ())
+
+<span class="co">-- A program using multiple effects</span>
+<span class="ot">saveAndLog ::</span> <span class="dt">Free</span> (<span class="dt">Sum</span> <span class="dt">CloudFilesF</span> <span class="dt">LoggingF</span>) ()
+saveAndLog <span class="fu">=</span> <span class="kw">do</span>
+  liftLeft (log <span class="dt">Info</span> <span class="st">&quot;Saving...&quot;</span>)
+  liftRight (saveFile <span class="st">&quot;/data&quot;</span> <span class="st">&quot;\0x42&quot;</span>)
+
+<span class="co">-- Lifting operations</span>
+<span class="ot">liftLeft ::</span> <span class="dt">Free</span> f a <span class="ot">-&gt;</span> <span class="dt">Free</span> (<span class="dt">Sum</span> f g) a
+liftLeft <span class="fu">=</span> hoistFree <span class="dt">InL</span>
+
+<span class="ot">liftRight ::</span> <span class="dt">Free</span> g a <span class="ot">-&gt;</span> <span class="dt">Free</span> (<span class="dt">Sum</span> f g) a
+liftRight <span class="fu">=</span> hoistFree <span class="dt">InR</span></code></pre></div>
+<p>This is a slightly unfortunate outcome - while we’ve witnessed that there is extensiblity, without more work the approaches don’t compose particularly well.</p>
+<p>To solve the problem of having to lift everything leads us to the need for an <code>mtl</code>-like solution in the realm of free monads - that is, a system that automatically knows how to lift individual functors into our composite functor. This is essentially what’s happening in the <code>extensible-effects</code> library - as a user you define each individual <code>Functor</code>, and then <code>extensible-effects</code> provides the necessary type class magic to combine everything together.</p>
+<p>We should also mention something on efficiency while we’re here. Free monads have at least two presentations that have different use cases. One of these is extremely easy to inspect (that is, write interpters) but has a costly implementation of <code>&gt;&gt;=</code>. We know how to solve this problem, but the trade off switches over to being costly to inspect. Recently, we learnt how to perform reads and binds in linear time, but the constant factors are apparently a little too high to be competative with raw <code>transformers</code>. So all in all, there is an efficiency cost of <em>just working with</em> a free monad approach.</p>
+<h2 id="mtl-and-laws"><code>mtl</code> and laws</h2>
+<p>I want to now return to the monad transformer library. To recap, the definition of <code>MonadReader</code> is –</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">MonadReader</span> r m <span class="fu">|</span> m <span class="ot">-&gt;</span> r <span class="kw">where</span>
+<span class="ot">  ask ::</span> m r</code></pre></div>
+<p>But this alone makes me a little uneasy. Why? I am in the class of Haskellers who consider a type class without a law a smell, as it leaves us unable to reason about what the type class is even doing. For example, it doesn’t require much imagination to come up with nonsense implementations of <code>ask</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">newtype</span> <span class="dt">SomeM</span> a <span class="fu">=</span> <span class="dt">SomeM</span> (<span class="dt">StateT</span> <span class="dt">Int</span> <span class="dt">IO</span> a)
+  <span class="kw">deriving</span> (<span class="dt">Functor</span>, <span class="dt">Applicative</span>, <span class="dt">Monad</span>)
+
+<span class="kw">instance</span> <span class="dt">MonadReader</span> <span class="dt">Int</span> <span class="dt">SomeM</span> <span class="kw">where</span>
+  ask <span class="fu">=</span> <span class="dt">SomeM</span> <span class="fu">$</span> <span class="kw">do</span>
+    i <span class="ot">&lt;-</span> get
+    put (i <span class="fu">+</span> <span class="dv">1</span>)
+    return i</code></pre></div>
+<p>But then again – who’s to say this is nonsense? Given that we were never given a specification for what <code>ask</code> should do in the first place, this is actually perfectly reasonable! For this reason, I set out searching for a way to reason about <code>mtl</code>-style effects, such that we could at least get <em>some</em> laws.</p>
+<h2 id="a-different-approach">A different approach</h2>
+<p>The <code>transformers</code> library also give us <code>mtl</code>-like type classes, one of which is <code>MonadIO</code>. However, this type class does have laws as well:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- liftIO . return = return</span>
+<span class="co">-- liftIO (f &gt;&gt;= g) = liftIO f &gt;&gt;= liftIO . g</span>
+<span class="kw">class</span> <span class="dt">MonadIO</span> m <span class="kw">where</span>
+<span class="ot">  liftIO ::</span> <span class="dt">IO</span> a <span class="ot">-&gt;</span> m a</code></pre></div>
+<p>This law is an example of a <em>homomorphism</em>. To quote <a href="https://en.wikipedia.org/wiki/Homomorphism">Wikipedia on the subject</a>:</p>
+<blockquote>
+<p>A homomorphism is a structure-preserving map between two algebraic structures (such as groups, rings, or vector spaces).</p>
+</blockquote>
+<p>In this case the algebraic structure is the monad structure of <code>IO</code>. We see that any monad that is an instance of <code>MonadIO</code> has the ability to lift <code>IO</code> operations, and as this is a homomorphism, the laws state that it will preserve the underlying structure of <code>IO</code>.</p>
+<p>It’s currently unclear how to apply this type of reasing to <code>MonadReader</code>, given its current definition – <code>ask</code> is just a value, it doesn’t even take an argument – so how can we even try and preserve anything?</p>
+<p>Let’s take some inspiration from free monads, and consider the effect language for <code>MonadReader</code>. If we only have <code>(Monad m, MonadReader r m)</code>, then the only thing we can do on top of the normal monad operations is <code>ask</code> the environment. This suggests a suitable functor would be:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">AskF</span> r a <span class="fu">=</span> <span class="dt">Ask</span> (r <span class="ot">-&gt;</span> a)
+  <span class="kw">deriving</span> (<span class="dt">Functor</span>)</code></pre></div>
+<p>I can now wrap this up in <code>Free</code> in order to write programs with the ability to <code>ask</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">Ask</span> r a <span class="fu">=</span> <span class="dt">Free</span> (<span class="dt">AskF</span> r) a</code></pre></div>
+<p>Now we have an algebraic structure with properties (<code>Ask r</code> is a <code>Monad</code>) that we would like to preserve, so we can write this alternative form of <code>MonadReader</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- liftAsk . return = return</span>
+<span class="co">-- liftAsk (f &gt;&gt;= g) = liftAsk f &gt;&gt;= liftAsk . g</span>
+<span class="kw">class</span> <span class="dt">Monad</span> m <span class="ot">=&gt;</span> <span class="dt">MonadReader</span> r m <span class="fu">|</span> m <span class="ot">-&gt;</span> r <span class="kw">where</span>
+<span class="ot">  liftAsk ::</span> <span class="dt">Ask</span> r a <span class="ot">-&gt;</span> m a
+
+<span class="ot">ask ::</span> <span class="dt">MonadReader</span> r m <span class="ot">=&gt;</span> m r
+ask <span class="fu">=</span> liftAsk (liftF (<span class="dt">Ask</span> id))</code></pre></div>
+<p>Et voilà! We now have an equally powerful <code>MonadReader</code> type class, except this time we have the ability to reason about it and its instances. If we return to the instance that I was questioning earlier, we can redefine it under the new API:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">MonadReader</span> <span class="dt">Int</span> <span class="dt">SomeM</span> <span class="kw">where</span>
+  liftAsk askProgram <span class="fu">=</span> <span class="dt">SomeM</span> <span class="fu">$</span> <span class="kw">do</span>
+    x <span class="ot">&lt;-</span> get
+    out <span class="ot">&lt;-</span> iterM (\(<span class="dt">Ask</span> k) <span class="ot">-&gt;</span> return (k t)) askProgram
+    put (x <span class="fu">+</span> <span class="dv">1</span>)
+    return out</code></pre></div>
+<p>Now that we have some laws, we can ask: is this a <em>valid</em> definition of <code>MonadReader</code>? To check, we’ll use equational reasoning. Working through the first law, we have</p>
+<pre><code>liftAsk (return a)
+  = { definition of return for Free }
+liftAsk (Pure a)
+  = { definition of liftAsk for SomeM }
+SomeM $ do
+  x &lt;- get
+  out &lt;- iterM (\(Ask k) -&gt; return (k t)) (Pure a)
+  put (x + 1)
+  return out
+  = { evaluate iterM for Pure a }
+SomeM $ do
+  x &lt;- get
+  out &lt;- return a
+  put (x + 1)
+  return out
+  = { monad laws }
+SomeM $ do
+  x &lt;- get
+  put (x + 1)
+  return a</code></pre>
+<p>Already we have a problem. While we can see that this does return the original <code>a</code> it was given, it does so in a way that also incurred some side effects. That is, <code>liftAsk (return a)</code> is <em>not</em> the same as <code>return a</code>, so this isn’t a valid definition of <code>MonadReader</code>. Back to the drawing board… Now, it’s worth noting that there is an instance that <em>is</em> law abiding, but might still be considered as surprising:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">MonadReader</span> <span class="dt">Int</span> <span class="dt">SomeM</span> <span class="kw">where</span>
+  liftAsk askProgram <span class="fu">=</span>
+    iterM (\(<span class="dt">Ask</span> k) <span class="ot">-&gt;</span> <span class="dt">SomeM</span> <span class="fu">$</span> <span class="kw">do</span>
+      x <span class="ot">&lt;-</span> get
+      put (x <span class="fu">+</span> <span class="dv">1</span>)
+      k x )</code></pre></div>
+<p>Applying the same equational reasoning to this is much easier, and shows that the first law is satisfied</p>
+<pre><code>liftAsk (return a)
+  = { definition of liftAsk }
+iterM (\(Ask k) -&gt; SomeM $ do
+  x &lt;- get
+  put (x + 1)
+  k x)
+  (return a)
+  = { definition of return for Free }
+iterM (\(Ask k) -&gt; SomeM $ do
+  x &lt;- get
+  put (x + 1)
+  k x)
+  (Pure a)
+  = { definition of iterM given Pure}
+return a</code></pre>
+<p>For the second law, I’ll omit the proof, but I want to demonstrate to sessions in GHCI:</p>
+<pre><code>&gt; let runSomeM (M m) = evalState m 0
+
+&gt; runSomeM (liftAsk (ask &gt;&gt;= \r1 -&gt; ask &gt;&gt;= \r2 -&gt; return (r1, r2))
+(1, 2)
+
+&gt; runSomeM (liftAsk ask &gt;&gt;= \r1 -&gt; liftAsk &gt;&gt;= \r2 -&gt; return (r1, r2)
+(1, 2)</code></pre>
+<p>So while the answers agree - they probably don’t agree with your intuition! This is only surprising in that we have some assumption of how =Ask= programs should behave. Knowing more about =Ask=, we might seek this further law:</p>
+<blockquote>
+<p><code>ask &gt;&gt; ask = ask</code></p>
+</blockquote>
+<p>This law can also be seen as a reduction step in the classification of our <code>Ask</code> programs, but a <code>Free</code> monad is not powerful enough to capture that. Indeed, the documentation of <code>Free</code> mentions exactly this:</p>
+<blockquote>
+<p>A free <code>Monad</code> is one that does no work during the normalisation step beyond simply grafting the two monadic values together. <code>[]</code> is not a free <code>Monad</code> (in this sense) because <code>join [[a]]</code> smashes the lists flat.</p>
+</blockquote>
+<p>The law <code>ask &gt;&gt; ask = ask</code> follows by normalisation of our “reader” programs, so a free monad will be unable to capture that by construction – the best we can do is add an extra law to our type class. However, what we can also do is play a game of <a href="http://gallium.inria.fr/blog/lawvere-theories-and-monads/">normalisation by evaluation</a>. First, we write an evaluator for <code>Free (AskF r)</code> programs:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">runAsk ::</span> <span class="dt">Free</span> (<span class="dt">AskF</span> r) a <span class="ot">-&gt;</span> (r <span class="ot">-&gt;</span> a)
+runAsk f r <span class="fu">=</span> iterM (\(<span class="dt">AskF</span> k) <span class="ot">-&gt;</span> k r) f</code></pre></div>
+<p>and then witness that we can reify these <code>r -&gt; a</code> terms back into <code>Free (Ask r) a</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">reify ::</span> (r <span class="ot">-&gt;</span> a) <span class="ot">-&gt;</span> <span class="dt">Free</span> (<span class="dt">Ask</span> r) a
+reify <span class="fu">=</span> <span class="dt">AskF</span></code></pre></div>
+<p>You should also convince yourself that <code>(r -&gt; a)</code> really is a normal form, and you may find the above linked article on this useful for formal proofs (search for “normalisation”). What we’ve essentially shown is that <em>every</em> <code>Free (AskF r) a</code> program can be expressed as a single <code>r -&gt; a</code> function. The normal form of <code>ask &gt;&gt; ask</code> is now - by definition - a single <code>ask</code>, which is the law we were originally having to state.</p>
+<p>As we’ve witnessed that <code>r -&gt; a</code> is the normal form of <code>Free (AskF r) a</code>, this suggests that we could just as well write:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- liftAsk . return = return</span>
+<span class="co">-- liftAsk (f &gt;&gt;= g) = liftAsk f &gt;&gt;= liftAsk . g</span>
+<span class="kw">class</span> <span class="dt">MonadReader</span> r m <span class="fu">|</span> m <span class="ot">-&gt;</span> r <span class="kw">where</span>
+<span class="ot">  liftAsk ::</span> (r <span class="ot">-&gt;</span> a) <span class="ot">-&gt;</span> m a</code></pre></div>
+<p>(The structure being preserved by the homomorphism is assuming that <code>(r -&gt; a)</code> is a reader monad).</p>
+<p>Our strange instance now becomes</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">MonadReader</span> <span class="dt">UTCTime</span> <span class="dt">SomeM</span> <span class="kw">where</span>
+  liftAsk f <span class="fu">=</span> <span class="dt">SomeM</span> <span class="fu">$</span> <span class="kw">do</span>
+    x <span class="ot">&lt;-</span> get
+    put (x <span class="fu">+</span> <span class="dv">1</span>)
+    return (f x)</code></pre></div>
+<p>With a little scrutiny, we can see that this is not going to satisfy the homomorphism laws. Not only does it fail to satisfy the <code>return</code> law (for the same reason), the second law states that <code>liftAsk (f &gt;&gt;= g) = liftAsk f &gt;&gt;= liftAsk . g</code>. Looking at our implementation this would mean that we would have to increase the state based on the amount of binds performed in <code>f &gt;&gt;= g</code>. However, we also know that <code>&gt;&gt;=</code> for <code>r -&gt; a</code> simply reduces to another <code>r -&gt; a</code> function - the implication being that it’s impossible to know how many binds were performed.</p>
+<p>Here a counter example will help convince us that the above is wrong. First, we know</p>
+<blockquote>
+<p><code>liftAsk (ask &gt;&gt; ask) = liftAsk ask</code></p>
+</blockquote>
+<p>because <code>ask &gt;&gt; ask = ask</code> by definition.</p>
+<p>By the homomorphism laws, we must also have</p>
+<blockquote>
+<p><code>liftAsk (ask &gt;&gt; ask) = liftAsk ask &gt;&gt; liftAsk ask</code></p>
+</blockquote>
+<p>Combining these, we expect</p>
+<blockquote>
+<p><code>liftAsk ask = liftAsk (ask &gt;&gt; ask) = liftAsk ask &gt;&gt; liftAsk ask</code></p>
+</blockquote>
+<p>However…</p>
+<pre><code>&gt; runSomeM (liftAsk ask)
+1
+
+&gt; runSomeM (liftAsk (ask &gt;&gt; ask))
+1
+
+&gt; runSomeM (liftAsk ask &gt;&gt; liftAsk ask)
+2</code></pre>
+<p>Now we can see that <code>SomeM</code>’s current definition of <code>MonadReader</code> fails. It’s much harder to write a law abiding form of <code>MonadReader Int SomeM</code> - but it will essentially require some <em>fixed</em> data throughout the scope of the computation. The easiest is of course to change the definition of <code>SomeM</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">newtype</span> <span class="dt">SomeM</span> a <span class="fu">=</span> <span class="dt">SomeM</span> (<span class="dt">ReaderT</span> <span class="dt">Int</span> <span class="dt">IO</span> a)
+
+<span class="kw">instance</span> <span class="dt">MonadReader</span> <span class="dt">UTCTime</span> <span class="dt">SomeM</span> <span class="kw">where</span>
+  liftAsk f <span class="fu">=</span> <span class="dt">SomeM</span> (fmap f ask)</code></pre></div>
+<p>You should convince yourself that this instance is now law abiding - for example by considering the above counter-example, or by performing equational reasoning.</p>
+<h2 id="a-pattern-for-effect-design">A pattern for effect design</h2>
+<p>The process we underwent to reach the new form of a =MonadReader= type class, extends well to many different type classes and suggests a new pattern for <code>mtl</code>-like type class operations. Here’s a rough framework that I’m having a lot of success with:</p>
+<h3 id="define-the-operations-as-data">1. Define the operations as data</h3>
+<p>To begin, think about the language that your effect will talk about. For the reader monad, we defined the <code>AskF</code> functor, and the same can be done for the exception monad, the failure monad, the state monad, and so on. For more “domain specific” operations, a free monad also scales well - one could imagine a language for interacting with general relational databases, with operations to <code>SELECT</code>, <code>UPDATE</code>, <code>DELETE</code>, and so on.</p>
+<h3 id="find-a-suitable-way-to-compose-operations">2. Find a suitable way to compose operations</h3>
+<p>Individual operations are not enough, we also need a way to write programs using this language. This amounts to finding a suitable way to compose these operations together. An easy first approximation is to use a free structure, again – as we started with for the reader monad. In the case of the aforementioned domain specific relational database example, the free monad might be as far as we want to go.</p>
+<p>It’s also worth exploring if there is a normal form that more succinctly captures the operations in your language along with equational reasoning. We saw that the normal form of <code>Free (AskF r) a</code> was <code>r -&gt; a</code>, and the same process can be ran for <code>Free (StateF s) a</code> - reaching <code>s -&gt; (a, s)</code> as a normal form. It’s important to note that if you go through the process of normalisation by evaluation, that you also make sure you can reify your evaluation result back into the original language. To illustrate why, consider the hypothetical relational database language:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">DatabaseF</span> a <span class="fu">=</span> <span class="dt">Query</span> <span class="dt">SqlQuery</span> (<span class="dt">Results</span> <span class="ot">-&gt;</span> a)
+
+<span class="ot">runDb ::</span> <span class="dt">Free</span> <span class="dt">DatabaseF</span> a <span class="ot">-&gt;</span> (<span class="dt">DatabaseHandle</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> a)
+runDb h <span class="fu">=</span> iterM (\(<span class="dt">Query</span> q k) <span class="ot">-&gt;</span> query h q <span class="fu">&gt;&gt;=</span> k)</code></pre></div>
+<p>This is fine for an interpreter, but <code>DatabaseHandle -&gt; IO a</code> is not a normal form because we can’t reify these terms <em>back</em> into <code>DatabaseF</code>. This is important, because by working with a normal form it means that you can define a whole range of interpreters that see the necessary structure of the original programs. To illustrate one problem with <code>DatabaseHandle -&gt; IO a</code>, if we attempted to write a pure interpreter, we would be unable to see which queries were performed in order to produce the data under <code>a</code> (not to mention the limitation that working in <code>IO</code> would cause).</p>
+<h3 id="introduce-a-type-class-for-homomorphisms">3. Introduce a type class for homomorphisms</h3>
+<p>With your effect language defined, the next step is to define a type class for homomorphisms from this effect language into larger monad stacks. Often this will be a monad homomorphism – much as we saw with <code>MonadReader</code> and <code>MonadIO</code> – but the homomorphism need not be a monad homomorphism. For example, if your source effect language is a simple monoid, then the homomorphism will be a monoid homomorphism. We’ll see an example of this shortly.</p>
+<h3 id="export-polymorphic-operations">4. Export polymorphic operations</h3>
+<p>With a type class of homomorphisms, we can now export a cleaner API. For <code>MonadReader</code>, this means exporting convenience <code>ask</code> operations that are defined in terms of <code>liftAsk</code> with the appropriate program in our <code>AskF</code> language.</p>
+<h3 id="provide-a-reference-implementation">5. Provide a reference implementation</h3>
+<p>I also suggest providing a “reference” implementation of this type class. For <code>MonadReader</code>, this reference implementation is <code>ReaderT</code>. The idea is that users can immediately take advantage of the effect we’re defining by introducing the appropriate monad transformer into their monad stack.</p>
+<p>The type class allows them to more efficiently define the operations in terms of existing monadic capabilities (e.g., <code>IO</code>), but for many simply reusing a transformer will be sufficient.</p>
+<h2 id="a-worked-example-for-logging">A worked example for logging</h2>
+<p>To conclude this article I want to explore one more application of this pattern applied to building a logging effect. In fact, it is this very problem that motivated the research for this blog post, and so we’ll end up building the foundations of my <code>logging-effect</code> library.</p>
+<p>The first step is to identify a language for programs that can perform logging. There’s not much involved here, simply the ability to append to the log at any point in time. Let’s formalise that idea with the appropriate functor:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">LoggingF</span> message a <span class="fu">=</span> <span class="dt">AppendLogMessage</span> message a
+  <span class="kw">deriving</span> (<span class="dt">Functor</span>)</code></pre></div>
+<p>This functor is parameterised by the type of log messages. The only constructor for <code>LoggingF</code> takes a log message and the rest of the computation to run. We could stop here and lift <code>Free (LoggingF message) a</code> programs, but I want to go a bit further and see are any other ways to express this. I’ll use normalisation by evaluation again, and see what happens.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">runFreeLogging ::</span> <span class="dt">Free</span> (<span class="dt">LoggingF</span> message) a <span class="ot">-&gt;</span> (a, [message])
+runFreeLogging (<span class="dt">Pure</span> a) <span class="fu">=</span> (a, [])
+runFreeLogging (<span class="dt">Free</span> (<span class="dt">AppendLogMessage</span> m next)) <span class="fu">=</span>
+  <span class="kw">case</span> runFreeLogging next <span class="kw">of</span>
+    (a, messages) <span class="ot">-&gt;</span> (a, m<span class="fu">:</span>messages)</code></pre></div>
+<p>We can also take a <code>(a, [message])</code> and turn it back into the equivalent <code>Free (LoggingF message) a</code>, so <code>(a, [message])</code> is another candidate for the language of our logging programs.</p>
+<p>But this <code>a</code> bothers me. It occurs only in <code>LoggingF message</code> to capture the rest of the computation, but never does the result of logging affect the choice of what that next computation is. This suggests that it’s mostly noise, and maybe we can just erase it. This would lead us to have logging programs of the type <code>[message]</code>. This type is no longer the right kind for our lifting operation to be a monad homomorphism, which means we have to identify another algebraic structure. Well, lists are certainly a composable structure - they have all the properties of a <em>monoid</em>.</p>
+<p>With that in mind, we need to consider what it means to be a monoid homomorphism into some monad. First, observe that monads also have a monoid-like operations:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">monadMempty ::</span> <span class="dt">Monad</span> m <span class="ot">=&gt;</span> ()
+monadMempty <span class="fu">=</span> return ()
+
+<span class="ot">monadMappend ::</span> <span class="dt">Monad</span> m <span class="ot">=&gt;</span> m () <span class="ot">-&gt;</span> m () <span class="ot">-&gt;</span> m ()
+monadMappend l r <span class="fu">=</span> l <span class="fu">&gt;&gt;</span> r</code></pre></div>
+<p>We can now write our lifting type class with the laws of a monoid homomorphism:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">liftLog mempty   <span class="fu">=</span> mempty                 <span class="co">-- = return ()</span>
+liftLog (x <span class="fu">&lt;&gt;</span> y) <span class="fu">=</span> liftLog x <span class="fu">&lt;&gt;</span> liftLog y <span class="co">-- = liftLog x &gt;&gt; liftLog y</span>
+<span class="kw">class</span> <span class="dt">MonadLog</span> message m <span class="fu">|</span> m <span class="ot">-&gt;</span> message <span class="kw">where</span>
+<span class="ot">  liftLog ::</span> [message] <span class="ot">-&gt;</span> m ()</code></pre></div>
+<p>While we reached this type by normalisation-by-evaluation and then a little bit of fudging, there is another way we could have got here. In a sense, <code>[]</code> can be seen as another construction like <code>Free</code> - given any type <code>a</code>, <code>[a]</code> is a free monoid generated by <code>a</code>. An easier route to this type class would have been to describe the individual operations in our logging programs by:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">LoggingOp</span> message <span class="fu">=</span> <span class="dt">LogMessage</span> message</code></pre></div>
+<p>and then using <code>[]</code> as our free construction. As <code>LoggingOp message</code> ~ <code>Identity message</code> ~ <code>message</code>, we know we could also use <code>[message]</code>, and we’re back at the type class above.</p>
+<p>(In my <code>logging-effect</code> library I chose a slightly different representation of the free monoid. <a href="http://comonad.com/reader/2015/free-monoids-in-haskell/">Theoretically, this is a sounder way to talk about free monoids</a>, but I’m mostly interested in the slight efficiency win by not having to build up lists only to immediately deconstruct them.)</p>
+<p>The last steps are to provide polymorphic operations and a reference implementation that satisfies the laws:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">logMessage ::</span> (<span class="dt">MonadLog</span> message m) <span class="ot">=&gt;</span> message <span class="ot">-&gt;</span> m ()
+logMessage message <span class="fu">=</span> liftLog [message]
+
+<span class="kw">newtype</span> <span class="dt">LoggingT</span> message m a <span class="fu">=</span> <span class="dt">LoggingT</span> (<span class="dt">ReaderT</span> (message <span class="ot">-&gt;</span> <span class="dt">IO</span> ()) m a)
+
+<span class="kw">instance</span> <span class="dt">MonadIO</span> m <span class="ot">=&gt;</span> <span class="dt">MonadLog</span> message (<span class="dt">LoggingT</span> message m) <span class="kw">where</span>
+  liftLog messages <span class="fu">=</span> <span class="dt">LoggingT</span> (\dispatchLog <span class="ot">-&gt;</span> liftIO (for_ messages dispatchLog))</code></pre></div>
+<p>Does this reference implementation satisfy the monoid homomorphism laws that is required by <code>MonadLog</code>?</p>
+<pre><code>liftLog mempty
+  = { definition of mempty for lists }
+liftLog []
+  = { definition of liftLog for LoggingT }
+LoggingT (\dispatchLog -&gt; liftIO (for_ [] dispatchLog))
+  = { definition of for_ for [] }
+LoggingT (\dispatchLog -&gt; liftIO (return ()))
+  = { liftIO . return = return }
+LoggingT (\dispatchLog -&gt; return ())
+  = { definition of return for LoggingT }
+return ()</code></pre>
+<p>So far so good!</p>
+<pre><code>liftLog (x &lt;&gt; y)
+  = { definition of liftLog for LoggingT }
+LoggingT (\dispatchLog -&gt; liftIO (for_ (x ++ y) dispatchLog))
+  = { for_ distributes over ++ }
+LoggingT (\dispatchLog -&gt; liftIO (for_ x dispatchLog &gt;&gt; for_ y dispatchLog)
+  = { liftIO (f &gt;&gt;= g) = liftIO f &gt;&gt;= liftIO . g }
+LoggingT (\dispatchLog -&gt; liftIO (for_ x dispatchLog) &gt;&gt; liftIO (for_ y dispatchLog))
+  = { definition of (&gt;&gt;=) for LoggingT }
+LoggingT (\dispatchLog -&gt; liftIO (for_ x dispatchLog)) &gt;&gt;
+LoggingT (\dispatchLog -&gt; liftIO (for_ y dispatchLog)) &gt;&gt;
+  = { definition of liftLog for LoggingT }
+liftLog x &gt;&gt; liftLog y</code></pre>
+<p>Bingo!</p>
+<h2 id="further-thoughts">Further thoughts</h2>
+<p>In this post I presented a pattern for building <code>mtl</code>-like type classes in a mechanical fashion, and this suggests that maybe some of the details can be automatically dealt with. In the next few days I’ll be presenting my <code>algebraic-transformers</code> library which will show exactly that.</p>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2016-01-26-transformers-free-monads-mtl-laws.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2014-12-16-derive-generic.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>24 Days of GHC Extensions: DeriveGeneric</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>24 Days of GHC Extensions: DeriveGeneric</h1>
+<p><a href="../guest-posts/2014-12-15-deriving.html">Yesterday</a>, Andraz showed us a variety of extensions that came with GHC to help us avoid writing boilerplate code. We saw that GHC can automatically derive instances for <code>Functor</code>, <code>Traversable</code>, <code>Foldable</code>, along with the usual class of <code>Eq</code>, <code>Ord</code>, <code>Show</code>, etc. However, as exciting as this is, you might have been left a little worried that this is where it stops.</p>
+<p>All of the classes that mentioned so far exist in the <code>base</code> library, and that allows us to extend <code>GHC</code> to automatically derive code for these classes. But what if you have a type class that’s not in base? It would be disappointing if there wasn’t a way to avoid boilerplate without extending the compiler, and with GHC 7.2, we got a new extension that helps solve exactly this problem.</p>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="ot">{-# LANGUAGE DeriveGeneric #-}</span>
+<span class="ot">&gt;</span> <span class="ot">{-# LANGUAGE FlexibleContexts #-}</span>
+<span class="ot">&gt;</span> <span class="ot">{-# LANGUAGE FlexibleInstances #-}</span>
+<span class="ot">&gt;</span> <span class="ot">{-# LANGUAGE UndecidableInstances #-}</span>
+<span class="ot">&gt;</span> <span class="ot">{-# LANGUAGE MultiParamTypeClasses #-}</span>
+<span class="ot">&gt;</span> <span class="ot">{-# LANGUAGE FunctionalDependencies #-}</span>
+<span class="ot">&gt;</span> <span class="ot">{-# LANGUAGE TypeOperators #-}</span>
+<span class="ot">&gt;</span> <span class="ot">{-# LANGUAGE ViewPatterns #-}</span>
+<span class="ot">&gt;</span> <span class="kw">import </span><span class="dt">GHC.Generics</span></code></pre></div>
+<p>The (relatively) new <a href="https://downloads.haskell.org/~ghc/latest/docs/html/users_guide/generic-programming.html"><code>DeriveGeneric</code></a> extension allows us to use a paradigm of programming called <em>data-type generic programming</em>. In this style of programming, we are able to write our functions over arbitrary data types - provided they have the right “shape”. To get an idea of what it means for things to have the same shape, let’s start by looking at the humble <code>Either</code> data type:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Either</span> a b <span class="fu">=</span> <span class="dt">Left</span> a <span class="fu">|</span> <span class="dt">Right</span> b</code></pre></div>
+<p>Another data type that’s similar could be a validation data type:</p>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="kw">data</span> <span class="dt">Valid</span> e a <span class="fu">=</span> <span class="dt">Error</span> e <span class="fu">|</span> <span class="dt">OK</span> a
+<span class="ot">&gt;</span>   <span class="kw">deriving</span> (<span class="dt">Generic</span>)</code></pre></div>
+<p>In fact, this data type is more than just similar - we can say it is <em>isomorphic</em> to <code>Either</code>. In this sense, isomorphic is just a fancy word for a pair of functions to translate between <code>Valid</code> and <code>Either</code>, without losing information. This ideas relates to have a <em>structure-preserving mapping</em> between <code>Valid</code> and <code>Either</code>. If that sounds scary, we can easily write this up in code:</p>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt; toEither ::</span> <span class="dt">Valid</span> e a <span class="ot">-&gt;</span> <span class="dt">Either</span> e a
+<span class="ot">&gt;</span> toEither (<span class="dt">Error</span> e) <span class="fu">=</span> <span class="dt">Left</span> e
+<span class="ot">&gt;</span> toEither (<span class="dt">OK</span> a) <span class="fu">=</span> <span class="dt">Right</span> a</code></pre></div>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt; fromEither ::</span> <span class="dt">Either</span> e a <span class="ot">-&gt;</span> <span class="dt">Valid</span> e a
+<span class="ot">&gt;</span> fromEither (<span class="dt">Left</span> e) <span class="fu">=</span> <span class="dt">Error</span> e
+<span class="ot">&gt;</span> fromEither (<span class="dt">Right</span> a) <span class="fu">=</span> <span class="dt">OK</span> a</code></pre></div>
+<p>See - easy!</p>
+<p>As you can imagine, there are lots of different data types that are isomorphic, and the insight behind data-type generic programming is that (most) data-types can be built up out of simpler pieces. For <code>Either</code> and <code>Valid</code>, they are both built out of the same parts:</p>
+<ol style="list-style-type: decimal">
+<li>Each data-type has two constructors</li>
+<li>Each constructor has one field</li>
+</ol>
+<p><a href="http://hackage.haskell.org/package/base-4.7.0.1/docs/GHC-Generics.html"><code>GHC.Generics</code></a> is the library behind the <code>DeriveGeneric</code> extension, and it gives us the following pieces to build data types:</p>
+<ul>
+<li>Fields</li>
+<li>Type parameterized fields</li>
+<li>Field <em>products</em> - which allow us to make a constructor with multiple fields</li>
+<li>Constructor <em>sums</em> - which allow a data-type to have multiple constructors</li>
+</ul>
+<p>The library also goes a little further than this, by providing you with program specific information, such as the name of types and fields. The latter can be useful for working with serializers such as JSON and XML.</p>
+<p>So far, we’ve skimmed the idea of isomorphic types, and also that GHC.Generics gives us a set of basic parts to build types. It would be tedious if we had to write conversion functions ourselves, and by using <code>DeriveGeneric</code>, GHC will do all the heavy lifting behind the scenes for us.</p>
+<p>As you can see above, we used <code>deriving (Generic)</code> on <code>Valid</code>, which means we already get some transformations that we can play with:</p>
+<pre><code>.&gt; from (Error &quot;ENOCHRISTMASPRESENTS&quot;)
+M1 {unM1 = L1 (M1 {unM1 = M1 {unM1 = K1 {unK1 = &quot;ENOCHRISTMAS&quot;}}})}
+ 
+.&gt; from (OK [&quot;Books&quot;, &quot;Calculators&quot;])
+M1 {unM1 = R1 (M1 {unM1 = M1 {unM1 = K1 {unK1 = [&quot;Books&quot;,&quot;Calculators&quot;]}}})}</code></pre>
+<p>While the output is a little dense, notice how the contents of the data type is present in the <code>K1</code> data type, and we choose a side of the <code>Valid</code> data type with <code>L1</code> (“left” for <code>Error</code>) or <code>R1</code> (“right” for <code>OK</code>).</p>
+<p>Now that we’ve got a generic representation, we’re able to start writing generic functions over data-type that conforms to the shape we want. As a small example, let’s write a generic function to try and get the error out of an error-containing data type. As we have a large amount of different types (<code>M1</code>, <code>L1</code>, etc), we use a variety of type classes to navigate the data structure:</p>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="kw">class</span> <span class="dt">GetError</span> rep e <span class="fu">|</span> rep <span class="ot">-&gt;</span> e <span class="kw">where</span>
+<span class="ot">&gt;   getError' ::</span> rep a <span class="ot">-&gt;</span> <span class="dt">Maybe</span> e</code></pre></div>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="kw">instance</span> <span class="dt">GetError</span> f e <span class="ot">=&gt;</span> <span class="dt">GetError</span> (<span class="dt">M1</span> i c f) e <span class="kw">where</span>
+<span class="ot">&gt;</span>   getError' (<span class="dt">M1</span> m1) <span class="fu">=</span> getError' m1</code></pre></div>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="kw">instance</span> <span class="dt">GetError</span> l e <span class="ot">=&gt;</span> <span class="dt">GetError</span> (l <span class="fu">:+:</span> r) e <span class="kw">where</span>
+<span class="ot">&gt;</span>   getError' (<span class="dt">L1</span> l) <span class="fu">=</span> getError' l
+<span class="ot">&gt;</span>   getError' (<span class="dt">R1</span> _) <span class="fu">=</span> <span class="dt">Nothing</span></code></pre></div>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="kw">instance</span> <span class="dt">GetError</span> (<span class="dt">K1</span> i e) e <span class="kw">where</span>
+<span class="ot">&gt;</span>   getError' (<span class="dt">K1</span> e) <span class="fu">=</span> <span class="dt">Just</span> e</code></pre></div>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt; getError ::</span> (<span class="dt">Generic</span> (errorLike e a), <span class="dt">GetError</span> (<span class="dt">Rep</span> (errorLike e a)) e) <span class="ot">=&gt;</span> errorLike e a <span class="ot">-&gt;</span> <span class="dt">Maybe</span> e
+<span class="ot">&gt;</span> getError <span class="fu">=</span> getError' <span class="fu">.</span> from</code></pre></div>
+<p>A little daunting, but I’ll be mean and leave it as an exercise to the reader to determine how this code works. However, just to prove it <em>does</em> work - let’s have a play in GHC:</p>
+<pre><code>.&gt; getError (Error &quot;Oh no!&quot;)
+Just &quot;Oh no!&quot;
+.&gt; getError (OK &quot;Phew&quot;)
+Nothing
+.&gt; getError (Left &quot;More explosions!&quot;)
+Just &quot;More explosions!&quot;
+.&gt; getError (Right &quot;Oh, false alarm&quot;)
+Nothing</code></pre>
+<p>Now that’s my idea of some Christmas magic.</p>
+<p>Undoubtedly, generic programming is not a simple concept, and it will take time to get used to it if you’re new to it. <a href="http://www.kosmikus.org/">Andres Löh</a>, a firm supporter of generic programming, has a lovely <a href="https://skillsmatter.com/skillscasts/3932-a-haskell-lecture-with-leading-expert-andres-loh">Skills Matter talk</a> that goes into more detail about this very extension.</p>
+<hr />
+<p><em>This post is part of <a href="../pages/2014-12-01-24-days-of-ghc-extensions.html">24 Days of GHC Extensions</a> - for more posts like this, check out the <a href="../pages/2014-12-01-24-days-of-ghc-extensions.html">calendar</a></em>.</p>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2014-12-16-derive-generic.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

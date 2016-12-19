@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2012-12-17-24-days-of-hackage-optparse-applicative.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>24 Days of Hackage: optparse-applicative</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>24 Days of Hackage: optparse-applicative</h1>
+<p>We’ve already seen the <code>Applicative</code> type class pop up in various places through this series of blog posts - <a href="https://ocharles.org.uk/blog/posts/posts/2012-12-10-24-days-of-hackage-parsec.html">parsing</a>, <a href="2012-12-02-digestive-functors.html">form validation</a>, <a href="2012-12-07-24-days-of-hackage-aeson.html">JSON serialisation</a>, not to mention all sorts of convenience uses in the IO monad. Today, we’ll continue to see just how versatile this type class is as we take a look at <code>optparse-applicative</code>.</p>
+<p><a href="http://hackage.haskell.org/package/optparse-applicative"><code>optparse-applicative</code></a>, written by <a href="http://well-typed.com/">Well Typed</a>’s <a href="http://paolocapriotti.com/">Paolo Capriotti</a>, is a library for parsing command line arguments. This is a task that we usually want to do with as a little typing as possible, but also as robustly as possible. I think <code>optparse-applicative</code> fills this tricky requirement very nicely.</p>
+<p><code>optparse-applicative</code> makes use of a few <code>Applicative</code> functors, and also makes good use <code>Monoid</code>s to add meta-data to arguments. Let’s look at what this practically means, with a little example:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">MyApp</span> <span class="fu">=</span> <span class="dt">MyApp</span> {<span class="ot"> appGreet ::</span> <span class="dt">String</span> }
+
+<span class="ot">runWithOptions ::</span> <span class="dt">MyApp</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
+runWithOptions opts <span class="fu">=</span>
+  putStrLn (<span class="st">&quot;Merry Christmas, &quot;</span> <span class="fu">++</span> appGreet opts <span class="fu">++</span> <span class="st">&quot;!&quot;</span>)
+
+<span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> execParser opts <span class="fu">&gt;&gt;=</span> runWithOptions
+  <span class="kw">where</span>
+    parser <span class="fu">=</span> <span class="dt">MyApp</span> <span class="fu">&lt;$&gt;</span> argument str (metavar <span class="st">&quot;NAME&quot;</span>)
+    opts <span class="fu">=</span> info parser mempty</code></pre></div>
+<p>First of all, we created a data type to hold the arguments to our program. In this case, our program will take one option - the name of the person to greet. After that, I’ve gone on to write the program itself - nothing too interesting there. Finally, in <code>main</code> we see <code>optparse-applicative</code> doing its thing.</p>
+<p>The <code>parser</code> is doing the bulk of the work - we use the <code>Parser</code> <code>Applicative</code> functor to parse command line arguments into our <code>MyApp</code> data type. I’ve used the <code>argument str (metavar &quot;NAME&quot;)</code> parser to indicate that I want a positional argument, using the <code>str</code> parser so it’ll accept any input, and I’ve used <code>metavar &quot;NAME&quot;</code> to inform <code>optparse-applicative</code> that this argument should be referred to as NAME when it generates usage information. Now we have a binary that does the following:</p>
+<pre><code>&gt; ./optparse
+Usage: optparse NAME
+
+&gt; ./optparse Haskell
+Merry Christmas, Haskell!</code></pre>
+<p>Perfect! We didn’t even have to write that code to generate the usage information, that came for free! We’ve seen how positional arguments work, what about options? Let’s add a switch to add more excitement to the application:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">MyApp</span> <span class="fu">=</span> <span class="dt">MyApp</span> {<span class="ot"> appGreet ::</span> <span class="dt">String</span>
+                   ,<span class="ot"> appSuperExcited ::</span> <span class="dt">Bool</span>
+                   }
+
+<span class="ot">runWithOptions ::</span> <span class="dt">MyApp</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
+runWithOptions opts <span class="fu">=</span>
+  putStrLn <span class="fu">$</span> transform <span class="fu">$</span>
+    <span class="st">&quot;Merry Christmas, &quot;</span> <span class="fu">++</span> appGreet opts <span class="fu">++</span> <span class="st">&quot;!&quot;</span>
+
+  <span class="kw">where</span>
+    transform <span class="fu">=</span> <span class="kw">if</span> appSuperExcited opts <span class="kw">then</span> map toUpper <span class="kw">else</span> id
+
+<span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> execParser opts <span class="fu">&gt;&gt;=</span> runWithOptions
+  <span class="kw">where</span>
+    parser <span class="fu">=</span> <span class="dt">MyApp</span> <span class="fu">&lt;$&gt;</span> argument str (metavar <span class="st">&quot;NAME&quot;</span>)
+                   <span class="fu">&lt;*&gt;</span> switch (short <span class="ch">'e'</span> <span class="fu">&lt;&gt;</span>
+                               long <span class="st">&quot;excited&quot;</span> <span class="fu">&lt;&gt;</span>
+                               help <span class="st">&quot;Run in excited mode&quot;</span>)
+    opts <span class="fu">=</span> info parser mempty</code></pre></div>
+<p>We’ve introduced a new field to our <code>MyApp</code> data type, modified our application (in <code>runWithOptions</code>), and extended our <code>parser</code> with the <code>switch</code> option. Here, I’ve attached a good bit of meta-data to the option - the ‘short’ form is <code>-e</code>, the long form is <code>--excited</code>, and I’ve also explained what the option does. The <code>&lt;&gt;</code> thing is simply <code>mappend</code> for <code>Monoid</code>s - in layman’s terms, it means ‘combine these 2 small things into a bigger thing’. In this case, the small things are the individual bits of meta-data and the bigger thing is the final meta-data for the option. Again, running our application:</p>
+<pre><code>&gt; ./optparse
+Usage: optparse NAME [-e|--excited]
+
+Available options:
+  -e,--excited             Run in excited mode
+
+&gt; ./optparse &quot;Functional Programmers&quot; --excited
+MERRY CHRISTMAS, FUNCTIONAL PROGRAMMERS!</code></pre>
+<p>Perfect! As you can see, quoted arguments work just fine, and our option does exactly what we’d expect. That’s almost all there is to <code>optparse-applicative</code> - because it’s so straightforward. Options have a bit more meta-data that can be attached to them, and you can also perform more validation/transformation at parse time - such as reading a string into a number or a date. <code>optparse-applicative</code> also has the ability to have ‘commands’ - which lets you build Git-like applications.</p>
+<p>If you haven’t yet moved to writing your command line applications with Haskell, you now have one more reason to give it a try! <code>optparse-applicative</code> has comprehensive documentation, including a nice introduction on the Haskell page, and also another overview in the <a href="https://github.com/pcapriotti/optparse-applicative">readme</a> on GitHub. I love <code>optparse-applicative</code>, and I hope you’ll love it too.</p>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2012-12-17-24-days-of-hackage-optparse-applicative.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

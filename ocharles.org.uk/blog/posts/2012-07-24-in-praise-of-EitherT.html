@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2012-07-24-in-praise-of-EitherT.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>In Praise of EitherT</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>In Praise of EitherT</h1>
+<p>At the start of the month, <a href="http://www.haskellforall.com/">Gabriel Gonzalez</a> released the <a href="http://hackage.haskell.org/package/errors">errors</a> library for Haskell. This library is fantastic, not only for what it provides, but also for the learning it has motivated me to do. Amongst the various bits of Haskell knowledge I am on a path to understand were the <code>EitherT</code>/<code>MaybeT</code> pair of monad transformers. With a little bit of time, I’ve come to truly appreciate how powerful these can be.</p>
+<p>I’m currently working on an implementation of the <a href="https://github.com/ocharles/snaplet-oauth2">OAuth2 specification for Snap</a>, and there is a lot of outside-world interaction. Which means there’s a lot of places things can go wrong. Parsing request parameters, looking up things in databases, checking for expiration times - these all have the possibility of failing, and most of them require some form of IO too.</p>
+<p>My code initially had the smell of walking indentation:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">grant' <span class="ot">&lt;-</span> withBackend <span class="fu">$</span> \be <span class="ot">-&gt;</span>
+            lookupAuthorizationGrant be (accessTokenCode tokenReq)
+<span class="kw">case</span> grant' <span class="kw">of</span>
+  <span class="dt">Nothing</span> <span class="ot">-&gt;</span> <span class="co">-- handle error here</span>
+  <span class="dt">Just</span> grant <span class="ot">-&gt;</span>
+    <span class="kw">case</span> authGrantRedirectUri grant <span class="fu">==</span> accessTokenRedirect tokenReq <span class="kw">of</span>
+      <span class="dt">True</span> <span class="ot">-&gt;</span> <span class="kw">do</span>
+        now <span class="ot">&lt;-</span> liftIO getCurrentTime
+        <span class="kw">case</span> now <span class="fu">&gt;</span> authGrantExpiresAt grant <span class="kw">of</span>
+          <span class="dt">False</span> <span class="ot">-&gt;</span> <span class="kw">do</span>
+            <span class="co">-- success, finally!</span></code></pre></div>
+<p>That’s a brief snippet of code I used to have - 6 levels of nesting until we get to the success case, where the real processing actually happens. But this code is the important part, it should be the most prominent! Everything else is just noise, and it’d be really nice if we could abstract that all away.</p>
+<p>The <code>EitherT</code> monad transformer can do that. <code>EitherT</code> lets us lift actions from some underlying monad, and add failure semantics. My first attempt at tidying this code up was to run in <code>EitherT</code> and fail with a <code>Text</code> value, which could then be rendered back to the client:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">grant' <span class="ot">&lt;-</span> noteT <span class="st">&quot;Authorization grant not found&quot;</span> <span class="fu">.</span>
+            liftMaybe <span class="fu">=&lt;&lt;</span> liftIO <span class="fu">=&lt;&lt;</span> lift
+               (withBackend' <span class="fu">$</span> \be <span class="ot">-&gt;</span>
+                 inspectAuthorizationGrant be
+                   (accessTokenReqCode tokenReq))
+
+(authGrantRedirectUri grant <span class="fu">==</span> accessTokenReqRedirect tokenReq)
+  <span class="ot">`orFail`</span> <span class="st">&quot;Redirection URL must be the same&quot;</span>
+
+now <span class="ot">&lt;-</span> liftIO getCurrentTime
+(now <span class="fu">&lt;=</span> authGrantExpiresAt grant) <span class="ot">`orFail`</span> <span class="st">&quot;This token has expired&quot;</span>
+
+<span class="co">-- Success!</span></code></pre></div>
+<p>Now our success code is inline with the rest of the code, and not trailing off the screen. Further more, the error handling has been simplified and is not getting in the way. As good as that is, we’ve lost some functionality. For example, we might need to send different status codes depending on what part of validation failed, or in some cases of the OAuth specification we should change the storage depending on failed requests (such as invalidating keys).</p>
+<p>Here’s the twist - we can make our error value an <em>executable action</em>. If we change our error value to be <code>Handler b v ()</code>, we can run arbitrary code on error conditions. Taking the example of expiration time:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">now <span class="ot">&lt;-</span> liftIO getCurrentTime
+(now <span class="fu">&lt;=</span> authGrantExpiresAt grant) <span class="ot">`orFail`</span> expiredToken
+<span class="fu">...</span>
+<span class="kw">where</span> expiredToken <span class="fu">=</span> <span class="kw">do</span> writeText <span class="st">&quot;This token has expired&quot;</span>
+                        modifyResponse (setResponseCode <span class="dv">400</span>)</code></pre></div>
+<p>Now we have a huge amount of flexibility on what can happen in chains of actions that may fail. Further more, <code>where</code> definitions let us separate this code out into small maintainable blocks. Finally, we can introduce functions such as <code>orFail</code> to create what is almost a DSL for expressing rules in preparation for later actions.</p>
+<p><code>EitherT</code> has helped me make my code avoid walking indentation, and closely ties error handling to the code that could fail. I highly recommend you give <code>EitherT</code> and <code>MaybeT</code> a chance if you haven’t yet used them, if you just need some lightweight and localised error handling, it might do the trick perfectly.</p>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2012-07-24-in-praise-of-EitherT.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

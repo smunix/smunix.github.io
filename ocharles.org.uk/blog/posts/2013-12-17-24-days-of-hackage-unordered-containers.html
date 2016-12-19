@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2013-12-17-24-days-of-hackage-unordered-containers.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>24 Days of Hackage: unordered-containers</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>24 Days of Hackage: unordered-containers</h1>
+<p><a href="2012-12-06-containers.html">Last year</a> we looked at the <a href="http://hackage.haskell.org/package/containers"><code>containers</code></a> library - a library that provides some of the most essential data structures in programming. While <code>containers</code> are extremely efficient, sometimes you’re just need to go the extra mile, and that’s where <a href="http://hackage.haskell.org/package/unordered-containers"><code>unordered-containers</code></a> comes in.</p>
+<p>If you have a look at the <code>insert</code> methods in <code>containers</code>, you’ll see type signatures like:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">insert ::</span> <span class="dt">Ord</span> k <span class="ot">=&gt;</span> k <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">Map</span> k a <span class="ot">-&gt;</span> <span class="dt">Map</span> k a
+<span class="ot">insert ::</span> <span class="dt">Ord</span> a <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">Set</span> a <span class="ot">-&gt;</span> <span class="dt">Set</span> a</code></pre></div>
+<p>The only requirement on insertions is that we can order the keys in a map, or the elements of a set, respectively. This gives us an indication of the underlying algorithm - the ordering is probably exploited to form some type of balanced tree. However, there’s another way to build up these data structures, and that’s via the familiar process of <a href="https://en.wikipedia.org/wiki/Hash_function"><em>hashing</em></a>.</p>
+<p>Hashing is available to us in Haskell via the <a href="http://hackage.haskell.org/package/hashable"><code>hashable</code></a> library, currently maintained by <a href="http://blog.johantibell.com/">Johan Tibell</a>. <code>hashable</code> gives us a new type class - <code>Hashable</code> - which does what it says on the tin. Given some value that has a <code>Hashable</code> instance, we can turn those values into hashes. <code>unordered-containers</code> then builds on top of this to provide us with hash-maps and hash-sets.</p>
+<p>Armed with <code>Hashable</code>, working with hash-maps and hash-sets in <code>unordered-containers</code> is a breeze. For example, we could easily store a hash-map associating children with a list of presents they want for Christmas. First, we define our data types:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Child</span> <span class="fu">=</span> <span class="dt">Child</span> {<span class="ot"> childName ::</span> <span class="dt">String</span>
+                   ,<span class="ot"> childLocation ::</span> <span class="dt">String</span>
+                   } <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Generic</span>, <span class="dt">Show</span>)
+
+<span class="kw">data</span> <span class="dt">Priority</span> <span class="fu">=</span> <span class="dt">Please</span> <span class="fu">|</span> <span class="dt">PrettyPlease</span> <span class="fu">|</span> <span class="dt">PleasePleasePlease</span>
+  <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Generic</span>)
+
+<span class="kw">data</span> <span class="dt">Request</span> <span class="fu">=</span> <span class="dt">Request</span> {<span class="ot"> requestPresent ::</span> <span class="dt">String</span>
+                       ,<span class="ot"> requestPriority ::</span> <span class="dt">Priority</span>
+                       } <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Generic</span>, <span class="dt">Show</span>)</code></pre></div>
+<p>Off the bat, we can’t use these data types in any maps. They don’t have <code>Ord</code> instances, and they also don’t have <code>Hashable</code> instances. Thankfully, it’s a doddle to add a <code>Hashable</code> instance thanks to GHC’s generic deriving support<a href="#fn1" class="footnoteRef" id="fnref1"><sup>1</sup></a>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Hashable</span> <span class="dt">Child</span>
+<span class="kw">instance</span> <span class="dt">Hashable</span> <span class="dt">Priority</span>
+<span class="kw">instance</span> <span class="dt">Hashable</span> <span class="dt">Request</span></code></pre></div>
+<p>Now we can populate our hash-map:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">olliesWishList ::</span> <span class="dt">HashMap</span> <span class="dt">Child</span> [<span class="dt">Request</span>]
+olliesWishList <span class="fu">=</span>
+  <span class="kw">let</span> ollie <span class="fu">=</span> <span class="dt">Child</span> { childName <span class="fu">=</span> <span class="st">&quot;ocharles&quot;</span>
+                    , childLocation <span class="fu">=</span> <span class="st">&quot;London&quot;</span>
+                    } fromList
+  <span class="kw">in</span> [(ollie, [ <span class="dt">Request</span> <span class="st">&quot;Artisan Coffee&quot;</span> <span class="dt">Please</span>
+              , <span class="dt">Request</span> <span class="st">&quot;Dependent Types in Haskell&quot;</span> <span class="dt">PleasePleasePlease</span>
+              , <span class="dt">Request</span> <span class="st">&quot;Lambda Fridge Magnets&quot;</span> <span class="dt">PrettyPlease</span>
+              ])]</code></pre></div>
+<p>And query it just as you would query a map in <code>containers</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">main <span class="fu">=</span> <span class="kw">do</span>
+  void <span class="fu">$</span> traverseWithKey showWishList olliesWishList
+ <span class="kw">where</span>
+  showWishList child wants <span class="fu">=</span> <span class="kw">do</span>
+    putStrLn (childName child <span class="fu">++</span> <span class="st">&quot; wants...&quot;</span>)
+    mapM_ (putStrLn <span class="fu">.</span> requestPresent) wants</code></pre></div>
+<p>Which produces the output:</p>
+<pre><code>ocharles wants...
+Artisan Coffee
+Dependent Types in Haskell
+Lambda Fridge Magnets</code></pre>
+<p>A modest wishlist, I’m sure you’ll agree.</p>
+<p>The API provided by <code>unordered-containers</code> is not quite as extensive as what we have available to us in <code>containers</code> - but it’s still perfectly usable. The real benefit from <code>unordered-containers</code> is, of course, in the numbers. Johan has already done a good deal of benchmarking and comparison, and <a href="http://blog.johantibell.com/2012/03/announcing-unordered-containers-02.html">wrote up his findings</a> on his blog, and hash-maps consistently out-perform regular <code>Ord</code>-based maps.</p>
+<p>As to which you should use, my personal preference is still <code>containers</code> as that API spoils me. However, sometimes these data structures are at the heart of what I’m building and entirely internal - in these cases I’m happy to know that a <code>Hashable</code> instance exists and I might as well make use of it! Another consideration is that <code>containers</code> requires <code>Ord</code> instances, and sometimes ordering just doesn’t make sense for the data I’m working with. In these cases, I can usually write a <code>Hashable</code> instance, so in that situation the choice is clear.</p>
+<div class="footnotes">
+<hr />
+<ol>
+<li id="fn1"><p>This requires <code>hashable &gt;= 1.2</code><a href="#fnref1">↩</a></p></li>
+</ol>
+</div>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2013-12-17-24-days-of-hackage-unordered-containers.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

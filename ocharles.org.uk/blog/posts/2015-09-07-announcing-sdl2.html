@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2015-09-07-announcing-sdl2.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>Announcing a new set of high-level SDL2 bindings</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>Announcing a new set of high-level SDL2 bindings</h1>
+<p>It’s with great pleasure that on behalf of the haskell-game group, I’d like to announce the release of <a href="http://hackage.haskell.org/package/sdl2">a new set of high-level bindings</a> to the <a href="http://libsdl.org/">SDL</a> library. SDL is a C library providing a set of cross-platform functions for handling graphics, window management, audio, joystick/gamepad interaction, and more.</p>
+<p>For a while, we’ve had bindings to SDL 2 on Hackage, but these bindings are as close to 1:1 as you can get in Haskell. This results in a library that certainly <em>can</em> be used in Haskell, but does not feel particularly like writing ordinary Haskell! A real concern here is that this raises the barrier to entry for those new to either game programming or writing games in Haskell (or both!) - a barrier that I would certainly like to see lowered. To address this, myself and many others have spent the last year working on high-level bindings to abstract away the C-like feel of the existing library, and to present a more Haskell interface.</p>
+<p>To give you an idea of how things look, here’s a basic application that opens a window, clears the screen, and quits when the user presses ‘q’:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">{-# LANGUAGE OverloadedStrings #-}</span>
+<span class="kw">module</span> <span class="dt">Main</span> <span class="kw">where</span>
+
+<span class="kw">import </span><span class="dt">SDL</span>
+<span class="kw">import </span><span class="dt">Linear</span> (<span class="dt">V4</span>(..))
+<span class="kw">import </span><span class="dt">Control.Monad</span> (unless)
+
+<span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> <span class="kw">do</span>
+  initialize [<span class="dt">InitEverything</span>]
+  window <span class="ot">&lt;-</span> createWindow <span class="st">&quot;My SDL Application&quot;</span> defaultWindow
+  renderer <span class="ot">&lt;-</span> createRenderer window (<span class="fu">-</span><span class="dv">1</span>) defaultRenderer
+  appLoop renderer
+
+<span class="ot">appLoop ::</span> <span class="dt">Renderer</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
+appLoop renderer <span class="fu">=</span> <span class="kw">do</span>
+  events <span class="ot">&lt;-</span> pollEvents
+  <span class="kw">let</span> eventIsQPress event <span class="fu">=</span>
+        <span class="kw">case</span> eventPayload event <span class="kw">of</span>
+          <span class="dt">KeyboardEvent</span> keyboardEvent <span class="ot">-&gt;</span>
+            keyboardEventKeyMotion keyboardEvent <span class="fu">==</span> <span class="dt">Pressed</span> <span class="fu">&amp;&amp;</span>
+            keysymKeycode (keyboardEventKeysym keyboardEvent) <span class="fu">==</span> <span class="dt">KeycodeQ</span>
+          _ <span class="ot">-&gt;</span> <span class="dt">False</span>
+      qPressed <span class="fu">=</span> not (null (filter eventIsQPress events))
+  rendererDrawColor renderer <span class="fu">$=</span> <span class="dt">V4</span> <span class="dv">0</span> <span class="dv">0</span> <span class="dv">255</span> <span class="dv">255</span>
+  clear renderer
+  present renderer
+  unless qPressed (appLoop renderer)</code></pre></div>
+<p>Hopefully you’ll agree that the code above is close to idiomatic Haskell.</p>
+<p>We’ve tried to be extensive with the bindings, and at the moment the following should (!) all be working:</p>
+<ul>
+<li>Graphics routines have been our highest priority. The bindings should give you full control over window management, access to SDL’s new hardware-accelerated 2D rendering routines, and also the ability to set up an OpenGL context (which is compatible with the <code>OpenGL</code> and <code>gl</code> libraries).</li>
+<li>SDL’s audio abstraction is available, and the bindings allow you to open audio devices and stream audio data.</li>
+<li>A clean implementation of SDL’s event system, designed for use with pattern matching.</li>
+<li>Access to input devices, including keyboard, mouse, pointer devices, and joysticks.</li>
+<li>A large collection of example code, ported from the popular “lazyfoo” and “twinklebear” tutorials.</li>
+</ul>
+<p>The bindings are not 100% exhaustive - we’ve omitted some routines that are already provided by the Haskell runtime, but we also currently lack bindings to the following:</p>
+<ul>
+<li>Force-feedback (SDL’s “haptic” functionality). While we do have some code in the repository here, none of the contributors own a device that is compatible with SDL2 to actually test this work. If you do, please drop us a line and help out!</li>
+<li>Gesture recording for touch screens. We’re currently targetting desktops and laptops, but SDL has support for Android and iOS. Hopefully when GHC is easier to target these devices, we can start to explore these SDL bindings.</li>
+<li>Other SDL2 compatible libraries, such as <code>SDL2_net</code> and <code>SDL2_ttf</code>. We’d love for these projects to have the same treatment, and are more than happy to host them under the <code>haskell-game</code> Github account.</li>
+</ul>
+<p>We hope this enables more people to begin building interactive software and games in Haskell. It’s still early days for these bindings, so if you find any bugs (runtime problems or API bugs), or if you find the bindings lacking in anyway, please don’t hesitate to <a href="https://github.com/haskell-game/sdl2">open an issue</a> on our issue tracker.</p>
+<p>Happy hacking!</p>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2015-09-07-announcing-sdl2.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

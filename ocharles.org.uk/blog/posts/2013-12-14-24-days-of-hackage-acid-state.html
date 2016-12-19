@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2013-12-14-24-days-of-hackage-acid-state.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>24 Days of Hackage: acid-state</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>24 Days of Hackage: acid-state</h1>
+<p><a href="2013-12-06-24-days-of-hackage-persistent-esqueleto.html">Earlier this month</a> we looked at one way to add persistent state via the <code>persistent</code> library. This approach made use of existing technology and bridged the gap between Haskell types and persistent storage. Today, we’re going to look at an even more Haskell-orientated approach to persistent storage and explore David Himmelstrup’s <a href="http://acid-state.seize.it/"><code>acid-state</code></a> library.</p>
+<p><code>acid-state</code> is a library that takes existing Haskell values and adds the ability to persist them so that state can be re-used across application invocations. However, <code>acid-state</code> is more than just a serialization method – as the name suggests, using <code>acid-state</code> you get the full set of <a href="http://en.wikipedia.org/wiki/ACID">ACID</a> properties, which helps rule out a big class of errors.</p>
+<p>For today’s example, I want to revisit an application where I used <code>acid-state</code>. At work we were using RabbitMQ as a standard worker queue to distribute work. If a job failed, a message would be added to a <em>failures</em> queue, with the intention that this would later be inspected by a human. Having people pull stuff out of RabbitMQ is messy, so I built a little web application to pull this queue out into a more queryable format. To make sure we didn’t actually lose any messages I needed persistent state, and I didn’t want to fuss around with external technology, so I decided to use <code>acid-state</code> as my storage layer.</p>
+<p>The first thing you need to do when using <code>acid-state</code> is to define your entire database state. For this example, we need a way to uniquely identify failure messages, and we need a way to describe failures. An <code>IntMap</code> seems an appropriate structure for the former requirement, and we’ll write a new data type to describe each individual message. This gives us something like the following:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Failure</span> <span class="fu">=</span> <span class="dt">Failure</span> {<span class="ot"> failureReason ::</span> <span class="dt">String</span>
+                       ,<span class="ot"> failureTime ::</span> <span class="dt">UTCTime</span>
+                       } <span class="kw">deriving</span> (<span class="dt">Show</span>, <span class="dt">Typeable</span>)
+
+<span class="kw">data</span> <span class="dt">FailureDb</span> <span class="fu">=</span> <span class="dt">FailureDb</span> {<span class="ot"> allFailures ::</span> <span class="dt">IntMap</span> <span class="dt">Failure</span> }
+  <span class="kw">deriving</span> (<span class="dt">Typeable</span>)</code></pre></div>
+<p>The next step is to define some Haskell functions that operate on this database. At the very least, we’ll want the ability to query for all failures in the database in time order, and also to add new failures into the database. These functions are just Haskell functions that operate in the <code>Query</code> and <code>Update</code> monads, respectively. The <code>Query</code> monad is read-only, and is a lot like a <code>Reader</code> monad, while <code>Update</code> is a state monad. Starting with the query, we have:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">failuresOverTime ::</span> <span class="dt">Query</span> <span class="dt">FailureDb</span> [<span class="dt">Failure</span>]
+failuresOverTime <span class="fu">=</span>
+  sortBy (comparing failureTime) <span class="fu">.</span> IntMap.elems <span class="fu">.</span> allFailures <span class="fu">&lt;$&gt;</span> ask</code></pre></div>
+<p>We use the <code>ask</code> operation from the <code>MonadReader</code> type class (part of the <code>mtl</code> library) to query for the entire database, and then we <code>fmap</code> a pure transformation over this to convert our <code>IntMap</code> to a sorted list.</p>
+<p>To add new failures to the database, we work in the <code>Update</code> monad by modifying the underlying state:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">addFailure ::</span> <span class="dt">Failure</span> <span class="ot">-&gt;</span> <span class="dt">Update</span> <span class="dt">FailureDb</span> ()
+addFailure failure <span class="fu">=</span> modify go
+ <span class="kw">where</span>
+  go (<span class="dt">FailureDb</span> db) <span class="fu">=</span> <span class="dt">FailureDb</span> <span class="fu">$</span>
+    <span class="kw">case</span> IntMap.maxViewWithKey db <span class="kw">of</span>
+      <span class="dt">Just</span> ((max, _), _) <span class="ot">-&gt;</span> IntMap.insert (max <span class="fu">+</span> <span class="dv">1</span>) failure db
+      <span class="dt">Nothing</span>            <span class="ot">-&gt;</span> IntMap.singleton <span class="dv">1</span> failure</code></pre></div>
+<p>A little more involved, but still nothing out of the ordinary. We use <code>modify</code> from <code>MonadState</code> (again, from the <code>mtl</code> library) and modify our <code>FailureDb</code> <code>IntMap</code> accordingly. If it’s empty we use a singleton <code>IntMap</code>, otherwise we add a new <code>Failure</code> with a increased key.</p>
+<p>We still haven’t seen any <code>acid-state</code> specific code yet, other than operating in the <code>acid-state</code> monads. The only <code>acid-state</code> specific work we need to do is <em>promote</em> the combination of our <code>FailureDb</code> type and these functions into <code>acid-state</code> queries. We can easily do this with a few lines of template Haskell:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">deriveSafeCopy <span class="dv">0</span> <span class="ch">'base ''Failure</span>
+deriveSafeCopy <span class="dv">0</span> <span class="ch">'base ''FailureDb</span>
+makeAcidic <span class="ch">''</span><span class="dt">FailureDb</span> [<span class="ch">'failuresOverTime, '</span>addFailure]</code></pre></div>
+<p>(Don’t worry about the <code>deriveSafeCopy</code> stuff, though we will touch on that at the end of this article).</p>
+<p>Now we’re ready to start persisting some data! We need to do a little initial configuration to get things going, and we have a few options on where the data gets persisted. We can use an in-memory representation which is useful for testing, a local file, or even a <a href="http://hackage.haskell.org/package/acid-state-0.12.1/docs/Data-Acid-Remote.html">remote</a> <code>acid-state</code> server. We’ll do as little as possible to solve the problem, and use local storage. Below is an example of how we could query this database:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> <span class="kw">do</span>
+  state <span class="ot">&lt;-</span> openLocalState (<span class="dt">FailureDb</span> IntMap.empty)
+
+  <span class="co">-- Record a new failure</span>
+  now <span class="ot">&lt;-</span> getCurrentTime
+  update state (<span class="dt">AddFailure</span> <span class="fu">$</span> <span class="dt">Failure</span> <span class="st">&quot;ENOMISSLES&quot;</span> now)
+
+  <span class="co">-- Query for all failures</span>
+  allFailures <span class="ot">&lt;-</span> query state <span class="dt">FailuresOverTime</span>
+  
+  mapM_ print allFailures</code></pre></div>
+<p>Now we can run this multiple times, and observe the changing output:</p>
+<pre><code>$ for i in `seq 1 10`
+do echo &quot;Run $i:&quot;; ./2013-12-14-acid-state ; echo &quot;&quot;; sleep 5;
+done
+
+Run 1:
+Failure {failureReason = &quot;ENOMISSLES&quot;, failureTime = 2013-12-14 17:42:07.82243 UTC}
+
+Run 2:
+Failure {failureReason = &quot;ENOMISSLES&quot;, failureTime = 2013-12-14 17:42:07.82243 UTC}
+Failure {failureReason = &quot;ENOMISSLES&quot;, failureTime = 2013-12-14 17:42:12.83426 UTC}
+
+Run 3:
+Failure {failureReason = &quot;ENOMISSLES&quot;, failureTime = 2013-12-14 17:42:07.82243 UTC}
+Failure {failureReason = &quot;ENOMISSLES&quot;, failureTime = 2013-12-14 17:42:12.83426 UTC}
+Failure {failureReason = &quot;ENOMISSLES&quot;, failureTime = 2013-12-14 17:42:17.846783 UTC}</code></pre>
+<p>We can cleary see that each successive run shows the previous modifications, and appends its own modification.</p>
+<h2 id="conclusion">Conclusion</h2>
+<p>If you <a href="https://github.com/ocharles/blog/blob/master/code/2013-12-14-acid-state.hs">have a look</a> at today’s code, you can see the majority of the code we had to write was <em>interesting</em> and <em>essential</em> code to our application. We had to define our state and some appropriate functions operating on that state, and then we handed it all over to <code>acid-state</code> to do the heavy lifting. This is perfect when it comes to prototyping – we don’t have to constrain ourselves to restrictions imposed by a certain query language or database model, we can just dive straight in to solving problems.</p>
+<p><code>acid-state</code> need not be restricted to only modeling prototypes. With <code>safecopy</code>, <code>acid-state</code> is able to keep up with changing data types transparently. <code>safecopy</code> lets you specify migrations between versions of data types, and it will automatically deal with migrating data as it needs to.</p>
+<p>If you want to learn more about <code>acid-state</code>, check out the <a href="http://acid-state.seize.it/"><code>acid-state</code> wiki</a>, and also some other <a href="http://mirror.seize.it/acid-state/examples/">examples</a>.</p>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2013-12-14-24-days-of-hackage-acid-state.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

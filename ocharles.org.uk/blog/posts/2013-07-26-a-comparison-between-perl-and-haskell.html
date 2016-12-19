@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2013-07-26-a-comparison-between-perl-and-haskell.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>A Comparison Between Perl and Haskell</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>A Comparison Between Perl and Haskell</h1>
+<p>Yesterday I finished porting a <a href="http://musicbrainz.org/">MusicBrainz</a> production service from Perl to Haskell. The port was done for no real reason other than giving me something to do during my commute, but as work developed I became interested in how the two applications might compare. In this post I will discuss my experience, hopefully providing one more data point for people who are considering using Haskell for production work.</p>
+<h2 id="the-caa-indexer">The <code>caa-indexer</code></h2>
+<p>The project I ported was the <a href="http://github.com/metabrainz/caa-indexer"><code>caa-indexer</code></a>, a long running service that achieves consistency between data stored in the MusicBrainz database, and data stored by the Cover Art Archive itself. If you’re not familiar with the <a href="http://coverartarchive.org/">Cover Art Archive</a>, here’s a brief technical overview of how it works.</p>
+<p>The Cover Art Archive (CAA) stores artwork about music. Every release in MusicBrainz has a MusicBrainz identifier, and the CAA is a separate database associating images with these identifiers. Images are stored by the Internet Archive, and can be managed via an S3-like protocol. The metadata about the image - such as tracking which MusicBrainz release it belongs to, or what type of image it is - is stored in the main MusicBrainz database. As artwork is added, removed, or otherwise modified, events are propagated from the MusicBrainz database over RabbitMQ to the <code>caa-indexer</code>, who responds to each event accordindly. There are three events - indexing, moving and deleting:</p>
+<ul>
+<li><p>Indexing refreshes the <code>index.json</code> file, which is a JSON serialization of metadata that MusicBrainz stores. This is used by the http://coverartarchive.org web service. It also builds a <code>mb_metadata.xml</code> file, which is a snapshot of the release according to the MusicBrainz web service. This is used by the Internet Archive to enhance their own search results.</p></li>
+<li><p>Move events are used to move an image from one bucket to another. For example, when two releases are merged, all the images are moved to the same bucket.</p></li>
+<li><p>Delete events delete data from buckets - be that images or the <code>index.json</code> file.</p></li>
+</ul>
+<p>Thus any <code>caa-indexer</code>-like project needs the ability to:</p>
+<ul>
+<li>Communicate with RabbitMQ to listen for events.</li>
+<li>Communicate with PostgreSQL to fetch metadata from the MusicBrainz database.</li>
+<li>Communicate with the Internet Archive’s S3 store</li>
+<li>Produce JSON documents</li>
+<li>Make web requests to musicbrainz.org</li>
+</ul>
+<h2 id="porting-the-caa-indexer">Porting the <code>caa-indexer</code></h2>
+<h3 id="process">Process</h3>
+<p>My methodology for the porting was ad hoc, and not particularly coordinated. I was happy with the existing architecture, so the Haskell rewrite is almost taking code verbatim from Perl and doing the necessary rewriting. The general architecture remained the same.</p>
+<h3 id="experience">Experience</h3>
+<h4 id="library-support">Library Support</h4>
+<p>Everything the <code>caa-indexer</code> needs to do is supported by Haskell libraries on <a href="http://hackage.haskell.org/">Hackage</a>, which is the central location of Haskell libraries (much like CPAN for Perl). I used the following libraries to meet the requirements:</p>
+<ul>
+<li><a href="http://hackage.haskell.org/package/postgresql-simple"><code>postgresql-simple</code></a> for talking to PostgreSQL.</li>
+<li><a href="http://hackage.haskell.org/package/amqp"><code>amqp</code></a> for talking to RabbitMQ.</li>
+<li><a href="http://hackage.haskell.org/package/aws"><code>aws</code></a> for talking to the Internet Archive.</li>
+<li><a href="http://hackage.haskell.org/package/aeson"><code>aeson</code></a> for JSON serialization</li>
+<li><a href="http://hackage.haskell.org/package/http-conduit"><code>http-conduit</code></a> for making web requests. I initially wanted to use <a href="http://hackage.haskell.org/package/http-streams"><code>http-streams</code></a> for this, but as <code>aws</code> already used <code>http-conduit</code>, it was easier to use the same library.</li>
+<li><a href="http://hackage.haskell.org/package/xml"><code>xml</code></a> for trivial XML processing of responses.</li>
+<li><a href="http://hackage.haskell.org/package/configurator"><code>configurator</code></a> to configure the application outside of the code itself.</li>
+</ul>
+<p>The following were also used to produce more idiomatic Haskell code:</p>
+<ul>
+<li><a href="http://hackage.haskell.org/package/uuid"><code>uuid</code></a> provides a <code>UUID</code> data type, allowing me to achieve a little more type safety.</li>
+<li><a href="http://hackage.haskell.org/package/async"><code>async</code></a> was used to process events in a separate thread, in order to provide a somewhat ultimate <code>try</code>/<code>catch</code>. We’ll see more on this later.</li>
+<li><a href="http://hackage.haskell.org/package/errors"><code>errors</code></a>, which is part of my standard toolkit for dealing with things going wrong.</li>
+<li><a href="http://hackeg.haskell.org/package/text"><code>text</code></a> which is the canonical way to deal with text in Haskell, along with encoding and decoding bytestreams.</li>
+</ul>
+<p>Together, these libraries make a formidable toolkit for solving problems in the <code>caa-indexer</code>’s domain. Of these libraries, the <code>aws</code> library was new to me, and I hadn’t used <code>http-conduit</code> for a long time. Documentation on these libraries was particularly helpful - and I didn’t find it difficult to learn the new APIs. The fact that Haskell provides type signatures means that Haddock (Haskell’s documentation tool) is already able to provide documentation even if the library is otherwise undocumented. The <code>xml</code> library falls into this category, and while it could have done with better documentation, being able to find functions purely on their type signature was sufficient.</p>
+<h4 id="code-size">Code Size</h4>
+<p>The Haskell codebase measures at 389 lines of code, while the Perl codebase measures at 399. I’m somewhat amazed at how similar both codebases are in size. Haskell is a tiny bit more compact, though this is likely due to the fact that all code is in a single file, where as the Perl code is split over multiple files. That said, it’s clear that the difference in code size is neglible. What’s more interesting to note is that the Haskell code provides significantly more guarantees due to its type system, in the same amount of code as Perl. I believe this is a testement to just how succinct Haskell code can be.</p>
+<p>That said, there are places in the Haskell code that are more verbose than Perl, due to being more type safe. One example is dealing with UUIDs from the MusicBrainz database. In Perl, almost everything coming out of the database is just a string, so UUIDs are dealt with like any other bit of text. <code>postgresql-simple</code> however checks the types of columns against the type they are being represented with in Haskell at runtime. Thus if you want to deal with UUIDs in Haskell, you need to either cast it to plain text in the query, or write (de)serializers for this data type. I chose the latter, and had to write the following code, which has very little to do with the <code>caa-indexer</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Pg.ToField</span> <span class="dt">UUID.UUID</span> <span class="kw">where</span>
+  toField <span class="fu">=</span> <span class="dt">Pg.Plain</span> <span class="fu">.</span> Pg.inQuotes <span class="fu">.</span> Builder.fromString <span class="fu">.</span> UUID.toString
+
+
+<span class="kw">instance</span> <span class="dt">Pg.FromField</span> <span class="dt">UUID.UUID</span> <span class="kw">where</span>
+  fromField f <span class="dt">Nothing</span> <span class="fu">=</span> Pg.returnError <span class="dt">Pg.UnexpectedNull</span> f <span class="st">&quot;UUID cannot be null&quot;</span>
+  fromField f (<span class="dt">Just</span> v) <span class="fu">=</span> <span class="kw">do</span>
+    t <span class="ot">&lt;-</span> Pg.typename f
+    <span class="kw">if</span> t <span class="fu">/=</span> <span class="st">&quot;uuid&quot;</span> <span class="kw">then</span> incompatible <span class="kw">else</span> tryParse
+    <span class="kw">where</span>
+      incompatible <span class="fu">=</span> Pg.returnError <span class="dt">Pg.Incompatible</span> f <span class="st">&quot;UUIDs must be PG type 'uuid'&quot;</span>
+      tryParse <span class="fu">=</span> <span class="kw">case</span> UUID.fromString (Char8.unpack v) <span class="kw">of</span>
+        <span class="dt">Just</span> uuid <span class="ot">-&gt;</span> return uuid
+        <span class="dt">Nothing</span> <span class="ot">-&gt;</span> Pg.returnError <span class="dt">Pg.ConversionFailed</span> f <span class="st">&quot;Not a valid UUID&quot;</span></code></pre></div>
+<p>Hardly the end of the world, but it’s code that otherwise detracts from the main purpose of the <code>caa-indexer</code>. I will likely wrap this code up in a small library and upload it to Hackage in the future.</p>
+<p>The only other piece of code that feels a little more verbose in Haskell is the JSON serialization itself. In Perl, I can write the following:</p>
+<div class="sourceCode"><pre class="sourceCode perl"><code class="sourceCode perl"><span class="dt">$json</span>-&gt;<span class="dt">objToJson</span>({
+    images =&gt; [
+        <span class="fu">map</span> +{
+            types =&gt; <span class="dt">$_</span>-&gt;{types},
+            front =&gt; <span class="dt">$_</span>-&gt;{is_front} ? <span class="fu">JSON::Any</span>-&gt;true : <span class="fu">JSON::Any</span>-&gt;false,
+            back =&gt; <span class="dt">$_</span>-&gt;{is_back} ? <span class="fu">JSON::Any</span>-&gt;true : <span class="fu">JSON::Any</span>-&gt;false,
+            ...
+        }, <span class="dt">$self</span>-&gt;<span class="dt">dbh</span>-&gt;<span class="dt">query</span>(
+            <span class="kw">'</span><span class="st">SELECT * FROM cover_art_archive.index_listing</span>
+<span class="st">                WHERE release = ?</span>
+<span class="st">                ORDER BY ordering</span><span class="kw">'</span>,
+            <span class="dt">$release</span>-&gt;{id}
+        )-&gt;hashes
+    ],
+    release =&gt; <span class="kw">'</span><span class="st">http://musicbrainz.org/release/</span><span class="kw">'</span> . <span class="dt">$release</span>-&gt;{gid}
+});</code></pre></div>
+<p>Which maps over the results of database query directly into JSON. In Haskell, I chose to use first convert the row into a Haskell data type, and then write a serializer for this data type. Thus, the code is more along the lines of:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">IndexListing</span> <span class="fu">=</span> <span class="dt">IndexListing</span>
+  {<span class="ot"> indexRelease ::</span> <span class="dt">UUID.UUID</span>
+  ,<span class="ot"> indexImages ::</span> [<span class="dt">ReleaseImage</span>]
+  }
+
+
+<span class="kw">data</span> <span class="dt">ReleaseImage</span> <span class="fu">=</span> <span class="dt">ReleaseImage</span>
+  {<span class="ot"> imageTypes ::</span> <span class="dt">Vector.Vector</span> <span class="dt">Text.Text</span>
+  ,<span class="ot"> imageIsFront ::</span> <span class="dt">Bool</span>
+  <span class="fu">...</span>
+  }
+
+<span class="kw">instance</span> <span class="dt">Aeson.ToJSON</span> <span class="dt">IndexListing</span> <span class="kw">where</span>
+  toJSON <span class="dt">IndexListing</span>{<span class="fu">..</span>} <span class="fu">=</span> Aeson.object
+    [ <span class="st">&quot;images&quot;</span> <span class="fu">.=</span> indexImages
+    , <span class="st">&quot;release&quot;</span> <span class="fu">.=</span> (<span class="st">&quot;http://musicbrainz.org/release/&quot;</span> <span class="fu">++</span> UUID.toString indexRelease)
+    ]
+
+<span class="kw">instance</span> <span class="dt">Aeson.ToJSON</span> <span class="dt">ReleaseImage</span> <span class="kw">where</span>
+  toJSON <span class="dt">ReleaseImage</span>{<span class="fu">..</span>} <span class="fu">=</span> Aeson.object
+    [ <span class="st">&quot;types&quot;</span> <span class="fu">.=</span> imageTypes
+    , <span class="st">&quot;front&quot;</span> <span class="fu">.=</span> imageIsFront
+    <span class="fu">...</span>
+    ]
+
+<span class="co">-- later:</span>
+images <span class="ot">&lt;-</span> Pg.query pg [sql<span class="fu">|</span> <span class="dt">SELECT</span> <span class="fu">...</span> <span class="fu">|</span>]
+Aeson.encode (<span class="dt">IndexListing</span> release images)</code></pre></div>
+<p>Which as you can see, is significantly more verbose, and has required me to write the <code>data</code> declaration with selector names, only to later write this again using <code>ToJSON</code>. Haskell does have <a href="http://www.haskell.org/haskellwiki/GHC.Generics">generics</a> support, but for JSON I find this is usually suboptimal when you have a specific schema in mind. I also needed to include properties in the JSON document that are a function of other value (such as expanding the image ID into a full URL), so automatically deriving JSON serialization is not sufficient, unless I want to store duplicate state in <code>ReleaseImage</code> itself (which is certainly worse).</p>
+<p>There is a price to pay for being more type safe, and while often this is superficial, there are places where it leads to a little more friction. One could argue that introducing the data type leads to better testability however, as it’s now possible for me to check the JSON serialization in a pure manner without touching a database at all.</p>
+<h4 id="development-experience">Development experience</h4>
+<p>A friend at a recent Haskell meetup once described Python development to me as “backtrace driven development”, and unfortunately Perl often feels very much the same. I generally write code in Perl by sketching out an idea, and then trying to run it. If it crashes, I refine my code and try again. It’s a very haphazard approach to building software. It can be improved by working in a test driven manner, but ultimately you are still working with assurances over a subset of the codebase.</p>
+<p>In Haskell I find there are two main approaches, depending on how you are solving problems. If you have a solution in mind, you can take a loosely “holes driven” approach to programming, where you write top level types and leave implementations blank; or you can do more bottom up programming by working in the <code>ghci</code> REPL. Having already written this code once in Perl, I opted for the former - first getting my types right, and then filling in the blanks later.</p>
+<p>Structuring my types took a while - in fact the entire project didn’t compile for about 4 hours. This may seem very strange to some people, but I find it very natural in Haskell. The lack of compilation doesn’t imply I’m not making progress - in those 4 hours I learnt more about my program, developing an understanding about how components fit together. Once it compiled, it was then a case of replacing all calls to <code>undefined</code> with a real implementation. Again, this inevitably lead to false assumptions and compiler errors, so the cycle repeated.</p>
+<p>Remarkably, once I expanded <code>undefined</code> and had things compiling, the majority of the battle was won. Running the program connected to RabbitMQ, setup the queues I expected, and was listening for events as I expected. This isn’t to say the job was done - there were still places where runtime execution was wrong, or error handling was insufficient.</p>
+<p>The problems at runtime where genuine problems, and the bugs that I find interesting to fix. I wasn’t spending time working out why something was <code>null</code>, or if a method call had the wrong arguments, because the compiler had already held my hand through that stage of programming. Overall the development experience was <em>fun</em>.</p>
+<h4 id="community-experience">Community Experience</h4>
+<p>I wrote this port almost entirely on my own, and didn’t have to interact much with the Haskell community. The <code>amqp</code> package didn’t initially have support for message headers, which is needed for some of the retry logic, so I raised a bug on the <code>amqp</code> project’s Github issue tracker. The author was responsive and released a new version of the library with this support.</p>
+<p>While extremely limited, this is consistent with my experience of the Haskell community outside this work. A small group of people very passionate about their work, and who embrace working with others.</p>
+<h3 id="where-haskell-shines">Where Haskell Shines</h3>
+<p>There are few things in the Haskell port that I really liked. This section is a place to express my enjoyment of writing Haskell, and show off some of the things I found cool. While these points are highly specific and won’t help you make a choice of whether you want to write your projects in Haskell, I hope that some of my enthauiasm will reach you, and express my feeling that Haskell is both fun and a constant learning experience.</p>
+<h4 id="rankntypes-for-building-eventhandlers"><code>RankNTypes</code> for building <code>EventHandler</code>s</h4>
+<p>The data type of an <code>EventHandler</code> uses <code>RankNTypes</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">EventHandler</span> <span class="fu">=</span> forall payload<span class="fu">.</span> <span class="dt">EventHandler</span>
+  {<span class="ot"> eventRoutingKey ::</span> <span class="dt">Text.Text</span>
+  ,<span class="ot"> eventParser ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Maybe</span> payload
+  ,<span class="ot"> eventAction ::</span> <span class="dt">HandlerEnv</span> <span class="ot">-&gt;</span> payload <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
+  }</code></pre></div>
+<p>This lets me have lists of <code>EventHandler</code>s, each of which is able to parse a <code>String</code> into a handler specific payload of a more refined type. Thus, I have a few top level definitions such as <code>index :: EventHandler</code> and I can later map over all <code>EventHandler</code>s to register them with RabbitMQ:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">mapM_ registerEventHandler [ index, move, delete ]</code></pre></div>
+<p>This is a simple way to achieve a somewhat hetrogeneous list. The alternative approach of parameterizing an <code>EventHandler</code> by its payload type would make this list construction harder to use, so by moving the choice of the payload to the <code>EventHandler</code> value itself, the code is simplified.</p>
+<h4 id="power-in-monads">Power in Monads</h4>
+<p>I use a few different monads inside my <code>caa-indexer</code>. For example, I use the <code>Maybe</code> monad to simplify XML traversals:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">XML.parseXMLDoc (HTTP.responseBody response) <span class="fu">&gt;&gt;=</span>
+XML.findChild (XML.unqual <span class="st">&quot;Error&quot;</span>) <span class="fu">&gt;&gt;=</span>
+XML.findChild (XML.unqual <span class="st">&quot;Resource&quot;</span>) <span class="fu">&gt;&gt;=</span>
+pure <span class="fu">.</span> XML.strContent</code></pre></div>
+<p>This parses a HTTP response as XML, and finds the text content inside the <code>&lt;Error&gt;&lt;Resource&gt;</code> element. If any of this fails, the whole computation aborts and <code>Nothing</code> is returned. I find it particularly elegant that the monadic sequencing took care of this for me.</p>
+<p>Another monad that I really like is <code>EitherT</code>, which lets me sequence a series of actions, aborting much like <code>Maybe</code> if anything fails, but with the ability to provide a reason for failure. <code>EitherT</code> <em>transforms</em> a base monad and I use it with IO to provide a try/catch like block:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">EitherT.eitherT
+  (retry msg handlerChan eventRoutingKey)
+  (const <span class="fu">$</span> return ()) <span class="fu">$</span>
+  (<span class="kw">do</span> payload <span class="ot">&lt;-</span>
+        eventParser messageBody <span class="fu">??</span> (toException <span class="dt">MessageBodyParseFailure</span>)
+
+      <span class="dt">EitherT.EitherT</span> <span class="fu">$</span>
+        Async.withAsync (eventAction env payload) Async.waitCatch)</code></pre></div>
+<p>The final <code>do</code> block is the code to execute. This code can either result in an exception, at which point <code>retry</code> is invoked to retry the message in 4 hours (this is done by dead lettering in RabbitMQ), or it can succeed by running to completion.</p>
+<p>I use <code>??</code> to lift the <code>Maybe</code> result of the <code>eventParser</code> into <code>EitherT</code>, and I use <code>withAsync</code> to run a computation on a separate thread, and if this dies because of an exception I lift the exception into <code>EitherT</code>. Thus we have a nice try/catch-like piece of code, that required no language support - we just built it ourselves.</p>
+<h2 id="personal-closing-comments">Personal Closing Comments</h2>
+<p>We all know that it’s important to choose the right tool for the job, but I am honestly yet to find problems where Haskell <em>isn’t</em> a suitable tool. Perhaps a while ago when the library coverage was sparse, Haskell wasn’t a great choice - but now that is patently not the case. I showed that it’s easy to write software that interacts with relational databases, message brokers and Amazon web services, all without having to write any of this code myself.</p>
+<p>Haskell is often claimed to drastically reduce code size, but I didn’t find this claim held up against other high level languages. On the other hand, I also didn’t find that Haskell was any more verbose either - so I feel that claims about having to “work to please the type system” don’t really hold up to much, though there are cases where it does add a little more friction.</p>
+<p>Code legibility is another important issue, and I can’t provide much feedback around this. Of course, <em>I</em> feel the Haskell is readable because I wrote it! The only useful exercise here is for you to see for yourself:</p>
+<ul>
+<li><a href="https://github.com/metabrainz/CAA-indexer/tree/bfc1381aac55f1b861b19702a049b778f510fa6a/lib/CoverArtArchive">The Perl <code>caa-indexer</code></a></li>
+<li><a href="https://github.com/metabrainz/CAA-indexer/blob/4fb2f260f1b5dd66d3dcaef1a188818a89705002/src/Main.hs">The Haskell <code>caa-indexer</code></a></li>
+</ul>
+<p>More important to me though, is that the compiler is always reading the code with me. While I feel Perl code (in general) is readable, I have frequently misinterpreted the meaning of some code and carried false assumptions forward later in my project. Haskell isn’t free of this either, but a lot of assumptions are spelled out in the types. The more you use types (such as phantom types, GADTs), the more we encode about data and the harder it is to misinterpret code.</p>
+<p>The only remaining thing that makes me uncomfortable is getting the rest of my team to write some Haskell. We have so much going on at MusicBrainz, there hasn’t been a good time to accept that things will have to slow down while people learn a new language, and the idioms that go with it. I don’t feel that Haskell is particularly deserving of the scary/academic label it sometimes gets. Yes, it will be alien, but if something doesn’t require a little bit of rewiring in order to show you a different perspective on things, why bother learning it? Moving between Python and Ruby is easy, because there is very little between them, but I think that also results in very little net gain in moving between them as well.</p>
+<p>With an extremely powerful type system, a vibrant community, a comprehensive set of libraries, a new programming paradigm (purity and laziness) and a beautifully succinct language, Haskell is still the ultimate language to me. If you haven’t yet picked up Haskell, I encourage you to go and <a href="../../../learnyouahaskell.com/index.html">Learn You a Haskell for Great Good</a> today.</p>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2013-07-26-a-comparison-between-perl-and-haskell.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

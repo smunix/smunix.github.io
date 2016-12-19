@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2012-12-21-24-days-of-hackage-configurator.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>24 Days of Hackage: configurator</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>24 Days of Hackage: configurator</h1>
+<p>These days, most users expect the ability to configure applications, and to accomodate most users they also expect something flexible. However, as a developer, dealing with configuration formats can be teadious. I’d rather work on adding cool features, not parsing configurations! Luckily, Haskell already has a solution for you, and it’s only a <code>cabal install</code> away.</p>
+<p><a href="http://serpentine.com/">Bryan O’Sullivan</a> created the <a href="http://hackage.haskell.org/package/configurator"><code>configurator</code></a> library, which makes dealing with configuration files a breeze. Before we look at some Haskell code, lets first take a look at how the configuration files look:</p>
+<pre><code>database
+{
+  username = &quot;ocharles&quot;
+  database = &quot;days_of_hackage&quot;
+}
+
+import &quot;$(HOME)/.apprc&quot;</code></pre>
+<p><code>configurator</code> files have bindings, nested configuration sections, and the ability to import other files. This means that we have a nice predictable, simple syntax, which scales extremely well to complex packaging policies that require multiple files to be aggregated together.</p>
+<p>Now that we’ve seen how the files are formatted, lets take a look at the Haskell code required to consume them:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">config <span class="ot">&lt;-</span> load [ <span class="dt">Required</span> <span class="st">&quot;app.cfg&quot;</span> ]
+user <span class="ot">&lt;-</span> lookup config <span class="st">&quot;database.username&quot;</span></code></pre></div>
+<p>Simple! <code>load</code> takes a list of files, which can either be <code>Required</code> or <code>Optional</code>, and will yield an aggregated configuration file. We then use <code>lookup</code> to try and lookup configuration options. If the specified configuration key can’t be found, this will return <code>Nothing</code>. There is also <code>lookupDefault</code>, which can make it easier than dealing with values inside <code>Maybe</code>.</p>
+<p>This alone is enough for a lot of applications… but this is Haskell, so there’s even more cool stuff!</p>
+<p><code>configurator</code> supports loading files with the ability to <em>subscribe</em> to changes. This is ideal for server software and other long running applications, which need to remain running even while operating conditions change. This does require a little bit more thought when writing your application, but the hot reloading part comes free with <code>configurator</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">cfg <span class="ot">&lt;-</span> autoReload autoConfig [ <span class="dt">Required</span> <span class="st">&quot;app.cfg&quot;</span> ]</code></pre></div>
+<p>Now <code>configurator</code> will watch (in a separate thread) for changes to <code>app.cfg</code> and our <code>cfg</code> object will automatically update. Will this may appear to violate a little bit of referential transparency, I find it acceptable as we still need to read values out in the IO monad.</p>
+<p>Finally, lets have a look at subscribing to changes to certain configuration options. One thing I love about the PostgreSQL database server is how it informs me about changes to configurations, so lets see how we could do this:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">subscribe config (prefix <span class="st">&quot;database&quot;</span>) onDbChange
+  <span class="kw">where</span>
+    onDbChange key newVal <span class="fu">=</span>
+      putStrLn (key <span class="fu">++</span> <span class="st">&quot; has been changed to: &quot;</span> <span class="fu">++</span> show newVal)</code></pre></div>
+<p><code>configurator</code> follows the trend of offering a really simple API that you can get results out of immediately, but also giving you something that happens to scale extremely well to more complicated applications. If you’re packaging applications for end-users, I highly recommend you explore the options <code>configurator</code> gives you. After all, you might as well let someone else deal with this for you!</p>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2012-12-21-24-days-of-hackage-configurator.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

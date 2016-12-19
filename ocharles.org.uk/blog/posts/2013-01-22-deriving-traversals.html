@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2013-01-22-deriving-traversals.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>Composing Traversals: A Worked Example of Deriving a Non-Trivial Traversal</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>Composing Traversals: A Worked Example of Deriving a Non-Trivial Traversal</h1>
+<p>If you’ve seen me comment on <a href="http://reddit.com/r/haskell">reddit</a>, then you’ve probably heard me harping on about the <a href="http://www.cs.ox.ac.uk/jeremy.gibbons/publications/iterator.pdf">Essence of the Iterator Pattern</a>. However, while I’m happy to tell people to read this magnificant paper, I haven’t actually written about it myself. Time to rectify that!</p>
+<p>In today’s post we’ll look at lists of <em>artist credits</em>, a concept from MusicBrainz, and how we can build a traversal to do some basic cleaning up of lists of artist credits. We’ll start with the obvious solution based on pattern matching, and then see how we can express this as the composition of various traversals, and what this gains us.</p>
+<h2 id="motivation">Motivation</h2>
+<p>Today, I was working on some <a href="http://ocharles.org.uk/musicbrainz.org">MusicBrainz</a> stuff and was frustrated at how un-Haskell it was. I suppose a big part of that was that it <em>wasn’t</em> Haskell (most of MusicBrainz is written in Perl), but that didn’t stop me from having a quick play at expressing the same idea in Haskell (on my lunch break, boss, I swear!)</p>
+<p>Allow me to set the scene. MusicBrainz is a meta-database that captures metadata about music. Who produced which albums - that sort of thing. We recently added the idea of artist ‘credits’, where multiple artists can be used as the producer of an album - e.g., for collaborations. Artist credits are a list of individual credits, where a credit consists of a pointer to an artist, a name that artist was credited as (to permit name variations), and a join phrase - a snippet of text that is used to intercalate multiple credits into a single string.</p>
+<p>So we could say that if we have an individual ArtistCredit, such that</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">ArtistCredit</span> <span class="fu">=</span> <span class="dt">ArtistCredit</span>
+  {<span class="ot"> acArtist ::</span> <span class="dt">Int</span>
+  ,<span class="ot"> acName ::</span> <span class="dt">String</span>
+  ,<span class="ot"> acJoinPhrase ::</span> <span class="dt">String</span>
+  }</code></pre></div>
+<p>Then an album is a produced by a list of ArtistCredits - that is, [ArtistCredit].</p>
+<p>The collaboration between Slayer and Justin Bieber would be:</p>
+<pre><code>&gt; let slayer = ArtistCredit { acArtist = 1
+                            , acName = &quot;Slayer&quot;
+                            , acJoinPhrase = &quot; &amp; &quot;
+                            }
+
+&gt; let bieber = ArtistCredit { acArtist = 666
+                            , acName = &quot;Justin Bieber&quot;
+                            , acJoinPhrase = &quot;&quot;
+                            }
+
+&gt; let collaboration = [slayer, bieber]
+
+&gt; putStrLn (render collaboration)
+Slayer &amp; Justin Bieber</code></pre>
+<p>All well and good so far, but we need a little bit of validation, and this is where things can become a little bit tricky. As the join phrase of the last <code>ArtistCredit</code> is the final string, something that we don’t want is trailing whitespace. However, some of the join phrases <em>can</em> have trailing whitespace. In fact, every join phrase but the last one can have trailing whitespace. How can we go about making sure that this is so?</p>
+<p>Here’s one way that we could do that:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">trimArtistCredits ::</span> [<span class="dt">ArtistCredit</span>] <span class="ot">-&gt;</span> [<span class="dt">ArtistCredit</span>]
+trimArtistCredits [] <span class="fu">=</span> []
+trimArtistCredits [a] <span class="fu">=</span> [a { acJoinPhrase <span class="fu">=</span> rtrim <span class="fu">$</span> acJoinPhrase a }]
+trimArtistCredits (x<span class="fu">:</span>xs) <span class="fu">=</span> x <span class="fu">:</span> trimArtistCredits xs</code></pre></div>
+<p>(I’m assuming <code>rtrim :: String -&gt; String</code> exists).</p>
+<p>It’s alright, but I can’t help but feel the signal to noise there is quite low. Not to mention this whole idea of ‘transform the last element’ is intertwined with this code. Generally, it feels very un-Haskelly. Can we do better?</p>
+<h2 id="composing-traversals">Composing Traversals</h2>
+<p>You bet we can! Firstly, a game plan. We know that we have a function that we want to apply conditionally to the list, namely to the last element of the list. But first, lets ignore this whole traversal business, and concentrate on a single ArtistCredit, stealing that transformation from the code earlier.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">trimArtistCredit ::</span> <span class="dt">ArtistCredit</span> <span class="ot">-&gt;</span> <span class="dt">ArtistCredit</span>
+trimArtistCredit a <span class="fu">=</span> a { acJoinPhrase <span class="fu">=</span> rtrim <span class="fu">$</span> acJoinPhrase a }</code></pre></div>
+<p>Marvelous. This was a good idea, as we can now combine this transformation with combinators and get more powerful functions. For example:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">trimAllArtistCredits ::</span> [<span class="dt">ArtistCredit</span>] <span class="ot">-&gt;</span> [<span class="dt">ArtistCredit</span>]
+trimAllArtistCredits <span class="fu">=</span> map trimArtistCredit</code></pre></div>
+<p>The type signature is right, but the behavior is wrong - this will trim trailing whitespace from <em>all</em> join phrases, but as we established, we want to trim only the final join phrase. We seem to be lacking the right combinator for the job. Before we begin our search forthis combinator, let me show you another way of writing <code>trimAllArtistCredits</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">trimAllArtistCredits ::</span> [<span class="dt">ArtistCredit</span>] <span class="ot">-&gt;</span> [<span class="dt">ArtistCredit</span>]
+trimAllArtistCredits <span class="fu">=</span>
+  runIdentity <span class="fu">.</span> traverse (<span class="dt">Identity</span> <span class="fu">.</span> trimArtistCredit)</code></pre></div>
+<p>Here I’m using the <a href="http://hackage.haskell.org/package/transformers-0.3.0.0/docs/Data-Functor-Identity.html"><code>Identity</code></a> applicative functor inside a <code>Traversal</code>. This is equivilent to our previous definition, at the cost of a bunch more typing. So why am I showing you this?</p>
+<p>The key point here is that we have the ability to <em>enrich</em> our pure function, <code>trimArtistCredit</code>, with more context. We wrapped it inside <code>Identity</code> here, which adds absolutely nothing, but now the stage is open to a whole lot more. And with that, we’re finally ready to start tackling the meat of the problem!</p>
+<p>We know that we need a combinator that will act on the last element of a list. Determining when you’re at the end of something is tricky though - you need to ‘look ahead’ to see if there’s more data. But we can turn this problem on its head, quite literally, by acting on the first element of the reversed list, and then reversing all of that.</p>
+<p>So we’ve broken down our problem into two smaller problems now - we need a way to act on the first element of something, and we need to do this reversing. It seems like to do this “first element” stuff we’ll need some sort of stateful function - where the state is whether or not we’ve seen the first element.</p>
+<p>Here’s one approach:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">actOnFirst ::</span> (a <span class="ot">-&gt;</span> a) <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">State</span> <span class="dt">Bool</span> a
+actOnFirst f x <span class="fu">=</span> state go
+  <span class="kw">where</span> go <span class="dt">False</span> <span class="fu">=</span> (f x, <span class="dt">True</span>)
+        go <span class="dt">True</span> <span class="fu">=</span> pure x
+
+<span class="ot">runFirst ::</span> <span class="dt">State</span> <span class="dt">Bool</span> a <span class="ot">-&gt;</span> a
+runFirst <span class="fu">=</span> flip evalState <span class="dt">False</span></code></pre></div>
+<p>My <code>actOnFirst</code> combinator is something that takes a function, and gives you back a new function that takes some input and if the state is <code>False</code> (that is, hasn’t yet ran), runs the function on your input, transitioning the state to <code>True</code>. Otherwise, it’s already ran, so it just behaves as <code>id</code>.</p>
+<p>We can now combine this with <code>trimArtistCredit</code> and traverse to trim the whitespace from the first <code>ArtistCredit</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">trimArtistCredits <span class="fu">=</span>
+  runFirst <span class="fu">.</span> traverse (actOnFirst trimArtistCredit)</code></pre></div>
+<p>And if we reverse the input and output, we’re finally back to a working implementation!</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">trimArtistCredits <span class="fu">=</span>
+  reverse <span class="fu">.</span>
+    runFirst <span class="fu">.</span> traverse (actOnFirst trimArtistCredit) <span class="fu">.</span>
+      reverse</code></pre></div>
+<p>Happy? Well, guess what - we can do better.</p>
+<h2 id="moving-backwards">Moving Backwards</h2>
+<p>The <a href="http://hackage.haskell.org/package/transformers"><code>transformers</code></a> library is well known for providing monad transformers, but I think people forget that it provides functor combinators too. One that will come in very handy for us is the <code>Backwards</code> applicative functor combinator. As the documentation says:</p>
+<blockquote>
+<p><code>Backwards f a</code>: The same functor, but with an <code>Applicative</code> instance that performs actions in the reverse order.</p>
+</blockquote>
+<p>Inteeersting. So… if I give this some sort of traversal, it will run it in the opposite order. That is, where I was previously traversing a list from left-to-right, I could now traverse from right-to-left. Having a quick play with <code>Identity</code>, shows that it preserves the input ordering:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="fu">&gt;</span>  runIdentity <span class="fu">$</span> forwards <span class="fu">$</span> traverse (<span class="dt">Backwards</span> <span class="fu">.</span> <span class="dt">Identity</span>) [<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">3</span>]
+[<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">3</span>]</code></pre></div>
+<p>Backwards just means that we first process 3, then 2, then 1. That’s exactly what we were doing above! So we don’t need to <code>reverse</code> and <code>reverse</code> again, we can just transform our traversal. This brings us round to:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">trimArtistCredits <span class="fu">=</span> runFirst <span class="fu">.</span> forwards <span class="fu">.</span>
+  traverse (<span class="dt">Backwards</span> <span class="fu">.</span> actOnFirst trimArtistCredit)</code></pre></div>
+<p>And we might wish to finally tidy that up by introducing the <code>actOnLast</code> combinator:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">actOnLast ::</span> (a <span class="ot">-&gt;</span> a) <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">Backwards</span> (<span class="dt">State</span> <span class="dt">Bool</span>) a
+actOnLast f <span class="fu">=</span> <span class="dt">Backwards</span> <span class="fu">.</span> actOnFirst f
+
+<span class="ot">runLast ::</span> <span class="dt">Backwards</span> (<span class="dt">State</span> <span class="dt">Bool</span>) a <span class="ot">-&gt;</span> a
+runLast <span class="fu">=</span> runFirst <span class="fu">.</span> forwards</code></pre></div>
+<p>Which brings us to our final implementation:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">trimArtistCredits <span class="fu">=</span> runLast <span class="fu">.</span> traverse (actOnLast trimArtistCredit)</code></pre></div>
+<p>Very cool.</p>
+<h2 id="concluding-thoughts">Concluding Thoughts</h2>
+<p>What I’ve tried to convey in this post is that if we force ourselves to think in a compositional manner, it’s possible to write code that is readable and extremely easy to reason about. In our final implementation, we have a few little building blocks that need to be correct - <code>actOnFirst</code> needs to do the right thing, and <code>trimArtistCredit</code> does too. However, they can do the right thing in isolation. I know that if the parts are right, they fit together, and I put them together in the right order, my program does the right thing.</p>
+<p>Here’s our final implementation, without the helper combinators (assume they were packaged up on Hackage):</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">trimArtistCredits ::</span> [<span class="dt">ArtistCredit</span>] <span class="ot">-&gt;</span> [<span class="dt">ArtistCredit</span>]
+trimArtistCredits <span class="fu">=</span> runLast <span class="fu">.</span> traverse (actOnLast trimArtistCredit)</code></pre></div>
+<p>Contrast this with our original solution:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">trimArtistCredits ::</span> [<span class="dt">ArtistCredit</span>] <span class="ot">-&gt;</span> [<span class="dt">ArtistCredit</span>]
+trimArtistCredits [] <span class="fu">=</span> []
+trimArtistCredits [a] <span class="fu">=</span> [trimArtistCredit a]
+trimArtistCredits (x<span class="fu">:</span>xs) <span class="fu">=</span> x <span class="fu">:</span> trimArtistCredits xs</code></pre></div>
+<p>Can you reason about this? Sure you can, but I’d argue only if you execute it in your head.</p>
+<p>Furthermore, we ended up with a few abstractions that are useful outside of this problem. <code>actOnFirst</code> could be useful for lots of other things, so you might even consider shipping that outside of your project for other people to use.</p>
+<p>Also, look what happens if we ask Haskell what the inferred type signature of <code>trimArtistCredits</code> would be:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="fu">&gt;</span> <span class="fu">:</span>t trimArtistCredits
+(<span class="dt">Traversable</span> t) <span class="ot">=&gt;</span> t <span class="dt">ArtistCredit</span> <span class="ot">-&gt;</span> t <span class="dt">ArtistCredit</span></code></pre></div>
+<p>It’s not even limited to lists! If we later decide to switch over to <code>Vector</code> or <code>Seq</code> to represent lists of <code>ArtistCredit</code>s, we just change the type and this code needs absolutely no extra work - it just does the right thing.</p>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2013-01-22-deriving-traversals.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

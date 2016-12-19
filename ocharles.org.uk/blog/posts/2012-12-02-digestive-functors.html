@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2012-12-02-digestive-functors.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>24 Days of Hackage: digestive-functors</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>24 Days of Hackage: digestive-functors</h1>
+<p>Form processing is a task I used to dread doing in other programming languages, but not any more! Just about all non-trivial websites have some form of user interaction, and it can be notoriously hard to sanitize all of the data that users submit into something that you can be sure is correct. Not only are there horrible edge cases to deal with, you also need to render the form and present any validation errors back to users. And to complicate things even more, you usually want to validate as much of the form as possible, returning <em>all</em> errors at once - it wouldn’t provide a very good user experience if you only got one error at a time!</p>
+<p>It sounds horrible right? Well luckily, it’s mostly a solved problem. In 2008, Cooper, Lindley, Wadler and Yallop wrote <a href="http://groups.inf.ed.ac.uk/links/formlets/">the Essence of Form Abstraction</a> which introduced ‘formlets’, with a paper I recommend giving at least a light read at some point to understand how the design came about. Originally there was a fairly literal translation to haskell in the <a href="http://hackage.haskell.org/package/formlets"><code>formlets</code></a> library, and this has now been superceded by <a href="http://jaspervdj.be/">Jasper Van der Jeugt</a>’s library: <a href="http://hackage.haskell.org/package/digestive-functors"><code>digestive-functors</code></a>.</p>
+<p>Essentially, <code>digestive-functors</code> gives you an <code>Applicative</code> instance to construct a data type by evaluating a form. If you’re not familiar with applicative functors, a layman explanation might be that they allow you to apply arguments to a function, where the arguments themselves come from some sort of side effect - in this case the form evaluation. Let’s have a look at an example:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Category</span> <span class="fu">=</span> <span class="dt">Category</span> {<span class="ot"> catName ::</span> <span class="dt">Text</span> }
+
+<span class="kw">data</span> <span class="dt">BlogPost</span> <span class="fu">=</span> <span class="dt">BlogPost</span> {<span class="ot"> postTitle ::</span> <span class="dt">Text</span>
+                         ,<span class="ot"> postBody ::</span> <span class="dt">Text</span>
+                         ,<span class="ot"> postCategory ::</span> <span class="dt">Category</span>
+                         }
+
+<span class="ot">postForm ::</span> <span class="dt">Monad</span> m <span class="ot">=&gt;</span> <span class="dt">Form</span> <span class="dt">Html</span> m <span class="dt">BlogPost</span>
+postForm <span class="fu">=</span> <span class="dt">BlogPost</span>
+             <span class="fu">&lt;$&gt;</span> <span class="st">&quot;title&quot;</span> <span class="fu">.:</span> text <span class="dt">Nothing</span>
+             <span class="fu">&lt;*&gt;</span> <span class="st">&quot;body&quot;</span> <span class="fu">.:</span> text <span class="dt">Nothing</span>
+             <span class="fu">&lt;*&gt;</span> (<span class="dt">Category</span> <span class="fu">&lt;$&gt;</span> <span class="st">&quot;category&quot;</span> <span class="fu">.:</span> text <span class="dt">Nothing</span>)</code></pre></div>
+<p>I’ve defined 2 data types - one for categories of posts, and one for blog posts themselves. We use digestive-functors in <code>postForm</code> to produce a form that runs in any monad, uses <code>Html</code> for errors, and will eventually return a <code>BlogPost</code>. This is a great start, but it’s not really doing much - there’s no validation! We don’t want to accept <code>BlogPosts</code> which have no title or body, for example, so lets start by fixing that:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">postForm ::</span> <span class="dt">Monad</span> m <span class="ot">=&gt;</span> <span class="dt">Form</span> <span class="dt">Html</span> m <span class="dt">BlogPost</span>
+postForm <span class="fu">=</span> <span class="dt">BlogPost</span>
+             <span class="fu">&lt;$&gt;</span> <span class="st">&quot;title&quot;</span> <span class="fu">.:</span> nonEmptyText
+             <span class="fu">&lt;*&gt;</span> <span class="st">&quot;body&quot;</span> <span class="fu">.:</span> nonEmptyText
+             <span class="fu">&lt;*&gt;</span> (<span class="dt">Category</span> <span class="fu">&lt;$&gt;</span> <span class="st">&quot;category&quot;</span> <span class="fu">.:</span> nonEmptyText)
+  <span class="kw">where</span>
+    nonEmptyText <span class="fu">=</span>
+      check <span class="st">&quot;Cannot be empty&quot;</span> (not <span class="fu">.</span> Data.Text.null) <span class="fu">$</span> text <span class="dt">Nothing</span></code></pre></div>
+<p>The <code>check</code> combinator allows us to apply any predicate (that is, <code>a -&gt; Bool</code>) to any form that returns an <code>a</code>. In this case, we use the predicate <code>not . Data.Text.null</code> which will return <code>True</code> if the <code>text</code> form returns a <code>Text</code> value that is not empty. The beauty is that <code>nonEmptyText</code> is <em>itself</em> still a <code>Form</code> - so we could apply further validation on top of this, if we so wanted!</p>
+<p>Validation is often not pure though - we might need to check the database to make certain checks (for example, checking for duplicates first). Lets assume in this example we have a <code>BlogWebsite</code> monad, which amongst other things has the operation <code>lookupCategory :: Text -&gt; BlogWebsite (Maybe Category)</code>. We can then use this in our <code>postForm</code> to lookup categories, and only allow <code>BlogPosts</code> to be created in a valid category:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">postForm ::</span> <span class="dt">Form</span> <span class="dt">Text</span> <span class="dt">BlogWebsite</span> <span class="dt">BlogPost</span>
+postForm <span class="fu">=</span> <span class="dt">BlogPost</span>
+             <span class="fu">&lt;$&gt;</span> <span class="st">&quot;title&quot;</span> <span class="fu">.:</span> nonEmptyText
+             <span class="fu">&lt;*&gt;</span> <span class="st">&quot;body&quot;</span> <span class="fu">.:</span> nonEmptyText
+             <span class="fu">&lt;*&gt;</span> <span class="st">&quot;category&quot;</span> <span class="fu">.:</span> category
+  <span class="kw">where</span>
+    nonEmptyText <span class="fu">=</span>
+      check <span class="st">&quot;Cannot be empty&quot;</span> (not <span class="fu">.</span> Data.Text.null) <span class="fu">$</span>
+        text <span class="dt">Nothing</span>
+    category <span class="fu">=</span>
+      <span class="kw">let</span> failure <span class="fu">=</span> <span class="dt">Error</span> <span class="st">&quot;Category does not exist&quot;</span>
+      <span class="kw">in</span> validateM (maybe failure <span class="dt">Success</span>) <span class="fu">&lt;$&gt;</span> lookupCategory)
+           nonEmptyText</code></pre></div>
+<p>We’ve now built a <em>monadic</em> <code>Form</code> - <code>category</code> - which uses the <code>nonEmptyText</code> <code>Form</code> we already wrote, and if the text is not empty, attempts to use <code>lookupCategory</code> to find the category. We then unwrap the <code>Maybe</code> by converting to the <code>Result</code> type - turning <code>Nothing</code> into an <code>Error</code> and <code>Just</code> into <code>Success</code>.</p>
+<p>Alright, this is looking great! But we haven’t actually been able to use it… Afterall, we need a <code>BlogPost</code> not a <code>Form</code>! There are 2 parts to being able to run a <code>Form</code> - the <code>View</code>, an something that can provide an environment to lookup form fields in. Lets use <a href="http://hackage.haskell.org/package/digestive-functors-blaze"><code>digestive-functors-blaze</code></a> for the rendering, first:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">renderForm ::</span> <span class="dt">View</span> <span class="dt">Html</span> <span class="ot">-&gt;</span> <span class="dt">Html</span>
+renderForm v <span class="fu">=</span> <span class="kw">do</span>
+  form v <span class="st">&quot;POST&quot;</span> <span class="fu">$</span> <span class="kw">do</span>
+    H.p <span class="fu">$</span> <span class="kw">do</span>
+      label <span class="st">&quot;title&quot;</span> v <span class="st">&quot;Post title: &quot;</span>
+      inputText <span class="st">&quot;title&quot;</span> v
+    H.p <span class="fu">$</span> <span class="kw">do</span>
+      label <span class="st">&quot;body&quot;</span> v <span class="st">&quot;Post: &quot;</span>
+      inputTextArea <span class="st">&quot;body&quot;</span> v
+    H.p <span class="fu">$</span> <span class="kw">do</span>
+      label <span class="st">&quot;category&quot;</span> v <span class="st">&quot;Category: &quot;</span>
+      inputText <span class="st">&quot;category&quot;</span> v
+    inputSubmit <span class="st">&quot;Submit Post&quot;</span></code></pre></div>
+<p>Fairly straight forward here - I’m using <a href="http://hackage.haskell.org/package/blaze-html"><code>blaze-html</code></a> for most of the rendering, and using a few functions from <code>digestive-functors-blaze</code> to provide the form fields and labels. There are other rendering libraries if you don’t like <code>blaze</code> - including <code>digestive-functors-heist</code> for using Heist templates.</p>
+<p>Finally, lets put it all together with a Snap action, so we can actually serve stuff:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">blogPostHandler ::</span> <span class="dt">Handler</span> <span class="dt">BlogWebsite</span> <span class="dt">BlogWebsite</span> ()
+blogPostHandler <span class="fu">=</span> <span class="kw">do</span>
+  (view, result) <span class="ot">&lt;-</span> runForm <span class="st">&quot;blog-post&quot;</span> blogPost
+  <span class="kw">case</span> result <span class="kw">of</span>
+    <span class="dt">Nothing</span> <span class="ot">-&gt;</span> blaze <span class="fu">$</span> renderForm view
+    <span class="dt">Just</span> blogPost <span class="ot">-&gt;</span> <span class="kw">do</span>
+      with blogSite <span class="fu">$</span> addPost blogPost
+      redirect (postUlr blogPost)</code></pre></div>
+<p>Voila! So I guess form processing doesn’t have to be so hard after all.</p>
+<h2 id="further-reading">Further Reading</h2>
+<p>If this post has piqued your interest, I can highly recommend a read through the <a href="https://github.com/jaspervdj/digestive-functors/blob/master/examples/tutorial.lhs">official tutorial</a> and the various other <a href="https://github.com/jaspervdj/digestive-functors/tree/master/examples">examples</a>.</p>
+<p>It was also mentioned in comments on Reddit that I haven’t quite clarified that <code>digestive-functors</code> is framework agnostic - <code>digestive-functors</code> also works with Happstack and JSON. In fact, here’s a list of all <a href="http://packdeps.haskellers.com/reverse/digestive-functors"><code>digestive-functor</code>-derived modules on Hackage</a> at the time of writing:</p>
+<ul>
+<li><a href="http://hackage.haskell.org/package/digestive-functors-aeson">digestive-functors-aeson</a> lets you evaluate forms with a JSON document - great for web services.</li>
+<li><a href="http://hackage.haskell.org/package/digestive-functors-blaze">digestive-functors-blaze</a> lets you render forms using <code>blaze-html</code>.</li>
+<li><a href="http://hackage.haskell.org/package/digestive-functors-happstack">digestive-functors-happstack</a> allows you to easily use <code>digestive-functors</code> with the <a href="http://happstack.com/">Happstack</a> framework.</li>
+<li><a href="http://hackage.haskell.org/package/digestive-functors-heist">digestive-functors-heist</a> lets you use the <a href="http://snapframework.com/docs/tutorials/heist">Heist</a> templating language (from the Snap framework team).</li>
+<li><a href="http://hackage.haskell.org/package/digestive-functors-hsp">digestive-functors-hsp</a> lets you use <a href="http://www.happstack.com/docs/happstack-hsp-7.1.0/doc/html/happstack-hsp/index.html">HSP</a> as your mark up language, from the Happstack team.</li>
+<li><a href="http://hackage.haskell.org/package/digestive-functors-happstack">digestive-functors-snap</a> lets you use <code>digestive-functors</code> with <a href="http://snapframework.com/">Snap</a> applications.</li>
+</ul>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2012-12-02-digestive-functors.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

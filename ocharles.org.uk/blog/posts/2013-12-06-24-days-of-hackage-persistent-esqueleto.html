@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2013-12-06-24-days-of-hackage-persistent-esqueleto.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>24 Days of Hackage: persistent & esqueleto</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>24 Days of Hackage: persistent & esqueleto</h1>
+<p>Many of the applications we write these days tend to be long running processes that gradually manipulate state. Your average website is really not much more than a function that turns requests into responses, where the response varies depending on various state. The state could be whether you’re logged in, blog entries made within a certain time range, items you’ve saved to your wishlist, etc. This state is very important, so just keeping it in memory isn’t a great idea, as that greatly increases the chance of you losing it for good!</p>
+<p>For this reason, we have a lot of great technology for persisting state - PostgreSQL, SQLite, Redis, and so on. Today, we’ll have a look at the <a href="http://hackage.haskell.org/package/persistent"><code>persistent</code></a> library, which gives us a unified API into these persistent data stores.</p>
+<h2 id="schemas-and-data-with-persistent">Schemas and Data with <code>persistent</code></h2>
+<p>Programming with <code>persistent</code> is a slightly different experience than you may have had with other Haskell libraries, as it provides its own language for defining schemas. This language isn’t built using Haskell combinators, but has its own syntax and is compiled using a <em>quasiquoter</em>. For example, if we wanted to try and beat Facebook at its own game, here’s how we might start:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">share [mkPersist sqlSettings, mkMigrate <span class="st">&quot;migrateAll&quot;</span>] [persistLowerCase<span class="fu">|</span>
+<span class="dt">Person</span>
+  name <span class="dt">Text</span>
+  <span class="kw">deriving</span> <span class="dt">Show</span>
+
+<span class="dt">StatusUpdate</span>
+  producer <span class="dt">PersonId</span>
+  update <span class="dt">Text</span>
+  createdAt <span class="dt">UTCTime</span>
+  mood <span class="dt">Text</span> <span class="dt">Maybe</span>
+  <span class="kw">deriving</span> <span class="dt">Show</span>
+<span class="fu">|</span>]</code></pre></div>
+<p>The special <code>[|</code> and <code>|]</code> brackets specify that we’re going to use the <code>persistLowerCase</code> quasiquoter, and within this block we see the definition for our schema. In this case, a <code>Person</code> has a name, and a sequence of <code>StatusUpdate</code>s. This schema definition language is simple, and is similar to defining data types in Haskell (for good reason, as we’ll see shortly). We have the name of the entity (<code>Person</code> and <code>Update</code>), and each entity has a list of fields. Each field has a name and a data type. Notice that the <code>createdAt</code> field uses the exactly the same type as provided in <code>Data.Time</code>. <code>persistent</code> uses real Haskell types to define schemas, which makes it fantastic for code reuse. We mark the <code>mood</code> attribute of updates as optional by tagging on the <code>Maybe</code> modifier. Finally, each <code>Entity</code> has a series of deriving clauses, just like a Haskell data type.</p>
+<p>When we parse this definition and realise it using <code>mkPersist</code>, <code>persistent</code> introduces various data types and type class instances for us. <code>persistent</code> is going to create (amongst other things) a series of data types for each entity, along with Haskell field accessors (e.g., <code>personName</code> or <code>updateCreatedAt</code>).</p>
+<p>Once we have declared our schema and associated Haskell data types, we’re ready to start using our <code>persistent</code> data store. We will need to choose a backend to run queries against, so for brevity we’ll use an in-memory SQLite database, though you’re encouraged to <a href="http://github.com/ocharles/blog">clone this code</a> and try it against other backends! As an example, we can create the schema, insert a person, and attach a single status update:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> runSqlite <span class="st">&quot;:memory:&quot;</span> <span class="fu">$</span> <span class="kw">do</span>
+  runMigration migrateAll
+  ollie <span class="ot">&lt;-</span> insert (<span class="dt">Person</span> <span class="st">&quot;Oliver Charles&quot;</span>)
+  now <span class="ot">&lt;-</span> liftIO getCurrentTime
+  insertMany
+    [ <span class="dt">StatusUpdate</span> ollie <span class="st">&quot;Writing another blog post!&quot;</span> now <span class="dt">Nothing</span>,
+    , <span class="dt">StatusUpdate</span> ollie <span class="st">&quot;I &lt;3 24 Days of Hackage&quot;</span> now (<span class="dt">Just</span> <span class="st">&quot;^.^&quot;</span>)
+    ]
+  return ()</code></pre></div>
+<p>Very simple - and we didn’t even have to write a line of SQL! Not only did we avoid writing SQL, we can actually use this exact same schema against MongoDB, or Redis, or any other data store with a <code>persistent</code> backend.</p>
+<p>Walking through this code, once we’ve connected to our in memory SQLite database, we need to make sure it has the correct relational schema - which we can do with <code>runMigration migrateAll</code>. When we introduced the schema earlier, we asked for a <code>migrateAll</code> action to be created as well. When we call this action, <code>persistent</code> makes sure that our data store has the schema we are expecting - adding tables and columns as necessary.</p>
+<p>Next, we create Haskell values (with <code>Person</code> and <code>StatusUpdate</code>) and insert them into our database with <code>insert</code> or <code>insertMany</code>. At this point, <code>persistent</code> is going to mint these entities with new identifiers, so we can refer to them in the future.</p>
+<h2 id="querying-with-esqueleto">Querying with <code>esqueleto</code></h2>
+<p>We’ve seen how to put data into a data store, but what about getting it out? While <code>persistent</code> does provide a query API, it can be quite limited. <a href="http://hackage.haskell.org/package/esqueleto"><code>esqueleto</code></a> builds on top of <code>persistent</code> by providing a richer SQL-like query syntax. For example, we can query for 5 people in our database sorted by name:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">sortedNames <span class="fu">=</span>
+  select <span class="fu">$</span>
+  from <span class="fu">$</span> \person <span class="ot">-&gt;</span> <span class="kw">do</span>
+  orderBy [asc (person <span class="fu">^.</span> <span class="dt">PersonName</span>)]
+  limit <span class="dv">5</span>
+  return <span class="fu">$</span> person <span class="fu">^.</span> <span class="dt">PersonName</span></code></pre></div>
+<p>Tacking <code>sortedNames &gt;&gt;= mapM_ print</code> onto the end of <code>main</code> above produces the following output:</p>
+<pre><code>Value &quot;Oliver Charles&quot;</code></pre>
+<p>As we would expect.</p>
+<p><code>esqueleto</code> is a Haskell DSL that works with all of the things that <code>persistent</code> defined for us. In this case, we can see that we are using the <code>PersonName</code> field on the <code>person</code> variable to define our ordering. This lets Haskell know that <code>person</code> must be a <code>Person</code> record, so <code>esqueleto</code> knows how to pull the data out we requested we used <code>from</code>. In this sense, we really benefit from type inference - by operating on the types, we also inform, <code>esqueleto</code> as to which tables to pull data from.</p>
+<p>We don’t have to limited to just one entity though, we could just as easily find the latest 5 status updates from all people on the system:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">latestUpdates <span class="fu">=</span>
+  select <span class="fu">$</span>
+  from <span class="fu">$</span> \(person <span class="ot">`InnerJoin`</span> update) <span class="ot">-&gt;</span> <span class="kw">do</span>
+  on (person <span class="fu">^.</span> <span class="dt">PersonId</span> <span class="fu">==.</span> update <span class="fu">^.</span> <span class="dt">StatusUpdateProducer</span>)
+  orderBy [asc (update <span class="fu">^.</span> <span class="dt">StatusUpdateCreatedAt</span>)]
+  limit <span class="dv">5</span>
+  return (person <span class="fu">^.</span> <span class="dt">PersonName</span>, update <span class="fu">^.</span> <span class="dt">StatusUpdateUpdate</span>)</code></pre></div>
+<p>In this query we specify that we’re going to be performing an <em>inner join</em> on <code>Person</code> and <code>StatusUpdate</code>, and we tell <code>esqueleto</code> which predicate to use in order to perform this join. We then have both the <code>Person</code> and <code>StatusUpdate</code> in scope, so we can sort by the timestamp of the update. We then return a pair of both the name of the person who created the status update, and the contents of the status update itself.</p>
+<p>As we saw yesterday with <a href="2013-12-05-24-days-of-hackage-scotty.html"><code>scotty</code></a>, Haskell can really shine when it comes to prototyping small applications, and I think <code>persistent</code> follows in this tradition. It’s a little opionated, with the <code>mkPersist</code> syntax and automatic creation of surrogate keys, which can make fitting <code>persistent</code> onto existing schemas a challeng. However, if you don’t have that requirement, <code>persistent</code> might be one of the easiest routes to getting data into a <code>persistent</code> store with the minimal amount of code duplication. You don’t have to worry about defining isomorphisms between rows and Haskell values - you can just let <code>persistent</code> do that for you, while you carry on doing the interesting work.</p>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2013-12-06-24-days-of-hackage-persistent-esqueleto.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

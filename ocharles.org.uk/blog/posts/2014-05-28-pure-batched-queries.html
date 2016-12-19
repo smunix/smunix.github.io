@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2014-05-28-pure-batched-queries.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>A Batch Querying Applicative Functor Without IORefs</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>A Batch Querying Applicative Functor Without IORefs</h1>
+<p>Regular readers of my blog will remember that I recently blogged about a <a href="2014-03-24-queries-in-loops-without-a-care-in-the-world.html"><code>Querying</code> applicative functor</a>, which is able to “watch” for queries to a data store and batch multiple queries into one. It’s able to do all of this while allowing us to write code in a declarative manner, using traversals and other techniques we’re already familiar with. To refresh your memory, here’s an example what we can write with <code>Querying</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">withQuery getUsersById <span class="fu">$</span> \usersById <span class="ot">-&gt;</span>
+withQuery getTagsByPostId <span class="fu">$</span> \tagsByPostId <span class="ot">-&gt;</span>
+  for blogPosts <span class="fu">$</span> \post <span class="ot">-&gt;</span>
+    <span class="dt">BlogPost</span> <span class="fu">&lt;$&gt;</span> pure post
+             <span class="fu">&lt;*&gt;</span> usersById <span class="fu">@?</span> postAuthor post
+             <span class="fu">&lt;*&gt;</span> tagsByPostId <span class="fu">@?</span> postId post</code></pre></div>
+<p>In this example, we have a list of <code>blogPosts</code> that we want to load more information for. We loop over each post, and load the author and tags each post. Despite using a loop, by using <code>Querying</code> we only perform two queries, as <code>Querying</code> batches the queries together.</p>
+<p>Even though we reached a viable solution, it left me unsatisfied. The solution relied on mutability (twice!) - once to record which keys were looked up (here we used an <code>IORef</code>), and again to create a suspended computation containing the result (an initially empty <code>MVar</code>). There’s no reason we should have to require mutability, so I’ve been searching for a pure solution - and I’m happy to say I’ve found it.</p>
+<h2 id="one-at-a-time-please">One at a Time, Please</h2>
+<p>To start understanding the problem, let’s look at a pure <code>Querying</code> applicative that works with a single query. A lot of people on Reddit immediately suggested this as an alternative solution to my <code>IORef</code> solution, but didn’t realise it only works for a single query. Nonetheless, it’s a good starting point:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Querying</span> k v a <span class="fu">=</span> <span class="dt">Querying</span> [k] ([(k, v)] <span class="ot">-&gt;</span> a)</code></pre></div>
+<p>This applicative functor can be thought of as the product of two smaller applicative functors - the <code>Const [k]</code> functor collects a list of keys, and the <code>([(k, v)] -&gt;)</code> functor allows us to create a suspended computation awaiting results. If we write out the applicative instance by hand, we can see what it means to combine two <code>Querying</code>s together:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Applicative</span> (<span class="dt">Querying</span> k v) <span class="kw">where</span>
+  pure x <span class="fu">=</span> <span class="dt">Querying</span> mempty (pure x)
+  (<span class="dt">Querying</span> ks f) <span class="fu">&lt;*&gt;</span> (<span class="dt">Querying</span> ks' x) <span class="fu">=</span>
+    <span class="dt">Querying</span> (ks <span class="fu">&lt;&gt;</span> ks') (\result <span class="ot">-&gt;</span> f result <span class="fu">&lt;*&gt;</span> x result)</code></pre></div>
+<p>The pure computation asks no questions and thus doesn’t care what the results of the query are. We can combine two <code>Querying</code>s together by collecting the keys of both values, and creating a new computation suspend on the result that combine the underlying values.</p>
+<p>The problem is that this applicative is now parameterized on a single key/value pair. If we have a <code>Querying Int String</code> and a <code>Querying Int Bool</code>, the two are different types and thus we can’t use <code>&lt;*&gt;</code> to combine them.</p>
+<p>What we need to do is be able to store <em>lists</em> of key value pairs of potentially different types. If we could do this, then we can have a list of keys for every key value pair. Likewise, we want a similar construction for our suspended computation, one that would depend on the results of all queries. If we ask 3 queries, then we would like a function of three arguments.</p>
+<h2 id="keylists">KeyLists</h2>
+<p>First of all, let’s see how we can have a list of keys of different types. Since GHC learned how to promote data types to the type level, things have become a lot easier here. First, we’ll introduce a useful type of key value pairs - this will help us stay organised and principled at the type level:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">KV</span> k v <span class="fu">=</span> <span class="dt">KV</span> k v</code></pre></div>
+<p>We won’t actually be constructing any terms of type <code>KV</code>, but we need a constructor to promote to be a type. Next, we introduce a GADT <code>KeyList</code> which is a list of lists of keys:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">KeyList</span><span class="ot"> ::</span> [<span class="dt">KV</span> <span class="fu">*</span> <span class="fu">*</span>] <span class="ot">-&gt;</span> <span class="fu">*</span> <span class="kw">where</span>
+  <span class="dt">Nil</span><span class="ot"> ::</span> <span class="dt">KeyList</span> <span class="ch">'[]</span>
+  <span class="dt">Cons</span><span class="ot"> ::</span> [k] <span class="ot">-&gt;</span> <span class="dt">KeyList</span> kvs <span class="ot">-&gt;</span> <span class="dt">KeyList</span> (<span class="ch">'KV k v '</span><span class="fu">:</span> kvs)</code></pre></div>
+<p>The empty key list contains no information, and by constructing a term with <code>Nil</code>, we learn that there are no keys at all - as we can see by the empty list in the <em>type</em> of <code>Nil</code>. However, we also have a <code>Cons</code> constructor which takes a list of keys (of type <code>k</code>), and appends this list onto another list of potentially different types. So here we can see that we combine terms with cons, and we mirror this structure at the type level - we are consining a new <code>KV</code> <em>type</em> in the final type of <code>Cons</code>.</p>
+<p>To emphasise the list-like nature of this data type, we can make it an instance of <code>Monoid</code>, which will be useful later. However, there are actually infinitely many monoid instances - one for every possible list of <code>KV</code>s. Fortunately, Haskell’s type classes are able to deal with this, by generating <code>Monoid</code> instances out of smaller ones:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Monoid</span> (<span class="dt">KeyList</span> <span class="ch">'[]) where</span>
+  mempty <span class="fu">=</span> <span class="dt">Nil</span>
+  mappend _ _ <span class="fu">=</span> <span class="dt">Nil</span>
+
+<span class="kw">instance</span> (<span class="dt">Monoid</span> (<span class="dt">KeyList</span> kvs)) <span class="ot">=&gt;</span> <span class="dt">Monoid</span> (<span class="dt">KeyList</span> (<span class="ch">'KV k v '</span><span class="fu">:</span> kvs)) <span class="kw">where</span>
+  mempty <span class="fu">=</span> <span class="dt">Cons</span> mempty mempty
+  mappend (<span class="dt">Cons</span> l ls) (<span class="dt">Cons</span> r rs) <span class="fu">=</span> <span class="dt">Cons</span> (l <span class="fu">++</span> r) (mappend ls rs)</code></pre></div>
+<p>These monoid instances are somewhat reminiscent of an inductive proof - our base case is the empty list, and a monoid instance for a non-empty list relies on the monoid instance for a one-element-smaller list, which is a lot like making use of an inductive hypothesis.</p>
+<h2 id="an-answer-for-every-question">An Answer For Every Question</h2>
+<p>Now that we know that we can work with lists of keys of different types, we should next spend some time to work out how we’re going to create the suspended computation for multiple questions. Let’s look at a few examples to get a feel for things. For a single query, we want:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">[(k, v)] <span class="ot">-&gt;</span> a</code></pre></div>
+<p>For two queries, we want:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">[(k1, v1)] <span class="ot">-&gt;</span> [(k, v)] <span class="ot">-&gt;</span> a</code></pre></div>
+<p>Hmm, what about <em>zero</em> queries? Well, logically this would just be a term of type <code>a</code> - no function at all. Well hey, this again looks a lot like a list! We can use a very similar technique to building <code>KeyList</code> - but instead of storing lists, we would store functions. The constant value moves to be part of our base case:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">ResultF</span><span class="ot"> ::</span> [<span class="dt">KV</span> <span class="fu">*</span> <span class="fu">*</span>] <span class="ot">-&gt;</span> <span class="fu">*</span> <span class="ot">-&gt;</span> <span class="fu">*</span> <span class="kw">where</span>
+  <span class="dt">ResultConst</span><span class="ot"> ::</span> a <span class="ot">-&gt;</span> <span class="dt">ResultF</span> <span class="ch">'[] a</span>
+  <span class="dt">ResultFunc</span><span class="ot"> ::</span> ([(k, v)] <span class="ot">-&gt;</span> <span class="dt">ResultF</span> kvs a) <span class="ot">-&gt;</span> <span class="dt">ResultF</span> (<span class="ch">'KV k v '</span><span class="fu">:</span> kvs) a</code></pre></div>
+<p>Because the base case carries a term, we need a way to mention the type of this term, so <code>ResultF kvs</code> actually constitutes a <code>Functor</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Functor</span> (<span class="dt">ResultF</span> kvs) <span class="kw">where</span>
+  fmap f (<span class="dt">ResultConst</span> x) <span class="fu">=</span> <span class="dt">ResultConst</span> (f x)
+  fmap f (<span class="dt">ResultFunc</span> g) <span class="fu">=</span> <span class="dt">ResultFunc</span> (fmap f <span class="fu">.</span> g)</code></pre></div>
+<p>This is a fairly natural definition - we just pattern match and either apply our function to the constant value, or we <code>fmap</code> inside the function, which builds up a new function.</p>
+<p>In fact, <code>ResultF</code> actually creates a full applicative functor - a hint that we’re on the right track to building a larger applicative functor out of it. Applicative functors have the <code>pure</code> method as part of their type class, which is a producer of data. As such, we’ll have to make sure we have instances for any possible type of <code>ResultF</code>, as we did with our <code>KeyList</code> <code>Monoid</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Applicative</span> (<span class="dt">ResultF</span> <span class="ch">'[]) where</span>
+  pure <span class="fu">=</span> <span class="dt">ResultConst</span>
+  (<span class="dt">ResultConst</span> f) <span class="fu">&lt;*&gt;</span> (<span class="dt">ResultConst</span> x) <span class="fu">=</span> <span class="dt">ResultConst</span> (f x)
+
+<span class="kw">instance</span> <span class="dt">Applicative</span> (<span class="dt">ResultF</span> kvs) <span class="ot">=&gt;</span> <span class="dt">Applicative</span> (<span class="dt">ResultF</span> (<span class="ch">'KV k v '</span><span class="fu">:</span> kvs)) <span class="kw">where</span>
+  pure x <span class="fu">=</span> <span class="dt">ResultFunc</span> (const (pure x))
+  (<span class="dt">ResultFunc</span> f) <span class="fu">&lt;*&gt;</span> (<span class="dt">ResultFunc</span> x) <span class="fu">=</span> <span class="dt">ResultFunc</span> (\args <span class="ot">-&gt;</span> f args <span class="fu">&lt;*&gt;</span> x args)</code></pre></div>
+<p>These aren’t particularly pretty, but fortunately they aren’t particularly surprising either.</p>
+<p>Believe it or not, we’re now ready to build our <code>Querying</code> functor!</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Querying</span><span class="ot"> ::</span> (<span class="fu">*</span> <span class="ot">-&gt;</span> <span class="fu">*</span>) <span class="ot">-&gt;</span> [<span class="dt">KV</span> <span class="fu">*</span> <span class="fu">*</span>] <span class="ot">-&gt;</span> <span class="fu">*</span> <span class="ot">-&gt;</span> <span class="fu">*</span> <span class="kw">where</span>
+  <span class="dt">Querying</span><span class="ot"> ::</span> <span class="dt">KeyList</span> kvs <span class="ot">-&gt;</span> <span class="dt">Compose</span> m (<span class="dt">ResultF</span> kvs) a <span class="ot">-&gt;</span> <span class="dt">Querying</span> m kvs a
+
+<span class="kw">instance</span> <span class="dt">Functor</span> m <span class="ot">=&gt;</span> <span class="dt">Functor</span> (<span class="dt">Querying</span> m kvs) <span class="kw">where</span>
+  fmap f (<span class="dt">Querying</span> kvs x) <span class="fu">=</span> <span class="dt">Querying</span> kvs (fmap f x)
+
+<span class="kw">instance</span> (<span class="dt">Applicative</span> m, <span class="dt">Applicative</span> (<span class="dt">ResultF</span> kvs), <span class="dt">Monoid</span> (<span class="dt">KeyList</span> kvs)) <span class="ot">=&gt;</span>
+           <span class="dt">Applicative</span> (<span class="dt">Querying</span> m kvs) <span class="kw">where</span>
+  pure a <span class="fu">=</span> <span class="dt">Querying</span> mempty (pure a)
+  (<span class="dt">Querying</span> kvs f) <span class="fu">&lt;*&gt;</span> (<span class="dt">Querying</span> kvs' x) <span class="fu">=</span> <span class="dt">Querying</span> (kvs <span class="fu">&lt;&gt;</span> kvs') (f <span class="fu">&lt;*&gt;</span> x)</code></pre></div>
+<p><code>Querying</code> itself is just a combination of a key list and a monadic action producing a <code>ResultF</code> that eventually produces an <code>a</code> (I use <code>Compose</code> to help me write the <code>Applicative</code> instances). The <code>Functor</code> instance leaves the key list un-changed, and just uses the <code>Functor</code> instance for <code>ResultF</code> to do the heavy lifting.</p>
+<p>The applicative instance may look a little bit more intricate, but look at the definitions… They are exactly the same as what we had before! This shouldn’t be surprising, but somehow… I can’t help but be surprised :)</p>
+<h2 id="query-pointers">Query Pointers</h2>
+<p>Now that we have the ability to build up <code>KeyList</code> and <code>ResultF</code> terms we’re making good progress. I have a loose plan - I want <code>withQuery</code> to introduce another level of scope in our <code>Querying</code> applicative. This corresponds to <code>Cons</code> for <code>KeyList</code> and adding a new <code>ResultFunc</code> layer for <code>ResultF</code>. Introducing a new level of scope will provide the user with a pointer to this scope, which gives them a way to demand results from the query.</p>
+<p>But how do we represent these pointers? For usual lists, we can use natural numbers, but if we used numbers here we’d throw an awful lot of useful information away. A better description would be to describe the operations that someone has to do to the current scope to get to the data they seek. There are two possibilities: either the data you seek is at the outermost level of scope, or you have a pointer that is valid under that scope. You can think of this as “stripping away” one level of scoping and then carrying on a lookup. It may be easier to understand this by seeing the data type and some examples:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Where</span><span class="ot"> ::</span> [<span class="dt">KV</span> <span class="fu">*</span> <span class="fu">*</span>] <span class="ot">-&gt;</span> (<span class="dt">KV</span> <span class="fu">*</span> <span class="fu">*</span>) <span class="ot">-&gt;</span> <span class="fu">*</span> <span class="kw">where</span>
+  <span class="dt">Here</span><span class="ot"> ::</span> <span class="dt">Where</span> (kv <span class="ch">': tail) kv</span>
+  <span class="dt">There</span><span class="ot"> ::</span> <span class="dt">Where</span> kvs kv <span class="ot">-&gt;</span> <span class="dt">Where</span> (<span class="ch">'KV k v '</span><span class="fu">:</span> kvs) kv</code></pre></div>
+<p><code>Where</code> carries a list of scopes that it’s valid in as its first parameter, and its second parameter indicates exactly which key-value pair we’re pointing to. Either we’re pointing to the outermost scope with <code>Here</code>, or we want to strip off one layer of scope and then carry on.</p>
+<p>For example, we could construct the following queries:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="dt">Here</span><span class="ot"> ::</span> <span class="ch">'['</span><span class="dt">KV</span> <span class="dt">Int</span> <span class="dt">Int</span>] (<span class="ch">'KV Int Int)</span>
+<span class="dt">There</span> <span class="dt">Here</span><span class="ot"> ::</span> <span class="ch">'['</span><span class="dt">KV</span> <span class="dt">Int</span> <span class="dt">String</span>, <span class="ch">'KV Int Int] ('</span><span class="dt">KV</span> <span class="dt">Int</span> <span class="dt">Int</span>)
+<span class="dt">There</span> <span class="dt">Here</span><span class="ot"> ::</span> <span class="ch">'['</span><span class="dt">KV</span> <span class="dt">String</span> <span class="dt">Char</span>, <span class="ch">'KV Int String, '</span><span class="dt">KV</span> <span class="dt">Int</span> <span class="dt">Int</span>] (<span class="ch">'KV Int String)</span></code></pre></div>
+<h2 id="introducing-queries">Introducing Queries</h2>
+<p>The <code>Where</code> data type will provide us with a way to introduce a pointer to a query which is useful for <code>withQuery</code>. If I tease you with the type of <code>withQuery</code>, it will be easier to see what the plan is:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">withQuery
+<span class="ot">  ::</span> ([k] <span class="ot">-&gt;</span> m [(k, v)])
+  <span class="ot">-&gt;</span> (<span class="dt">Where</span> (<span class="ch">'KV k v '</span><span class="fu">:</span> kvs) (<span class="ch">'KV k v) -&gt; Querying m ('</span><span class="dt">KV</span> k v <span class="ch">': kvs) a)</span>
+  <span class="ot">-&gt;</span> <span class="dt">Querying</span> m kvs a</code></pre></div>
+<p><code>withQuery</code> will take a query in some monad <code>m</code>, and a function to operate in a larger scope. We can see that we extend an existing <code>Querying</code> of <code>kvs</code> with a new level of scope for <code>KV k v</code>. The pointer that we pass in only has to reference the outermost scope, and we know that we can do that with <code>Here</code>. When we call the continuation with Here, we get back a <code>Querying</code> that contains some keys and a <code>ResultF</code>. <code>withQuery</code> then performs the query, and removes this outer scope to get us back to where we were:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">withQuery query k <span class="fu">=</span>
+  <span class="kw">case</span> k <span class="dt">Here</span> <span class="kw">of</span>
+    <span class="dt">Querying</span> (keys <span class="ot">`Cons`</span> kvs) (<span class="dt">Compose</span> m) <span class="ot">-&gt;</span>
+      <span class="dt">Querying</span> kvs <span class="fu">$</span> <span class="dt">Compose</span> <span class="fu">$</span> <span class="kw">do</span>
+        <span class="dt">ResultFunc</span> f <span class="ot">&lt;-</span> m
+        results <span class="ot">&lt;-</span> query keys
+        return (f results)</code></pre></div>
+<p>Once we have a query, how do we actually ask questions? A first approach might look like this:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">ask ::</span> (<span class="dt">Eq</span> k, <span class="dt">Monad</span> m) <span class="ot">=&gt;</span> <span class="dt">Where</span> kvs (<span class="ch">'KV k v) -&gt; k -&gt; Querying m kvs (Maybe v)</span>
+ask q k <span class="fu">=</span> <span class="dt">Querying</span> (mkKeyList q k) (<span class="dt">Compose</span> <span class="fu">$</span> return (mkResultF q k))
+
+<span class="ot">mkKeyList ::</span> <span class="dt">Where</span> kvs (<span class="ch">'KV k v) -&gt; k -&gt; KeyList kvs</span>
+mkKeyList <span class="dt">Here</span> k <span class="fu">=</span> <span class="dt">Cons</span> [k] (mempty)
+mkKeyList (<span class="dt">There</span> path) k <span class="fu">=</span> <span class="dt">Cons</span> [] (mkKeyList path k)
+
+<span class="ot">mkResultF ::</span> (<span class="dt">Eq</span> k) <span class="ot">=&gt;</span> <span class="dt">Where</span> kvs (<span class="ch">'KV k v) -&gt; k -&gt; ResultF kvs (Maybe v)</span>
+mkResultF <span class="dt">Here</span> k <span class="fu">=</span> <span class="dt">ResultFunc</span> (identityResultF <span class="fu">.</span> lookup k)
+mkResultF (<span class="dt">There</span> path) k <span class="fu">=</span> <span class="dt">ResultFunc</span> (const (mkResultF path k))</code></pre></div>
+<p>This is a reasonable amount of code, so lets walk through it. When we ask a query for the value under a specific key, we need to do two things. First we have to record that we are looking up a specific key, and secondly we have to create a suspended computation to lookup the result. Both of these are built by looking at the <code>Where</code> value for the query, which tells us how the index into the <code>KeyList</code> for keys for this query, and the corresponding position in the <code>ResultF</code> functor to extract the results.</p>
+<p><code>mkKeyList</code> and <code>mkResultF</code> simply iterate on a <code>Where</code> value until they find <code>Here</code>. Once they do, they simply return a <code>KeyList</code> or <code>ResultF</code> from that point all the way to the bottom. For <code>KeyList</code> that’s easy - we use the <code>Monoid</code> instance to create empty cells for all subsequent nodes. For <code>ResultF</code> it’s a little more complex - but the idea is we simply ignore any subsequent parameters and just return our result. Check out the full code listing for a definition of <code>identityResultF</code>.</p>
+<p>If we write a way to actually run a <code>Querying</code>, then what we have is already useful:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">runQuerying ::</span> <span class="dt">Monad</span> m <span class="ot">=&gt;</span> <span class="dt">Querying</span> m <span class="ch">'[] a -&gt; m a</span>
+runQuerying (<span class="dt">Querying</span> <span class="dt">Nil</span> (<span class="dt">Compose</span> m)) <span class="fu">=</span> liftM (\(<span class="dt">ResultConst</span> a) <span class="ot">-&gt;</span> a) m
+
+<span class="ot">example ::</span> <span class="dt">IO</span> [(<span class="dt">Maybe</span> <span class="dt">String</span>)]
+example <span class="fu">=</span>
+  runQuerying <span class="fu">$</span>
+    withQuery getUserNameById <span class="fu">$</span> \userNameById <span class="ot">-&gt;</span>
+      for [<span class="dv">1</span><span class="fu">..</span><span class="dv">10</span>] <span class="fu">$</span> \userId <span class="ot">-&gt;</span>
+        ask userNameById userId
+
+  <span class="kw">where</span>
+  getUserNameById ids <span class="fu">=</span>
+    print ids
+    return [(<span class="dv">1</span>, <span class="st">&quot;Alice&quot;</span>), (<span class="dv">2</span>, <span class="st">&quot;Bob&quot;</span>)]</code></pre></div>
+<pre><code>&gt; example &gt;&gt;= print</code></pre>
+<p>Cool!</p>
+<p>However, things fall apart pretty quickly if we try two queries at once:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">example ::</span> <span class="dt">IO</span> [(<span class="dt">Maybe</span> <span class="dt">String</span>, <span class="dt">Maybe</span> <span class="dt">Int</span>)]
+example <span class="fu">=</span>
+  runQuerying <span class="fu">$</span>
+    withQuery getUserNameById <span class="fu">$</span> \userNameById <span class="ot">-&gt;</span>
+    withQuery getUserAgeById <span class="fu">$</span> \userAgeById <span class="ot">-&gt;</span>
+      for [<span class="dv">1</span><span class="fu">..</span><span class="dv">10</span>] <span class="fu">$</span> \userId <span class="ot">-&gt;</span>
+        (,) <span class="fu">&lt;$&gt;</span> ask userNameById userId
+            <span class="fu">&lt;*&gt;</span> ask userAgeById userId</code></pre></div>
+<pre><code></code></pre>
+<p>So, what’s gone wrong? The problem is that when we call <code>withQuery</code> we are given a path into a <em>specific</em> list of key-values. However, <code>withQuery</code> modifies this very list. Thus if we open two queries, then the first query is no longer valid - because the second query is now operating in a larger environment. What we need to do is extend our old references to work with larger scopes. How would we do that?</p>
+<p>When we extend the scope of a query, we grow the list of keys and the list of arguments in <code>ResultF</code> by one. Thus to make an existing query valid in this environment, we need to prepend <code>There</code> onto the query. Remember that <code>There</code> simply skips one layer - in this case stripping off a layer of scope and getting back to where we were.</p>
+<p>It’s completely mechanical how many times we need to add <code>There</code>, and we want to exploit this and have GHC figure it out for us. This means we need to <em>infer</em> the amount of <code>There</code>s to add, and this is a perfect job for type classes. I’m going to add a new type class, <code>Somewhere</code>, which will take a <code>Where</code> term in one environment, and give you an equivalent path in a larger environment.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Somewhere</span> (<span class="ot">kvs ::</span> [<span class="dt">KV</span> <span class="fu">*</span> <span class="fu">*</span>]) (<span class="ot">kvs' ::</span> [<span class="dt">KV</span> <span class="fu">*</span> <span class="fu">*</span>]) (<span class="ot">kv ::</span> (<span class="dt">KV</span> <span class="fu">*</span> <span class="fu">*</span>)) <span class="kw">where</span>
+<span class="ot">  somewhere ::</span> <span class="dt">Where</span> kvs kv <span class="ot">-&gt;</span> <span class="dt">Where</span> kvs' kv</code></pre></div>
+<p>All that’s left is to write the instances. The trivial case is that you are you trying to use a query in an environment where the query is already at the outer-most scope. In this case, the path is simply <code>Here</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Somewhere</span> (<span class="ch">'KV k v '</span><span class="fu">:</span> kvs') (<span class="ch">'KV k v '</span><span class="fu">:</span> kvs') (<span class="ch">'KV k v) where</span>
+  somewhere _ <span class="fu">=</span> <span class="dt">Here</span></code></pre></div>
+<p>Notice how we are referring to the same <code>k</code> and <code>v</code> at every place in the context for this type class instance.</p>
+<p>The other scenario is that we have an environment that’s too big. In this case we use <code>There</code>, and try again with the smaller environment:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Somewhere</span> kvs kvs' kv <span class="ot">=&gt;</span> <span class="dt">Somewhere</span> kvs (<span class="ch">'KV k v '</span><span class="fu">:</span> kvs') kv <span class="kw">where</span>
+  somewhere <span class="fu">=</span> <span class="dt">There</span> <span class="fu">.</span> somewhere</code></pre></div>
+<p>These instances overlap, so we’ll need <code>-XOverlappingInstances</code>, but it seems to be safe here.</p>
+<p>Armed with this type class, we just need to modify <code>ask</code> to call <code>somewhere</code>, which now makes it more polymorphic in the environment type:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">ask ::</span> (<span class="dt">Eq</span> k, <span class="dt">Monad</span> m, <span class="dt">Somewhere</span> kvs kvs' (<span class="ch">'KV k v)) =&gt; Where kvs ('</span><span class="dt">KV</span> k v) <span class="ot">-&gt;</span> k <span class="ot">-&gt;</span> <span class="dt">Querying</span> m kvs' (<span class="dt">Maybe</span> v)
+ask q k <span class="fu">=</span> <span class="dt">Querying</span> (mkKeyList (somewhere q) k) (<span class="dt">Compose</span> <span class="fu">$</span> return (mkResultF (somewhere q) k))</code></pre></div>
+<p>Again, notice that the query <code>kvs</code> is not necessarily the same as <code>Querying</code>’s <code>kvs'</code>. We require that the two environments are compatible though by <code>Somewhere</code> to the context of this function.</p>
+<p>With this last change, we’re done - our example now compiles:</p>
+<h2 id="concluding-thoughts">Concluding Thoughts</h2>
+<p>When I first attempted to work on the batching <code>Querying</code> applicative functor, I felt like it could obviously be done with a pure solution. However, after a day of dead ends, I moved over to the <code>IORef</code> solution. However, as this post shows - the solution is very much possible and doesn’t require a particularly different formulation. What the solution does require is the ability to really understand how various different techniques (such as GADTs and type class) can be used, and how to retain information within the type system. The moment you lose information, problems of this nature become <em>very</em> complicated.</p>
+<p>While I’ve provided a (hopefully!) coherent solution above, by no means was it as simple as I may have made out! Infact, this problem is a perfect case study of my favourite type of problems - the class of problems that are just <em>outside</em> my current capabilities. I highly encourage everyone to hold on to these problems - they don’t come up often, but the rewards if you follow it all the way to the solution are substantial. Don’t give up, but don’t be afraid to ask questions either.</p>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2014-05-28-pure-batched-queries.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

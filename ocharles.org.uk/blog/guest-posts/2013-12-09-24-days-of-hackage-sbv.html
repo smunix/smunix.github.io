@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/guest-posts/2013-12-09-24-days-of-hackage-sbv.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>24 Days of Hackage: sbv</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>24 Days of Hackage: sbv</h1>
+<p>I think you’ve all heard me ramble on about the libraries I find interesting, so today it’s with great pleasure that I turn the spotlight over to <a href="http://jelv.is/">Tikhon Jelvis</a>. Enjoy!</p>
+<hr />
+<p>Today we’re going to talk about <a href="http://hackage.haskell.org/package/sbv"><code>sbv</code></a>, a library for interacting with SMT solvers. SBV stands for “SMT-based verification”; SMT itself stands for “SAT modulo theories” and SAT is “Boolean satisfiability” — three layers of acronyms! Luckily, they’re reasonably easy to follow. Let’s start from the bottom.</p>
+<p><a href="../../../en.wikipedia.org/wiki/Boolean_satisfiability_problem.html">Boolean satisfiability</a> (SAT) is one of the canonical NP-complete problems. The problem is based on Boolean formulas: boolean variables combined with AND (<span class="math inline">∧</span>), OR (<span class="math inline">∨</span>) and NOT (<span class="math inline">¬</span>). Here’s an example formula with variables <span class="math inline"><em>a</em></span>, <span class="math inline"><em>b</em></span>, <span class="math inline"><em>c</em></span>, <span class="math inline"><em>d</em></span> and <span class="math inline"><em>e</em></span>:</p>
+<p><br /><span class="math display">(<em>a</em> ∨ <em>b</em> ∨ <em>c</em>)∧(<em>a</em> ∨ ¬<em>d</em> ∨ ¬<em>e</em>)∧(¬<em>y</em> ∨ <em>c</em> ∨ <em>e</em>)</span><br /></p>
+<p>The goal is to figure out if a Boolean formula is “satisfiable” — that is, if there is some way to assign all the variables to <code>true</code> or <code>false</code> that results in the entire formula evaluating to <code>true</code>.</p>
+<p>SAT is interesting because it can be easily used to express other (usually also NP-complete) problems. While SAT, being NP-complete, is hard in general, most real-world instances tend to be reasonably tractable. A fast algorithm to solve SAT could be used in quite a surprising variety of real-world contexts — things like verifying and optimizing circuit design or automated theorem proving.</p>
+<p><a href="http://en.wikipedia.org/wiki/Satisfiability_modulo_theories">SMT</a> is a popular extension to SAT which adds “theories” to the basic logic SAT supports. These theories let us write formulas using more than just Boolean constraints: examples include bitvectors, arbitrary-sized integers and arrays, records or even algebraic numbers. These extensions make encoding various domain-specific problems much easier with SMT than with just SAT; moreover, SMT solvers can use high-level knowledge about the constraints to implement particular theories more efficiently.</p>
+<p>SMT solvers are useful for most problems that can be recast as a set of constraints, like dependency resolution for package managers. They are also very useful for working with programming languages: most common language features are easy to express using basic SMT theories. SMT solvers can be used to verify code against some sort of logical specification (like <a href="http://goto.ucsd.edu/~rjhala/liquid/haskell/blog/about/">Liquid Haskell</a>) or even synthesize new algorithms<a href="#fn1" class="footnoteRef" id="fnref1"><sup>1</sup></a>.</p>
+<p><code>sbv</code> is a library for conveniently interacting with SMT solvers. It lets you write Haskell programs that produce a formula that can be sent off to an SMT solver. These formulas are created by using “symbolic” versions of normal data types like <code>Boolean</code>s and various <code>Word</code>s, prefixed by an “<code>S</code>”, such as <code>SBool</code>, <code>SWord</code> and so on. “Symbolic” refers to the fact that the types do not represent actual booleans or numbers in Haskell; instead, they are variables in a formula to be passed to the solver. Functions<a href="#fn2" class="footnoteRef" id="fnref2"><sup>2</sup></a> written with these symbolic types can be compiled to logic formulas and passed to the solver.</p>
+<p>To work with <code>sbv</code>, you need to install an external SMT solver. The library currently supports four different backends, with Microsoft’s <a href="http://z3.codeplex.com/">Z3</a> having the most features, making it the default choice. Currently, Z3 is the fastest overall solver based on the SMT competition. It is available under an MIT license, suitable for any purpose including commercial use.</p>
+<p>Once you’ve installed Z3 and have it in your path, you can start playing around in GHCi by importing <code>Data.SBV</code>.</p>
+<p>The simplest example we can do is prove something like the fact that <code>x + x</code> always equals <code>x * 2</code>. This use is very similar to QuickCheck except that the solver is <em>exhaustive</em> — it proves the property for <em>all</em> possible values:</p>
+<pre><code>&gt; prove . forAll [&quot;x&quot;] $ \ (x::SWord8) -&gt; x * 2 .== x + x
+
+Q.E.D.</code></pre>
+<p>The string <code>&quot;x&quot;</code> in the <code>forAll</code> is what the corresponding variable will be named in the solver. This is the name used in the output of the solver and is really useful for debugging. It helps to call the corresponding Haskell variable (the argument in the lambda) the same name, but it isn’t obligatory.</p>
+<p>If the property does not hold, the solver gives us a counter-example:</p>
+<pre><code>&gt; prove . forAll [&quot;x&quot;] $ \ (x::SWord8) -&gt; x * 3 .== x + x
+
+Falsifiable. Counter-example:
+  x = 255 :: SWord8
+  </code></pre>
+<p>We can also solve for values that satisfy our constraints. For example, we could find a solution to a system of equations:</p>
+<pre><code>&gt; sat . forSome [&quot;x&quot;, &quot;y&quot;] $ \ (x::SInteger) y -&gt;
+    x^2 + y^2 .== 25 &amp;&amp;&amp; 3 * x + 4 * y .== 0
+
+Satisfiable. Model:
+  x = 4 :: SInteger
+  y = -3 :: SInteger
+  </code></pre>
+<p>These constraints don’t even have to have a solution. If there is no solution, the solver can often tell you, even if you’re using <em>unbounded</em> integers!</p>
+<pre><code>&gt; sat . forSome [&quot;x&quot;, &quot;y&quot;] $ \ (x::SInteger) y -&gt;
+    x^2 + y^2 .== 42 &amp;&amp;&amp; 3 * x + 4 * y .== 0
+
+Unsatisfiable</code></pre>
+<p>If there is more than one solution, the solver will just choose one.</p>
+<pre><code>&gt;  sat . forSome [&quot;x&quot;, &quot;y&quot;, &quot;z&quot;] $ \ (x::SInteger) y z -&gt;
+     x + 2 * y .== 3 * y + z + x^2 &amp;&amp;&amp; x ./= y
+
+Satisfiable. Model:
+  x = 1 :: SInteger
+  y = 0 :: SInteger
+  z = 0 :: SInteger
+  </code></pre>
+<p>You could instead get <em>all</em> the satisfying assignments by using <code>allSat</code> in place of <code>sat</code>.</p>
+<p>While certainly interesting as an interactive tool, the solver really comes into its own when you can use its results in the rest of your program. We can do this with <code>extractModel</code> which returns a “model” for our formula, which is just a set of assignments to variables that satisfies all the constraints — a single solution to our formula.</p>
+<pre><code>&gt; res &lt;- sat . forSome [&quot;x&quot;, &quot;y&quot;] $ \(x::SWord8) y -&gt;
+    x^2 + y .== 10 &amp;&amp;&amp; y^2 + x^3 .== 100
+&gt; extractModel res :: Maybe (Word8, Word8)
+Just (251,241)</code></pre>
+<p><code>extractModel</code> is polymorphic over the sort of types it can output, and <code>sbv</code> knows how to construct different containers. For example, you could get a list instead of a tuple:</p>
+<pre><code>&gt; extractModel res :: Maybe [Word8]
+Just [251,241]</code></pre>
+<p>In the case of <code>prove</code>, <code>extractModel</code> is reversed: if the formula is satisfiable, it returns <code>Nothing</code> and otherwise it returns a counterexample. For a function like <code>allSat</code> with multiple results, you can use the <code>extractModels</code> function to get all of the models.</p>
+<p>Playing around with <code>sbv</code> at the REPl is a good way to get a handle on how the package works and how SMT solvers can be used. For actual programs, chances are you will want to work with significantly more complicated SMT formulas; <code>sbv</code> provides a monad for stringing together different assertions in a formula and generating variables programmatically which can be very useful.</p>
+<p>The <a href="http://hackage.haskell.org/package/sbv-2.10/docs/Data-SBV.html"><code>sbv</code> documentation</a> is a good reference for the capabilities and constructs <code>sbv</code> offers. The package also comes with a few deeper examples which are well worth a look.</p>
+<hr />
+<p>This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p>
+<div class="footnotes">
+<hr />
+<ol>
+<li id="fn1"><p><a href="http://cis.upenn.edu/~alur/CIS673/smt11.pdf">This article</a> from the <em>Communications of the ACM</em> contains more examples, use cases and background information on SMT solvers.<a href="#fnref1">↩</a></p></li>
+<li id="fn2"><p>The solver works on a bunch of different types so most of the operators are polymorphic. This means that you have to specify the type you’re working with somewhere. In these examples, I add a type annotation to a lambda:</p>
+<pre><code>\ (x::SInteger) y -&gt; ...</code></pre>
+<p>To do this, you have to turn on <code>ScopedTypeVariables</code>. In GHCi, you can do this with:</p>
+<pre><code>&gt; :set -XScopedTypeVariables</code></pre>
+<p>Chances are that you will have to do this more often in GHCi than in normal code because GHCi leaves less scope for types to be inferred.<a href="#fnref2">↩</a></p></li>
+</ol>
+</div>
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/guest-posts/2013-12-09-24-days-of-hackage-sbv.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

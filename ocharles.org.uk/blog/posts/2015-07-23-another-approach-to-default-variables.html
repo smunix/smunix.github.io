@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2015-07-23-another-approach-to-default-variables.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>Another Approach to Default Function Parameters</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>Another Approach to Default Function Parameters</h1>
+<p>Recently, there has been some new discussion around the issue of providing default values for function parameters in Haskell. First, <a href="http://www.haskellforall.com/">Gabriel Gonzalez</a> showed us his new <a href="http://www.haskellforall.com/2015/06/optional-args-100-optional-function.html"><code>optional-args</code></a> library, which provides new types for optional arguments along with heavy syntactic overloading. To follow that, <a href="http://phaazon.blogspot.fr/">Dimitri Sabadie</a> published a blog post <a href="http://phaazon.blogspot.fr/2015/07/dont-use-default.html">discouraging the use</a> of the currently popular <a href="https://hackage.haskell.org/package/data-default-0.5.3/docs/Data-Default.html"><code>Default</code></a> type class. These are both good discussions, and as with any good discussion have been lingering around in the back of my head.</p>
+<p>Since those discussions took place, I’ve been playing with my point in the FRP-web-framework design space - <a href="https://github.com/ocharles/Francium">Francium</a>. I made some big refactorings on an application using Francium, mostly extending so called “component” data types (buttons, checkboxes, etc), and was frustrated with how much code broke just from introducing new record fields. The <a href="http://commercialhaskell.com/">Commercial Haskell</a> group published an article on <a href="https://github.com/commercialhaskell/haskelldocumentation/blob/master/content/designing-apis-for-extensibility.md">how to design for extensibility</a> back in March, so I decided to revisit that.</p>
+<p>It turns out that with a little bit of modification, the approach proposed in designing for extensibility also covers optional arguments pretty well!</p>
+<p>First, let’s recap what it means to design for extensibility. The key points are:</p>
+<ol style="list-style-type: decimal">
+<li>Functions take <code>Settings</code> values, which specify a general configuration.</li>
+<li>These <code>Settings</code> values are opaque, meaning they cannot be constructed by a data constructor, but they have a smart constructor instead. This smart constructor allows you to provide default values.</li>
+<li>Provide get/set functions for all configurable fields in your <code>Settings</code> data type, preventing the use of record syntax for updates (which leaks implementation details).</li>
+</ol>
+<p>Regular Haskell users will already be familiar a pattern that can be seen in point 3: we often use a different piece of technology to solve this problem - lenses. Lenses are nice here because they reduce the surface area of our API - two exports can be reduced to just one, which I believe reduces the time to learn a new library. They also compose very nicely, in that they can be embedded into other computations with ease.</p>
+<p>With point 3 amended to use some form of lens, we end up with the following type of presentation. Take a HTTP library for example. Our hypothetical library would have the following exports:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">HTTPSettings</span>
+
+<span class="ot">httpKeepAlive ::</span> <span class="dt">Lens</span> <span class="dt">HTTPSettings</span> <span class="dt">Bool</span>
+<span class="ot">httpCookieJar ::</span> <span class="dt">Lens</span> <span class="dt">HTTPSettings</span> <span class="dt">CookieJar</span>
+
+<span class="ot">defaultHTTPSettings ::</span> <span class="dt">HTTPSettings</span>
+
+<span class="ot">httpRequest ::</span> <span class="dt">HTTPSettings</span> <span class="ot">-&gt;</span> <span class="dt">HTTPRequest</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">Response</span></code></pre></div>
+<p>which might have usage</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">httpRequest
+  (defaultHTTPSettings <span class="fu">&amp;</span> httpKeepAlive <span class="fu">.~</span> <span class="dt">True</span>)
+  aRequest</code></pre></div>
+<p>This is an improvement, but I’ve never particularly liked the reverse function application stuff with <code>&amp;</code>. The repeated use of <code>&amp;</code> is essentially working in an <code>Endo</code> <code>Writer</code> monad, or more generally - a state monad. The <code>lens</code> library ships with operators for working specifically in state monads (of course it does), so let’s use that:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">
+<span class="ot">httpRequest ::</span> <span class="dt">State</span> <span class="dt">HTTPSettings</span> x <span class="ot">-&gt;</span> <span class="dt">HTTPRequest</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">Response</span>
+
+<span class="fu">....</span>
+
+httpRequest
+  (<span class="kw">do</span> httpKeepAlive <span class="fu">.=</span> <span class="dt">True</span>)
+  aRequest</code></pre></div>
+<p>It’s a small change here, but when you are overriding a lot of parameters, the sugar offered by the use of <code>do</code> is hard to give up - especially when you throw in more monadic combinators like <code>when</code> and <code>unless</code>.</p>
+<p>With this seemingly simple syntactic change, something interesting has happened; something which is easier to see if we break open <code>httpRequest</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">httpRequest ::</span> <span class="dt">State</span> <span class="dt">HTTPSettings</span> x <span class="ot">-&gt;</span> <span class="dt">HTTPRequest</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">Response</span>
+httpRequest mkConfig request <span class="fu">=</span>
+  <span class="kw">let</span> config <span class="fu">=</span> execState mkConfig defaultHttpSettings
+  <span class="kw">in</span> <span class="fu">...</span></code></pre></div>
+<p>Now the default configuration has moved <em>inside</em> the HTTP module, rather than being supplied by the user. All the user provides is essentially a function <code>HTTPSettings -&gt; HTTPSettings</code>, dressed up in a state monad. This means that to use the default configuration, we simply provide a do-nothing state composition: <code>return ()</code>. We can even give this a name</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">def ::</span> <span class="dt">State</span> a ()
+def <span class="fu">=</span> return ()</code></pre></div>
+<p>and voila, we now have the lovely name-overloading offered by <code>Data.Default</code>, but without the need to introduce a lawless type class!</p>
+<p>To conclude, in this post I’ve shown that by slightly modifying the presentation of an approach to build APIs with extensibility in mind, we the main benefit of <code>Data.Default</code>. This main benefit - the <em>raison d’être</em> of <code>Data.Default</code> - is the ability to use the single symbol <code>def</code> whenever you just want <em>a</em> configuration, but don’t care what it is. We still have that ability, and we didn’t have to rely on an ad hoc type class to get there.</p>
+<p>However, it’s not all rainbows and puppies: we did have to give something up to get here, and what we’ve given up is a compiler enforced consistency. With <code>Data.Default</code>, there is only a single choice of default configuration for a given type, so you know that <code>def :: HTTPSettings</code> will be the same set of defaults <em>everywhere</em>. With my approach, exactly what <code>def</code> means is down to the function you’re calling and how they want to interpret <code>def</code>. In practice, due to the lack of laws on <code>def</code>, there wasn’t much reasoning you could do about what that single instance was anyway, so I’m not sure much is given up in practice. I try and keep to a single interpretation of <code>def</code> in my libraries by still exporting <code>defaultHTTPSettings</code>, and then using <code>execState mkConfig defaultHTTPSettings</code> whenever I need to interpret a <code>State HTTPConfig</code>.</p>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2015-07-23-another-approach-to-default-variables.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

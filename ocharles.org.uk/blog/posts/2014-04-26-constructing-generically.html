@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2014-04-26-constructing-generically.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>Building data constructors with GHC Generics</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>Building data constructors with GHC Generics</h1>
+<p>Let’s imagine for a moment that we are in the presence of the following data type:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Coffee</span> <span class="fu">=</span> <span class="dt">MkCoffee</span> {<span class="ot"> coffeeBeans ::</span> <span class="dt">String</span>
+                       ,<span class="ot"> coffeeOriginCountry ::</span> <span class="dt">Country</span>
+                       ,<span class="ot"> coffeeBrewMethod ::</span> <span class="dt">BrewMethod</span>
+                       }
+  <span class="kw">deriving</span> (<span class="dt">Generic</span>)</code></pre></div>
+<p>However, we have only been given the type itself - and not a constructor for this value. That is, we <em>don’t</em> have access to this function:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="dt">MkCoffee</span><span class="ot"> ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Country</span> <span class="ot">-&gt;</span> <span class="dt">BrewMethod</span> <span class="ot">-&gt;</span> <span class="dt">Coffee</span></code></pre></div>
+<p>Is it still possible to make <code>Coffee</code>? As we’ll see, by making use of the <code>Generics</code> type class it is indeed possible to make <code>Coffee</code>, and with a little bit of functor tricky, we can derive an implementation of the <code>MkCoffee</code> data value constructor ourselves.</p>
+<h2 id="ghc-generics">GHC Generics</h2>
+<p>Before we get going, it’s worth discussing briefly what is meant be the idea of a generic representation, specifically GHC generics. The term “generic programming” is fairly overloaded, but for this post we’re interested in the idea of <em>shape</em> generics. This (and the other types of generic programming) are discussed in <a href="http://dreixel.net/">José Pedro Magalhães</a>’ thesis “<a href="http://dreixel.net/research/pdf/thesis.pdf‎">Less is More</a>”, but loosely speaking we’re interested in abstracting over the “shape” of data types. This means we find another value that isomorphic to our, but is made out of a smaller (and importantly, closed) set of primitives.</p>
+<p>GHC Generics is one such approach to shape genericity - <code>Rep</code> type is the type of isomorphic data, and we have <code>to</code> and <code>from</code> to move between both sides of the isomorphism. Let’s see what this all means for <code>Coffee</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="fu">&gt;</span> <span class="fu">:</span>kind<span class="fu">!</span> (<span class="dt">Rep</span> <span class="dt">Coffee</span>)
+<span class="dt">Rep</span> <span class="dt">Coffee</span><span class="ot"> ::</span> <span class="fu">*</span> <span class="ot">-&gt;</span> <span class="fu">*</span>
+<span class="fu">=</span> <span class="dt">M1</span>
+    <span class="dt">D</span>
+    <span class="dt">Main.D1Coffee</span>
+    (<span class="dt">M1</span>
+       <span class="dt">C</span>
+       <span class="dt">Main.C1_0Coffee</span>
+       (<span class="dt">M1</span> <span class="dt">S</span> <span class="dt">Main.S1_0_0Coffee</span> (<span class="dt">K1</span> <span class="dt">R</span> [<span class="dt">Char</span>])
+        <span class="fu">:*:</span> (<span class="dt">M1</span> <span class="dt">S</span> <span class="dt">Main.S1_0_1Coffee</span> (<span class="dt">K1</span> <span class="dt">R</span> <span class="dt">Country</span>)
+             <span class="fu">:*:</span> <span class="dt">M1</span> <span class="dt">S</span> <span class="dt">Main.S1_0_2Coffee</span> (<span class="dt">K1</span> <span class="dt">R</span> <span class="dt">BrewMethod</span>))))</code></pre></div>
+<p>This is neither pretty nor succinct, but thankfully a lot of this is noise (for our purposes). Here’s another look at just the essential structure of <code>Rep Coffee</code>:</p>
+<pre><code>K1 [Char] :*: (K1 R Country :*: K1 R BrewMethod)</code></pre>
+<p>Now we can see that <code>Coffee</code> is isomorphic to the product of a string, a country and a <code>BrewMethod</code>. These correspond to the three fields in the above <code>Coffee</code> data type.</p>
+<p>Using these generic representations, we can construct new <code>Coffee</code>s:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="fu">&gt;</span> to (<span class="dt">M1</span> (<span class="dt">M1</span> (<span class="dt">M1</span> (<span class="dt">K1</span> <span class="st">&quot;Single Origin&quot;</span>) <span class="fu">:*:</span> (<span class="dt">M1</span> (<span class="dt">K1</span> (<span class="dt">Country</span> <span class="st">&quot;Rwanda&quot;</span>)) <span class="fu">:*:</span> <span class="dt">M1</span> (<span class="dt">K1</span> <span class="dt">V60</span>)))))<span class="ot"> ::</span> <span class="dt">Coffee</span>
+<span class="dt">MkCoffee</span> { coffeeBeans <span class="fu">=</span> <span class="st">&quot;Single Origin&quot;</span>
+         , coffeeOriginCountry <span class="fu">=</span> <span class="dt">Country</span> <span class="st">&quot;Rwanda&quot;</span>
+         , coffeeBrewMethod <span class="fu">=</span> <span class="dt">V60</span>
+         }</code></pre></div>
+<p>That’s pretty cool, no? It’s this idea that is at the heart of generic programming. We could imagine doing a similar thing by building these values by reading a binary serialisation from a file, or walking a JSON AST.</p>
+<p>However, for our purposes we’ve not yet reached our goal. To recap, we really want to be able to build a function like <code>MkCoffee</code>, keeping the generic representation behind the scenes. To do this, we’ll need to <em>interpret</em> the generic representation into a function.</p>
+<h2 id="interpreting-generic-representations">Interpreting Generic Representations</h2>
+<p>The standard way to work with a generic representation is to walk the tree using instances of a type class. We’ll do the same, and walk the generic representation to reach a functor that will contain <code>Rep Coffee</code>. Later, we’ll be able to use <code>fmap to</code>, turning <code>Rep Coffee</code> into real <code>Coffee</code>.</p>
+<p>Our workhorse is the following type class.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Functor</span> f <span class="ot">=&gt;</span> <span class="dt">Mk</span> rep f <span class="fu">|</span> rep <span class="ot">-&gt;</span> f <span class="kw">where</span>
+<span class="ot">  mk ::</span> f (rep a)</code></pre></div>
+<p>As you can see, it’s a multi-parameter type class, taking the generic <code>Rep</code> type, and also indicating which functor can “build” this <code>Rep</code>. Each <code>Rep</code> uniquely determines the constructing functor, which we indicate with a functional dependency. This is essential for having sane type inference.</p>
+<p>Starting “at the bottom”, we can begin by constructing a single field. In our <code>Coffee</code> example, we need to construct <code>String</code>s, <code>Country</code>s, and <code>BrewMethod</code>s. In GHC Generics, each of these is represented with <code>K1</code>. To actually construct <code>K1</code> we need a value, so our constructing functor will be a one-argument function:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- Remember that ((-&gt;) c) means (c -&gt;)</span>
+<span class="kw">instance</span> <span class="dt">Mk</span> (<span class="dt">K1</span> i c) ((<span class="ot">-&gt;</span>) c) <span class="kw">where</span>
+  mk <span class="fu">=</span> \x <span class="ot">-&gt;</span> <span class="dt">K1</span> x</code></pre></div>
+<p>A <code>Coffee</code> is more than just a single field though, and we need a way to combine individual fields together. This is done by the use of the <code>:*:</code> constructor, which we can think of as having “fields on the left” and “fields on the right”. To construct <code>:*:</code> we need to compose a builder on the left with the builder on the right, so we use <code>Compose</code> to join the left and right functors into one. The definition of <code>mk</code> itself is a little cumbersome, but does the job:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> (<span class="dt">Mk</span> l fl, <span class="dt">Mk</span> r fr) <span class="ot">=&gt;</span> <span class="dt">Mk</span> (l <span class="fu">:*:</span> r) (<span class="dt">Compose</span> fl fr) <span class="kw">where</span>
+  mk <span class="fu">=</span> <span class="dt">Compose</span> (fmap (\l <span class="ot">-&gt;</span> fmap (\r <span class="ot">-&gt;</span> l <span class="fu">:*:</span> r) mk) mk)</code></pre></div>
+<p>Finally, we just need to construct the <code>M1</code> layers, which just hold meta-data. These don’t have any effect on what we’re trying to do, so their type class instance simply proxy through to other instances:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> (<span class="dt">Mk</span> f f') <span class="ot">=&gt;</span> <span class="dt">Mk</span> (<span class="dt">M1</span> i c f) f' <span class="kw">where</span>
+  mk <span class="fu">=</span> <span class="dt">M1</span> <span class="fu">&lt;$&gt;</span> mk</code></pre></div>
+<p>Believe it or not, we’re now a good step closer to getting what we want. Let’s have a look and see what we get if we try and <code>mk</code> some <code>Coffee</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">fmap (<span class="ot">to ::</span> <span class="dt">Rep</span> <span class="dt">Coffee</span> a <span class="ot">-&gt;</span> <span class="dt">Coffee</span>) mk
+<span class="ot">  ::</span> <span class="dt">Compose</span>
+       ((<span class="ot">-&gt;</span>) <span class="dt">String</span>) (<span class="dt">Compose</span> ((<span class="ot">-&gt;</span>) <span class="dt">Country</span>) ((<span class="ot">-&gt;</span>) <span class="dt">BrewMethod</span>)) <span class="dt">Coffee</span></code></pre></div>
+<p>Hey, that’s actually pretty close! If we squint, this is some sort of function that takes a <code>String</code>, a <code>Country</code> and a <code>BrewMethod</code> and yields some <code>Coffee</code>. All that we have to do is somehow get rid of all the <code>Compose</code> noise.</p>
+<h2 id="unwrapping-compose">Unwrapping Compose</h2>
+<p>At this point, I was originally stuck, but then I remembered smart people have already come before me to work on very similar problems. Specifically, <a href="http://www.cs.ox.ac.uk/people/ralf.hinze/publications/index.html">Ralf Hinze</a> published a Functional Pearl a while ago called “Formatting: A Class Act”, which uses an identical construction (which I can honestly say was a happy accident!). Hinze then goes a step further with this magic little type class:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Functor</span> f <span class="ot">=&gt;</span> <span class="dt">Apply</span> f a b <span class="fu">|</span> f a <span class="ot">-&gt;</span> b <span class="kw">where</span>
+<span class="ot">  apply ::</span> f a <span class="ot">-&gt;</span> b
+
+<span class="kw">instance</span> <span class="dt">Apply</span> ((<span class="ot">-&gt;</span>) a) b (a <span class="ot">-&gt;</span> b) <span class="kw">where</span>
+  apply <span class="fu">=</span> id
+
+<span class="kw">instance</span> (<span class="dt">Apply</span> g a b, <span class="dt">Apply</span> f b c) <span class="ot">=&gt;</span> <span class="dt">Apply</span> (<span class="dt">Compose</span> f g) a c <span class="kw">where</span>
+  apply (<span class="dt">Compose</span> x) <span class="fu">=</span> apply (fmap apply x)</code></pre></div>
+<p>This time we have a type class of three types (!), where the first two types determine the third. However, it’s not so bad - <code>f</code> is the functor we need to expand, <code>a</code> is the type of data under the functor and <code>b</code> is the final type after expansion. If you look at the specific instances, it should be clear how this all plays out.</p>
+<p>Now we can use <code>apply</code> with <code>mk</code> to generate a function!</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="fu">&gt;</span> apply (fmap to mk)<span class="ot"> ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Country</span> <span class="ot">-&gt;</span> <span class="dt">BrewMethod</span> <span class="ot">-&gt;</span> <span class="dt">Coffee</span>
+<span class="fu">&lt;</span>interactive<span class="fu">&gt;:</span><span class="dv">1</span><span class="fu">:</span><span class="dv">2</span><span class="fu">:</span>
+    <span class="dt">No</span> <span class="kw">instance</span> for (<span class="dt">Apply</span>
+                       f0 a0 (<span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Country</span> <span class="ot">-&gt;</span> <span class="dt">BrewMethod</span> <span class="ot">-&gt;</span> <span class="dt">Coffee</span>))
+      arising from a use <span class="kw">of</span> ‘apply’
+    <span class="dt">The</span> <span class="kw">type</span> variables ‘f0’, ‘a0’ are ambiguous
+    <span class="dt">Note</span><span class="fu">:</span> there are several potential instances<span class="fu">:</span>
+      <span class="kw">instance</span> (<span class="dt">Apply</span> g a b, <span class="dt">Apply</span> f b c) <span class="ot">=&gt;</span> <span class="dt">Apply</span> (<span class="dt">Compose</span> f g) a c
+        <span class="co">-- Defined at 2014-04-26-coffee.hs:39:10</span>
+      <span class="kw">instance</span> <span class="dt">Apply</span> ((<span class="ot">-&gt;</span>) a) b (a <span class="ot">-&gt;</span> b)
+        <span class="co">-- Defined at 2014-04-26-coffee.hs:36:10</span></code></pre></div>
+<p>Damn! What went wrong?</p>
+<p>Unfortunately, if we use <code>apply</code> with <code>mk</code> we lose parametricity on <code>f</code> itself. There could be many different ways to reach the type we desire (especially as type classes are open), and it turns out that the crucial ingredient is having <code>rep</code> available.</p>
+<p>However, from our perspective it <em>should</em> be possible to infer all of this from the return type of the function we are building. Of course, GHC can’t guess, so we will need to encode this information somehow. With GHC 7.8 we can easily express this with a closed type family:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> family <span class="dt">Returns</span> (<span class="ot">f ::</span> <span class="fu">*</span>)<span class="ot"> ::</span> <span class="fu">*</span> <span class="kw">where</span>
+  <span class="dt">Returns</span> (a <span class="ot">-&gt;</span> b) <span class="fu">=</span> <span class="dt">Returns</span> b
+  <span class="dt">Returns</span> r <span class="fu">=</span> r</code></pre></div>
+<p><code>Returns</code> lets us figure out what the final type of a function is, and now we can complete the loop and build our final <code>make</code> function:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">make ::</span> forall b f z<span class="fu">.</span> (<span class="dt">Generic</span> (<span class="dt">Returns</span> b), <span class="dt">Apply</span> f (<span class="dt">Returns</span> b) b, <span class="dt">Mk</span> (<span class="dt">Rep</span> (<span class="dt">Returns</span> b)) f) <span class="ot">=&gt;</span> b
+make <span class="fu">=</span> apply (fmap (<span class="ot">to ::</span> <span class="dt">Rep</span> (<span class="dt">Returns</span> b) z <span class="ot">-&gt;</span> (<span class="dt">Returns</span> b)) (<span class="ot">mk ::</span> f (<span class="dt">Rep</span> (<span class="dt">Returns</span> b) z)))</code></pre></div>
+<p>We need to use <code>ScopedTypeVariables</code> to carry a bit of extra type information around, but luckily this is all behind the scenes.</p>
+<p><em>Finally</em>, we can now write <code>mkCoffee</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">mkCoffee ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Country</span> <span class="ot">-&gt;</span> <span class="dt">BrewMethod</span> <span class="ot">-&gt;</span> <span class="dt">Coffee</span>
+mkCoffee <span class="fu">=</span> make</code></pre></div>
+<p>Does it work?</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="fu">&gt;</span> mkCoffee <span class="st">&quot;Single Origin&quot;</span> (<span class="dt">Country</span> <span class="st">&quot;Rwanda&quot;</span>) <span class="dt">V60</span>
+<span class="dt">Coffee</span> { coffeeBeans <span class="fu">=</span> <span class="st">&quot;Single Origin&quot;</span>
+       , coffeeOriginCountry <span class="fu">=</span> <span class="dt">Country</span> <span class="st">&quot;Rwanda&quot;</span>
+       , coffeeBrewMethod <span class="fu">=</span> <span class="dt">V60</span>
+       }</code></pre></div>
+<p>Tada!</p>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2014-04-26-constructing-generically.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

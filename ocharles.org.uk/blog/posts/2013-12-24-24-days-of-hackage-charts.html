@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2013-12-24-24-days-of-hackage-charts.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>24 Days of Hackage: Charts and Conclusion</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>24 Days of Hackage: Charts and Conclusion</h1>
+<p>Well, would you look at that - after 24 days of bashing away at a keyboard (from multiple people!) 24 Days of Hackage comes to a close, after what I think has been a very successful month of blogging.</p>
+<p>Of course, this has all been a subtle front for Christmas &amp; Christmas Ltd., and now that the hard work is out of the way, the marketing department want <em>results</em>. A few little sentences here and there aren’t going to cut it either - they can hardly put those on their PowerPoint slides. No, the marketing department want pretty graphs. Today, we’ll try and keep the marketing folks happy and take a look at the Haskell <a href="http://hackage.haskell.org/package/Chart"><code>Chart</code></a> library.</p>
+<p>Tim Docker’s <code>Chart</code> library began in 2006, and has come a long way since then - especially after being the focus of one of this year’s Google Summer of Code projects. <code>Chart</code> is, as the name suggests, a versatile charting library. It’s capable of producing bar charts, line charts, pie charts, stacked area graphs, <a href="https://github.com/timbod7/haskell-chart/wiki">and more</a>. Today, I’d like to explore three graphs based on data from Reddit submissions:</p>
+<ol style="list-style-type: decimal">
+<li>A stacked area graph of upvotes/downvotes per posts (in chronological order).</li>
+<li>A plot of upvotes against amount of comments.</li>
+<li>A pie chart showing the distribution of upvotes per post.</li>
+</ol>
+<p>Thankfully, the <code>Chart</code> library makes all of this a piece of pie (sorry, I almost made it 24 days without a pun!).</p>
+<p>The first thing we need to do is define some data types to capture our data. The interesting data is: the library being blogged about, the amount up- and down-votes, and the amount of comments. This is easily captured in a data type:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">BlogPost</span> <span class="fu">=</span> <span class="dt">BlogPost</span> {<span class="ot"> blogPostLibrary ::</span> <span class="dt">String</span>
+                         ,<span class="ot"> blogPostUpvotes ::</span> <span class="dt">Int</span>
+                         ,<span class="ot"> blogPostDownvotes ::</span> <span class="dt">Int</span>
+                         ,<span class="ot"> blogPostComments ::</span> <span class="dt">Int</span>
+                         }</code></pre></div>
+<p>I’ve then collected all of the data as a <code>blogPosts</code> value - though there’s no reason I couldn’t use a Reddit API to fetch this data as part of my program. For the raw data, check out the code on Github.</p>
+<p>The first chart we need to do is a stacked bar chart. The <code>Chart</code> library has a <code>PlotBars</code> type of chart for this, and we can specify that the bars should stack. The general way to use the <code>Chart</code> library is by using the default values for most data types (available through <code>def</code>), and then customising various properties by using lenses. For our stacked area chart, we need to customise the style of the bars, the colouring of the bars, and also the data source for our chart.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">upDownPerPost ::</span> <span class="dt">PlotBars</span> <span class="dt">Int</span> <span class="dt">Int</span>
+upDownPerPost <span class="fu">=</span>
+  def <span class="fu">&amp;</span> plot_bars_style <span class="fu">.~</span> <span class="dt">BarsStacked</span>
+      <span class="fu">&amp;</span> plot_bars_item_styles <span class="fu">.~</span>
+          [ (<span class="dt">FillStyleSolid</span> <span class="fu">$</span> withOpacity (sRGB24 <span class="dv">255</span> <span class="dv">0</span> <span class="dv">0</span>) <span class="dv">100</span>, <span class="dt">Nothing</span>)
+          , (<span class="dt">FillStyleSolid</span> <span class="fu">$</span> withOpacity (sRGB24 <span class="dv">0</span> <span class="dv">255</span> <span class="dv">0</span>) <span class="dv">100</span>, <span class="dt">Nothing</span>)
+          ]
+      <span class="fu">&amp;</span> plot_bars_titles <span class="fu">.~</span> [ <span class="st">&quot;Downvotes&quot;</span>, <span class="st">&quot;Upvotes&quot;</span> ]
+      <span class="fu">&amp;</span> plot_bars_values <span class="fu">.~</span> dataPoints
+ <span class="kw">where</span>
+  dataPoints <span class="fu">=</span>
+   zip [<span class="dv">1</span><span class="fu">..</span>] <span class="fu">$</span> map (sequence [blogPostDownvotes, blogPostUpvotes]) blogPosts</code></pre></div>
+<p>Rendering this to a PNG (using the <code>Chart-cairo</code> backend), we see the following graph:</p>
+<p><img src="https://ocharles.org.uk/blog/img/2013-12-24-up-down.png" style="width: 100%" /></p>
+<p>It looks like there was almost universal love for every article - awesome!</p>
+<p>I wonder if there was any correlation between the amount of up-votes and the amount of comments a submission received. For this, we use a <code>PlotPoints</code> chart, and we construct it in the much the same way - starting with a <code>def</code>ault value, and tweaking values with lenses:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">upVotesAgainstComments ::</span> <span class="dt">PlotPoints</span> <span class="dt">Int</span> <span class="dt">Int</span>
+upVotesAgainstComments <span class="fu">=</span>
+  def <span class="fu">&amp;</span> plot_points_title <span class="fu">.~</span> <span class="st">&quot;Upvotes vs. Comments&quot;</span>
+      <span class="fu">&amp;</span> plot_points_values <span class="fu">.~</span> dataPoints
+      <span class="fu">&amp;</span> plot_points_style <span class="fu">.~</span> (def <span class="fu">&amp;</span> point_radius <span class="fu">.~</span> <span class="dv">3</span>)
+ <span class="kw">where</span>
+  dataPoints <span class="fu">=</span> map (blogPostUpvotes <span class="fu">&amp;&amp;&amp;</span> blogPostComments) blogPosts</code></pre></div>
+<p><img src="https://ocharles.org.uk/blog/img/2013-12-24-upvotes-comments.png" style="width: 100%" /></p>
+<p>Hmm, it doesn’t look like strong correlation there. Better give that one off to the data scientists and see if they can find anything with some fancy regression methods, but it looks like the amount of up-votes doesn’t have much bearing on the amount of comments a post has.</p>
+<p>Finally, lets see how up-votes were distributed over the entire month. We’ll use the loathed-by-scientists loved-by-marketing pie-chart for this. Yet again, we follow the pattern of starting with an empty chart, and adjusting properties to suit.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">upVotePieChart ::</span> <span class="dt">PieChart</span>
+upVotePieChart <span class="fu">=</span>
+  def <span class="fu">&amp;</span> pie_data <span class="fu">.~</span> dataPoints
+ <span class="kw">where</span>
+  dataPoints <span class="fu">=</span>
+    <span class="kw">let</span> f post <span class="fu">=</span> def <span class="fu">&amp;</span> pitem_label <span class="fu">.~</span> (blogPostLibrary post)
+                     <span class="fu">&amp;</span> pitem_value <span class="fu">.~</span> (fromIntegral <span class="fu">$</span> blogPostUpvotes post))
+    <span class="kw">in</span> map f blogPosts</code></pre></div>
+<p><img src="https://ocharles.org.uk/blog/img/2013-12-24-upvotes-pie.png" style="width: 100%" /></p>
+<p>wow. such colourful.</p>
+<p>It looks like every library received an equal share of attention - just as intended.</p>
+<p>I’ve never used the <code>Chart</code> library before, but I was really impressed with just how little work it takes to get results! Usually, graphing things is something I despise, as it always takes hours of hacking data into some sort of CSV format, and then sacrificing small animals to the R gods until I can convince it to give me something usable. But with <code>Chart</code>, I just transform the data using regular Haskell functions (you can see above I use the reader monad and arrow functions). Furthermore, the types guide me into how to assemble the charts - I didn’t really read the documentation when I was working with this library, I just jumped in and fit the pieces together in the only way possible.</p>
+<h2 id="thanks-for-reading">Thanks For Reading</h2>
+<p>I want to send out a massive thank you to everyone who followed along this year. Your support has been tremendous and really helped me go that extra mile on every blog post. We didn’t quite manage to be error-free, but through your patience and attention to detail, I think we’ve patched up most of the posts. Hopefully these are going to continue to be useful, much like the posts from last year continue to be receive new traffic.</p>
+<p>Whether or not you retweeted, commented, upvoted, donated Bitcoins or simply read the occasional post - thank you. I hope everyone has a relaxing end to the year and I’ll see you all in 2014 - when we can all make Haskell even more awesome!</p>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2013-12-24-24-days-of-hackage-charts.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

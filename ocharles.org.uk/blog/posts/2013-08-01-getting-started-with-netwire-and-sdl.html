@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2013-08-01-getting-started-with-netwire-and-sdl.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>Getting Started with Netwire and SDL</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>Getting Started with Netwire and SDL</h1>
+<p>Game programming is often seen as a challenging problem in Haskell, and it puzzled me for a long time too. It is a problem that seems to lend itself to very imperative solutions and while this is of course doable in Haskell, it can be become unweildly to manage. However, state is not the only difficulty. Even in programming languages that do have mutable state, game programming is tricky because there is a lot of code required to manage state transitions, deal with interpolation and other gritty details that are not specific to the game you are building.</p>
+<p>Functional reactive programming is one possible programming paradigm that aims to eliminate some of these problems. Pioneered by <a href="http://www.haskell.org/haskellwiki/Research_papers/Functional_reactive_programming">Conal Elliott, Paul Hudak</a> and others in the late 90’s, functional reactive programming builds itself on the notions of behaviours and events. Behaviours are time varying values, and events are aribtrarily complex conditions that can be used to influence behaviours.</p>
+<p>There are a few different libraries available for functional reactive programming in Haskell, and in this post we will focus on <a href="http://hackage.haskell.org/package/netwire">Netwire</a>. The documentation states:</p>
+<blockquote>
+<p>Netwire is a library for functional reactive programming, that is for time-varying values. It allows you to express various reactive systems elegantly and concisely by using an embedded domain-specific language.</p>
+</blockquote>
+<p>For a long time I’ve had “learn Netwire” in my list of ideas for free time, and I’m happy to say that while I’m still a long shot from having developed full intuition with Netwire, I’ve made enough progress to get some mildly interesting results. The source code for the three challenges in this post are all available on <a href="https://github.com/ocharles/ocharles.org.uk--Getting-Started-with-Netwire-and-SDL">Github</a>. See the <code>README.md</code> file for instructions on how to build and run the project (don’t worry, it’s only a <code>cabal configure &amp;&amp; cabal build</code> away).</p>
+<h2 id="automaton-arrows">Automaton arrows</h2>
+<p>Before we begin looking at Netwire, it’s worth covering a little bit of background material. The fundamental building block in Netwire is the automaton arrow, which is not nearly as scary as it sounds! While we will be using Netwire’s <code>Wire</code> type, it’s useful to first consider what an automaton arrow looks like:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Auto</span> a b <span class="fu">=</span> <span class="dt">Auto</span> (a <span class="ot">-&gt;</span> (b, <span class="dt">Auto</span> a b))</code></pre></div>
+<p>So an automaton arrow is simply a function that takes an <code>a</code> and produces a <code>b</code>, along with a new automaton arrow. For example we could have a basic automaton arrow that acts like a counter:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">counter ::</span> <span class="dt">Auto</span> () <span class="dt">Int</span>
+counter <span class="fu">=</span> go <span class="dv">0</span>
+  <span class="kw">where</span> go n <span class="fu">=</span> <span class="dt">Auto</span> <span class="fu">$</span> \() <span class="ot">-&gt;</span> (n <span class="fu">+</span> <span class="dv">1</span>, go <span class="fu">$</span> n <span class="fu">+</span> <span class="dv">1</span>)</code></pre></div>
+<p>We can step the automaton by providing a little helper:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">step ::</span> <span class="dt">Auto</span> a b <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> (b, <span class="dt">Auto</span> a b)
+step (<span class="dt">Auto</span> f) a <span class="fu">=</span> f a</code></pre></div>
+<p>And so stepping through our <code>counter</code>, we might do:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">let</span> (_, a1) <span class="fu">=</span> step counter ()
+    (_, a2) <span class="fu">=</span> step a1 ()
+    (n, _) <span class="fu">=</span> step a2 ()
+<span class="kw">in</span> n</code></pre></div>
+<p>Which produces the value <em>3</em>, as we expect.</p>
+<p>Netwire builds on top of these automaton arrows in few ways. The first enhancement is simply the addition of a time delta - the difference between now and when the automaton was last stepped. We will see further differences as we progress through the article. Thus, for now we can think of Netwire as being:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Wire</span> a b <span class="fu">=</span> <span class="dt">Wire</span> (<span class="dt">TimeDelta</span> <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> (b, <span class="dt">Wire</span> a b))</code></pre></div>
+<h2 id="challenge-1-basic-movement">Challenge 1: Basic Movement</h2>
+<p>Now that we have a rough idea of the underlying concept behind Netwire, we’re ready to begin working on our first application. Here’s our first goal:</p>
+<p><em>Build an application that displays a square that moves with constant velocity from left to right</em>.</p>
+<p>We can solve this challenge with a single time varying value - the x-coordinate of the square. This x-coordinate should increase over time. Thus we need to implement:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">challenge1 ::</span> <span class="dt">Wire</span> e m a <span class="dt">Double</span></code></pre></div>
+<p>The important parameters to note are <code>a</code> and <code>Double</code>. The <code>a</code> parameter is the input to our wire, which is completely polymorphic as our wire will not respond to input. The wire will output <code>Double</code>s at every instance .Don’t worry about the <code>e</code> and <code>m</code> parameters for now, though we will understand what they are later.</p>
+<p>To solve this challenge, we will use the <code>integral_</code> wire. The <code>integral_</code> wire <em>integrates</em> its input with respect to time, and adds some constant (the constant of integration) to give us a definite integral:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">integral_ ::</span> <span class="dt">Double</span> <span class="ot">-&gt;</span> <span class="dt">Wire</span> e m <span class="dt">Double</span> <span class="dt">Double</span></code></pre></div>
+<p>You may remember from calculus that integrating velocity gives us distance, so all we need to do is supply <code>integral_</code> the constant velocity, which we can do so by composing a constant wire (velocity) with <code>integral_</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">challenge1 ::</span> <span class="dt">Monad</span> m <span class="ot">=&gt;</span> <span class="dt">Wire</span> e m a <span class="dt">Double</span>
+challenge1 <span class="fu">=</span> integral_ <span class="dv">0</span> <span class="fu">.</span> pure <span class="dv">20</span></code></pre></div>
+<p>I create the velocity wire with <code>pure 20</code> - this wire ignores its input and always produces 20. Then I integrate this value, and supply 0 as the initial position. The <code>Monad m</code> constraint is required by composition, and may be a bit of a spoiler as to what that <code>m</code> is!</p>
+<p>(I should note that you don’t even need to write <code>pure 20</code>, as <code>Wire</code> is an instance of <code>Num</code>. However, I find that when teaching this it’s a little clearer to use <code>pure 20</code>.)</p>
+<h3 id="rendering-with-sdl">Rendering with SDL</h3>
+<p>Now that we have written our first <code>Wire</code>, it would be lovely to see the result! Here’s the final code for the first challenge:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">import </span><span class="dt">Prelude</span> <span class="kw">hiding</span> ((.), id)
+
+<span class="kw">import </span><span class="dt">Control.Wire</span>
+<span class="kw">import qualified</span> <span class="dt">Graphics.UI.SDL</span> <span class="kw">as</span> <span class="dt">SDL</span>
+
+<span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> SDL.withInit [<span class="dt">SDL.InitEverything</span>] <span class="fu">$</span> <span class="kw">do</span>
+  screen <span class="ot">&lt;-</span> SDL.setVideoMode <span class="dv">200</span> <span class="dv">200</span> <span class="dv">32</span> [<span class="dt">SDL.SWSurface</span>]
+  go screen clockSession challenge1
+
+ <span class="kw">where</span>
+
+  go screen s w <span class="fu">=</span> <span class="kw">do</span>
+    (x, w', s') <span class="ot">&lt;-</span> stepSession_ w s ()
+
+    (SDL.mapRGB <span class="fu">.</span> SDL.surfaceGetPixelFormat) screen <span class="dv">255</span> <span class="dv">255</span> <span class="dv">255</span> <span class="fu">&gt;&gt;=</span>
+        SDL.fillRect screen <span class="dt">Nothing</span>
+
+    (SDL.mapRGB <span class="fu">.</span> SDL.surfaceGetPixelFormat) screen <span class="dv">0</span> <span class="dv">50</span> <span class="dv">200</span> <span class="fu">&gt;&gt;=</span>
+        SDL.fillRect screen (<span class="dt">Just</span> <span class="fu">$</span> <span class="dt">SDL.Rect</span> (round x) <span class="dv">0</span> <span class="dv">50</span> <span class="dv">50</span>)
+
+    SDL.flip screen
+    go screen s' w'
+
+<span class="ot">challenge1 ::</span> <span class="dt">Monad</span> m <span class="ot">=&gt;</span> <span class="dt">Wire</span> e m a <span class="dt">Double</span>
+challenge1 <span class="fu">=</span> integral_ <span class="dv">0</span> <span class="fu">.</span> pure <span class="dv">20</span></code></pre></div>
+<p><code>main</code> contains a few calls to get SDL running, and then we begin the main game loop by calling <code>go</code>. <code>go</code> is passed <code>challenge1</code>, which is the wire we wish to run, and is also passed a <code>clockSession</code>, which is a small helper that Netwire provides to take care of calculating the clock delta between frames for you.</p>
+<p>In <code>go</code>, we use <code>stepSession_</code> to step the whole simulation forwards based on the delta that <code>clockSession</code> calculates. <code>stepSession_</code> produces the output of the wire (a <code>Double</code>, as specified by <code>challenge1</code>), a new wire (remember <code>step</code> from <code>Auto</code> above), and finally a new <code>Session</code>. We then clear the screen by filling it white, and then render a square at the <code>x</code> coordinate produced by <code>stepSession_</code>. Finally, we make a recursive call to <code>go</code>, and continue the simulation. And that’s it!</p>
+<h2 id="challenge-2-responding-to-input">Challenge 2: Responding to Input</h2>
+<p>Now that we have the ability to move our square, lets see if we can do this with the arrow keys. So the challenge is:</p>
+<p><em>The square will rest with 0 velocity. User’s can interact with the square by changing its velocity to -20 if the left arrow is pressed, and +20 if the right arrow is pressed.</em></p>
+<p>Before even implementing this, lets consider the type of our game wire. To react to key presses, we need to know which keys have been pressed. We can represent this via a set of keys that changes depending on which keys are up or down. Thus we are aiming for a wire of the type:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">challenge2 ::</span> <span class="dt">Wire</span> e m (<span class="dt">Set</span> <span class="dt">SDL.Keysym</span>) <span class="dt">Double</span></code></pre></div>
+<p>We now have a few options to implement this. We could build a wire ourselves that returns a velocity depending on the contents of <code>Set Key</code>. This single wire would have to be built out of one large function which is not particularly idiomatic Haskell - where we strive to build bigger programs out of small programs and combinators. There is a more idiomatic solution in Netwire, but to get there we will need to understand the concepts of <em>event</em> and <em>wire inhibition</em>.</p>
+<p>Earlier, I said that we could think of Netwire as being a lot like <code>Auto</code>. However, <code>Auto</code> has a limitation in that it has to <em>always</em> produce a value. We can lift this restriction, if we give the function the ability to not produce output. This is called <em>inhibition</em>, and it provides the basics of events in Netwire:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Wire</span> e a b <span class="fu">=</span> <span class="dt">Wire</span> (<span class="dt">Time</span> <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> (<span class="dt">Either</span> e b, <span class="dt">Wire</span> e a b)</code></pre></div>
+<p>A <code>Wire</code> can now produce <em>either</em> a value of type <code>b</code>, or it can inhibit with type <code>e</code>. This notion of inhibition allows us to build a system of events. If a wire inhibits, then wires that are composed later will not be called - if one part of a wire inhibits, the whole composition inhibits.</p>
+<p>Events in Netwire are wires that act as the identity wire - the wire that passes input through unmodified - if certain conditions are met. For example, the <code>when</code> event is a <code>Wire</code> from <code>a</code> to <code>a</code>, but it only produces <code>a</code>s if the input satifies a given boolean predicate. If not, the <code>Wire</code> inhibits, and no value is produced until the predicate is satisfied.</p>
+<p>Now that we have wires that can inhibit, we can begin to think of what it means to run multiple wires. We simply try the first wire, and if it inhibits we try the next wire, and so on. So we can now build a velocity wire that is one of three alternatives:</p>
+<ul>
+<li>The user is pressing the “left arrow” key, so we produce -20</li>
+<li>The user is pressing the “right arrow” key, so we produce 20</li>
+<li>The user is not pressing either of these keys, so we produce 0</li>
+</ul>
+<p>The Haskell translation is simply a formalisation of the above bullet points:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">challenge2_velocity  <span class="fu">=</span>  pure (<span class="fu">-</span><span class="dv">20</span>) <span class="fu">.</span> when (keyDown <span class="dt">SDL.SDLK_LEFT</span>)
+                    <span class="fu">&lt;|&gt;</span> pure <span class="dv">20</span> <span class="fu">.</span> when (keyDown <span class="dt">SDL.SDLK_RIGHT</span>)
+                    <span class="fu">&lt;|&gt;</span> pure <span class="dv">0</span></code></pre></div>
+<p>Now we are able to write <code>challenge2</code>, which is only a minor variation on <code>challenge1</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">challenge2 ::</span> (<span class="dt">Monad</span> m, <span class="dt">Monoid</span> e) <span class="ot">=&gt;</span> <span class="dt">Wire</span> e m (<span class="dt">Set</span> <span class="dt">SDL.Keysym</span>) <span class="dt">Double</span>
+challenge2 <span class="fu">=</span> integral_ <span class="dv">0</span> <span class="fu">.</span> challenge2_velocity</code></pre></div>
+<h3 id="using-sdl-for-input">Using SDL for Input</h3>
+<p>We still need a way to provide input to this wire, and to do so we will use SDL’s event system. First, we have <code>parseEvents</code> which takes a <code>Set</code> of key presses, and returns a modified <code>Set</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">parseEvents ::</span> <span class="dt">Set</span> <span class="dt">SDL.Keysym</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> (<span class="dt">Set</span> <span class="dt">SDL.Keysym</span>)
+parseEvents keysDown <span class="fu">=</span> <span class="kw">do</span>
+  event <span class="ot">&lt;-</span> SDL.pollEvent
+  <span class="kw">case</span> event <span class="kw">of</span>
+    <span class="dt">SDL.NoEvent</span> <span class="ot">-&gt;</span> return keysDown
+    <span class="dt">SDL.KeyDown</span> k <span class="ot">-&gt;</span> parseEvents (insert k keysDown)
+    <span class="dt">SDL.KeyUp</span> k <span class="ot">-&gt;</span> parseEvents (delete k keysDown)
+    _ <span class="ot">-&gt;</span> parseEvents keysDown</code></pre></div>
+<p>Then I pass the empty set into the initial call to <code>go</code>, and <code>go</code> calls <code>parseEvents</code> to update the set. The set is then passed to <code>stepSession_</code> and passed back to <code>go</code> in the recursive call. <code>keyDown</code> is a little helper to check the set of key presses for a key, ignoring modifiers:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">keyDown ::</span> <span class="dt">SDL.SDLKey</span> <span class="ot">-&gt;</span> <span class="dt">Set</span> <span class="dt">SDL.Keysym</span> <span class="ot">-&gt;</span> <span class="dt">Bool</span>
+keyDown k <span class="fu">=</span> not <span class="fu">.</span> null <span class="fu">.</span> filter ((<span class="fu">==</span> k) <span class="fu">.</span> SDL.symKey)</code></pre></div>
+<p>The full code for this challenge can be found <a href="https://github.com/ocharles/ocharles.org.uk--Getting-Started-with-Netwire-and-SDL/blob/master/Challenge2.hs">here</a>.</p>
+<h2 id="challenge-3-reacting-to-collisions">Challenge 3: Reacting to Collisions</h2>
+<p>Take a deep breath, because this challenge is going to be a step up from the rest!</p>
+<p><em>Challenge 3: Allow the user to move a square around with the arrow keys. Arrow key presses should apply acceleration to the square. If the square attempts to move out of the bounds of the window, the velocity in that direction should be negated, causing the square to bounce off the wall.</em></p>
+<p>Phew, quite a bit to do here! Firstly, lets briefly cover acceleration. To get position from acceleration, we have to integrate twice - we integrate acceleration to get velocity, and we integrate velocity to get position. Unfortunately, we can’t just use <code>integral_</code> anymore, as we need to encode more logic.</p>
+<p>The extra logic is required for both the velocity and the position wires. For the velocity wire, we need to change the velocity depending on whether or not a collision has occured. For the position wire, we need to clamp to the world bounds.</p>
+<p>Again, it’s helpful to think by starting with the types, so lets sketch those out:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">acceleration ::</span> <span class="dt">Wire</span> e m (<span class="dt">Set</span> <span class="dt">SDL.Keysym</span>) <span class="dt">Double</span>
+<span class="ot">velocity ::</span> <span class="dt">Wire</span> e m (<span class="dt">Double</span>, <span class="dt">Bool</span>) <span class="dt">Double</span>
+<span class="ot">position ::</span> <span class="dt">Wire</span> e m <span class="dt">Double</span> (<span class="dt">Double</span>, <span class="dt">Bool</span>)</code></pre></div>
+<p>That got quite a bit more complicated! <code>acceleration</code> is now a <code>Wire</code> that transform the set of key presses into an acceleration. <code>velocity</code> takes acceleration and a boolean representing whether a collision has occured, and produces a velocity. Finally, <code>position</code> takes a velocity, and returns a pair of position, and whether collisions occured - that is, whether the position had to be adjusted to stay within the bounds of our world.</p>
+<p>The <code>acceleration</code> wire is easy, that’s just the same as <code>challenge2_velocity</code> except we are repurposing it. Let’s next move on to implementing the <code>velocity</code> wire.</p>
+<p><code>integralLim_</code> is a function that Netwire provides us that is the same as <code>integral_</code>, except we also get a post-update function. This post-update function takes three values as input - the old and new values, and also some extra state that we can choose. This post update function thus determines the new value of the integration, and integration will continue from whatever value is returned (we can think of this as giving us the ability to vary the constant of integration). Thus we can either flip the velocity or leave it unchanged, depending on whether collisions occured:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">velocity ::</span> <span class="dt">Wire</span> e m (<span class="dt">Double</span>, <span class="dt">Bool</span>) <span class="dt">Double</span>
+velocity <span class="fu">=</span> integralLim_ bounce <span class="dv">0</span>
+  <span class="kw">where</span> bounce collisions _ v <span class="fu">|</span> collisions <span class="fu">=</span> <span class="fu">-</span>v
+                              <span class="fu">|</span> otherwise  <span class="fu">=</span> v</code></pre></div>
+<p>Now we only have to write <code>position</code>. <code>position</code> is again too much for <code>integral_</code> to handle, but we also can’t use <code>integralLim_</code> as we need to return some extra information out of the wire (whether collisions occured), which <code>integralLim_</code> cannot do. Thus we will implement <code>position</code> using <code>accumT</code>, which is the underlying accumulator that the <code>integral</code> family of functions build on.</p>
+<p>We accumulate starting at position 0 and assuming no collisions have happened. At every instant, we move the square by the incoming velocity, scaled by the amount of time that has elapsed. If this position falls outside the world bounds, we adjust the square (with a small epsilon to stop it getting stuck in the wall) and return the collision information:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">position ::</span> <span class="dt">Wire</span> e m <span class="dt">Double</span> (<span class="dt">Double</span>, <span class="dt">Bool</span>)
+position <span class="fu">=</span> accumT clamp (<span class="dv">0</span>, <span class="dt">False</span>)
+  <span class="kw">where</span> clamp dt (x, _) v <span class="fu">=</span>
+          <span class="kw">let</span> x' <span class="fu">=</span> x <span class="fu">+</span> dt <span class="fu">*</span> v
+              coll <span class="fu">=</span> x <span class="fu">&lt;</span> <span class="dv">0</span> <span class="fu">||</span> x <span class="fu">&gt;</span> <span class="dv">150</span>
+              bounded <span class="fu">=</span> <span class="kw">if</span> coll <span class="kw">then</span> max <span class="dv">1</span> (min <span class="dv">149</span> x') <span class="kw">else</span> x'
+          <span class="kw">in</span> (bounded, coll)</code></pre></div>
+<h3 id="arrowloop-and-recursion">ArrowLoop and Recursion</h3>
+<p>We have all the <code>Wire</code>s we need now, and the last piece of the puzzle is to put them together. But there’s a catch - lets look at the types of <code>velocity</code> and <code>position</code> again:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">velocity ::</span> <span class="dt">Wire</span> e m (<span class="dt">Double</span>, <span class="dt">Bool</span>) <span class="dt">Double</span>
+<span class="ot">position ::</span> <span class="dt">Wire</span> e m <span class="dt">Double</span> (<span class="dt">Double</span>, <span class="dt">Bool</span>)</code></pre></div>
+<p>To run <code>velocity</code>, we have to supply <code>(Double, Bool)</code>, but to get the <code>(Double, Bool)</code> tuple we have to run the <code>position</code> wire. And to run <code>position</code> we have to run <code>velocity</code>, which needs <code>position</code>… uh oh!</p>
+<p>The solution here is to use the <code>ArrowLoop</code> instance of <code>Wire</code>, which allows us to create <em>recursive bindings</em>. <code>ArrowLoop</code> is far too magical for me to understand and write by hand, but thankfully we have arrow notation in Haskell to allow us to easily create loops. The final game wire is:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">challenge3 ::</span> (<span class="dt">MonadFix</span> m, <span class="dt">Monoid</span> e) <span class="ot">=&gt;</span> <span class="dt">Wire</span> e m (<span class="dt">Set</span> <span class="dt">SDL.Keysym</span>) <span class="dt">Double</span>
+challenge3 <span class="fu">=</span> proc keysDown <span class="ot">-&gt;</span> <span class="kw">do</span>
+  accel <span class="ot">&lt;-</span> acceleration <span class="fu">-&lt;</span> keysDown
+  rec (position, collisions) <span class="ot">&lt;-</span> position <span class="fu">-&lt;</span> velocity
+      velocity <span class="ot">&lt;-</span> velocity <span class="fu">-&lt;</span> (accel, collisions)
+  returnA <span class="fu">-&lt;</span> position</code></pre></div>
+<p>The complete listing for challenge 3 can be found <a href="https://github.com/ocharles/ocharles.org.uk--Getting-Started-with-Netwire-and-SDL/blob/master/Challenge3.hs">here</a>.</p>
+<h2 id="extra-challenges">Extra Challenges</h2>
+<p>More exercises that you might like to consider are:</p>
+<ul>
+<li><p>Moving vertically as well as horizontally. <code>Data.VectorSpace</code> (which Netwire depends on) makes this a breeze - it’s mostly a case of changing acceleration, velocity and position to take a pair rather than a <code>Double</code>.</p></li>
+<li><p>Adding friction. Try and “absorb” some of the energy when collisions happen, or when no acceleration is applied.</p></li>
+<li><p>Limiting the velocity. Currently the velocity has no limit, but most things don’t move with a limitless velocity!</p></li>
+</ul>
+<h2 id="concluding-thoughts">Concluding Thoughts</h2>
+<p>Learning Netwire has been a challenging experience, but quite possibly some of the most rewarding learning I’ve done all year. I haven’t experienced excitement and amazement this strong since I originally began my programming hobby writing games in BASIC many moons ago. I imagine this is partly because building real-time interactive applications is very personal and imersive, but also because it’s been so challenging to get simple things done which has made me much more appreciative when I get results.</p>
+<p>But you didn’t come here for me to get all nostalgic about the good ol’ days. In my opinion, Netwire (and FRP in general) embodies a fundamental shift in thinking, and so far it’s feeling like one that is a shift in the right direction. That said, this stuff requires a lot of mental rewiring, and thus it can be pretty tough at times. I can’t say for sure if FRP is the future of game programming, but it’s certainly the immediate future for my hobby projects.</p>
+<p>There’s more to Netwire that I haven’t even covered, too. We haven’t looked at actually using the inhibition value (the <code>e</code> parameter), nor have we made use of the <code>Monad m</code> parameter. For example, you can use the latter to carry static information across wires via a <code>Reader</code> monad which may be easier than plumbing it through all the wires.</p>
+<p>There are also a lot more prefabricated <code>Wire</code>s and <code>Wire</code> transformers - just have a look at <code>Control.Wire.Prefab</code> and <code>Control.Wire.Trans</code> to get a taste of what you get straight out of the box.</p>
+<p>I highly recommend giving Netwire a try. The Haskell game programming community is under-represented, and hopefully will encourage you to give it a shot - I look forward to seeing what people come up with!</p>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2013-08-01-getting-started-with-netwire-and-sdl.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

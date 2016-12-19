@@ -1,0 +1,1219 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+  
+  
+
+  
+
+
+  
+<!-- Mirrored from ghc.haskell.org/trac/ghc/wiki/Commentary/Compiler/CmmType by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:20 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <title>
+      Commentary/Compiler/CmmType – GHC
+    </title>
+      <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+      <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!--[if IE]><script type="text/javascript">
+      if (/^#__msie303:/.test(window.location.hash))
+        window.location.replace(window.location.hash.replace(/^#__msie303:/, '#'));
+    </script><![endif]-->
+        <link rel="search" href="https://ghc.haskell.org/trac/ghc/search" />
+        <link rel="help" href="https://ghc.haskell.org/trac/ghc/wiki/TracGuide" />
+        <link rel="alternate" href="https://ghc.haskell.org/trac/ghc/wiki/Commentary/Compiler/CmmType?format=txt" type="text/x-trac-wiki" title="Plain Text" />
+        <link rel="up" href="https://ghc.haskell.org/trac/ghc/wiki/Commentary/Compiler" title="View parent page" />
+        <link rel="start" href="https://ghc.haskell.org/trac/ghc/wiki" />
+        <link rel="stylesheet" href="https://ghc.haskell.org/trac-1.0.7-htdocs/css/trac.css" type="text/css" /><link rel="stylesheet" href="https://ghc.haskell.org/trac-1.0.7-htdocs/css/wiki.css" type="text/css" /><link rel="stylesheet" href="https://ghc.haskell.org/trac/ghc/chrome/wikiextras/css/phrases.css" type="text/css" /><link rel="stylesheet" href="https://ghc.haskell.org/trac/ghc/chrome/wikiextras/css/boxes.css" type="text/css" /><link rel="stylesheet" href="https://ghc.haskell.org/trac/ghc/wikiextras/dynamicboxes.css" type="text/css" />
+        <link rel="shortcut icon" href="https://ghc.haskell.org/trac/ghc/chrome/common/trac.ico" type="image/x-icon" />
+        <link rel="icon" href="https://ghc.haskell.org/trac/ghc/chrome/common/trac.ico" type="image/x-icon" />
+    <style id="trac-noscript" type="text/css">.trac-noscript { display: none !important }</style>
+      <link type="application/opensearchdescription+xml" rel="search" href="https://ghc.haskell.org/trac/ghc/search/opensearch" title="Search GHC" />
+      <script type="text/javascript" charset="utf-8" src="https://ghc.haskell.org/trac-1.0.7-htdocs/js/jquery.js"></script>
+      <script type="text/javascript" charset="utf-8" src="https://ghc.haskell.org/trac-1.0.7-htdocs/js/babel.js"></script>
+      <script type="text/javascript" charset="utf-8" src="https://ghc.haskell.org/trac-1.0.7-htdocs/js/trac.js"></script>
+      <script type="text/javascript" charset="utf-8" src="https://ghc.haskell.org/trac-1.0.7-htdocs/js/search.js"></script>
+      <script type="text/javascript" charset="utf-8" src="https://ghc.haskell.org/trac-1.0.7-htdocs/js/folding.js"></script>
+    <script type="text/javascript">
+      jQuery("#trac-noscript").remove();
+      jQuery(document).ready(function($) {
+        $(".trac-autofocus").focus();
+        $(".trac-target-new").attr("target", "_blank");
+        setTimeout(function() { $(".trac-scroll").scrollToTop() }, 1);
+        $(".trac-disable-on-submit").disableOnSubmit();
+      });
+    </script>
+    <script type="text/javascript">
+      jQuery(document).ready(function($) {
+        $("#content").find("h1,h2,h3,h4,h5,h6").addAnchor(_("Link to this section"));
+        $("#content").find(".wikianchor").each(function() {
+          $(this).addAnchor(babel.format(_("Link to #%(id)s"), {id: $(this).attr('id')}));
+        });
+        $(".foldable").enableFolding(true, true);
+      });
+    </script>
+  </head>
+  <body>
+    <div id="banner">
+      <div id="header">
+        <a id="logo" href="http://www.haskell.org/ghc/"><img src="https://ghc.haskell.org/trac/ghc/chrome/site/ghc_logo.png" alt="Trac" height="73" width="584" /></a>
+      </div>
+      <form id="search" action="https://ghc.haskell.org/trac/ghc/search" method="get">
+        <div>
+          <label for="proj-search">Search:</label>
+          <input type="text" id="proj-search" name="q" size="18" value="" />
+          <input type="submit" value="Search" />
+        </div>
+      </form>
+      <div id="metanav" class="nav">
+    <ul>
+      <li class="first"><a href="https://ghc.haskell.org/trac/ghc/login">Login</a></li><li><a href="https://ghc.haskell.org/trac/ghc/wiki/TracGuide">Help/Guide</a></li><li><a href="https://ghc.haskell.org/trac/ghc/about">About Trac</a></li><li><a href="https://ghc.haskell.org/trac/ghc/prefs">Preferences</a></li><li class="last"><a href="https://ghc.haskell.org/trac/ghc/register">Register</a></li>
+    </ul>
+  </div>
+    </div>
+    <div id="mainnav" class="nav">
+    <ul>
+      <li class="first active"><a href="https://ghc.haskell.org/trac/ghc/wiki">Wiki</a></li><li><a href="https://ghc.haskell.org/trac/ghc/timeline">Timeline</a></li><li><a href="https://ghc.haskell.org/trac/ghc/roadmap">Roadmap</a></li><li><a href="https://ghc.haskell.org/trac/ghc/browser">Browse Source</a></li><li><a href="https://ghc.haskell.org/trac/ghc/report">View Tickets</a></li><li><a href="https://ghc.haskell.org/trac/ghc/search">Search</a></li><li class="last"><a href="https://ghc.haskell.org/trac/ghc/blog">Blog</a></li>
+    </ul>
+  </div>
+    <div id="main">
+      <div id="pagepath" class="noprint">
+  <a class="pathentry first" title="View WikiStart" href="https://ghc.haskell.org/trac/ghc/wiki">wiki:</a><a class="pathentry" href="https://ghc.haskell.org/trac/ghc/wiki/Commentary" title="View Commentary">Commentary</a><span class="pathentry sep">/</span><a class="pathentry" href="https://ghc.haskell.org/trac/ghc/wiki/Commentary/Compiler" title="View Commentary/Compiler">Compiler</a><span class="pathentry sep">/</span><a class="pathentry" href="CmmType.html" title="View Commentary/Compiler/CmmType">CmmType</a>
+</div>
+      <div id="ctxtnav" class="nav">
+        <h2>Context Navigation</h2>
+        <ul>
+          <li class="first"><a href="https://ghc.haskell.org/trac/ghc/wiki/Commentary/Compiler">Up</a></li><li><a href="https://ghc.haskell.org/trac/ghc/wiki/WikiStart">Start Page</a></li><li><a href="https://ghc.haskell.org/trac/ghc/wiki/TitleIndex">Index</a></li><li class="last"><a href="https://ghc.haskell.org/trac/ghc/wiki/Commentary/Compiler/CmmType?action=history">History</a></li>
+        </ul>
+        <hr />
+      </div>
+    <div id="ghc-wrap" style="padding: 0; margin 0; width: 100%; border: 0; min-height: 45em;">
+      <div id="ghc-sidebar" style="border: 1px solid #bbb; margin-top: 0px; width: 136px; border-radius: 0.5em; position: absolute; background-color: #D6F3D6; box-shadow: 1px 1px 10px #aaa;">
+  <ul style="list-style: none; padding: 9px; font-size: 85%; margin: 0;">
+    <li><a href="http://ghc.haskell.org/trac/ghc">GHC Trac Home</a></li>
+    <li><a href="http://www.haskell.org/ghc/">GHC Home</a></li>
+    <li> </li>
+    <li><b>Joining In</b></li>
+    <li><a href="https://ghc.haskell.org/trac/ghc/wiki/ReportABug">Report a bug</a></li>
+    <li><a href="https://ghc.haskell.org/trac/ghc/wiki/Newcomers">Newcomers info</a></li>
+    <li><a href="https://ghc.haskell.org/trac/ghc/wiki/MailingListsAndIRC">Mailing Lists &amp; IRC</a></li>
+    <li><a href="https://ghc.haskell.org/trac/ghc/wiki/TeamGHC">The GHC Team</a></li>
+    <li> </li>
+    <li><b>Documentation</b></li>
+    <li><a href="https://ghc.haskell.org/trac/ghc/wiki/Status">GHC Status Info</a></li>
+    <li><a href="https://ghc.haskell.org/trac/ghc/wiki/Building">Building Guide</a></li>
+    <li><a href="https://ghc.haskell.org/trac/ghc/wiki/WorkingConventions">Working conventions</a></li>
+    <li><a href="https://ghc.haskell.org/trac/ghc/wiki/Commentary">Commentary</a></li>
+    <li><a href="https://ghc.haskell.org/trac/ghc/wiki/Debugging">Debugging</a></li>
+    <li><a href="https://ghc.haskell.org/trac/ghc/wiki/Infrastructure">Infrastructure</a></li>
+    <li> </li>
+    <li><b>View Tickets</b></li>
+    <li><a href="https://ghc.haskell.org/trac/ghc/query?status=infoneeded&amp;status=new&amp;status=patch&amp;order=priority&amp;owner=$USER">My Tickets</a></li>
+    <li><a href="https://ghc.haskell.org/trac/ghc/query?status=infoneeded&amp;status=new&amp;status=patch&amp;order=priority&amp;reporter=$USER">Tickets I Created</a></li>
+    <li><a href="https://ghc.haskell.org/trac/ghc/query?status=new&amp;status=assigned&amp;status=reopened&amp;group=milestone&amp;order=priority">By Milestone</a></li>
+    <li><a href="https://ghc.haskell.org/trac/ghc/query?status=new&amp;status=assigned&amp;status=reopened&amp;group=os&amp;order=priority">By OS</a></li>
+    <li><a href="https://ghc.haskell.org/trac/ghc/query?status=new&amp;status=assigned&amp;status=reopened&amp;group=architecture&amp;order=priority">By Architecture</a></li>
+    <li><a href="https://ghc.haskell.org/trac/ghc/query?status=patch&amp;ol=id&amp;col=summary&amp;col=owner&amp;col=type&amp;col=priority&amp;col=milestone&amp;col=component&amp;order=priority&amp;differential=">Patches for review</a></li>
+    <li> </li>
+    <li><b>Create Ticket</b></li>
+    <li><a href="https://ghc.haskell.org/trac/ghc/newticket?type=bug">New Bug</a></li>
+    <li><a href="https://ghc.haskell.org/trac/ghc/newticket?type=task">New Task</a></li>
+    <li><a href="https://ghc.haskell.org/trac/ghc/newticket?type=feature+request">New Feature Req</a></li>
+    <li> </li>
+    <li><b>Wiki</b></li>
+    <li><a href="https://ghc.haskell.org/trac/ghc/wiki/TitleIndex">Title Index</a></li>
+    <li><a href="https://ghc.haskell.org/trac/ghc/wiki/RecentChanges">Recent Changes</a></li>
+    <li><a href="https://ghc.haskell.org/trac/ghc/wiki/TracWikiMisc">Wiki Notes</a></li>
+  </ul>
+</div>
+      <div id="ghc-content" style="margin-left: 150px;">
+        <div id="content" class="wiki">
+      <div class="wikipage searchable">
+        
+          <div id="wikipage" class="trac-content"><h3 id="NoteToReader">Note To Reader</h3>
+<p>
+This page was written with more detail than usual since you may need to know how to work with Cmm as a programming language.  Cmm is the basis for the future of GHC, Native Code Generation, and if you are interested in hacking Cmm at least this page might help reduce your learning curve.  As a finer detail, if you read the <a class="wiki" href="https://ghc.haskell.org/trac/ghc/wiki/Commentary/Compiler/HscMain">Compiler pipeline</a> wiki page or glanced at the diagram there you may have noticed that whether you are working backward from an <tt>intermediate C</tt> (Haskell-C "HC", <tt>.hc</tt>) file or an Assembler file you get to Cmm before you get to the STG language, the Simplifier or anything else.  In other words, for really low-level debugging you may have an easier time if you know what Cmm is about.  Cmm also has opportunities for implementing small and easy hacks, such as little optimisations and implementing new Cmm Primitive Operations.
+</p>
+<p>
+A portion of the <a class="wiki" href="https://ghc.haskell.org/trac/ghc/wiki/Commentary/Rts">RTS</a> is written in Cmm: <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/rts/Apply.cmm">rts/Apply.cmm</a>, <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/rts/Exception.cmm">rts/Exception.cmm</a>, <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/rts/HeapStackCheck.cmm">rts/HeapStackCheck.cmm</a>, <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/rts/PrimOps.cmm">rts/PrimOps.cmm</a>, <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/rts/StgMiscClosures.cmm">rts/StgMiscClosures.cmm</a>, <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/rts/StgStartup.cmm">rts/StgStartup.cmm</a> and <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/StgStdThunks.cmm">StgStdThunks.cmm</a>.  (For notes related to <tt>PrimOps.cmm</tt> see the <a class="wiki" href="https://ghc.haskell.org/trac/ghc/wiki/Commentary/PrimOps">PrimOps</a> page; for much of the rest, see the <a class="wiki" href="https://ghc.haskell.org/trac/ghc/wiki/Commentary/Rts/HaskellExecution">HaskellExecution</a> page.)  Cmm is optimised before GHC outputs either HC or Assembler.  The C compiler (from HC, pretty printed by <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/PprC.hs">compiler/cmm/PprC.hs</a>) and the <a class="wiki" href="https://ghc.haskell.org/trac/ghc/wiki/Commentary/Compiler/Backends/NCG">Native Code Generator</a> (NCG) <a class="wiki" href="https://ghc.haskell.org/trac/ghc/wiki/Commentary/Compiler/Backends">Backends</a> are closely tied to data representations and transformations performed in Cmm.  In GHC, Cmm roughly performs a function similar to the intermediate <a class="ext-link" href="http://gcc.gnu.org/onlinedocs/gccint/RTL.html"><span class="icon">​</span>Register Transfer Language (RTL)</a> in GCC.
+</p>
+<h1 id="TableofContents">Table of Contents</h1>
+<ol><li><a class="wiki" href="CmmType.html#AdditionsinCmm">Additions in Cmm</a>
+</li><li><a class="wiki" href="CmmType.html#CompilingCmmwithGHC">Compiling Cmm with GHC</a>
+</li><li><a class="wiki" href="CmmType.html#BasicCmm">Basic Cmm</a>
+<ol><li><a class="wiki" href="CmmType.html#CodeBlocksinCmm">Code Blocks in Cmm</a>
+<ul><li><a class="wiki" href="CmmType.html#BasicBlocksandProcedures">Basic Blocks and Procedures</a>
+</li></ul></li><li><a class="wiki" href="CmmType.html#VariablesRegistersandTypes">Variables, Registers and Types</a>
+<ol><li><a class="wiki" href="CmmType.html#LocalRegisters">Local Registers</a>
+</li><li><a class="wiki" href="CmmType.html#GlobalRegistersandHints">Global Registers and Hints</a>
+</li><li><a class="wiki" href="CmmType.html#DeclarationandInitialisation">Declaration and Initialisation</a>
+</li><li><a class="wiki" href="CmmType.html#MemoryAccess">Memory Access</a>
+</li></ol></li><li><a class="wiki" href="CmmType.html#LiteralsandLabels">Literals and Labels</a>
+<ul><li><a class="wiki" href="CmmType.html#Labels">Labels</a>
+</li></ul></li><li><a class="wiki" href="CmmType.html#SectionsandDirectives">Sections and Directives</a>
+<ul><li><a class="wiki" href="CmmType.html#TargetDirective">Target Directive</a>
+</li></ul></li><li><a class="wiki" href="CmmType.html#Expressions">Expressions</a>
+<ul><li><a class="wiki" href="CmmType.html#QuasioperatorSyntax">Quasi-operator Syntax</a>
+</li></ul></li><li><a class="wiki" href="CmmType.html#StatementsandCalls">Statements and Calls</a>
+<ul><li><a class="wiki" href="CmmType.html#CmmCalls">Cmm Calls</a>
+</li></ul></li><li><a class="wiki" href="CmmType.html#OperatorsandPrimitiveOperations">Operators and Primitive Operations</a>
+<ol><li><a class="wiki" href="CmmType.html#Operators">Operators</a>
+</li><li><a class="wiki" href="CmmType.html#PrimitiveOperations">Primitive Operations</a>
+</li></ol></li></ol></li><li><a class="wiki" href="CmmType.html#CmmDesign:ObservationsandAreasforPotentialImprovement">Cmm Design: Observations and Areas for Potential Improvement</a>
+</li></ol><h1 id="TheCmmlanguage">The Cmm language</h1>
+<p>
+<tt>Cmm</tt> is the GHC implementation of the <tt>C--</tt> language; it is also the extension of Cmm source code files: <tt>.cmm</tt> (see <a class="wiki" href="https://ghc.haskell.org/trac/ghc/wiki/Commentary/Rts/Cmm">What the hell is a .cmm file?</a>).  The GHC <a class="wiki" href="https://ghc.haskell.org/trac/ghc/wiki/Commentary/Compiler/CodeGen">Code Generator</a> (<tt>CodeGen</tt>) compiles the STG program into <tt>C--</tt> code, represented by the <tt>Cmm</tt> data type.  This data type follows the <a class="ext-link" href="http://www.cminusminus.org/"><span class="icon">​</span>definition of `C--`</a> pretty closely but there are some remarkable differences.  For a discussion of the Cmm implementation noting most of those differences, see the <a class="wiki" href="CmmType.html#BasicCmm">Basic Cmm</a> section, below.
+</p>
+<ul><li><a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/Cmm.hs">compiler/cmm/Cmm.hs</a>: the main data type definition.
+</li><li><a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/MachOp.hs">compiler/cmm/MachOp.hs</a>: data types defining the machine operations (e.g. floating point divide) provided by <tt>Cmm</tt>.
+</li><li><a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/CLabel.hs">compiler/cmm/CLabel.hs</a>: data type for top-level <tt>Cmm</tt> labels.
+</li></ul><ul><li><a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/PprCmm.hs">compiler/cmm/PprCmm.hs</a>: pretty-printer for <tt>Cmm</tt>.
+</li><li><a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/CmmUtils.hs">compiler/cmm/CmmUtils.hs</a>: operations over <tt>Cmm</tt>
+</li></ul><ul><li><a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/CmmLint.hs">compiler/cmm/CmmLint.hs</a>: a consistency checker.
+</li><li><a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/CmmOpt.hs">compiler/cmm/CmmOpt.hs</a>: an optimiser for <tt>Cmm</tt>.
+</li></ul><ul><li><a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/CmmParse.y">compiler/cmm/CmmParse.y</a>, <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/CmmLex.x">compiler/cmm/CmmLex.x</a>: parser and lexer for <a class="wiki" href="https://ghc.haskell.org/trac/ghc/wiki/Commentary/Rts/Cmm">.cmm files</a>.
+</li></ul><ul><li><a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/PprC.hs">compiler/cmm/PprC.hs</a>: pretty-print <tt>Cmm</tt> in C syntax, when compiling via C.
+</li></ul><h2 id="AdditionsinCmm">Additions in Cmm</h2>
+<p>
+Although both Cmm and C-- allow foreign calls, the <tt>.cmm</tt> syntax includes the 
+</p>
+<pre class="wiki">foreign "C" cfunctionname(R1) [R2];
+</pre><p>
+The [R2] part is the (set of) register(s) that you need to save over the call.
+</p>
+<p>
+Other additions to C-- are noted throughout the <a class="wiki" href="CmmType.html#BasicCmm">Basic Cmm</a> section, below.
+</p>
+<h2 id="CompilingCmmwithGHC">Compiling Cmm with GHC</h2>
+<p>
+GHC is able to compile <tt>.cmm</tt> files with a minimum of user-effort.  To compile <tt>.cmm</tt> files, simply invoke the main GHC driver but remember to:
+</p>
+<ul><li>add the option <tt>-dcmm-lint</tt> if you have handwritten Cmm code;
+</li><li>add appropriate includes, especially <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/includes/Cmm.h">includes/Cmm.h</a> if you are using Cmm macros or GHC defines for certain types, such as <tt>W_</tt> for <tt>bits32</tt> or <tt>bits64</tt> (depending on the machine word size)--<tt>Cmm.h</tt> is in the <tt>/includes</tt> directory of every GHC distribution, i.e., <tt>usr/local/lib/ghc-6.6/includes</tt>; and,
+</li><li>if you do include GHC header files, remember to pass the code through the C preprocessor by adding the <tt>-cpp</tt> option.
+</li></ul><p>
+For additional fun, you may pass GHC the <tt>-keep-s-file</tt> option to keep the temporary assembler file in your compile directory.
+For example:
+</p>
+<pre class="wiki">ghc -cpp -dcmm-lint -keep-s-file -c Foo.cmm -o Foo.o
+</pre><p>
+This will only work with very basic Cmm files.  If you noticed that GHC currently provides no <tt>-keep-cmm-file</tt> option and <tt>-keep-tmp-files</tt> does not save a <tt>.cmm</tt> file and you are thinking about redirecting output from <tt>-ddump-cmm</tt>, beware. The output from <tt>-ddump-cmm</tt> contains equal-lines and dash-lines separating Cmm Blocks and Basic Blocks; these are unparseable.  The parser also cannot handle <tt>const</tt> sections.  For example, the parser will fail on the first <tt>0</tt> or alphabetic token after <tt>const</tt>:
+</p>
+<pre class="wiki">section "data" {
+    rOG_closure:
+        const rOG_info;	// parse error `rOG_info'
+        const 0;	// parse error `0'
+        const 0;
+        const 0;
+}
+</pre><p>
+Although GHC's Cmm pretty printer outputs C-- standard parenthetical list of arguments after procedure names, i.e., <tt>()</tt>, the Cmm parser will fail at the <tt>(</tt> token.  For example:
+</p>
+<pre class="wiki">__stginit_Main_() {	// parse error `('
+    cUX:
+        Sp = Sp + 4;
+        jump (I32[Sp + (-4)]);
+}
+</pre><p>
+The Cmm procedure names in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/rts/PrimOps.cmm">rts/PrimOps.cmm</a> are not followed by a (possibly empty) parenthetical list of arguments; all their arguments are Global (STG) Registers, anyway, see <a class="wiki" href="CmmType.html#VariablesRegistersandTypes">Variables, Registers and Types</a>, below.  Don't be confused by the procedure definitions in other handwritten <tt>.cmm</tt> files in the RTS, such as <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/rts/Apply.cmm">rts/Apply.cmm</a>: all-uppercase procedure invocations are special reserved tokens in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/CmmLex.x">compiler/cmm/CmmLex.x</a> and <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/CmmParse.y">compiler/cmm/CmmParse.y</a>.  For example, <tt>INFO_TABLE</tt> is parsed as one of the tokens in the Alex <tt>info</tt> predicate:
+</p>
+<pre class="wiki">info	:: { ExtFCode (CLabel, [CmmLit],[CmmLit]) }
+	: 'INFO_TABLE' '(' NAME ',' INT ',' INT ',' INT ',' STRING ',' STRING ')'
+		-- ptrs, nptrs, closure type, description, type
+		{ stdInfo $3 $5 $7 0 $9 $11 $13 }
+</pre><p>
+GHC's Cmm parser also cannot parse nested code blocks.  For example:
+</p>
+<pre class="wiki">s22Q_ret() {
+	s22Q_info {  	// parse error `{'
+		const Main_main_srt-s22Q_info+24;
+		const 0;
+		const 2228227;
+	}
+    c23f:
+	R2 = base_GHCziHandle_stdout_closure;
+	R3 = 10;
+	Sp = Sp + 4;    /* Stack pointer */
+	jump base_GHCziIO_zdwhPutChar_info;
+}
+</pre><p>
+The C-- specification example in section 4.6.2, "Procedures as section contents" also will not parse in Cmm:
+</p>
+<pre class="wiki">section "data" { 
+	const PROC = 3; 	// parse error `PROC' (no parse after 'const')
+	bits32[] {p_end, PROC}; // parse error `[' (only bits8[] is allowed)
+				// parse error `{' (no {...} variable initialisation)
+
+	p (bits32 i) {	// parse error `{' (Cmm thinks "p (bits32 i)" is a statement)
+		loop: 
+			i = i-1; 
+		if (i &gt;= 0) { goto loop ; }	// no parse error 
+						// (if { ... } else { ... } *is* parseable)
+		return; 
+	} 
+	p_end: 
+} 
+</pre><p>
+Note that if <tt>p (bits32 i) { ... }</tt> were written as a Cmm-parseable procedure, as <tt>p { ... }</tt>, the parse error would occur at the closing curly bracket for the <tt>section "data" { ... p { ... } }</tt>&lt;- here.
+</p>
+<h2 id="BasicCmm">Basic Cmm</h2>
+<p>
+<span class="wikiextras phrase fixme">FIXME</span> The links in this section are dead. But the files can be found here: <a class="ext-link" href="http://www.cs.tufts.edu/~nr/c--/index.html"><span class="icon">​</span>http://www.cs.tufts.edu/~nr/c--/index.html</a>. Relevant discussion about the documentations of C--: <a class="ext-link" href="https://mail.haskell.org/pipermail/ghc-devs/2014-September/006301.html"><span class="icon">​</span>https://mail.haskell.org/pipermail/ghc-devs/2014-September/006301.html</a>
+</p>
+<p>
+Cmm is a high level assembler with a syntax style similar to C.  This section describes Cmm by working up from assembler--the C-- papers and specification work down from C.  At the least, you should know what a "high level" assembler is, see <a class="ext-link" href="http://webster.cs.ucr.edu/AsmTools/HLA/HLADoc/HLARef/HLARef3.html#1035157"><span class="icon">​</span>What is a High Level Assembler?</a>.  Cmm is different than other high level assembler languages in that it was designed to be a semi-portable intermediate language for compilers; most other high level assemblers are designed to make the tedium of assembly language more convenient and intelligible to humans.  If you are completely new to C--, I highly recommend these papers listed on the <a class="ext-link" href="http://cminusminus.org/papers.html"><span class="icon">​</span>C-- Papers</a> page:
+</p>
+<ul><li><a class="ext-link" href="http://cminusminus.org/abstracts/ppdp.html"><span class="icon">​</span>C--: A Portable Assembly Language that Supports Garbage Collection (1999)</a> (Paper page with Abstract)
+</li><li><a class="ext-link" href="http://cminusminus.org/abstracts/pal-ifl.html"><span class="icon">​</span>C--: A Portable Assembly Language (1997)</a> (Paper page with Abstract)
+</li><li><a class="ext-link" href="http://cminusminus.org/abstracts/c--pldi-00.html"><span class="icon">​</span>A Single Intermediate Language That Supports Multiple Implementations of Exceptions (2000)</a> (Paper page with Abstract)
+</li><li><a class="ext-link" href="http://cminusminus.org/extern/man2.pdf"><span class="icon">​</span>The C-- Language Specification Version 2.0 (CVS Revision 1.128, 23 February 2005)</a> (PDF)
+</li></ul><p>
+Cmm is not a stand alone C-- compiler; it is an implementation of C-- embedded in the GHC compiler.  One difference between Cmm and a C-- compiler like <a class="ext-link" href="http://cminusminus.org/code.html"><span class="icon">​</span>Quick C--</a> is this: Cmm uses the C preprocessor (cpp).  Cpp lets Cmm <em>integrate</em> with C code, especially the C header defines in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/includes">includes</a>, and among many other consequences it makes the C-- <tt>import</tt> and <tt>export</tt> statements irrelevant; in fact, according to <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/CmmParse.y">compiler/cmm/CmmParse.y</a> they are ignored.  The most significant action taken by the Cmm modules in the Compiler is to optimise Cmm, through <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/CmmOpt.hs">compiler/cmm/CmmOpt.hs</a>.  The Cmm Optimiser generally runs a few simplification passes over primitive Cmm operations, inlines simple Cmm expressions that do not contain global registers (these would be left to one of the <a class="wiki" href="https://ghc.haskell.org/trac/ghc/wiki/Commentary/Compiler/Backends">Backends</a>, which currently cannot handle inlines with global registers) and performs a simple loop optimisation. 
+</p>
+<h3 id="CodeBlocksinCmm">Code Blocks in Cmm</h3>
+<p>
+The Haskell representation of Cmm separates contiguous code into:
+</p>
+<ul><li><em>modules</em> (compilation units; a <tt>.cmm</tt> file); and
+</li><li><em>basic blocks</em>
+</li></ul><p>
+Cmm modules contain static data elements (see <a class="wiki" href="CmmType.html#LiteralsandLabels">Literals and Labels</a>) and <a class="wiki" href="CmmType.html#BasicBlocks:Procedures">Basic Blocks</a>, collected together in <tt>Cmm</tt>, a type synonym for <tt>GenCmm</tt>, defined in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/Cmm.hs">compiler/cmm/Cmm.hs</a>:
+</p>
+<pre>
+<font color="DarkOrchid">newtype</font> <font color="Green">GenCmm</font> <font color="Black">d</font> <font color="Black">i</font> <font color="Blue">=</font> <font color="Green">Cmm</font> <font color="Blue">[</font><font color="Green">GenCmmTop</font> <font color="Black">d</font> <font color="Black">i</font><font color="Blue">]</font>
+
+<font color="DarkOrchid">type</font> <font color="Green">Cmm</font> <font color="Blue">=</font> <font color="Green">GenCmm</font> <font color="Green">CmmStatic</font> <font color="Green">CmmStmt</font>
+
+
+<font color="DarkOrchid">data</font> <font color="Green">GenCmmTop</font> <font color="Black">d</font> <font color="Black">i</font>
+  <font color="Blue">=</font> <font color="Green">CmmProc</font>
+     <font color="Blue">[</font><font color="Black">d</font><font color="Blue">]</font>	       <font color="Crimson">-- Info table, may be empty</font>
+     <font color="Green">CLabel</font>            <font color="Crimson">-- Used to generate both info &amp; entry labels</font>
+     <font color="Blue">[</font><font color="Green">LocalReg</font><font color="Blue">]</font>        <font color="Crimson">-- Argument locals live on entry (C-- procedure params)</font>
+     <font color="Blue">[</font><font color="Green">GenBasicBlock</font> <font color="Black">i</font><font color="Blue">]</font> <font color="Crimson">-- Code, may be empty.  The first block is</font>
+                       <font color="Crimson">-- the entry point.  The order is otherwise initially </font>
+                       <font color="Crimson">-- unimportant, but at some point the code gen will</font>
+                       <font color="Crimson">-- fix the order.</font>
+
+		       <font color="Crimson">-- the BlockId of the first block does not give rise</font>
+		       <font color="Crimson">-- to a label.  To jump to the first block in a Proc,</font>
+		       <font color="Crimson">-- use the appropriate CLabel.</font>
+
+  <font color="Crimson">-- some static data.</font>
+  <font color="Blue">|</font> <font color="Green">CmmData</font> <font color="Green">Section</font> <font color="Blue">[</font><font color="Black">d</font><font color="Blue">]</font>	<font color="Crimson">-- constant values only</font>
+
+<font color="DarkOrchid">type</font> <font color="Green">CmmTop</font> <font color="Blue">=</font> <font color="Green">GenCmmTop</font> <font color="Green">CmmStatic</font> <font color="Green">CmmStmt</font>
+</pre>
+<p>
+<tt>CmmStmt</tt> is described in <a class="wiki" href="CmmType.html#StatementsandCalls">Statements and Calls</a>;<br />
+<tt>Section</tt> is described in <a class="wiki" href="CmmType.html#SectionsandDirectives">Sections and Directives</a>;<br />
+the static data in <tt>[d]</tt> is [<tt>CmmStatic</tt>] from the type synonym <tt>Cmm</tt>;<br />
+<tt>CmmStatic</tt> is described in <a class="wiki" href="CmmType.html#LiteralsandLabels">Literals and Labels</a>.
+</p>
+<h4 id="BasicBlocksandProcedures">Basic Blocks and Procedures</h4>
+<p>
+Cmm procedures are represented by the first constructor in <tt>GenCmmTop d i</tt>:
+</p>
+<pre>
+    <font color="Green">CmmProc</font> <font color="Blue">[</font><font color="Black">d</font><font color="Blue">]</font> <font color="Green">CLabel</font> <font color="Blue">[</font><font color="Green">LocalReg</font><font color="Blue">]</font> <font color="Blue">[</font><font color="Green">GenBasicBlock</font> <font color="Black">i</font><font color="Blue">]</font>
+</pre>
+<p>
+For a description of Cmm labels and the <tt>CLabel</tt> data type, see the subsection <a class="wiki" href="CmmType.html#LiteralsandLabels">Literals and Labels</a>, below.
+</p>
+<p>
+Cmm Basic Blocks are labeled blocks of Cmm code ending in an explicit jump.  Sections (see <a class="wiki" href="CmmType.html#SectionsandDirectives">Sections and Directives</a>) have no jumps--in Cmm, Sections cannot contain nested Procedures (see, e.g., <a class="wiki" href="CmmType.html#CompilingCmmwithGHC">Compiling Cmm with GHC</a>).  Basic Blocks encapsulate parts of Procedures.  The data type <tt>GenBasicBlock</tt> and the type synonym <tt>CmmBasicBlock</tt> encapsulate Basic Blocks; they are defined in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/Cmm.hs">compiler/cmm/Cmm.hs</a>:
+</p>
+<pre>
+<font color="DarkOrchid">data</font> <font color="Green">GenBasicBlock</font> <font color="Black">i</font> <font color="Blue">=</font> <font color="Green">BasicBlock</font> <font color="Green">BlockId</font> <font color="Blue">[</font><font color="Black">i</font><font color="Blue">]</font>
+
+<font color="DarkOrchid">type</font> <font color="Green">CmmBasicBlock</font> <font color="Blue">=</font> <font color="Green">GenBasicBlock</font> <font color="Green">CmmStmt</font>
+
+<font color="DarkOrchid">newtype</font> <font color="Green">BlockId</font> <font color="Blue">=</font> <font color="Green">BlockId</font> <font color="Green">Unique</font>
+  <font color="DarkOrchid">deriving</font> <font color="Blue">(</font><font color="Green">Eq</font><font color="Blue">,</font><font color="Green">Ord</font><font color="Blue">)</font>
+
+<font color="DarkOrchid">instance</font> <font color="Green">Uniquable</font> <font color="Green">BlockId</font> <font color="DarkOrchid">where</font>
+  <font color="Orange">getUnique</font> <font color="Blue">(</font><font color="Green">BlockId</font> <font color="Black">u</font><font color="Blue">)</font> <font color="Blue">=</font> <font color="Black">u</font>
+</pre>
+<p>
+The <tt>BlockId</tt> data type simply carries a <tt>Unique</tt> with each Basic Block.  For descriptions of <tt>Unique</tt>, see 
+</p>
+<ul><li>the <a class="wiki" href="https://ghc.haskell.org/trac/ghc/wiki/Commentary/Compiler/Renamer">Renamer</a> page;
+</li><li>the <a class="wiki" href="https://ghc.haskell.org/trac/ghc/wiki/Commentary/Compiler/WiredIn#Knownkeythings">Known Key Things</a> section of the <a class="wiki" href="https://ghc.haskell.org/trac/ghc/wiki/Commentary/Compiler/WiredIn">Wired-in and Known Key Things</a> page; and, 
+</li><li>the <a class="wiki" href="https://ghc.haskell.org/trac/ghc/wiki/Commentary/Compiler/EntityTypes#Typevariablesandtermvariables">Type variables and term variables</a> section of the <a class="wiki" href="https://ghc.haskell.org/trac/ghc/wiki/Commentary/Compiler/EntityTypes">Entity Types</a> page.
+</li></ul><h3 id="VariablesRegistersandTypes">Variables, Registers and Types</h3>
+<p>
+Like other high level assembly languages, all variables in C-- are machine registers, separated into different types according to bit length (8, 16, 32, 64, 80, 128) and register type (integral or floating point). The C-- standard specifies little more type information about a register than its bit length: there are no distinguishing types for signed or unsigned integrals, or for "pointers" (registers holding a memory address).  A C-- standard compiler supports additional information on the type of a register value through compiler <em>hints</em>.  In a foreign call, a <tt>"signed" bits8</tt> would be sign-extended and may be passed as a 32-bit value.  Cmm diverges from the C-- specification on this point somewhat (see below).  C-- and Cmm do not represent special registers, such as a Condition Register (<tt>CR</tt>) or floating point unit (FPU) status and control register (<tt>FPSCR</tt> on the PowerPC, <tt>MXCSR</tt> on Intel x86 processors), as these are a matter for the <a class="wiki" href="https://ghc.haskell.org/trac/ghc/wiki/Commentary/Compiler/Backends">Backends</a>.
+</p>
+<p>
+C-- and Cmm hide the actual number of registers available on a particular machine by assuming an "infinite" supply of registers.  A backend, such as the NCG or C compiler on GHC, will later optimise the number of registers used and assign the Cmm variables to actual machine registers; the NCG temporarily stores any overflow in a small memory stack called the <em>spill stack</em>, while the C compiler relies on C's own runtime system.  Haskell handles Cmm registers with three data types: <tt>LocalReg</tt>, <tt>GlobalReg</tt> and <tt>CmmReg</tt>.  <tt>LocalReg</tt>s and <tt>GlobalRegs</tt> are collected together in a single <tt>Cmm</tt> data type:
+</p>
+<pre>
+<font color="DarkOrchid">data</font> <font color="Green">CmmReg</font> 
+  <font color="Blue">=</font> <font color="Green">CmmLocal</font>  <font color="Green">LocalReg</font>
+  <font color="Blue">|</font> <font color="Green">CmmGlobal</font> <font color="Green">GlobalReg</font>
+  <font color="DarkOrchid">deriving</font><font color="Blue">(</font> <font color="Green">Eq</font> <font color="Blue">)</font>
+</pre>
+<h4 id="LocalRegisters">Local Registers</h4>
+<p>
+Local Registers exist within the scope of a Procedure:
+</p>
+<pre>
+<font color="DarkOrchid">data</font> <font color="Green">LocalReg</font>
+  <font color="Blue">=</font> <font color="Green">LocalReg</font> <font color="Blue">!</font><font color="Green">Unique</font> <font color="Green">MachRep</font>
+</pre>
+<p>
+For a list of references with information on <tt>Unique</tt>, see the <a class="wiki" href="CmmType.html#BasicBlocksandProcedures">Basic Blocks and Procedures</a> section, above.
+</p>
+<p>
+A <tt>MachRep</tt>, the type of a machine register, is defined in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/MachOp.hs">compiler/cmm/MachOp.hs</a>:
+</p>
+<pre>
+<font color="DarkOrchid">data</font> <font color="Green">MachRep</font>
+  <font color="Blue">=</font> <font color="Green">I8</font>		<font color="Crimson">-- integral type, 8 bits wide (a byte)</font>
+  <font color="Blue">|</font> <font color="Green">I16</font>		<font color="Crimson">-- integral type, 16 bits wide</font>
+  <font color="Blue">|</font> <font color="Green">I32</font>		<font color="Crimson">-- integral type, 32 bits wide</font>
+  <font color="Blue">|</font> <font color="Green">I64</font>		<font color="Crimson">-- integral type, 64 bits wide</font>
+  <font color="Blue">|</font> <font color="Green">I128</font>	<font color="Crimson">-- integral type, 128 bits wide (an integral vector register)</font>
+  <font color="Blue">|</font> <font color="Green">F32</font>		<font color="Crimson">-- floating point type, 32 bits wide (float)</font>
+  <font color="Blue">|</font> <font color="Green">F64</font>		<font color="Crimson">-- floating point type, 64 bits wide (double)</font>
+  <font color="Blue">|</font> <font color="Green">F80</font>		<font color="Crimson">-- extended double-precision, used in x86 native codegen only.</font>
+  <font color="DarkOrchid">deriving</font> <font color="Blue">(</font><font color="Green">Eq</font><font color="Blue">,</font> <font color="Green">Ord</font><font color="Blue">,</font> <font color="Green">Show</font><font color="Blue">)</font>
+</pre>
+<p>
+There is currently no register for floating point vectors, such as <tt>F128</tt>.  The types of Cmm variables are defined in the Happy parser file <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/CmmParse.y">compiler/cmm/CmmParse.y</a> and the Alex lexer file <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/CmmLex.x">compiler/cmm/CmmLex.x</a>.  (Happy and Alex will compile these into <tt>CmmParse.hs</tt> and <tt>CmmLex.hs</tt>, respectively.)  Cmm recognises the following <tt>C--</tt> types as parseable tokens, listed next to their corresponding <tt>define</tt>s in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/includes/Cmm.h">includes/Cmm.h</a> and their STG types:
+</p>
+<table class="wiki">
+<tr><td> <strong>Cmm Token</strong> </td><td> <strong>Cmm.h #define</strong> </td><td> <strong>STG type</strong> 
+</td></tr><tr><td> <tt>bits8</tt> </td><td> <tt>I8</tt> </td><td> <tt>StgChar</tt> or <tt>StgWord8</tt> 
+</td></tr><tr><td> <tt>bits16</tt> </td><td> <tt>I16</tt> </td><td> <tt>StgWord16</tt> 
+</td></tr><tr><td> <tt>bits32</tt> </td><td> <tt>I32</tt>, <tt>CInt</tt>, <tt>CLong</tt> </td><td> <tt>StgWord32</tt>; <tt>StgWord</tt> (depending on architecture) 
+</td></tr><tr><td> <tt>bits64</tt> </td><td> <tt>I64</tt>, <tt>CInt</tt>, <tt>CLong</tt>, <tt>L_</tt> </td><td> <tt>StgWord64</tt>; <tt>StgWord</tt> (depending on architecture) 
+</td></tr><tr><td> <tt>float32</tt> </td><td> <tt>F_</tt> </td><td> <tt>StgFloat</tt> 
+</td></tr><tr><td> <tt>float64</tt> </td><td> <tt>D_</tt> </td><td> <tt>StgDouble</tt> 
+</td></tr></table>
+<p>
+<a href="https://ghc.haskell.org/trac/ghc/browser/ghc/includes/Cmm.h">includes/Cmm.h</a> also defines <tt>L_</tt> for <tt>bits64</tt>, so <tt>F_</tt>, <tt>D_</tt> and <tt>L_</tt> correspond to the <tt>GlobalReg</tt> data type constructors <tt>FloatReg</tt>, <tt>DoubleReg</tt> and <tt>LongReg</tt>.  Note that although GHC may generate other register types supported by the <tt>MachRep</tt> data type, such as <tt>I128</tt>, they are not parseable tokens.  That is, they are internal to GHC.  The special defines <tt>CInt</tt> and <tt>CLong</tt> are used for compatibility with C on the target architecture, typically for making <tt>foreign "C"</tt> calls.
+</p>
+<p>
+<strong>Note</strong>: Even Cmm types that are not explicit variables (Cmm literals and results of Cmm expressions) have implicit <tt>MachRep</tt>s, in the same way as you would use temporary registers to hold labelled constants or intermediate values in assembler functions.  See:
+</p>
+<ul><li><a class="wiki" href="CmmType.html#LiteralsandLabels">Literals and Labels</a> for information related to the Cmm literals <tt>CmmInt</tt> and <tt>CmmFloat</tt>; and,
+</li><li><a class="wiki" href="CmmType.html#Expressions">Expressions</a>, regarding the <tt>cmmExprRep</tt> function defined in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/Cmm.hs">compiler/cmm/Cmm.hs</a>.
+</li></ul><h4 id="GlobalRegistersandHints">Global Registers and Hints</h4>
+<p>
+These are universal both to a Cmm module and to the whole compiled program.  Variables are global if they are declared at the top-level of a compilation unit (outside any procedure).  Global Variables are marked as external symbols with the <tt>.globl</tt> assembler directive.  In Cmm, global registers are used for special STG registers and specific registers for passing arguments and returning values.  The Haskell representation of Global Variables (Registers) is the <tt>GlobalReg</tt> data type, defined in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/Cmm.hs">compiler/cmm/Cmm.hs</a>:
+</p>
+<pre>
+<font color="DarkOrchid">data</font> <font color="Green">GlobalReg</font>
+  <font color="Crimson">-- Argument and return registers</font>
+  <font color="Blue">=</font> <font color="Green">VanillaReg</font>			<font color="Crimson">-- pointers, unboxed ints and chars</font>
+	<font color="Crimson">{-# UNPACK #-}</font> <font color="Blue">!</font><font color="Green">Int</font>	<font color="Crimson">-- register number, such as R3, R11</font>
+
+  <font color="Blue">|</font> <font color="Green">FloatReg</font>		        <font color="Crimson">-- single-precision floating-point registers</font>
+	<font color="Crimson">{-# UNPACK #-}</font> <font color="Blue">!</font><font color="Green">Int</font>	<font color="Crimson">-- register number</font>
+
+  <font color="Blue">|</font> <font color="Green">DoubleReg</font>		        <font color="Crimson">-- double-precision floating-point registers</font>
+	<font color="Crimson">{-# UNPACK #-}</font> <font color="Blue">!</font><font color="Green">Int</font>	<font color="Crimson">-- register number</font>
+
+  <font color="Blue">|</font> <font color="Green">LongReg</font>	                <font color="Crimson">-- long int registers (64-bit, really)</font>
+	<font color="Crimson">{-# UNPACK #-}</font> <font color="Blue">!</font><font color="Green">Int</font>	<font color="Crimson">-- register number</font>
+
+  <font color="Crimson">-- STG registers</font>
+  <font color="Blue">|</font> <font color="Green">Sp</font>			<font color="Crimson">-- Stack ptr; points to last occupied stack location.</font>
+  <font color="Blue">|</font> <font color="Green">SpLim</font>		<font color="Crimson">-- Stack limit</font>
+  <font color="Blue">|</font> <font color="Green">Hp</font>			<font color="Crimson">-- Heap ptr; points to last occupied heap location.</font>
+  <font color="Blue">|</font> <font color="Green">HpLim</font>		<font color="Crimson">-- Heap limit register</font>
+  <font color="Blue">|</font> <font color="Green">CurrentTSO</font>		<font color="Crimson">-- pointer to current thread's TSO</font>
+  <font color="Blue">|</font> <font color="Green">CurrentNursery</font>	<font color="Crimson">-- pointer to allocation area</font>
+  <font color="Blue">|</font> <font color="Green">HpAlloc</font>		<font color="Crimson">-- allocation count for heap check failure</font>
+
+  <font color="Crimson">-- We keep the address of some commonly-called </font>
+  <font color="Crimson">-- functions in the register table, to keep code</font>
+  <font color="Crimson">-- size down:</font>
+  <font color="Blue">|</font> <font color="Green">GCEnter1</font>		<font color="Crimson">-- stg_gc_enter_1</font>
+  <font color="Blue">|</font> <font color="Green">GCFun</font>		<font color="Crimson">-- stg_gc_fun</font>
+
+  <font color="Crimson">-- Base offset for the register table, used for accessing registers</font>
+  <font color="Crimson">-- which do not have real registers assigned to them.  This register</font>
+  <font color="Crimson">-- will only appear after we have expanded GlobalReg into memory accesses</font>
+  <font color="Crimson">-- (where necessary) in the native code generator.</font>
+  <font color="Blue">|</font> <font color="Green">BaseReg</font>
+
+  <font color="Crimson">-- Base Register for PIC (position-independent code) calculations</font>
+  <font color="Crimson">-- Only used inside the native code generator. It's exact meaning differs</font>
+  <font color="Crimson">-- from platform to platform  (see compiler/nativeGen/PositionIndependentCode.hs).</font>
+  <font color="Blue">|</font> <font color="Green">PicBaseReg</font>
+</pre>
+<p>
+For a description of the <tt>Hp</tt> and <tt>Sp</tt> <em>virtual registers</em>, see <a class="wiki" href="https://ghc.haskell.org/trac/ghc/wiki/Commentary/Rts/HaskellExecution">The Haskell Execution Model</a> page.  General <tt>GlobalReg</tt>s are clearly visible in Cmm code according to the following syntax defined in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/CmmLex.x">compiler/cmm/CmmLex.x</a>:
+</p>
+<table class="wiki">
+<tr><td> <strong><tt>GlobalReg</tt> Constructor</strong> </td><td> <strong>Syntax</strong> </td><td> <strong>Examples</strong> 
+</td></tr><tr><td> <tt>VanillaReg Int</tt> </td><td> <tt>R ++ Int</tt> </td><td> <tt>R1</tt>, <tt>R10</tt> 
+</td></tr><tr><td> <tt>FloatReg Int</tt> </td><td> <tt>F ++ Int</tt> </td><td> <tt>F1</tt>, <tt>F10</tt> 
+</td></tr><tr><td> <tt>DoubleReg Int</tt> </td><td> <tt>D ++ Int</tt> </td><td> <tt>D1</tt>, <tt>D10</tt> 
+</td></tr><tr><td> <tt>LongReg Int</tt> </td><td> <tt>L ++ Int</tt> </td><td> <tt>L1</tt>, <tt>L10</tt> 
+</td></tr></table>
+<p>
+General <tt>GlobalRegs</tt> numbers are decimal integers, see the <tt>parseInteger</tt> function in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/utils/StringBuffer.lhs">compiler/utils/StringBuffer.lhs</a>.  The remainder of the <tt>GlobalReg</tt> constructors, from <tt>Sp</tt> to <tt>BaseReg</tt> are lexical tokens exactly like their name in the data type; <tt>PicBaseReg</tt> does not have a lexical token since it is used only inside the NCG.  See <a class="wiki" href="https://ghc.haskell.org/trac/ghc/wiki/Commentary/PositionIndependentCode">Position Independent Code and Dynamic Linking</a> for an in-depth description of PIC implementations in the NCG.
+</p>
+<p>
+<tt>GlobalRegs</tt> are a very special case in Cmm, partly because they must conform to the STG register convention and the target C calling convention.  That the Cmm parser recognises <tt>R1</tt> and <tt>F3</tt> as <tt>GlobalRegs</tt> is only the first step.  The main files to look at for more information on this delicate topic are:
+</p>
+<ul><li><a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/codeGen/CgCallConv.hs">compiler/codeGen/CgCallConv.hs</a> (the section on "Register assignment")
+</li><li><a href="https://ghc.haskell.org/trac/ghc/browser/ghc/includes/stg/Regs.h">includes/stg/Regs.h</a> (defining STG registers)
+</li><li><a href="https://ghc.haskell.org/trac/ghc/browser/ghc/includes/stg/MachRegs.h">includes/stg/MachRegs.h</a> (target-specific mapping of machine registers for <em>registerised</em> builds of GHC)
+</li><li><a href="https://ghc.haskell.org/trac/ghc/browser/ghc/rts/PrimOps.cmm">rts/PrimOps.cmm</a> (examples of <tt>GlobalReg</tt> register usage for out-of-line primops)
+</li></ul><p>
+All arguments to out-of-line PrimOps in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/rts/PrimOps.cmm">rts/PrimOps.cmm</a> are STG registers.
+</p>
+<p>
+Cmm recognises all C-- syntax with regard to <em>hints</em>.  For example:
+</p>
+<pre class="wiki">"signed" bits32 x;  // signed or unsigned int with hint "signed"
+
+foreign "C" labelThread(R1 "ptr", R2 "ptr") [];
+
+"ptr" info = foreign "C" lockClosure(mvar "ptr") [];
+
+</pre><p>
+Hints are represented in Haskell as <tt>MachHint</tt>s, defined near <tt>MachRep</tt> in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/MachOp.hs">compiler/cmm/MachOp.hs</a>:
+</p>
+<pre>
+<font color="DarkOrchid">data</font> <font color="Green">MachHint</font>
+  <font color="Blue">=</font> <font color="Green">NoHint</font>	<font color="Crimson">-- string: "NoHint"	Cmm syntax: [empty]</font>
+  <font color="Blue">|</font> <font color="Green">PtrHint</font>	<font color="Crimson">-- string: "PtrHint"    Cmm syntax: "ptr"    (C-- uses "address")</font>
+  <font color="Blue">|</font> <font color="Green">SignedHint</font>	<font color="Crimson">-- string: "SignedHint"	Cmm syntax: "signed"</font>
+  <font color="Blue">|</font> <font color="Green">FloatHint</font>	<font color="Crimson">-- string: "FloatHint"	Cmm syntax: "float" </font>
+</pre>
+<p>
+Although the C-- specification does not allow the C-- type system to statically distinguish between floats, signed ints, unsigned ints or pointers, Cmm does. Cmm <tt>MachRep</tt>s carry the float or int kind of a variable, either within a local block or in a global register.  <tt>GlobalReg</tt> includes separate constructors for <tt>Vanilla</tt>, <tt>Float</tt>, <tt>Double</tt> and <tt>Long</tt>.  Cmm still does not distinguish between signed ints, unsigned ints and pointers (addresses) at the register level, as these are given <em>hint</em> pseudo-types or their real type is determined as they run through primitive operations.  <tt>MachHint</tt>s still follow the C-- specification and carry kind information as an aide to the backend optimisers.  
+</p>
+<p>
+Global Registers in Cmm currently have a problem with inlining: because neither <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/PprC.hs">compiler/cmm/PprC.hs</a> nor the NCG are able to keep Global Registers from clashing with C argument passing registers, Cmm expressions that contain Global Registers cannot be inlined into an argument position of a foreign call.  For more thorough notes on inlining, see the comments in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/CmmOpt.hs">compiler/cmm/CmmOpt.hs</a>.
+</p>
+<h4 id="DeclarationandInitialisation">Declaration and Initialisation</h4>
+<p>
+Cmm variables hold the same values registers do in assembly languages but may be declared in a similar way to variables in C.  As in C--, they may actually be declared anywhere in the scope for which they are visible (a block or file)--for Cmm, this is done by the <tt>loopDecls</tt> function in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/CmmParse.y">compiler/cmm/CmmParse.y</a>.  In <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/rts/PrimOps.cmm">compiler/rts/PrimOps.cmm</a>, you will see Cmm variable declarations like this one:
+</p>
+<pre class="wiki">W_ w, code, val;  // W_ is a cpp #define for StgWord, 
+		  // a machine word (32 or 64-bit--general register size--unsigned int)
+</pre><p>
+Remember that Cmm code is run through the C preprocessor.  <tt>W_</tt> will be transformed into <tt>bits32</tt>, <tt>bits64</tt> or whatever is the <tt>bits</tt><em>size</em> of the machine word, as defined in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/includes/Cmm.h">includes/Cmm.h</a>.  In Haskell code, you may use the <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/MachOp.hs">compiler/cmm/MachOp.hs</a> functions <tt>wordRep</tt> and <tt>halfWordRep</tt> to dynamically determine the machine word size.  For a description of word sizes in GHC, see the <a class="wiki" href="https://ghc.haskell.org/trac/ghc/wiki/Commentary/Rts/Word">Word</a> page.
+</p>
+<p>
+The variables <tt>w</tt>, <tt>code</tt> and <tt>val</tt> should be real registers. With the above declaration the variables are uninitialised.  Initialisation requires an assignment <em>statement</em>.  Cmm does not recognise C-- "<tt>{</tt> <em>literal</em>, ... <tt>}</tt>" initialisation syntax, such as <tt>bits32{10}</tt> or <tt>bits32[3] {1, 2, 3}</tt>.  Cmm does recognise initialisation with a literal:
+</p>
+<pre class="wiki">string_name:	bits8[] "twenty character string\n\0";
+
+variable_num:	bits32 10::bits32;
+</pre><p>
+The typical method seems to be to declare variables and then initialise them just before their first use.  (Remember that you may declare a variable anywhere in a procedure and use it in an expression before it is initialised but you must initialise it before using it anywhere else--statements, for example.)
+</p>
+<h4 id="MemoryAccess">Memory Access</h4>
+<p>
+If the value in <tt>w</tt> were the address of a memory location, you would obtain the value at that location similar to Intel assembler syntax.  In Cmm, you would write:
+</p>
+<pre class="wiki">code = W_[w];  // code is assigned the W_ value at memory address w
+</pre><p>
+compare the above statement to indirect addressing in Intel assembler:
+</p>
+<pre class="wiki">mov	al, [eax]  ; move value in memory at indirect address in register eax, 
+		   ; into register al
+</pre><p>
+The code between the brackets (<tt>w</tt> in <tt>[w]</tt>, above) is an <em>expression</em>.  See the <a class="wiki" href="CmmType.html#Expressions">Expressions</a> section.  For now, consider the similarity between the Cmm-version of indexed memory addressing syntax, here:
+</p>
+<pre class="wiki">R1 = bits32[R2 + R3];	// R2 (memory address), R3 (index, offset), result: type bits32
+
+// note: in Cmm 'R2' and 'R3' would be parsed as global registers
+// this is generally bad form; instead, 
+// declare a local variable and initialise it with a global, such as:
+bits32 adr, ofs, res;
+adr = R2;
+ofs = R3;
+res = bits32[adr + ofs];
+R1 = res;
+
+// using local variables will give the NCG some leeway to avoid clobbering the globals
+// should you call another procedure somewhere in the same scope
+</pre><p>
+and the corresponding Intel assembler indexed memory addressing syntax, here:
+</p>
+<pre class="wiki">mov	al, ebx[eax]	; ebx (base), eax (index)
+; or
+mov	al, [ebx + eax]
+</pre><p>
+You will generally not see this type of syntax in either handwritten or GHC-produced Cmm code, although it is allowed; it simply shows up in macros.  C-- also allows the <tt>*</tt> (multiplication) operator in addressing expressions, for an approximation of <em>scaled</em> addressing (<tt>[base * (2^n)]</tt>); for example, <tt>n</tt> (the "scale") must be <tt>0</tt>, <tt>1</tt>, <tt>2</tt> or <tt>4</tt>.  C-- itself would not enforce alignment or limits on the scale.  Cmm, however, could not process it: since the NCG currently outputs GNU Assembler syntax, the Cmm or NCG optimisers would have to reduce <tt>n</tt> in (<tt>* n</tt>) to an absolute address or relative offset, or to an expression using only <tt>+</tt> or <tt>-</tt>.  This is not currently the case and would be difficult to implement where one of the operands to the <tt>*</tt> is a relative address not visible in the code block.  <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/includes/Cmm.h">includes/Cmm.h</a> defines macros to perform the calculation with a constant.  For example:
+</p>
+<pre class="wiki">/* Converting quantities of words to bytes */
+#define WDS(n) ((n)*SIZEOF_W)  // SIZEOF_W is a constant
+</pre><p>
+is used in:
+</p>
+<pre class="wiki">#define Sp(n)  W_[Sp + WDS(n)]
+</pre><p>
+The function <tt>cmmMachOpFold</tt> in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/CmmOpt.hs">compiler/cmm/CmmOpt.hs</a> will reduce the resulting expression <tt>Sp + (n * SIZEOF_W)</tt> to <tt>Sp + N</tt>, where <tt>N</tt> is a constant.  A very large number of macros for accessing STG struct fields and the like are produced by <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/includes/mkDerivedConstants.c">includes/mkDerivedConstants.c</a> and output into the file <tt>includes/DerivedConstants.h</tt> when GHC is compiled.
+</p>
+<p>
+Of course, all this also holds true for the reverse (when an assignment is made to a memory address):
+</p>
+<pre class="wiki">section "data" {
+	num_arr: bits32[10];
+}
+
+proc1 {
+	// ...
+	bits32[num_arr + (2*3)] = 5::bits32;  // in C: num_arr[(2*3)] = 5;
+	// ...
+}
+</pre><p>
+or, for an example of a macro from <tt>DerivedConstants.h</tt>:
+</p>
+<pre class="wiki">StgAtomicallyFrame_code(frame) = R1;
+</pre><p>
+this will be transformed to:
+</p>
+<pre class="wiki">REP_StgAtomicallyFrame_code[frame + SIZEOF_StgHeader + OFFSET_StgAtomicallyFrame_code] = R1;
+// further reduces to (on Darwin PPC arch):
+I32[frame + SIZEOF_StgHeader + 0] = R1;
+</pre><h3 id="LiteralsandLabels">Literals and Labels</h3>
+<p>
+Cmm literals are exactly like C-- literals, including the Haskell-style type syntax, for example: <tt>0x00000001::bits32</tt>.  Cmm literals may be used for initialisation by assignment or in expressions. The <tt>CmmLit</tt> and <tt>CmmStatic</tt> data types, defined in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/Cmm.hs">compiler/cmm/Cmm.hs</a> together represent Cmm literals, static information and Cmm labels:
+</p>
+<pre>
+<font color="DarkOrchid">data</font> <font color="Green">CmmLit</font>
+  <font color="Blue">=</font> <font color="Green">CmmInt</font> <font color="Green">Integer</font>  <font color="Green">MachRep</font>
+	<font color="Crimson">-- Interpretation: the 2's complement representation of the value</font>
+	<font color="Crimson">-- is truncated to the specified size.  This is easier than trying</font>
+	<font color="Crimson">-- to keep the value within range, because we don't know whether</font>
+	<font color="Crimson">-- it will be used as a signed or unsigned value (the MachRep doesn't</font>
+	<font color="Crimson">-- distinguish between signed &amp; unsigned).</font>
+  <font color="Blue">|</font> <font color="Green">CmmFloat</font>  <font color="Green">Rational</font> <font color="Green">MachRep</font>
+  <font color="Blue">|</font> <font color="Green">CmmLabel</font>    <font color="Green">CLabel</font>			<font color="Crimson">-- Address of label</font>
+  <font color="Blue">|</font> <font color="Green">CmmLabelOff</font> <font color="Green">CLabel</font> <font color="Green">Int</font>		<font color="Crimson">-- Address of label + byte offset</font>
+  
+        <font color="Crimson">-- Due to limitations in the C backend, the following</font>
+        <font color="Crimson">-- MUST ONLY be used inside the info table indicated by label2</font>
+        <font color="Crimson">-- (label2 must be the info label), and label1 must be an</font>
+        <font color="Crimson">-- SRT, a slow entrypoint or a large bitmap (see the Mangler)</font>
+        <font color="Crimson">-- Don't use it at all unless tablesNextToCode.</font>
+        <font color="Crimson">-- It is also used inside the NCG during when generating</font>
+        <font color="Crimson">-- position-independent code. </font>
+  <font color="Blue">|</font> <font color="Green">CmmLabelDiffOff</font> <font color="Green">CLabel</font> <font color="Green">CLabel</font> <font color="Green">Int</font>   <font color="Crimson">-- label1 - label2 + offset</font>
+</pre>
+<p>
+Note how the <tt>CmmLit</tt> constructor <tt>CmmInt Integer MachRep</tt> contains sign information in the <tt>Integer</tt>, the representation of the literal itself: this conforms to the C-- specification, where integral literals contain sign information. For an example of a function using <tt>CmmInt</tt> sign information, see <tt>cmmMachOpFold</tt> in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/CmmOpt.hs">compiler/cmm/CmmOpt.hs</a>, where sign-operations are performed on the <tt>Integer</tt>.
+</p>
+<p>
+The <tt>MachRep</tt> of a literal, such as <tt>CmmInt Integer MachRep</tt> or <tt>CmmFloat Rational MachRep</tt> may not always require the size defined by <tt>MachRep</tt>.  The NCG optimiser, <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/nativeGen/MachCodeGen.hs">compiler/nativeGen/MachCodeGen.hs</a>, will test a literal such as <tt>1::bits32</tt> (in Haskell, <tt>CmmInt (1::Integer) I32</tt>) for whether it would fit into the bit-size of Assembler instruction literals on that particular architecture with a function defined in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/nativeGen/MachRegs.lhs">compiler/nativeGen/MachRegs.lhs</a>, such as <tt>fits16Bits</tt> on the PPC.  If the Integer literal fits, the function <tt>makeImmediate</tt> will truncate it to the specified size if possible and store it in a NCG data type, <tt>Imm</tt>, specifically <tt>Maybe Imm</tt>.  (These are also defined in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/nativeGen/MachRegs.lhs">compiler/nativeGen/MachRegs.lhs</a>.)
+</p>
+<p>
+The Haskell representation of Cmm separates unchangeable Cmm values into a separate data type, <tt>CmmStatic</tt>, defined in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/Cmm.hs">compiler/cmm/Cmm.hs</a>:
+</p>
+<pre>
+<font color="DarkOrchid">data</font> <font color="Green">CmmStatic</font>
+  <font color="Blue">=</font> <font color="Green">CmmStaticLit</font> <font color="Green">CmmLit</font>	
+	<font color="Crimson">-- a literal value, size given by cmmLitRep of the literal.</font>
+  <font color="Blue">|</font> <font color="Green">CmmUninitialised</font> <font color="Green">Int</font>
+	<font color="Crimson">-- uninitialised data, N bytes long</font>
+  <font color="Blue">|</font> <font color="Green">CmmAlign</font> <font color="Green">Int</font>
+	<font color="Crimson">-- align to next N-byte boundary (N must be a power of 2).</font>
+  <font color="Blue">|</font> <font color="Green">CmmDataLabel</font> <font color="Green">CLabel</font>
+	<font color="Crimson">-- label the current position in this section.</font>
+  <font color="Blue">|</font> <font color="Green">CmmString</font> <font color="Blue">[</font><font color="Green">Word8</font><font color="Blue">]</font>
+	<font color="Crimson">-- string of 8-bit values only, not zero terminated.</font>
+</pre>
+<p>
+Note the <tt>CmmAlign</tt> constructor: this maps to the assembler directive <tt>.align N</tt> to set alignment for a data item (hopefully one you remembered to label).  This is the same as the <tt>align</tt> directive noted in Section 4.5 of the <a class="ext-link" href="http://cminusminus.org/extern/man2.pdf"><span class="icon">​</span>C-- specification (PDF)</a>.  In the current implementation of Cmm the <tt>align</tt> directive seems superfluous because <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/nativeGen/PprMach.hs">compiler/nativeGen/PprMach.hs</a> translates <tt>Section</tt>s to assembler with alignment directives corresponding to the target architecture (see <a class="wiki" href="CmmType.html#SectionsandDirectives">Sections and Directives</a>, below).
+</p>
+<h4 id="Labels">Labels</h4>
+<p>
+Remember that C--/Cmm names consist of a string where the first character is:
+</p>
+<ul><li>ASCII alphabetic (uppercase or lowercase);
+</li><li>an underscore:    <tt>_</tt> ;
+</li><li>a period:         <tt>.</tt> ;
+</li><li>a dollar sign:    <tt>$</tt> ; or,
+</li><li>a commercial at:  <tt>@</tt> .
+</li></ul><p>
+Cmm labels conform to the C-- specification.  C--/Cmm uses labels to refer to memory locations in code--if you use a data directive but do not give it a label, you will have no means of referring to the memory!  For <tt>GlobalReg</tt>s (transformed to assembler <tt>.globl</tt>), labels serve as both symbols and labels (in the assembler meaning of the terms).  The Haskell representation of Cmm Labels is contained in the <tt>CmmLit</tt> data type, see <a class="wiki" href="CmmType.html#Literals">Literals</a> section, above.  Note how Cmm Labels are <tt>CLabel</tt>s with address information.  The <tt>Clabel</tt> data type, defined in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/CLabel.hs">compiler/cmm/CLabel.hs</a>, is used throughout the Compiler for symbol information in binary files.  Here it is:
+</p>
+<pre>
+<font color="DarkOrchid">data</font> <font color="Green">CLabel</font>
+  <font color="Blue">=</font> <font color="Green">IdLabel</font>	    		<font color="Crimson">-- A family of labels related to the</font>
+	<font color="Green">Name</font>			<font color="Crimson">-- definition of a particular Id or Con</font>
+	<font color="Green">IdLabelInfo</font>
+
+  <font color="Blue">|</font> <font color="Green">DynIdLabel</font>			<font color="Crimson">-- like IdLabel, but in a separate package,</font>
+	<font color="Green">Name</font>			<font color="Crimson">-- and might therefore need a dynamic</font>
+	<font color="Green">IdLabelInfo</font>		<font color="Crimson">-- reference.</font>
+
+  <font color="Blue">|</font> <font color="Green">CaseLabel</font>			<font color="Crimson">-- A family of labels related to a particular</font>
+				<font color="Crimson">-- case expression.</font>
+	<font color="Crimson">{-# UNPACK #-}</font> <font color="Blue">!</font><font color="Green">Unique</font>	<font color="Crimson">-- Unique says which case expression</font>
+	<font color="Green">CaseLabelInfo</font>
+
+  <font color="Blue">|</font> <font color="Green">AsmTempLabel</font> 
+	<font color="Crimson">{-# UNPACK #-}</font> <font color="Blue">!</font><font color="Green">Unique</font>
+
+  <font color="Blue">|</font> <font color="Green">StringLitLabel</font>
+	<font color="Crimson">{-# UNPACK #-}</font> <font color="Blue">!</font><font color="Green">Unique</font>
+
+  <font color="Blue">|</font> <font color="Green">ModuleInitLabel</font> 
+	<font color="Green">Module</font>			<font color="Crimson">-- the module name</font>
+	<font color="Green">String</font>			<font color="Crimson">-- its "way"</font>
+	<font color="Green">Bool</font>			<font color="Crimson">-- True &lt;=&gt; is in a different package</font>
+	<font color="Crimson">-- at some point we might want some kind of version number in</font>
+	<font color="Crimson">-- the module init label, to guard against compiling modules in</font>
+	<font color="Crimson">-- the wrong order.  We can't use the interface file version however,</font>
+	<font color="Crimson">-- because we don't always recompile modules which depend on a module</font>
+	<font color="Crimson">-- whose version has changed.</font>
+
+  <font color="Blue">|</font> <font color="Green">PlainModuleInitLabel</font>	<font color="Crimson">-- without the vesrion &amp; way info</font>
+	<font color="Green">Module</font>
+	<font color="Green">Bool</font>			<font color="Crimson">-- True &lt;=&gt; is in a different package</font>
+
+  <font color="Blue">|</font> <font color="Green">ModuleRegdLabel</font>
+
+  <font color="Blue">|</font> <font color="Green">RtsLabel</font> <font color="Green">RtsLabelInfo</font>
+
+  <font color="Blue">|</font> <font color="Green">ForeignLabel</font> <font color="Green">FastString</font>	<font color="Crimson">-- a 'C' (or otherwise foreign) label</font>
+	<font color="Blue">(</font><font color="Green">Maybe</font> <font color="Green">Int</font><font color="Blue">)</font> 		<font color="Crimson">-- possible '@n' suffix for stdcall functions</font>
+		<font color="Crimson">-- When generating C, the '@n' suffix is omitted, but when</font>
+		<font color="Crimson">-- generating assembler we must add it to the label.</font>
+	<font color="Green">Bool</font>			<font color="Crimson">-- True &lt;=&gt; is dynamic</font>
+
+  <font color="Blue">|</font> <font color="Green">CC_Label</font>  <font color="Green">CostCentre</font>
+  <font color="Blue">|</font> <font color="Green">CCS_Label</font> <font color="Green">CostCentreStack</font>
+
+      <font color="Crimson">-- Dynamic Linking in the NCG:</font>
+      <font color="Crimson">-- generated and used inside the NCG only,</font>
+      <font color="Crimson">-- see module PositionIndependentCode for details.</font>
+      
+  <font color="Blue">|</font> <font color="Green">DynamicLinkerLabel</font> <font color="Green">DynamicLinkerLabelInfo</font> <font color="Green">CLabel</font>
+        <font color="Crimson">-- special variants of a label used for dynamic linking</font>
+
+  <font color="Blue">|</font> <font color="Green">PicBaseLabel</font>                <font color="Crimson">-- a label used as a base for PIC calculations</font>
+                                <font color="Crimson">-- on some platforms.</font>
+                                <font color="Crimson">-- It takes the form of a local numeric</font>
+                                <font color="Crimson">-- assembler label '1'; it is pretty-printed</font>
+                                <font color="Crimson">-- as 1b, referring to the previous definition</font>
+                                <font color="Crimson">-- of 1: in the assembler source file.</font>
+
+  <font color="Blue">|</font> <font color="Green">DeadStripPreventer</font> <font color="Green">CLabel</font>
+    <font color="Crimson">-- label before an info table to prevent excessive dead-stripping on darwin</font>
+
+  <font color="Blue">|</font> <font color="Green">HpcTicksLabel</font> <font color="Green">Module</font>       <font color="Crimson">-- Per-module table of tick locations</font>
+  <font color="Blue">|</font> <font color="Green">HpcModuleNameLabel</font>         <font color="Crimson">-- Per-module name of the module for Hpc</font>
+  <font color="Blue">|</font> <font color="Green">HpcModuleOffsetLabel</font> <font color="Green">Module</font><font color="Crimson">-- Per-module offset of the module for Hpc (dynamically generated)</font>
+
+  <font color="DarkOrchid">deriving</font> <font color="Blue">(</font><font color="Green">Eq</font><font color="Blue">,</font> <font color="Green">Ord</font><font color="Blue">)</font>
+</pre>
+<h3 id="SectionsandDirectives">Sections and Directives</h3>
+<p>
+The Haskell representation of Cmm Section directives, in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/Cmm.hs">compiler/cmm/Cmm.hs</a> as the first part of the "Static Data" section, is:
+</p>
+<pre>
+<font color="DarkOrchid">data</font> <font color="Green">Section</font>
+  <font color="Blue">=</font> <font color="Green">Text</font>
+  <font color="Blue">|</font> <font color="Green">Data</font>
+  <font color="Blue">|</font> <font color="Green">ReadOnlyData</font>
+  <font color="Blue">|</font> <font color="Green">RelocatableReadOnlyData</font>
+  <font color="Blue">|</font> <font color="Green">UninitialisedData</font>
+  <font color="Blue">|</font> <font color="Green">ReadOnlyData16</font>	<font color="Crimson">-- .rodata.cst16 on x86_64, 16-byte aligned</font>
+  <font color="Blue">|</font> <font color="Green">OtherSection</font> <font color="Green">String</font>
+</pre>
+<p>
+Cmm supports the following directives, corresponding to the assembler directives pretty-printed by the <tt>pprSectionHeader</tt> function in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/nativeGen/PprMach.hs">compiler/nativeGen/PprMach.hs</a>:
+</p>
+<table class="wiki">
+<tr><td> <strong><tt>Section</tt> Constructor</strong> </td><td> <strong>Cmm section directive</strong> </td><td> <strong>Assembler Directive</strong> 
+</td></tr><tr><td> <tt>Text</tt> </td><td> <tt>"text"</tt> </td><td> <tt>.text</tt> 
+</td></tr><tr><td> <tt>Data</tt> </td><td> <tt>"data"</tt> </td><td> <tt>.data</tt> 
+</td></tr><tr><td> <tt>ReadOnlyData</tt> </td><td> <tt>"rodata"</tt> </td><td> <tt>.rodata</tt><br />(generally; varies by arch,OS) 
+</td></tr><tr><td> <tt>RelocatableReadOnlyData</tt> </td><td> no parse (GHC internal), output: <tt>"relreadonly"</tt> </td><td> <tt>.const_data</tt><br /><tt>.section .rodata</tt><br />(generally; varies by arch,OS) 
+</td></tr><tr><td> <tt>UninitialisedData</tt> </td><td> <tt>"bss"</tt>, output: <tt>"uninitialised"</tt> </td><td> <tt>.bss</tt> 
+</td></tr><tr><td> <tt>ReadOnlyData16</tt> </td><td> no parse (GHC internal), output: none </td><td> <tt>.const</tt><br /><tt>.section .rodata</tt><br />(generally; on x86_64:<br /><tt>.section .rodata.cst16</tt>) 
+</td></tr></table>
+<p>
+You probably already noticed I omitted the alignment directives (for clarity).  For example, <tt>pprSectionHeader</tt> would pretty-print <tt>ReadOnlyData</tt> as 
+</p>
+<pre class="wiki">.const
+.align 2
+</pre><p>
+on an i386 with the Darwin OS.  If you are really on the ball you might have noticed that the <tt>PprMach.hs</tt> output of "<tt>.section .data</tt>" and the like is really playing it safe since on most OS's, using GNU Assembler, the <tt>.data</tt> directive is equivalent to <tt>.section __DATA .data</tt>, or simply <tt>.section .data</tt>.  Note that <tt>OtherSection String</tt> is not a catch-all for the Cmm parser.  If you wrote:
+</p>
+<pre class="wiki">section ".const\n.align 2\n\t.section .rodata" { ... }
+</pre><p>
+The Cmm parser (through GHC) would panic, complaining, "<tt>PprMach.pprSectionHeader: unknown section</tt>."  
+</p>
+<p>
+While the C-- specification allows a bare <tt>data</tt> keyword directive, Cmm does not:
+</p>
+<pre class="wiki">// this is valid C--, not Cmm!
+data { }
+
+// all Cmm directives use this syntax:
+section [Cmm section directive] { }
+</pre><p>
+Cmm does not recognise the C-- "<tt>stack</tt>" declaration for allocating memory on the system stack.  
+</p>
+<p>
+GHC-produced Cmm code is replete with <tt>data</tt> sections, each of which is stored in <tt>.data</tt> section of the binary code.  This contributes significantly to the large binary size for GHC-compiled code. 
+</p>
+<h4 id="TargetDirective">Target Directive</h4>
+<p>
+The C-- specification defines a special <tt>target</tt> directive, in section 4.7.  The <tt>target</tt> directive is essentially a code block defining the properties of the target architecture:
+</p>
+<pre class="wiki">target
+	memsize	N	// bit-size of the smallest addressable unit of memory
+	byteorder	[big,little]	// endianness
+	pointersize	N	// bit-size of the native pointer type
+	wordsize	N	// bit-size of the native word type
+</pre><p>
+This is essentially a custom-coded version of the GNU Assembler (<tt>as</tt>) <tt>.machine</tt> directive, which is essentially the same as passing the <tt>-arch [cpu_type]</tt> option to <tt>as</tt>.
+</p>
+<p>
+Cmm does not support the <tt>target</tt> directive.  This is partly due GHC generally lacking cross-compiler capabilities.  Should GHC move toward adding cross-compilation capabilities, the <tt>target</tt> might not be a bad thing to add.  Target architecture parameters are currently handled through the <a class="wiki" href="https://ghc.haskell.org/trac/ghc/wiki/Attic/Building/BuildSystem">Build System</a>, which partly sets such architectural parameters through <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/includes/mkDerivedConstants.c">includes/mkDerivedConstants.c</a> and <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/includes/ghcconfig.h">includes/ghcconfig.h</a>.
+</p>
+<h3 id="Expressions">Expressions</h3>
+<p>
+Expressions in Cmm follow the C-- specification.  They have:
+</p>
+<ul><li>no side-effects; and,
+</li><li>one result: 
+<ul><li>a <em>k</em>-bit value<br />--these expressions map to the <tt>MachOp</tt> data type, defined in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/MachOp.hs">compiler/cmm/MachOp.hs</a>, see <a class="wiki" href="CmmType.html#OperatorsandPrimitiveOperations">Operators and Primitive Operations</a>, the <em>k</em>-bit value may be:
+<ul><li>a Cmm literal (<tt>CmmLit</tt>); or,
+</li><li>a Cmm variable (<tt>CmmReg</tt>, see <a class="wiki" href="CmmType.html#VariablesRegistersandTypes">Variables, Registers and Types</a>);<br />or, 
+</li></ul></li><li>a boolean condition.
+</li></ul></li></ul><p>
+Cmm expressions may include 
+</p>
+<ul><li>a literal or a name (<tt>CmmLit</tt> contains both, see <a class="wiki" href="CmmType.html#LiteralsandLabels">Literals and Labels</a>, above);
+</li><li>a memory reference (<tt>CmmLoad</tt> and <tt>CmmReg</tt>, see <a class="wiki" href="CmmType.html#MemoryAccess">Memory Access</a>, above);
+</li><li>an operator (a <tt>MachOp</tt>, in <tt>CmmMachOp</tt>, below); or,
+</li><li>another expression (a <tt>[CmmExpr]</tt>, in <tt>CmmMachOp</tt>, below).
+</li></ul><p>
+These are all included as constructors in the <tt>CmmExpr</tt> data type, defined in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/Cmm.hs">compiler/cmm/Cmm.hs</a>:
+</p>
+<pre>
+<font color="DarkOrchid">data</font> <font color="Green">CmmExpr</font>
+  <font color="Blue">=</font> <font color="Green">CmmLit</font> <font color="Green">CmmLit</font>               <font color="Crimson">-- Literal or Label (name)</font>
+  <font color="Blue">|</font> <font color="Green">CmmLoad</font> <font color="Green">CmmExpr</font> <font color="Green">MachRep</font>     <font color="Crimson">-- Read memory location (memory reference)</font>
+  <font color="Blue">|</font> <font color="Green">CmmReg</font> <font color="Green">CmmReg</font>		<font color="Crimson">-- Contents of register</font>
+  <font color="Blue">|</font> <font color="Green">CmmMachOp</font> <font color="Green">MachOp</font> <font color="Blue">[</font><font color="Green">CmmExpr</font><font color="Blue">]</font>  <font color="Crimson">-- operation (+, -, *, etc.)</font>
+  <font color="Blue">|</font> <font color="Green">CmmRegOff</font> <font color="Green">CmmReg</font> <font color="Green">Int</font>
+</pre>
+<p>
+Note that <tt>CmmRegOff reg i</tt> is only shorthand for a specific <tt>CmmMachOp</tt> application:
+</p>
+<pre>
+<font color="Green">CmmMachOp</font> <font color="Blue">(</font><font color="Green">MO_Add</font> rep<font color="Blue">) [(</font><font color="Green">CmmReg</font> reg<font color="Blue">)</font>,<font color="Blue">(</font><font color="Green">CmmLit</font> <font color="Blue">(</font><font color="Green">CmmInt</font> i rep<font color="Blue">))]</font>
+	<font color="DarkOrchid">where</font> rep <font color="Blue">=</font> <font color="Orange">cmmRegRep</font> reg
+</pre>
+<p>
+The function <tt>cmmRegRep</tt> is described below.  Note: the original comment following <tt>CmmExpr</tt> in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/Cmm.hs">compiler/cmm/Cmm.hs</a> is erroneous (cf., <tt>mangleIndexTree</tt> in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/nativeGen/MachCodeGen.hs">compiler/nativeGen/MachCodeGen.hs</a>) but makes the same point described here.  The offset, <tt>(CmmLit (CmmInt i rep))</tt>, is a literal (<tt>CmmLit</tt>), not a name (<tt>CLabel</tt>).  A <tt>CmmExpr</tt> for an offset must be reducible to a <tt>CmmInt</tt> <em>in Haskell</em>; in other words, offsets in Cmm expressions may not be external symbols whose addresses are not resolvable in the current context.
+</p>
+<p>
+Boolean comparisons are not boolean conditions.  Boolean comparisons involve relational operators, such as <tt>&gt;</tt>, <tt>&lt;</tt> and <tt>==</tt>, and map to <tt>MachOp</tt>s that are converted to comparison followed by branch instructions.  For example, <tt>&lt;</tt> would map to <tt>MO_S_Lt</tt> for signed operands, <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/nativeGen/MachCodeGen.hs">compiler/nativeGen/MachCodeGen.hs</a> would transform <tt>MO_S_Lt</tt> into the <tt>LTT</tt> constructor of the <tt>Cond</tt> union data type defined in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/nativeGen/MachInstrs.hs">compiler/nativeGen/MachInstrs.hs</a> and <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/nativeGen/PprMach.hs">compiler/nativeGen/PprMach.hs</a> would transform <tt>LTT</tt> to the distinguishing comparison type for an assembler comparison instruction.  You already know that the result of a comparison instruction is actually a change in the state of the Condition Register (CR), so Cmm boolean expressions do have a kind of side-effect but that is to be expected.  In fact, it is necessary since at the least a conditional expression becomes two assembler instructions, in PPC Assembler: 
+</p>
+<pre class="wiki">cmplwi   r3, 0  ; condition test
+blt      Lch    ; branch instruction
+</pre><p>
+This condition mapping does have an unfortunate consequence: conditional expressions do not fold into single instructions.  In Cmm, as in C--, expressions with relational operators may evaluate to an integral (<tt>0</tt>, nonzero) instead of evaluating to a boolean type.  For certain cases, such as an arithmetic operation immediately followed by a comparison, extended mnemonics such as <tt>addi.</tt> might eliminate the comparison instruction.  See <a class="wiki" href="CmmType.html#CmmDesignObservationsandAreasforPotentialImprovement">Cmm Design: Observations and Areas for Potential Improvement</a> for more discussion and potential solutions to this situation.
+</p>
+<p>
+Boolean conditions include: <tt>&amp;&amp;</tt>, <tt>||</tt>, <tt>!</tt> and parenthetical combinations of boolean conditions.  The <tt>if expr { }</tt> and <tt>if expr { } else { }</tt> statements contain boolean conditions.  The C-- type produced by conditional expressions is <tt>bool</tt>, in Cmm, type <tt>BoolExpr</tt> in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/CmmParse.y">compiler/cmm/CmmParse.y</a>:
+</p>
+<pre>
+<font color="DarkOrchid">data</font> <font color="Green">BoolExpr</font>
+  <font color="Blue">=</font> <font color="Green">BoolExpr</font> <font color="Blue">`</font><font color="Green">BoolAnd</font><font color="Blue">`</font> <font color="Green">BoolExpr</font>
+  <font color="Blue">|</font> <font color="Green">BoolExpr</font> <font color="Blue">`</font><font color="Green">BoolOr</font><font color="Blue">`</font>  <font color="Green">BoolExpr</font>
+  <font color="Blue">|</font> <font color="Green">BoolNot</font> <font color="Green">BoolExpr</font>
+  <font color="Blue">|</font> <font color="Green">BoolTest</font> <font color="Green">CmmExpr</font></pre>
+<p>
+The type <tt>BoolExpr</tt> maps to the <tt>CmmCondBranch</tt> or <tt>CmmBranch</tt> constructors of type <tt>CmmStmt</tt>, defined in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/Cmm.hs">compiler/cmm/Cmm.hs</a>, see <a class="wiki" href="CmmType.html#StatementsandCalls">Statements and Calls</a>.
+</p>
+<p>
+The <tt>CmmExpr</tt> constructor <tt>CmmMachOp MachOp [CmmExpr]</tt> is the core of every operator-based expression; the key here is <tt>MachOp</tt>, which in turn depends on the type of <tt>MachRep</tt> for each operand.  See <a class="wiki" href="CmmType.html#FundamentalandPrimitiveOperators">Fundamental and PrimitiveOperators</a>.  In order to process <tt>CmmExpr</tt>s, the data type comes with a deconstructor function to obtain the relevant <tt>MachRep</tt>s, defined in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/Cmm.hs">compiler/cmm/Cmm.hs</a>:
+</p>
+<pre>
+<font color="Orange">cmmExprRep</font> <font color="Blue">::</font> <font color="Green">CmmExpr</font> <font color="Blue">-&gt;</font> <font color="Green">MachRep</font>
+<font color="Orange">cmmExprRep</font> <font color="Blue">(</font><font color="Green">CmmLit</font> <font color="Black">lit</font><font color="Blue">)</font>      <font color="Blue">=</font> <font color="Orange">cmmLitRep</font> <font color="Black">lit</font>
+<font color="Orange">cmmExprRep</font> <font color="Blue">(</font><font color="Green">CmmLoad</font> <font color="Magenta">_</font> <font color="Black">rep</font><font color="Blue">)</font>   <font color="Blue">=</font> <font color="Black">rep</font>
+<font color="Orange">cmmExprRep</font> <font color="Blue">(</font><font color="Green">CmmReg</font> <font color="Black">reg</font><font color="Blue">)</font>      <font color="Blue">=</font> <font color="Orange">cmmRegRep</font> <font color="Black">reg</font>
+<font color="Orange">cmmExprRep</font> <font color="Blue">(</font><font color="Green">CmmMachOp</font> <font color="Black">op</font> <font color="Magenta">_</font><font color="Blue">)</font>  <font color="Blue">=</font> <font color="Black">resultRepOfMachOp</font> <font color="Black">op</font>
+<font color="Orange">cmmExprRep</font> <font color="Blue">(</font><font color="Green">CmmRegOff</font> <font color="Black">reg</font> <font color="Magenta">_</font><font color="Blue">)</font> <font color="Blue">=</font> <font color="Orange">cmmRegRep</font> <font color="Black">reg</font>
+</pre>
+<p>
+The deconstructors <tt>cmmLitRep</tt> and <tt>cmmRegRep</tt> (with its supporting deconstructor <tt>localRegRep</tt>) are also defined in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/Cmm.hs">compiler/cmm/Cmm.hs</a>.
+</p>
+<p>
+In PPC Assembler you might add two 32-bit integrals by:
+</p>
+<pre class="wiki">add	r3, r1, r2	; r3 = r1 + r2
+</pre><p>
+while in Cmm you might write:
+</p>
+<pre class="wiki">res = first + second;
+</pre><p>
+Remember that the assignment operator, <tt>=</tt>, is a statement since it has the "side effect" of modifying the value in <tt>res</tt>.  The <tt>+</tt> expression in the above statement, for a 32-bit architecture, would be represented in Haskell as:
+</p>
+<pre>
+<font color="Green">CmmMachOp</font> <font color="Blue">(</font><font color="Green">MO_Add</font> <font color="Green">I32</font><font color="Blue">)</font> <font color="Blue">[</font><font color="Green">CmmReg</font> <font color="Blue">(</font><font color="Green">CmmLocal</font> <font color="Black">uniq</font> <font color="Green">I32</font><font color="Blue">)</font><font color="Blue">,</font> <font color="Green">CmmReg</font> <font color="Blue">(</font><font color="Green">CmmLocal</font> <font color="Black">uniq</font> <font color="Green">I32</font><font color="Blue">)</font><font color="Blue">]</font>
+</pre>
+<p>
+The <tt>expr</tt> production rule in the Cmm Parser <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/CmmParse.y">compiler/cmm/CmmParse.y</a> maps tokens to "values", such as <tt>+</tt> to an addition operation, <tt>MO_Add</tt>.  The <tt>mkMachOp</tt> function in the Parser determines the <tt>MachOp</tt> type in <tt>CmmMachOp MachOp [CmmExpr]</tt> from the token value and the <tt>MachRep</tt> type of the <tt>head</tt> variable.  Notice that the simple <tt>+</tt> operator did not contain sign information, only the <tt>MachRep</tt>.  For <tt>expr</tt>, signed and other <tt>MachOps</tt>, see the <tt>machOps</tt> function in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/CmmParse.y">compiler/cmm/CmmParse.y</a>.  Here is a table of operators and the corresponding <tt>MachOp</tt>s recognised by Cmm (listed in order of precedence):
+</p>
+<table class="wiki">
+<tr><td> <strong>Operator</strong> </td><td> <strong><tt>MachOp</tt></strong> 
+</td></tr><tr><td> <tt>/</tt> </td><td> <tt>MO_U_Quot</tt> 
+</td></tr><tr><td> <tt>*</tt> </td><td> <tt>MO_Mul</tt> 
+</td></tr><tr><td> <tt>%</tt> </td><td> <tt>MO_U_Rem</tt> 
+</td></tr><tr><td> <tt>-</tt> </td><td> <tt>MO_Sub</tt> 
+</td></tr><tr><td> <tt>+</tt> </td><td> <tt>MO_Add</tt> 
+</td></tr><tr><td> <tt>&gt;&gt;</tt> </td><td> <tt>MO_U_Shr</tt> 
+</td></tr><tr><td> <tt>&lt;&lt;</tt> </td><td> <tt>MO_Shl</tt> 
+</td></tr><tr><td> <tt>&amp;</tt> </td><td> <tt>MO_And</tt> 
+</td></tr><tr><td> <tt>^</tt> </td><td> <tt>MO_Xor</tt> 
+</td></tr><tr><td> <tt>|</tt> </td><td> <tt>MO_Or</tt> 
+</td></tr><tr><td> <tt>&gt;=</tt> </td><td> <tt>MO_U_Ge</tt> 
+</td></tr><tr><td> <tt>&gt;</tt> </td><td> <tt>MO_U_Gt</tt> 
+</td></tr><tr><td> <tt>&lt;=</tt> </td><td> <tt>MO_U_Le</tt> 
+</td></tr><tr><td> <tt>&lt;</tt> </td><td> <tt>MO_U_Lt</tt> 
+</td></tr><tr><td> <tt>!=</tt> </td><td> <tt>MO_Ne</tt> 
+</td></tr><tr><td> <tt>==</tt> </td><td> <tt>MO_Eq</tt> 
+</td></tr><tr><td> <tt>~</tt> </td><td> <tt>MO_Not</tt> 
+</td></tr><tr><td> <tt>-</tt> </td><td> <tt>MO_S_Neg</tt> 
+</td></tr></table>
+<h4 id="Quasi-operatorSyntax">Quasi-operator Syntax</h4>
+<p>
+If you read to the end of <tt>expr</tt> in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/CmmParse.y">compiler/cmm/CmmParse.y</a>, in the next production rule, <tt>expr0</tt>, you will notice that Cmm expressions also recognise a set of name (not symbol) based operators that would probably be better understood as <em>quasi-operators</em>.  The syntax for these quasi-operators is in some cases similar to syntax for Cmm statements and generally conform to the C-- specification, sections 3.3.2 (<tt>expr</tt>) and 7.4.1 (syntax of primitive operators), <em>except that</em> 3. <em>and, by the equivalence of the two,</em> 1. <em>may return</em> <strong>multiple</strong> <em> arguments</em>. In Cmm, quasi-operators may have side effects. The syntax for quasi-operators may be:
+</p>
+<ol><li><tt>expr0</tt> <tt>`name`</tt> <tt>expr0</tt><br />(just like infix-functions in Haskell);
+</li><li><tt>type[ expression ]</tt><br />(the memory access quasi-expression described in <a class="wiki" href="CmmType.html#MemoryAccess">Memory Access</a>; the Haskell representation of this syntax is <tt>CmmLoad CmmExpr MachRep</tt>); 
+</li><li><tt>%name( exprs0 )</tt><br />(standard prefix form, similar to C-- <em>statement</em> syntax for procedures but with the distinguishing prefix <tt>%</tt>; in Cmm this is <em>also used as statement syntax for calls, which are really built-in procedures</em>, see <a class="wiki" href="CmmType.html#CmmCalls">Cmm Calls</a>) 
+</li></ol><p>
+A <tt>expr0</tt> may be a literal (<tt>CmmLit</tt>) integral, floating point, string or a <tt>CmmReg</tt> (the production rule <tt>reg</tt>: a <tt>name</tt> for a local register (<tt>LocalReg</tt>) or a <tt>GlobalReg</tt>).
+</p>
+<p>
+Note that the <tt>name</tt> in <tt>expr0</tt> syntax types 1. and 3. must be a known <em>primitive</em> (primitive operation), see <a class="wiki" href="CmmType.html#OperatorsandPrimitiveOperations">Operators and Primitive Operations</a>.  The first and third syntax types are interchangeable:
+</p>
+<pre class="wiki">bits32 one, two, res;
+one = 1::bits32;
+two = 2::bits32;
+
+res = one `lt` two;
+
+// is equivalent to:
+
+res = %lt(one, two);
+</pre><p>
+The primitive operations allowed by Cmm are listed in the <tt>machOps</tt> production rule, in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/CmmParse.y">compiler/cmm/CmmParse.y</a>, and largely correspond to <tt>MachOp</tt> data type constructors, in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/MachOp.hs">compiler/cmm/MachOp.hs</a>, with a few additions.  The primitive operations distinguish between signed, unsigned and floating point types.
+</p>
+<p>
+Cmm adds some expression macros that map to Haskell Cmm functions.  They are listed under <tt>exprMacros</tt> in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/CmmParse.y">compiler/cmm/CmmParse.y</a> and include:
+</p>
+<ul><li><tt>ENTRY_CODE</tt>
+</li><li><tt>INFO_PTR</tt>
+</li><li><tt>STD_INFO</tt>
+</li><li><tt>FUN_INFO</tt>
+</li><li><tt>GET_ENTRY</tt>
+</li><li><tt>GET_STD_INFO</tt>
+</li><li><tt>GET_FUN_INFO</tt>
+</li><li><tt>INFO_TYPE</tt>
+</li><li><tt>INFO_PTRS</tt>
+</li><li><tt>INFO_NPTRS</tt>
+</li><li><tt>RET_VEC</tt>
+</li></ul><h3 id="StatementsandCalls">Statements and Calls</h3>
+<p>
+Cmm Statements generally conform to the C-- specification, with a few exceptions noted below.  Cmm Statements implement:
+</p>
+<ul><li>no-op; the empty statement: <tt>;</tt>
+</li><li>C-- (C99/C++ style) comments: <tt>// ... \n</tt> and <tt>/* ... */</tt>
+</li><li>the assignment operator: <tt>=</tt>
+</li><li>store operation (assignment to a memory location): <tt>type[expr] =</tt>
+</li><li>control flow within procedures (<tt>goto</tt>) and between procedures (<tt>jump</tt>, returns) (note: returns are <em>only</em> Cmm macros)
+</li><li>foreign calls (<tt>foreign "C" ...</tt>) and calls to Cmm Primitive Operations (<tt>%</tt>)
+</li><li>procedure calls and tail calls
+</li><li>conditional statement (<tt>if ... { ... } else { ... }</tt>)
+</li><li>tabled conditional (<tt>switch</tt>)
+</li></ul><p>
+Cmm does not implement the C-- specification for Spans (sec. 6.1) or Continuations (sec. 6.7).<br />
+Although Cmm supports primitive operations that may have side effects (see <a class="wiki" href="CmmType.html#PrimitiveOperations">Primitive Operations</a>, below), it does not parse the syntax <tt>%%</tt> form mentioned in section 6.3 of the C-- specification.  Use the <tt>%name(arg1,arg2)</tt> expression-syntax instead.  
+<br />
+Cmm does not implement the <tt>return</tt> statement (C-- spec, sec. 6.8.2) but provides a set of macros that return a list of tuples of a <tt>CgRep</tt> and a <tt>CmmExpr</tt>: <tt>[(CgRep,CmmExpr)]</tt>.  For a description of <tt>CgRep</tt>, see comments in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/codeGen/SMRep.lhs">compiler/codeGen/SMRep.lhs</a>.  The return macros are defined at the end of the production rule <tt>stmtMacros</tt> in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/CmmParse.y">compiler/cmm/CmmParse.y</a>:
+</p>
+<ul><li><tt>RET_P</tt>
+</li><li><tt>RET_N</tt>
+</li><li><tt>RET_PP</tt>
+</li><li><tt>RET_NN</tt>
+</li><li><tt>RET_NP</tt>
+</li><li><tt>RET_PPP</tt>
+</li><li><tt>RET_NNP</tt>
+</li><li><tt>RET_NNNP</tt>
+</li><li><tt>RET_NPNP</tt>
+</li></ul><p>
+In the above macros, <tt>P</tt> stands for <tt>PtrArg</tt> and <tt>N</tt> stands for <tt>NonPtrArg</tt>; both are <tt>CgRep</tt> constructors.  These return macros provide greater control for the <a class="wiki" href="https://ghc.haskell.org/trac/ghc/wiki/Commentary/Compiler/CodeGen">CodeGen</a> and integrate with the RTS but limit the number and type of return arguments in Cmm: you may only return according to these macros!  The returns are processed by the <tt>emitRetUT</tt> function in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/CmmParse.y">compiler/cmm/CmmParse.y</a>, which in turn calls several functions from <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/codeGen/CgMonad.lhs">compiler/codeGen/CgMonad.lhs</a>, notably <tt>emitStmts</tt>, which is the core Code Generator function for emitting <tt>CmmStmt</tt> data.
+</p>
+<p>
+The Haskell representation of Cmm Statements is the data type <tt>CmmStmt</tt>, defined in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/Cmm.hs">compiler/cmm/Cmm.hs</a>:
+</p>
+<pre>
+<font color="DarkOrchid">data</font> <font color="Green">CmmStmt</font>
+  <font color="Blue">=</font> <font color="Green">CmmNop</font>
+  <font color="Blue">|</font> <font color="Green">CmmComment</font> <font color="Green">FastString</font>
+
+  <font color="Blue">|</font> <font color="Green">CmmAssign</font> <font color="Green">CmmReg</font> <font color="Green">CmmExpr</font>	 <font color="Crimson">-- Assign to register</font>
+
+  <font color="Blue">|</font> <font color="Green">CmmStore</font> <font color="Green">CmmExpr</font> <font color="Green">CmmExpr</font>     <font color="Crimson">-- Assign to memory location.  Size is</font>
+                                 <font color="Crimson">-- given by cmmExprRep of the rhs.</font>
+
+  <font color="Blue">|</font> <font color="Green">CmmCall</font>	 		 <font color="Crimson">-- A foreign call, with </font>
+     <font color="Green">CmmCallTarget</font>
+     <font color="Blue">[</font><font color="Blue">(</font><font color="Green">CmmReg</font><font color="Blue">,</font><font color="Green">MachHint</font><font color="Blue">)</font><font color="Blue">]</font>	 <font color="Crimson">-- zero or more results</font>
+     <font color="Blue">[</font><font color="Blue">(</font><font color="Green">CmmExpr</font><font color="Blue">,</font><font color="Green">MachHint</font><font color="Blue">)</font><font color="Blue">]</font>	 <font color="Crimson">-- zero or more arguments</font>
+     <font color="Blue">(</font><font color="Green">Maybe</font> <font color="Blue">[</font><font color="Green">GlobalReg</font><font color="Blue">]</font><font color="Blue">)</font>	 <font color="Crimson">-- Global regs that may need to be saved</font>
+				 <font color="Crimson">-- if they will be clobbered by the call.</font>
+				 <font color="Crimson">-- Nothing &lt;=&gt; save *all* globals that</font>
+				 <font color="Crimson">-- might be clobbered.</font>
+
+  <font color="Blue">|</font> <font color="Green">CmmBranch</font> <font color="Green">BlockId</font>             <font color="Crimson">-- branch to another BB in this fn</font>
+
+  <font color="Blue">|</font> <font color="Green">CmmCondBranch</font> <font color="Green">CmmExpr</font> <font color="Green">BlockId</font> <font color="Crimson">-- conditional branch</font>
+
+  <font color="Blue">|</font> <font color="Green">CmmSwitch</font> <font color="Green">CmmExpr</font> <font color="Blue">[</font><font color="Green">Maybe</font> <font color="Green">BlockId</font><font color="Blue">]</font>   <font color="Crimson">-- Table branch</font>
+	<font color="Crimson">-- The scrutinee is zero-based; </font>
+	<font color="Crimson">--	zero -&gt; first block</font>
+	<font color="Crimson">--	one  -&gt; second block etc</font>
+	<font color="Crimson">-- Undefined outside range, and when there's a Nothing</font>
+
+  <font color="Blue">|</font> <font color="Green">CmmJump</font> <font color="Green">CmmExpr</font> <font color="Blue">[</font><font color="Green">LocalReg</font><font color="Blue">]</font>    <font color="Crimson">-- Jump to another function, with these </font>
+				  <font color="Crimson">-- parameters.</font>
+</pre>
+<p>
+Note how the constructor <tt>CmmJump</tt> contains <tt>[LocalReg]</tt>: this is the Cmm implementation of the C-- <tt>jump</tt> statement for calling another procedure where the parameters are the arguments passed to the other procedure. None of the parameters contain the address--in assembler, a label--of the caller, to return control to the caller.  The <tt>CmmCall</tt> constructor also lacks a parameter to store the caller's address.  Cmm implements C-- jump nesting and matching returns by <em>tail calls</em>, as described in section 6.8 of the C-- specification.  Tail calls are managed through the <a class="wiki" href="https://ghc.haskell.org/trac/ghc/wiki/Commentary/Compiler/CodeGen">CodeGen</a>, see <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/codeGen/CgTailCall.lhs">compiler/codeGen/CgTailCall.lhs</a>.  You may have already noticed that the call target of the <tt>CmmJump</tt> is a <tt>CmmExpr</tt>: this is the Cmm implementation of computed procedure addresses, for example:
+</p>
+<pre class="wiki">proc1 {
+...
+
+ jump (bits32[x+4])( ... );
+
+}
+</pre><p>
+The computed procedure address, in this case <tt>(bits32[x+4])</tt>, should always be the first instruction of a <tt>Cmm</tt> procedure.  You cannot obtain the address of a code block <em>within</em> a procedure and <tt>jump</tt> to it, as an alternative way of computing a <em>continuation</em>.  
+</p>
+<p>
+<tt>CmmBranch BlockId</tt> represents an unconditional branch to another <a class="wiki" href="CmmType.html#BasicBlocksandProcedures">Basic Block</a> in the same procedure.  There are two unconditional branches in Cmm/C--:
+</p>
+<ol><li><tt>goto</tt> statement; and
+</li><li>a branch from the <tt>else</tt> portion of an <tt>if-then-else</tt> statement.
+</li></ol><p>
+<tt>CmmCondBranch CmmExpr BlockId</tt> represents a conditional branch to another <a class="wiki" href="CmmType.html#BasicBlocksandProcedures">Basic Block</a> in the same procedure.  This is the <tt>if expr</tt> statement where <tt>expr</tt> is a <tt>CmmExpr</tt>, used in both the unary <tt>if</tt> and <tt>if-then-else</tt> statements.  <tt>CmmCondBranch</tt> maps to more complex Assembler instruction sets or HC code (<a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/PprC.hs">compiler/cmm/PprC.hs</a>).  For assembler, labels are created for each new Basic Block.  During parsing, conditional statements map to the <tt>BoolExpr</tt> data type which guides the encoding of assembler instruction sets.
+</p>
+<p>
+<tt>CmmSwitch</tt> represents the <tt>switch</tt> statement.  It is parsed and created as with the <tt>doSwitch</tt> function in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/CmmParse.y">compiler/cmm/CmmParse.y</a> or created from <tt>case</tt> expressions with the <tt>emitSwitch</tt> and <tt>mk_switch</tt> functions in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/codeGen/CgUtils.hs">compiler/codeGen/CgUtils.hs</a>.  In the NCG, a <tt>CmmSwitch</tt> is generated as a jump table using the <tt>genSwitch</tt> function in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/nativeGen/MachCodeGen.hs">compiler/nativeGen/MachCodeGen.hs</a>.  There is currently no implementation of any optimisations, such as a cascade of comparisons for switches with a wide deviation in values or binary search for very wide value ranges--for output to HC, earlier versions of GCC could not handle large if-trees, anyway.
+</p>
+<h4 id="CmmCalls">Cmm Calls</h4>
+<p>
+Cmm calls include both calls to foreign functions and calls to Cmm quasi-operators using expression syntax (see <a class="wiki" href="CmmType.html#QuasioperatorSyntax">Quasi-operator Syntax</a>). Although Cmm does not implement any of the control flow statements of C-- specification (section 6.8.1), foreign calls from Cmm are one of the most complex components of the system due to various differences between the Cmm and C calling conventions.
+</p>
+<p>
+The data type, <tt>CmmCallTarget</tt> is defined in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/Cmm.hs">compiler/cmm/Cmm.hs</a> as:
+</p>
+<pre>
+<font color="DarkOrchid">data</font> <font color="Green">CmmCallTarget</font>
+  <font color="Blue">=</font> <font color="Green">CmmForeignCall</font>		<font color="Crimson">-- Call to a foreign function</font>
+	<font color="Green">CmmExpr</font> 		<font color="Crimson">-- literal label &lt;=&gt; static call</font>
+				<font color="Crimson">-- other expression &lt;=&gt; dynamic call</font>
+	<font color="Green">CCallConv</font>		<font color="Crimson">-- The calling convention</font>
+
+  <font color="Blue">|</font> <font color="Green">CmmPrim</font>			<font color="Crimson">-- Call to a "primitive" (eg. sin, cos)</font>
+	<font color="Green">CallishMachOp</font>		<font color="Crimson">-- These might be implemented as inline</font>
+				<font color="Crimson">-- code by the backend.</font>
+</pre>
+<p>
+<tt>CCallConv</tt> is defined in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/prelude/ForeignCall.lhs">compiler/prelude/ForeignCall.lhs</a>; for information on register assignments, see comments in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/codeGen/CgCallConv.hs">compiler/codeGen/CgCallConv.hs</a>.
+</p>
+<p>
+<tt>CallishMachOp</tt> is defined in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/MachOp.hs">compiler/cmm/MachOp.hs</a>; see, also, below <a class="wiki" href="CmmType.html#PrimitiveOperations">Primitive Operations</a>.  <tt>CallishMachOp</tt>s are generally used for floating point computations (without implementing any floating point exceptions).  Here is an example of using a <tt>CallishMachOp</tt> (not yet implemented):
+</p>
+<pre class="wiki">  add, carry = %addWithCarry(x, y);
+</pre><h3 id="OperatorsandPrimitiveOperations">Operators and Primitive Operations</h3>
+<p>
+Cmm generally conforms to the C-- specification for operators and "primitive operations".  The C-- specification, in section 7.4, refers to both of these as "primitive operations" but there are really two different types: 
+</p>
+<ul><li><em>operators</em>, as I refer to them, are: 
+<ul><li>parseable tokens, such as <tt>+</tt>,<tt>-</tt>,<tt>*</tt> or <tt>/</tt>; 
+</li><li>generally map to a single machine instruction or part of a machine instruction;
+</li><li>have no side effects; and, 
+</li><li>are represented in Haskell using the <tt>MachOp</tt> data type; 
+</li></ul></li><li><em>primitive operations</em> (Cmm <em>quasi-operators</em>) are special, usually inlined, procedures, represented in Haskell using the <tt>CallishMachOp</tt> data type; primitive operations may have side effects.
+</li></ul><p>
+The <tt>MachOp</tt> and <tt>CallishMachOp</tt> data types are defined in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/MachOp.hs">compiler/cmm/MachOp.hs</a>.
+</p>
+<p>
+Both Cmm Operators and Primitive Operations are handled in Haskell as <a class="wiki" href="https://ghc.haskell.org/trac/ghc/wiki/Commentary/PrimOps#InlinePrimOps">Inline PrimOps</a>, though what I am calling Cmm <em>primitive operations</em> may be implemented as out-of-line foreign calls.
+</p>
+<h4 id="Operators">Operators</h4>
+<pre>
+<font color="DarkOrchid">data</font> <font color="Green">MachOp</font>
+
+  <font color="Crimson">-- Integer operations</font>
+  <font color="Blue">=</font> <font color="Green">MO_Add</font>    <font color="Green">MachRep</font>
+  <font color="Blue">|</font> <font color="Green">MO_Sub</font>    <font color="Green">MachRep</font>
+  <font color="Blue">|</font> <font color="Green">MO_Eq</font>     <font color="Green">MachRep</font>
+  <font color="Blue">|</font> <font color="Green">MO_Ne</font>     <font color="Green">MachRep</font>
+  <font color="Blue">|</font> <font color="Green">MO_Mul</font>    <font color="Green">MachRep</font>		<font color="Crimson">-- low word of multiply</font>
+  <font color="Blue">|</font> <font color="Green">MO_S_MulMayOflo</font> <font color="Green">MachRep</font> 	<font color="Crimson">-- nonzero if signed multiply overflows</font>
+  <font color="Blue">|</font> <font color="Green">MO_S_Quot</font> <font color="Green">MachRep</font>		<font color="Crimson">-- signed / (same semantics as IntQuotOp)</font>
+  <font color="Blue">|</font> <font color="Green">MO_S_Rem</font>  <font color="Green">MachRep</font>		<font color="Crimson">-- signed % (same semantics as IntRemOp)</font>
+  <font color="Blue">|</font> <font color="Green">MO_S_Neg</font>  <font color="Green">MachRep</font>		<font color="Crimson">-- unary -</font>
+  <font color="Blue">|</font> <font color="Green">MO_U_MulMayOflo</font> <font color="Green">MachRep</font>	<font color="Crimson">-- nonzero if unsigned multiply overflows</font>
+  <font color="Blue">|</font> <font color="Green">MO_U_Quot</font> <font color="Green">MachRep</font>		<font color="Crimson">-- unsigned / (same semantics as WordQuotOp)</font>
+  <font color="Blue">|</font> <font color="Green">MO_U_Rem</font>  <font color="Green">MachRep</font>		<font color="Crimson">-- unsigned % (same semantics as WordRemOp)</font>
+
+  <font color="Crimson">-- Signed comparisons (floating-point comparisons also use these)</font>
+  <font color="Blue">|</font> <font color="Green">MO_S_Ge</font> <font color="Green">MachRep</font>
+  <font color="Blue">|</font> <font color="Green">MO_S_Le</font> <font color="Green">MachRep</font>
+  <font color="Blue">|</font> <font color="Green">MO_S_Gt</font> <font color="Green">MachRep</font>
+  <font color="Blue">|</font> <font color="Green">MO_S_Lt</font> <font color="Green">MachRep</font>
+
+  <font color="Crimson">-- Unsigned comparisons</font>
+  <font color="Blue">|</font> <font color="Green">MO_U_Ge</font> <font color="Green">MachRep</font>
+  <font color="Blue">|</font> <font color="Green">MO_U_Le</font> <font color="Green">MachRep</font>
+  <font color="Blue">|</font> <font color="Green">MO_U_Gt</font> <font color="Green">MachRep</font>
+  <font color="Blue">|</font> <font color="Green">MO_U_Lt</font> <font color="Green">MachRep</font>
+
+  <font color="Crimson">-- Bitwise operations.  Not all of these may be supported at all sizes,</font>
+  <font color="Crimson">-- and only integral MachReps are valid.</font>
+  <font color="Blue">|</font> <font color="Green">MO_And</font>   <font color="Green">MachRep</font>
+  <font color="Blue">|</font> <font color="Green">MO_Or</font>    <font color="Green">MachRep</font>
+  <font color="Blue">|</font> <font color="Green">MO_Xor</font>   <font color="Green">MachRep</font>
+  <font color="Blue">|</font> <font color="Green">MO_Not</font>   <font color="Green">MachRep</font>
+  <font color="Blue">|</font> <font color="Green">MO_Shl</font>   <font color="Green">MachRep</font>
+  <font color="Blue">|</font> <font color="Green">MO_U_Shr</font> <font color="Green">MachRep</font>	<font color="Crimson">-- unsigned shift right</font>
+  <font color="Blue">|</font> <font color="Green">MO_S_Shr</font> <font color="Green">MachRep</font>	<font color="Crimson">-- signed shift right</font>
+
+  <font color="Crimson">-- Conversions.  Some of these will be NOPs.</font>
+  <font color="Crimson">-- Floating-point conversions use the signed variant.</font>
+  <font color="Blue">|</font> <font color="Green">MO_S_Conv</font> <font color="Green">MachRep</font><font color="Crimson">{-from-}</font> <font color="Green">MachRep</font><font color="Crimson">{-to-}</font>	<font color="Crimson">-- signed conversion</font>
+  <font color="Blue">|</font> <font color="Green">MO_U_Conv</font> <font color="Green">MachRep</font><font color="Crimson">{-from-}</font> <font color="Green">MachRep</font><font color="Crimson">{-to-}</font>	<font color="Crimson">-- unsigned conversion</font>
+</pre>
+<p>
+Each <tt>MachOp</tt> generally corresponds to a machine instruction but may have its value precomputed in the Cmm, NCG or HC optimisers.  
+</p>
+<h4 id="PrimitiveOperations">Primitive Operations</h4>
+<p>
+Primitive Operations generally involve more than one machine instruction and may not always be inlined.  
+</p>
+<pre>
+<font color="Crimson">-- These MachOps tend to be implemented by foreign calls in some backends,</font>
+<font color="Crimson">-- so we separate them out.  In Cmm, these can only occur in a</font>
+<font color="Crimson">-- statement position, in contrast to an ordinary MachOp which can occur</font>
+<font color="Crimson">-- anywhere in an expression.</font>
+<font color="DarkOrchid">data</font> <font color="Green">CallishMachOp</font>
+  <font color="Blue">=</font> <font color="Green">MO_F64_Pwr</font>
+  <font color="Blue">|</font> <font color="Green">MO_F64_Sin</font>
+  <font color="Blue">|</font> <font color="Green">MO_F64_Cos</font>
+  <font color="Blue">|</font> <font color="Green">MO_F64_Tan</font>
+  <font color="Blue">|</font> <font color="Green">MO_F64_Sinh</font>
+  <font color="Blue">|</font> <font color="Green">MO_F64_Cosh</font>
+  <font color="Blue">|</font> <font color="Green">MO_F64_Tanh</font>
+  <font color="Blue">|</font> <font color="Green">MO_F64_Asin</font>
+  <font color="Blue">|</font> <font color="Green">MO_F64_Acos</font>
+  <font color="Blue">|</font> <font color="Green">MO_F64_Atan</font>
+  <font color="Blue">|</font> <font color="Green">MO_F64_Log</font>
+  <font color="Blue">|</font> <font color="Green">MO_F64_Exp</font>
+  <font color="Blue">|</font> <font color="Green">MO_F64_Sqrt</font>
+  <font color="Blue">|</font> <font color="Green">MO_F32_Pwr</font>
+  <font color="Blue">|</font> <font color="Green">MO_F32_Sin</font>
+  <font color="Blue">|</font> <font color="Green">MO_F32_Cos</font>
+  <font color="Blue">|</font> <font color="Green">MO_F32_Tan</font>
+  <font color="Blue">|</font> <font color="Green">MO_F32_Sinh</font>
+  <font color="Blue">|</font> <font color="Green">MO_F32_Cosh</font>
+  <font color="Blue">|</font> <font color="Green">MO_F32_Tanh</font>
+  <font color="Blue">|</font> <font color="Green">MO_F32_Asin</font>
+  <font color="Blue">|</font> <font color="Green">MO_F32_Acos</font>
+  <font color="Blue">|</font> <font color="Green">MO_F32_Atan</font>
+  <font color="Blue">|</font> <font color="Green">MO_F32_Log</font>
+  <font color="Blue">|</font> <font color="Green">MO_F32_Exp</font>
+  <font color="Blue">|</font> <font color="Green">MO_F32_Sqrt</font>
+  <font color="Blue">|</font> <font color="Green">MO_WriteBarrier</font>
+  <font color="Blue">|</font> <font color="Green">MO_Touch</font>         <font color="Crimson">-- Keep variables live (when using interior pointers)</font>
+  
+  <font color="Crimson">-- Note that these three MachOps all take 1 extra parameter than the</font>
+  <font color="Crimson">-- standard C lib versions. The extra (last) parameter contains</font>
+  <font color="Crimson">-- alignment of the pointers. Used for optimisation in backends.</font>
+  <font color="Blue">|</font> <font color="Green">MO_Memcpy</font>
+  <font color="Blue">|</font> <font color="Green">MO_Memset</font>
+  <font color="Blue">|</font> <font color="Green">MO_Memmove</font>
+</pre>
+<p>
+For an example, the floating point sine function, <tt>sinFloat#</tt> in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/prelude/primops.txt.pp">compiler/prelude/primops.txt.pp</a> is piped through the <tt>callishOp</tt> function in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/codeGen/CgPrimOp.hs">compiler/codeGen/CgPrimOp.hs</a> to become <tt>Just MO_F32_Sin</tt>.  The <tt>CallishMachOp</tt> constructor <tt>MO_F32_Sin</tt> is piped through a platform specific function such as <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/nativeGen/X86/CodeGen.hs">compiler/nativeGen/X86/CodeGen.hs</a> on X86, where the function <tt>genCCall</tt> will call <tt>outOfLineFloatOp</tt> to issue a call to a C function such as <tt>sin</tt>.
+</p>
+<h2 id="CmmDesign:ObservationsandAreasforPotentialImprovement">Cmm Design: Observations and Areas for Potential Improvement</h2>
+<p>
+"If the application of a primitive operator causes a system exception, such as division by zero, this is an unchecked run-time error. (A future version of this specification may provide a way for a program to recover from such an exception.)" C-- spec, Section 7.4.  Cmm may be able to implement a partial solution to this problem, following the paper: <a class="ext-link" href="http://cminusminus.org/abstracts/c--pldi-00.html"><span class="icon">​</span>A Single Intermediate Language That Supports Multiple Implementations of Exceptions (2000)</a>.  (<span class="wikiextras phrase todo">TODO</span> write notes to wiki and test fix.)
+</p>
+<p>
+The IEEE 754 specification for floating point numbers defines exceptions for certain floating point operations, including: 
+</p>
+<ul><li>range violation (overflow, underflow); 
+</li><li>rounding errors (inexact); 
+</li><li>invalid operation (invalid operand, such as comparison with a <tt>NaN</tt> value, the square root of a negative number or division of zero by zero); and,
+</li><li>zero divide (a special case of an invalid operation).  
+</li></ul><p>
+Many architectures support floating point exceptions by including a special register as an addition to other exception handling registers.  The IBM PPC includes the <tt>FPSCR</tt> ("Floating Point Status Control Register"); the Intel x86 processors use the <tt>MXCSR</tt> register.  When the PPC performs a floating point operation it checks for possible errors and sets the <tt>FPSCR</tt>.  Some processors allow a flag in the Foating-Point Unit (FPU) status and control register to be set that will disable some exceptions or the entire FPU exception handling facility.  Some processors disable the FPU after an exception has occurred while others, notably Intel's x86 and x87 processors, continue to perform FPU operations.  Depending on whether quiet NaNs (QNaNs) or signaling NaNs (SNaNs) are used by the software, an FPU exception may signal an interrupt for the software to pass to its own exception handler.  
+</p>
+<p>
+Some higher level languages provide facilities to handle these exceptions, including Ada, Fortran (F90 and later), C++ and C (C99, fenv.h, float.h on certain compilers); others may handle such exceptions without exposing a low-level interface.  There are three reasons to handle FPU exceptions, and these reasons apply similarly to other exceptions: 
+</p>
+<ul><li>the facilities provide greater control; 
+</li><li>the facilities are efficient--more efficient than a higher-level software solution; and, 
+</li><li>FPU exceptions may be unavoidable, especially if several FPU operations are serially performed at the machine level so the higher level software has no opportunity to check the results in between operations. 
+</li></ul><p>
+A potential solution to the problem of implementing Cmm exceptions, especially for floating point operations, is at <a class="wiki" href="https://ghc.haskell.org/trac/ghc/wiki/Commentary/CmmExceptions">Cmm: Implementing Exception Handling</a>.  
+</p>
+<p>
+The C-- Language Specification mentions over 75 primitive operators.  The Specification lists separate operators for integral and floating point (signed) arithmetic (including carry, borrow and overflow checking), logical comparisons and conversions (from one size float to another, from float to integral and vice versa, etc.).  C-- also includes special operators for floating point number values, such as <tt>NaN</tt>, <tt>mzero</tt><em>k</em> and <tt>pzero</tt><em>k</em>, and rounding modes; integral kinds also include bitwise operators, unsigned variants, and bit extraction for width changing and sign or zero-extension.  A C-- implementation may conveniently map each of these operators to a machine instruction, or to a simulated operation on architectures that do not support a single instruction.  There seem to be two main problems with the current GHC-implementation of Cmm:
+</p>
+<ol><li>not enough operators
+</li><li>no implementation of vector (SIMD) registers (though there is a <tt>I128</tt> <tt>MachRep</tt>)
+</li></ol><p>
+If a particular architecture supports it, assembler includes instructions such as mnemonics with the <tt>.</tt> ("dot") suffix (<tt>add., fsub.</tt>), which set the Condition Register (CR) thereby saving you at least one instruction.  (Extended mnemonics can save you even more.)  Extended mnemonics with side effects may be implemented as new <tt>CallishMachOps</tt>, see <a class="wiki" href="CmmType.html#PrimitiveOperations">Primitive Operations</a> and <a class="wiki" href="CmmType.html#CmmCalls">Cmm Calls</a>.  Assembler also supports machine exceptions, especially exceptions for floating-point operations, invalid storage access or misalignment (effective address alignment).  The current implementation of Cmm cannot model such exceptions through flow control because no flow control is implemented, see <a class="wiki" href="CmmType.html#CmmCalls">Cmm Calls</a>.
+</p>
+<p>
+Hiding the kinds of registers on a machine eliminates the ability to handle floating point exceptions at the Cmm level and to explicitly vectorize (use SIMD extensions).  The argument for exposing vector types may be a special case since such low-level operations are exposed at the C-level, as new types of variables or "intrinsics," that are C-language extensions provided by special header files and compiler support (<tt>vector unsigned int</tt> or <tt>__m128i</tt>, <tt>vector float</tt> or <tt>__m128</tt>) and operations (<tt>vec_add()</tt>, <tt>+</tt> (with at least one vector operand), <tt>_mm_add_epi32()</tt>).  
+</p>
+</div>
+          
+          <div class="trac-modifiedby">
+            <span><a href="https://ghc.haskell.org/trac/ghc/wiki/Commentary/Compiler/CmmType?action=diff&amp;version=22" title="Version 22 by zilinc">Last modified</a> <a class="timeline" href="https://ghc.haskell.org/trac/ghc/timeline?from=2016-01-13T02%3A12%3A40Z&amp;precision=second" title="See timeline at Jan 13, 2016 2:12:40 AM">11 months ago</a></span>
+            <span class="trac-print">Last modified on Jan 13, 2016 2:12:40 AM</span>
+          </div>
+        
+        
+      </div>
+        </div>
+      </div>
+    </div>
+    <div id="altlinks">
+      <h3>Download in other formats:</h3>
+      <ul>
+        <li class="last first">
+          <a rel="nofollow" href="https://ghc.haskell.org/trac/ghc/wiki/Commentary/Compiler/CmmType?format=txt">Plain Text</a>
+        </li>
+      </ul>
+    </div>
+    </div>
+    <div id="footer" lang="en" xml:lang="en"><hr />
+      <a id="tracpowered" href="http://trac.edgewall.org/"><img src="https://ghc.haskell.org/trac-1.0.7-htdocs/trac_logo_mini.png" height="30" width="107" alt="Trac Powered" /></a>
+      <p class="left">Powered by <a href="https://ghc.haskell.org/trac/ghc/about"><strong>Trac 1.0.9</strong></a><br />
+        By <a href="http://www.edgewall.org/">Edgewall Software</a>.</p>
+      <p class="right">Visit the Trac open source project at<br /><a href="http://trac.edgewall.org/">http://trac.edgewall.org/</a></p>
+    </div>
+  </body>
+
+<!-- Mirrored from ghc.haskell.org/trac/ghc/wiki/Commentary/Compiler/CmmType by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:20 GMT -->
+</html>

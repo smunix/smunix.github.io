@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2012-12-19-24-days-of-hackage-snap.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>24 Days of Hackage: snap</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>24 Days of Hackage: snap</h1>
+<p>The <a href="http://snapframework.com/">Snap framework</a> is one of a handful of web frameworks available for Haskell, and comes complete with a high performance HTTP server, a rich monad for web programming, composable snaplets, and strong integration with the Heist templating language. In today’s post, we’ll have a look at how simple it is to build applications using Snap.</p>
+<h2 id="snap-core"><code>snap-core</code></h2>
+<p>The first library we’ll look at is <a href="http://hackage.haskell.org/package/snap-core"><code>snap-core</code></a>, which provides some low level tools for building dynamic websites. Let’s jump straight in to getting some results. A simple web handler is simply a function in anything that is an instance of <code>MonadSnap</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">hello ::</span> <span class="dt">Snap</span> ()
+hello <span class="fu">=</span> writeText <span class="st">&quot;Hello, world!&quot;</span></code></pre></div>
+<p>Hello world doesn’t get any simpler than that! Of course, this is only our handler, the next step is to actually add a <em>route</em> to this handler:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">app ::</span> <span class="dt">Snap</span> ()
+app <span class="fu">=</span> route [(<span class="st">&quot;/hello&quot;</span>, hello)]</code></pre></div>
+<p>This adds a single route to our application, if the user browses <code>/hello</code>, then Snap will use our <code>hello</code> handler, and simply write “Hello, world” back to the browser. Finally, we need to run our application - we’ll use Snap’s server for this:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> quickHttpServe app</code></pre></div>
+<p>That’s it - in 6 lines of code, all of which are straightforward Haskell 98, we have a web app ready to serve requests! <code>snap-core</code> provides a little more, including the ability to parse query/body paramaters, get and set cookies, perform error handling, and manipulating the request and response for the current request.</p>
+<h2 id="snaplets">Snaplets</h2>
+<p>We haven’t seen anything exactly ground breaking so far, and that’s because <code>snap-core</code> is designed to be simplistic and unassuming. While it’s certainly possible to build complex applications with Snap, the normal process of refactoring and abstracting common patterns is certainly workable, the <a href="http://hackage.haskell.org/package/snap"><code>snap</code></a> library contains the snaplets abstraction, which is a very powerful way of building up applications.</p>
+<p>Snaplets are small little self-contained pieces of functionality that can be combined together to build larger applications. Snaplets were introduced in Snap 0.6, and already there are many on Hackage - Snaplets for <a href="http://hackage.haskell.org/package/snaplet-riak">Riak</a>, <a href="http://hackage.haskell.org/package/snaplet-postgresql-simple"><code>postgresql-simple</code></a>, <a href="http://hackage.haskell.org/package/snaplet-recaptcha">Recaptcha</a>, and more. Let’s see how snaplets work:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">App</span> <span class="fu">=</span> <span class="dt">App</span> { _<span class="ot">db ::</span> <span class="dt">Snaplet</span> <span class="dt">Postgres</span> }
+
+makeLenses <span class="ch">''</span><span class="dt">App</span>
+
+<span class="ot">initApp ::</span> <span class="dt">SnapletInit</span> <span class="dt">App</span> <span class="dt">App</span>
+initApp <span class="fu">=</span> makeSnaplet <span class="st">&quot;myapp&quot;</span> <span class="st">&quot;My application&quot;</span> <span class="dt">Nothing</span> <span class="fu">$</span>
+  <span class="dt">App</span> <span class="fu">&lt;$&gt;</span> nestSnaplet <span class="st">&quot;db&quot;</span> db pgsInit
+      <span class="fu">&lt;*</span> addRoutes [(<span class="st">&quot;/hello/:id&quot;</span>, helloDb)]
+
+<span class="ot">helloDb ::</span> <span class="dt">Handler</span> <span class="dt">App</span> <span class="dt">App</span> ()
+helloDb <span class="fu">=</span> <span class="kw">do</span>
+  <span class="dt">Just</span> mUId <span class="ot">&lt;-</span> getParam <span class="st">&quot;id&quot;</span>
+  userName <span class="ot">&lt;-</span> with db <span class="fu">$</span>
+    listToMaybe <span class="fu">&lt;$&gt;</span>
+      query <span class="st">&quot;SELECT name FROM users WHERE id = ?&quot;</span> (<span class="dt">Only</span> mUId)
+  writeText <span class="fu">$</span> maybe <span class="st">&quot;User not found&quot;</span> (<span class="st">&quot;Hello, &quot;</span> <span class="fu">++</span> ) userName
+
+<span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> serveSnaplet defaultConfig initApp</code></pre></div>
+<p>Here I’ve created my <code>App</code> data type, which is passed around through all requests. We initialize the application using <code>initApp</code>, which creates a Snaplet itself, with a <code>Snaplet Postgres</code> nested inside it. This will let us perform database queries. Finally, I’ve added a single route to the application - this route is a bit different from the one we saw before, as it also binds a variable - that’s what <code>:id</code> is for. This means that we can go to pages like <code>/hello/10</code> and our <code>helloDb</code> handler will be fired, with <code>id</code> set to <code>10</code>.</p>
+<p>Our <code>helloDb</code> handler is also a bit more complex now. I first retrieve the <code>id</code> parameter, here somewhat circumventing the safety of <code>Maybe</code>. We then use <code>with</code> to “move into” our database Snaplet, which now lets us use things in the <code>Handler b Postgres</code> monad - in this case, <code>query</code>. Finally, we return this back up to our <code>helloDb</code> application, and then write out a greeting.</p>
+<p>Snap is my favourite choice for building web applications - I find the beautiful combination of simplicity and elegance in <code>snap-core</code> is extremely powerful when combined with the snaplets abstraction. If you’re looking to do some web programming with Haskell over the weekend, and want a framework with a low barrier to entry, you could do far worse than give Snap a try.</p>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2012-12-19-24-days-of-hackage-snap.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

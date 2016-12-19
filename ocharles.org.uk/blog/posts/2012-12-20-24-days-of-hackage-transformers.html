@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2012-12-20-24-days-of-hackage-transformers.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>24 Days of Hackage: transformers</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>24 Days of Hackage: transformers</h1>
+<p>Monads monads monads monads monads monads. There, now this blog is <em>officially</em> a Haskell blog. It’s true, you can’t do much programming in Haskell without dealing with monads, but as we’ll see - this isn’t any reason to be scared of them. Instead, we should embrace them! <code>transformers</code> is built for this.</p>
+<p>The <a href="http://hackage.haskell.org/package/transformers"><code>transformers</code></a> library provides monad <em>transformers</em> which let you combine the behavior of multiple monads together. The first transformer I used was the <code>ReaderT</code> transformer, which lets you add a fixed environment to a computation. For example, lets say we have the following functions:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">listAllUsers ::</span> <span class="dt">Connection</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> [<span class="dt">User</span>]
+listAllUsers c <span class="fu">=</span> query c <span class="st">&quot;SELECT * FROM users&quot;</span> ()
+
+<span class="ot">findUser ::</span> <span class="dt">Connection</span> <span class="ot">-&gt;</span> <span class="dt">UserName</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> (<span class="dt">Maybe</span> <span class="dt">User</span>)
+findUser c name <span class="fu">=</span> listToMaybe <span class="fu">&lt;$&gt;</span>
+  query c <span class="st">&quot;SELECT * FROM users WHERE name = ?&quot;</span> (<span class="dt">Only</span> name)</code></pre></div>
+<p>We’ve got two computations here which both require access to the database, so we need to pass a <code>Connection</code> to every call. If we’re having to call these functions regularly, this quickly becomes a pain. What we’d really like is to add some sort of “context” to our computation. In imperative languages, especially those with global variables, this would be easy! Well, with <code>ReaderT</code>, it’s just as easy in Haskell. Here’s a variant using <code>ReaderT</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">listAllUsers ::</span> <span class="dt">ReaderT</span> <span class="dt">Connection</span> <span class="dt">IO</span> [<span class="dt">User</span>]
+listAllUsers <span class="fu">=</span> query' <span class="st">&quot;SELECT * FROM users&quot;</span> ()
+
+<span class="ot">findUser ::</span> <span class="dt">UserName</span> <span class="ot">-&gt;</span> <span class="dt">ReaderT</span> <span class="dt">Connection</span> <span class="dt">IO</span> (<span class="dt">Maybe</span> <span class="dt">User</span>)
+findUser name <span class="fu">=</span> listToMaybe <span class="fu">&lt;$&gt;</span>
+  query' <span class="st">&quot;SELECT * FROM users WHERE name = ?&quot;</span> (<span class="dt">Only</span> name)
+
+<span class="co">-- With...</span>
+<span class="ot">query' ::</span> <span class="dt">Sql</span> <span class="ot">-&gt;</span> <span class="dt">Parameters</span> <span class="ot">-&gt;</span> <span class="dt">ReaderT</span> <span class="dt">Connection</span> <span class="dt">IO</span> [a]
+query' <span class="fu">=</span> <span class="fu">...</span></code></pre></div>
+<p>I’ve introduced my own little operation in the <code>ReaderT Connection IO</code> - the <code>query'</code> function simply reads the <code>Connection</code> out of the environment and runs <code>query</code> as before. Now we can form computations inside this, and easily leverage the database connection:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">do</span>
+  c <span class="ot">&lt;-</span> openConnection
+  runReaderT c <span class="fu">$</span> <span class="kw">do</span>
+    users <span class="ot">&lt;-</span> listAllUsers
+    <span class="fu">...</span>
+    user <span class="ot">&lt;-</span> findUser <span class="st">&quot;Bob&quot;</span></code></pre></div>
+<p>We have isolated computations that touch the database from those that don’t, while also made computing with the database even simpler, as we don’t need to worry about threading the connection handle throughout all the code.</p>
+<p>Adding a fixing environment is not the only thing we can do with <code>transformers</code>. Another handy transformer is the <code>WriterT</code> transformer, which lets us emit some values in a monoid as we run a computation. Logging is the somewhat obvious example of this:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">listAllUsersLogged ::</span> <span class="dt">WriterT</span> [<span class="dt">String</span>] (<span class="dt">ReaderT</span> <span class="dt">Connection</span> <span class="dt">IO</span>) [<span class="dt">User</span>]
+listAllUsersLogged <span class="fu">=</span> <span class="kw">do</span>
+  tell [<span class="st">&quot;Listing all users...&quot;</span>]
+  users <span class="ot">&lt;-</span> lift listAllUsers
+  tell [<span class="st">&quot;Found &quot;</span> <span class="fu">++</span> show (length users) <span class="fu">++</span> <span class="st">&quot; users&quot;</span>]
+  return users</code></pre></div>
+<p>In this example, I’ve reused the <code>listAllUsers</code> function from the previous example and added some logging to it - logging the entry and exit of the function. As you can see, the base monad can be as complex as you want - we’re not limited to just IO, but we can also use our <code>ReaderT Connection</code> monad.</p>
+<h2 id="combining-functors">Combining Functors</h2>
+<p>One thing I love about <code>transformers</code>, which I don’t think is often talked about, is the ability to transform functors - combining them into a larger functor. It was Gibbons and Oliveira’s <a href="http://www.cs.ox.ac.uk/jeremy.gibbons/publications/iterator.pdf">the Essence of the Iterator Pattern</a> that first introduced me to how powerful this can be. While we can always take the product of two monads, we can also take the product of two functors. However, <em>unlike</em> monads, the composition of two functors is also a valid functor! This freedom makes me really warm and fuzzy.</p>
+<p>I recently used this to build an applicative functor for doing three-way merges. A three-way merge combines data from a left side, a right side, and the original document. I modelled this with a <code>MergeScope</code>, and a <code>Merge</code> applicative functor:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">MergeScope</span> a <span class="fu">=</span> <span class="dt">MergeScope</span> {<span class="ot"> left ::</span> a
+                               ,<span class="ot"> original ::</span> a
+                               ,<span class="ot"> right ::</span> a
+                               }
+
+<span class="kw">newtype</span> <span class="dt">Merge</span> e a <span class="fu">=</span> <span class="dt">Merge</span> (<span class="dt">Compose</span> ((<span class="ot">-&gt;</span>) (<span class="dt">MergeScope</span> e)) <span class="dt">Maybe</span> a)
+  <span class="kw">deriving</span> (<span class="dt">Functor</span>, <span class="dt">Applicative</span>)</code></pre></div>
+<p>It looks a little bit scary, but what I’ve done here is taken two applicative functors and combined them together. The <code>Maybe</code> applicative functor is adds the ability for something to fail - if part of a merge is impossible, then we can’t merge the entire document, so we should fail. On top of this, I’ve added used the reader applicative functor to automatically thread the 3 sides of the document through computations. What I really like about this is that I didn’t really have to worry about <em>how</em> these functors are structured - I simply reasoned about the sementics they offered, and the semantics I needed, and the end result naturally fell out.</p>
+<p>If you’re interested in this sort of stuff, definitely check out the aforementioned paper and work through it, it’s a great read!</p>
+<p><code>transformers</code> is another library in the Haskell platform, so again - you probably already have this. If you’re just exploring monads, transformers are something well worth having a play with, they’re a lot of fun!</p>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2012-12-20-24-days-of-hackage-transformers.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2013-08-18-asteroids-in-netwire.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>Asteroids & Netwire</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>Asteroids & Netwire</h1>
+<p>Since my initial foray into functional reactive programming using Netwire, I decided to challenge my newly acquired knowledge by attempting a larger project. I eventually decided to build a clone of the classic Atari game - <a href="https://en.wikipedia.org/wiki/Asteroids_(arcade_game)">Asteroids</a>. I’m happy to announce that I’ve now reached a point at which I’m happy to call this complete, and want to share my findings with you in this blog post. Before we go into that, here’s a look at the finished product:</p>
+<iframe width="420" height="315" src="http://www.youtube.com/embed/0A63Wc4xLIc" frameborder="0" allowfullscreen>
+</iframe>
+<h2 id="why-asteroids">Why Asteroids?</h2>
+<p>I chose Asteroids as it felt like a complete game that would require solving a few distinct challenges. Firstly, Asteroids features different types of objects - the player’s ship, the asteroids themselves, bullets, and UFOs. Each of these objects have slightly different behaviours - both on their own and when interacting with other objects. For example, the player ship can be interacted with by the player, but also destroyed by asteroids and UFOs.</p>
+<p>Asteroids is also one of the simplest dynamic worlds I can think of. The amount of objects on screen varies with time, and each object has an independent life time. Independent objects with variable lifetimes are an integral part of almost any game now, so I decided to start simple and see if I could uncover any elementary approaches to this.</p>
+<p>Another important aspect of any game is that of varying state. The game itself varies in state depending on the number of asteroids on screen. When the count reaches zero, the game starts again with a higher number of asteroids and the score roles over. This management of a state at a much granular level than frame by frame motion felt like it would be an area worth exploring.</p>
+<p>Finally, Asteroids felt like an achievable goal for a single person still learning technology. The rendering is extremely simplistic, as are the physics themselves. Because of this, I was able to go a little further than planned, and ended up building a small sound engine and particle system.</p>
+<h2 id="proud-moments">Proud Moments</h2>
+<p>Along with finishing the game itself, there are a few smaller parts of the project that I feel especially proud of.</p>
+<h3 id="a-functional-reactive-sound-engine">A Functional Reactive Sound Engine</h3>
+<p>As I approached the end of the project, I felt like it wasn’t a true Asteroids clone unless I had some lo-fi sounds to accompany gameplay. Feeling confident with Netwire, I decided it would be fun to synthesize sounds myself with code rather than using prerecorded sounds. As such, I developed a tiny little synthesizer using Netwire</p>
+<p>As an example, here’s how I generate explosion sounds:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">explosion <span class="fu">=</span> decay <span class="dv">2</span> <span class="fu">.</span> gate <span class="fu">.</span> (rateReduce <span class="fu">&amp;&amp;&amp;</span> <span class="fl">0.4</span>) <span class="fu">.</span>  (quantize <span class="fu">&amp;&amp;&amp;</span> <span class="dv">500</span>) <span class="fu">.</span>
+              (noise <span class="fu">&amp;&amp;&amp;</span> <span class="fl">0.2</span>)</code></pre></div>
+<p>So my explosion sound is random noise, quantized to 20%, sampled at 500hZ, and gated at 40%. This random noise decays linearly over 2 seconds to 0. After 2 seconds, this wire inhibits. I then use a little function to “render” a <code>Wire</code> to an SDL <code>Chunk</code>, and am able to play the sound whenever I need to.</p>
+<p>This has made synthesizing sounds a really fun (and especially geeky!) experience. The sound DSL could be improved; one notable problem is that currently it’s a little strange that parameters aren’t quite paired up with the function they are a parameter too. For example, to apply 20% quantization, one must write:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">quantize <span class="fu">.</span> (noise <span class="fu">&amp;&amp;&amp;</span> <span class="fl">0.2</span>)</code></pre></div>
+<p>Which may read more like 0.2 being a parameter to <code>noise</code>, not <code>quantize</code>. Arrow notation may help here, but I went for a one-liner than did the job. However, some sounds are expressed elegantly without arrow notation due to <code>Wire</code>s being instances of the <code>Num</code> type class:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">ufo <span class="fu">=</span> for (<span class="dv">1</span> <span class="fu">/</span> <span class="dv">3</span>) <span class="fu">.</span> sin <span class="fu">.</span> ((sin <span class="fu">.</span> <span class="dv">3</span>) <span class="fu">*</span> <span class="dv">200</span> <span class="fu">+</span> <span class="dv">100</span>)</code></pre></div>
+<p><code>sin</code> is a <code>Wire</code> taking frequency as input, and producing an amplitude between -1 and 1. In this sound, I take a 3hZ sine wave, amplify it 200 times and offset that by 100Hz. I then feed this into another sine oscillator, in order to produce a pitch that flucuates to produce a cheesy UFO sound. The overloading of the <code>Num</code> type class lets me treat the amplification and offset stages as normal arithmetic, which I find particularly elegant.</p>
+<h3 id="particle-system">Particle System</h3>
+<p>Another bit of polish to the game was adding a rudimentary particle system to use for asteroid explosions. The particle system itself is just a few lines of code:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">particleSystems
+<span class="ot">  ::</span> (<span class="dt">Applicative</span> m, <span class="dt">MonadRandom</span> m) <span class="ot">=&gt;</span> <span class="dt">Wire</span> e m [<span class="dt">V2</span> <span class="dt">Double</span>] [<span class="dt">V2</span> <span class="dt">Double</span>]
+particleSystems <span class="fu">=</span> go []
+ <span class="kw">where</span>
+  go systems <span class="fu">=</span> mkGen <span class="fu">$</span> \dt newSystemLocations <span class="ot">-&gt;</span> <span class="kw">do</span>
+    stepped <span class="ot">&lt;-</span> mapM (\w <span class="ot">-&gt;</span> stepWire w dt ()) systems
+
+    <span class="kw">let</span> alive <span class="fu">=</span> [ (r, w) <span class="fu">|</span> (<span class="dt">Right</span> r, w) <span class="ot">&lt;-</span> stepped ]
+    spawned <span class="ot">&lt;-</span> concat <span class="fu">&lt;$&gt;</span> mapM spawnParticles newSystemLocations
+
+    return (<span class="dt">Right</span> (map fst alive), go <span class="fu">$</span> map snd alive <span class="fu">++</span> spawned)
+
+  spawnParticles at <span class="fu">=</span> <span class="kw">do</span>
+    n <span class="ot">&lt;-</span> getRandomR (<span class="dv">4</span>, <span class="dv">8</span>)
+    replicateM n <span class="fu">$</span> <span class="kw">do</span>
+      velocity <span class="ot">&lt;-</span> randomVelocity (<span class="dv">5</span>, <span class="dv">10</span>)
+      life <span class="ot">&lt;-</span> getRandomR (<span class="dv">1</span>, <span class="dv">3</span>)
+      return ((for life <span class="fu">&lt;!&gt;</span> ())<span class="fu">.</span> integrateVector at <span class="fu">.</span> pure velocity)</code></pre></div>
+<p>This wire takes as its input, a list of locations to create new particle systems. As output, it produces a list of all particles. Each particle system has a random amount of particles, each alive for a random duration and moving with a random velocity from the particle systems origin. I wrote this code essentially in a single attempt, and the output was just what I was looking for.</p>
+<h2 id="expressive-events">Expressive Events</h2>
+<p>The event system in Netwire takes a while to get your head around, but it can ultimately lead to succinct expression of events. The <code>isShooting</code> event is one of my favourite’s here, and it’s defined as:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">isShooting <span class="fu">=</span>
+  asSoonAs (keyDown <span class="dt">SDL.SDLK_SPACE</span>) <span class="fu">&gt;&gt;&gt;</span> (once <span class="fu">--&gt;</span> coolDown <span class="fu">&gt;&gt;&gt;</span> isShooting)
+ <span class="kw">where</span>
+  coolDown <span class="fu">=</span>
+    arr head <span class="fu">.</span> multicast [ after <span class="fl">0.05</span>, asSoonAs (not <span class="fu">.</span> keyDown <span class="dt">SDL.SDLK_SPACE</span>) ]</code></pre></div>
+<p>This event reads very naturally. The player is shooting as long as the space key is held down, at which point they shoot once, and then enter a cool down period. I use <code>multicast</code> to combine two events as you would combine booleans under conjunction with <code>&amp;&amp;</code> - inhibiting until both 0.05s have elapsed and the player has released the space key during or after this interval. Once both of these criteria are met, the event repeats. This leads to shooting happening at most once every 0.05s, and requires the player to toggle the space bar - as I find this type of interaction pleasing for this type of game (as it feels more energetic and increases tension).</p>
+<p>Another similar example of chaining events is to determine when a UFO should spawn:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">ufoSpawned <span class="fu">=</span> (once <span class="fu">--&gt;</span> ufoSpawned) <span class="fu">.</span> wackelkontaktM (<span class="dv">1</span> <span class="fu">/</span> <span class="dv">1000</span>) <span class="fu">.</span> after <span class="dv">30</span></code></pre></div>
+<p><code>wackelkontaktM</code> is an awfully named wire, but it’s essentially a wire that only produces with a given probability. Thus a UFO spawns once after 30 seconds, and then with a probability of 1/1000. After a UFO spawns, we repeat the event, waiting at least 30 seconds.</p>
+<p>I will admit that these events do take a little bit of trial and error to get the behaviour you want. Usually, you’ll find that wires can be composed in various different orders, and the composition is not necessarily equal.</p>
+<p>For example, we might assume that <code>ufoSpawned</code> could be rewriten as:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">ufoSpawned <span class="fu">=</span> once <span class="fu">.</span> wackelkontaktM (<span class="dv">1</span> <span class="fu">/</span> <span class="dv">1000</span>) <span class="fu">.</span> after <span class="dv">30</span> <span class="fu">--&gt;</span> ufoSpawned</code></pre></div>
+<p>But this will never spawn UFOs, and has significantly different semantics, despite reading very similarly. Perhaps this is a drawback of very expressive DSLs!</p>
+<h2 id="difficulties">Difficulties</h2>
+<h3 id="understanding-arrowloop-is-important">Understanding ArrowLoop Is Important</h3>
+<p>In my previous post about Netwire, I said:</p>
+<blockquote>
+<p>ArrowLoop is far too magical for me to understand [..], but thankfully we have arrow notation in Haskell to allow us to easily create loops.</p>
+</blockquote>
+<p>This is true, but it only lets you go so far. As I developed my clone, I needed to use recursive bindings in order to implement collisions. At that time, I didn’t understand how <code>ArrowLoop</code> really worked, and naively assuming that it wolud Do the Right Thing. The result of such a naive approach can be summarized with one word and a few symbols that any Haskell programmer would dread to see: <code>&lt;&lt;loop&gt;&gt;</code> - the computation will never produce a value as it forms an infinite loop.</p>
+<p>My original approach attempted to use definitions relative to the current frame in a mutually recursive way: a frame’s collisions depended on the positions of objects alive in the frame, but the notion of life depended on the current frame’s collisions. As you can see - there is no way to produce an answer if we phrase equations in this form.</p>
+<p>The solution is to understand that ArrowLoop needs a base case, just as recursion does, in order to produce an answer. I finally solved my problem by operating on the alive entities from the <em>previous</em> frame (using the <code>delay</code> <code>Wire</code>), and start with a base case of the empty list on the first frame.</p>
+<p>Unfortunately, nothing in the types will prevent you from making such nonsensical bindings. I wonder if there is a possibility to encode this information in the type system, and <a href="http://bentnib.org/productive.pdf">Productive Programming Using Guarded Recursion</a> immediately comes to mind - though that paper is still beyond me so it may not apply. Nonetheless, I’m convinced there may be at least something that can be done.</p>
+<h3 id="space-leaks">Space Leaks</h3>
+<p>I encountered only a single space leak in my clone, which is extremely promising. At one stage of development, I needed to improve the rendering of asteroids from being simple circles to polygons. I decided that it would be easiest to express asteroids as a list of vector’s from the origin of varying magnitude, and I originally codified this as a behavior such that:</p>
+<blockquote>
+<p>spikes = keep . randomSpikes</p>
+</blockquote>
+<p>The <code>keep</code> <code>Wire</code> holds the first value produced by <code>randomSpikes</code> and always produces it thereupon. However, a composition of this form will still do some work on every frame (even if that work is just building up thunks) up until the <code>keep</code> <code>Wire</code> is actually reached. In my case I ended up building up so many <code>randomSpike</code> invocations I eventually exhausted the stack. I didn’t spend time working out why this would cause such a drastic space leak and not get garbage collected (that may be a bug in the <code>keep</code> <code>Wire</code>, or it may be in my usage). Eitherway, naively combining wires like this can bite you - so it’s worth seeing if things can be expressed in a different way. In the end, I chose to improve the <code>randomSpikes</code> wire to produce a single result, and then switch it’s behavior to be a constant wire.</p>
+<h3 id="managing-wire-collections">Managing Wire Collections</h3>
+<p>It took me a while to formulate a way to express collections of wires that can grow and shrink. For example, when the player is shooting, a new bullet needs to join the world and interact with other objects, but should also be able to destroy itself as bullets have a finite lifetime.</p>
+<p>In the end, I ended up pairing behaviour values at specific instants with the <code>Wire</code> that will produce the next instant value. Thus this is almost as if I am reifying wires themselves. By doing this, I am now able to build a list of <code>Wire</code>s present in the <em>next</em> frame based on the <em>current</em> values.</p>
+<p>I make use of this technique with the main collision <code>Wire</code>. <code>collision</code> takes as its input a list of bullet positions, paired with the wire to produce the position of the bullet at the next frame, and likewise for UFOs and asteroids. <code>collision</code> then filters these lists by taking various Cartesian products and determine what is colliding at what isn’t. The final result is a list of active bullets, active asteroids, destroyed asteroids, and so on.</p>
+<p>I can step a collection of these <code>Wire</code>s with the following:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">stepWires ::</span> <span class="dt">Monad</span> m <span class="ot">=&gt;</span> <span class="dt">Wire</span> e m [<span class="dt">Wire</span> e m () b] [(b, <span class="dt">Wire</span> e m () b)]
+stepWires <span class="fu">=</span> mkFixM <span class="fu">$</span> \dt objects <span class="ot">-&gt;</span> <span class="kw">do</span>
+  stepped <span class="ot">&lt;-</span> mapM (\o <span class="ot">-&gt;</span> stepWire o dt ()) objects
+  return <span class="fu">$</span> <span class="dt">Right</span> [ (o, w') <span class="fu">|</span> (<span class="dt">Right</span> o, w') <span class="ot">&lt;-</span> stepped ]</code></pre></div>
+<p>As we can see, this takes a <code>Wire</code> collection as input, and produces a list of behaviours along with their next <code>Wire</code>. I’m not convinced this is necessarily the best way to do this, but it feels like a more functional approach when compared to other alternatives such as inventing unique identifiers for each object and storing this all in a <code>Map</code>.</p>
+<h2 id="other-difficulties">Other Difficulties</h2>
+<p>The major difficulties I had in implementing this game were inherent to the game itself, and so while my experience was certainly not bug free, I’m really happy that the majority of problems were due to bad assumptions about the game logic itself.</p>
+<p>For example, I started with bullets being spawned at the centre of the ship itself, moving with a fixed velocity determined by the player’s rotation. Once I added player-bullet collisions due to UFO’s firing, the player would immediately explode whenever they shot as their own bullet would collide with themselves for a single frame. Offsetting the bullet is the easiest fix here.</p>
+<p>There are similar bugs due to bad reasoning, such as incosistent vector/matrix multiplication, but again these were not due to choice of technology. Perhaps these too could be further reduced by leveraging the type system, but currently I’m quite happy with the current pragmatic balance between correctness and programmer productivity.</p>
+<h2 id="conclusion">Conclusion</h2>
+<p>I thoroughly enjoyed building this game using Haskell and Netwire - to the point where I became a little bit addicted to the project. The more I learn about Netwire, the more fluently I’m able to express certain behaviours very naturally. Having state encapsulated in each wire independently is an extremely powerful technique for managing state, and for the most part has meant that I don’t have to think about state at all.</p>
+<p>Netwire seems to almost require a certain discipline in programming - but thankfully it’s a discipline that we should all follow as much as possible anyway. That discipline is short, focused, functions. Everytime I tried to create complicated wires I ran into problems, and as soon as I started to break things apart into smaller wires and compose them together I could once again reason about my program and progress to the desired result.</p>
+<p>The event model for Netwire can make it quite simple to add instanteous events, though again it also requires a little bit of upfront thinking to decide which type of composition is appropriate.</p>
+<p>Hopefully this post should convince people that game programming is certainly possible. More importantly, game programming in Haskell is possible and it <em>doesn’t</em> require threading everything through state monads or otherwise writing imperative code. Netwire does require a little bit of thinking about how you are going to phrase certain relationships, but I found that this thinking was at a very abstract level in order to determine who depends on whom - rather than fine grained implementation details. This is the type of thinking that I <em>enjoy</em> doing, and expect to do as a programmer. It’s fantastic that Netwire lets me focus on this, allowing me to separate it from the rest of the programming.</p>
+<p>The full code to my clone can be found at <a href="http://github.com/ocharles/netwire-classics/">on Github</a>. If you want to build it, you’ll need <code>lens</code>, <code>linear</code>, <code>netwire</code>, <code>SDL</code>, and <code>SDL-mixer</code> from Hackage. I may get round to writing a cabal file for this at some point!</p>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2013-08-18-asteroids-in-netwire.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

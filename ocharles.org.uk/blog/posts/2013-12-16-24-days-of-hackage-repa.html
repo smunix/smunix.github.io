@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2013-12-16-24-days-of-hackage-repa.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>24 Days of Hackage: repa</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>24 Days of Hackage: repa</h1>
+<p>Today we’re going to step into the high performance realm of Hackage, and take a look at Ben Lippmeier’s <a href="http://hackage.haskell.org/package/repa"><code>repa</code></a>. <code>repa</code> is a library for high performance multi-dimensional array computations, where computations are built up in a very natural, compositional manner. <code>repa</code> offers a few different <em>evaluation strategies</em>, which enable it to perform computations on very large arrays either sequentially or in parallel. Alongside that, there’s a lot of fusion magic going on behind the scenes, which can give blazingly fast performance.</p>
+<p><code>repa</code> employs some moderately advanced type tricks to keep track of the state of the array, which can be a little confusing at first. Let’s start by disecting the most fundamental type - the array type:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Array</span> r sh e</code></pre></div>
+<p>Arrays in <code>repa</code> are parameterized over 3 types: <code>r</code>, the representation of the array; <code>sh</code>, the shape of the array; and <code>e</code>, the element type in the array. <code>e</code> is the most obvious - if you want an array of integers, then you would have <code>Array r sh Int</code>, while an array of characters would be <code>Array r sh Char</code>, and so on. Next, let’s consider the <code>sh</code> parameter.</p>
+<p>The shape of an array is its dimensions, but in <code>repa</code> these dimensions form part of the type. This means the <em>type</em> of a two dimensional array is different to the type of a three dimensional array. Having different types mean we get type level checks that our computations make sense. For example, in the general case it doesn’t make sense to zip together arrays of different dimensions, and if you do attempt to do this GHC will reject your program and refuse to compile it.</p>
+<p>The final type parameter to consider is <code>r</code>, which describes the array representation. The representation type describes to <code>repa</code> the state of the array. To enumerate a few options, there are delayed arrays (which are like lazy values), unboxed arrays, bytestring arrays, and more. You generally won’t need to concern yourself with this for most <code>repa</code> programming, but you may well come across requirements on the representation type from time to time.</p>
+<h2 id="image-manipulation-with-repa">Image Manipulation with Repa</h2>
+<p>I’ve been going through my photo collection recently, and I can’t help but feel that everything is little… lacking… for the current festive season. It would be great if I could write something that would take my boring photos and make them much more seasonal! I’m thinking the addition of a few snowflakes ought to do the job. Today, we’ll build a little application that uses <code>repa</code> to superimpose a few snowflakes on top of an image.</p>
+<p>To get started, we need a way to load in an image as <code>repa</code> array. We’ll use <code>JuicyPixels</code> to do the raw IO, and then we’ll pluck pixels out into a <code>repa</code> array:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">loadImage ::</span> FilePath <span class="ot">-&gt;</span> <span class="dt">IO</span> (<span class="dt">Array</span> <span class="dt">D</span> <span class="dt">DIM3</span> <span class="dt">Word8</span>)
+loadImage path <span class="fu">=</span> <span class="kw">do</span>
+  <span class="dt">Right</span> (<span class="dt">JP.ImageRGBA8</span> img) <span class="ot">&lt;-</span> JP.readImage path
+  return <span class="fu">$</span> fromFunction
+    (<span class="dt">Z</span> <span class="fu">:.</span> imageHeight img <span class="fu">:.</span> imageWidth img <span class="fu">:.</span> <span class="dv">4</span>)
+    (\(<span class="dt">Z</span> <span class="fu">:.</span> y <span class="fu">:.</span> x <span class="fu">:.</span> c) <span class="ot">-&gt;</span> <span class="kw">case</span> JP.pixelAt img x y <span class="kw">of</span>
+                              <span class="dt">JP.PixelRGBA8</span> r g b a <span class="ot">-&gt;</span>
+                                <span class="kw">case</span> c <span class="kw">of</span>
+                                  <span class="dv">0</span> <span class="ot">-&gt;</span> r
+                                  <span class="dv">1</span> <span class="ot">-&gt;</span> g
+                                  <span class="dv">2</span> <span class="ot">-&gt;</span> b
+                                  <span class="dv">3</span> <span class="ot">-&gt;</span> a)</code></pre></div>
+<p>We simply load the image with <code>JuicyPixels</code> (aliased as <code>JP</code>) and then use <code>repa</code>’s <code>fromFunction</code> constructor to build a array. The <code>D</code> in the type signiture indicates that this array is delayed, and not yet evaluated.</p>
+<p>Now that we know we have a way to load images, let’s considered how to blend images together. We’ll need a function that takes two <code>repa</code> arrays and combines them together. We’ll also take an offset for the snowflake. We’re looking to implement a function like:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">addSnowflake
+<span class="ot">  ::</span> (<span class="dt">Source</span> r1 <span class="dt">Word8</span>, <span class="dt">Source</span> r2 <span class="dt">Word8</span>)
+  <span class="ot">=&gt;</span> <span class="dt">Array</span> r1 <span class="dt">DIM3</span> <span class="dt">Word8</span>
+  <span class="ot">-&gt;</span> (<span class="dt">Int</span>, <span class="dt">Int</span>)
+  <span class="ot">-&gt;</span> <span class="dt">Array</span> r2 <span class="dt">DIM3</span> <span class="dt">Word8</span>
+  <span class="ot">-&gt;</span> <span class="dt">Array</span> <span class="dt">D</span> <span class="dt">DIM3</span> <span class="dt">Word8</span>
+addSnowflake snowflake (offsetX, offsetY) source <span class="fu">=</span></code></pre></div>
+<p>We need to walk over two arrays to build a new one, so we’ll use <code>traverse2</code> to do this:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">addSnowflake snowflake (offsetX, offsetY) source <span class="fu">=</span>
+  traverse2 source snowflake resize blend</code></pre></div>
+<p>Along with the two arrays to traverse, <code>traverse2</code> needs a function to compute new elements, and a function to determine the new size of the array. The new size is easy - just take the size of the source array.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">  resize sourceSize _ <span class="fu">=</span> sourceSize</code></pre></div>
+<p>For computing each new pixel though, we need to do a bit more work. Each pixel has four dimensions - the red, green, blue and alpha channels. For the new alpha channel, we’ll just take the original alpha channel. For the red, green and blue channels, we’ll linearly interpolate between the snowflake and the source image, depending on the snowflake’s alpha channel. This comes out quite succinctly, with:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">  blend lookupSource lookupSnowflake p<span class="fu">@</span>(<span class="dt">Z</span> <span class="fu">:.</span> y <span class="fu">:.</span> x <span class="fu">:.</span> <span class="dv">3</span>) <span class="fu">=</span>
+    lookupSource p
+
+  blend lookupSource lookupSnowflake p<span class="fu">@</span>(<span class="dt">Z</span> <span class="fu">:.</span> y <span class="fu">:.</span> x <span class="fu">:.</span> chan) <span class="fu">=</span>
+    <span class="kw">let</span> (snowflakeX, snowflakeY) <span class="fu">=</span> (x <span class="fu">-</span> offsetX, y <span class="fu">-</span> offsetY)
+        sourcePos <span class="fu">=</span> (<span class="dt">Z</span> <span class="fu">:.</span> snowflakeY <span class="fu">:.</span> snowflakeX <span class="fu">:.</span> chan)
+        alpha <span class="fu">=</span> fromIntegral (lookupSnowflake (<span class="dt">Z</span> <span class="fu">:.</span> snowflakeY <span class="fu">:.</span> snowflakeX <span class="fu">:.</span> <span class="dv">3</span>)) <span class="fu">/</span> <span class="dv">255</span>
+ 
+    <span class="kw">in</span> <span class="kw">if</span> inShape (extent snowflake) sourcePos
+         <span class="kw">then</span> <span class="kw">let</span> a <span class="fu">=</span> fromIntegral (lookupSource p)
+                  b <span class="fu">=</span> fromIntegral (lookupSnowflake sourcePos)
+              <span class="kw">in</span> round <span class="fu">$</span> a <span class="fu">+</span> (b <span class="fu">-</span> a) <span class="fu">*</span> alpha
+         <span class="kw">else</span> lookupSource p</code></pre></div>
+<p>With a little bit of plumbing in <code>main :: IO ()</code>, we can turn these boring images…</p>
+<div style="text-align: center">
+<p><img src="https://ocharles.org.uk/blog/img/2013-12-16-ocharles.png" style="width: 400px;" /></p>
+</div>
+<p>Into these much more cheery ones!</p>
+<div style="text-align: center">
+<p><img src="https://ocharles.org.uk/blog/img/2013-12-16-festive-ocharles.png" style="width: 400px;" /></p>
+</div>
+<p>As always, there’s a lot we didn’t cover in today’s post. User <code>SirRockALot1</code> mentions the following:</p>
+<blockquote>
+<p>You didn’t touch on what is probably to me the most interesting feature about <code>repa</code>, its <a href="http://en.wikipedia.org/wiki/Stencil_codes">stencil support</a>. I was originally introduced to <code>repa</code> because I wanted to implement the standard/naive Game of Life grid algorithm with it, and I saw this beautiful implementation using repa stencils: http://www.tapdancinggoats.com/haskell-life-repa.htm</p>
+</blockquote>
+<p>Not only do we have the <code>repa</code> library, there’s also a collection of other libraries that work with <code>repa</code> in Hackage, including:</p>
+<ul>
+<li><a href="http://hackage.haskell.org/package/repa-io"><code>repa-io</code></a> to load arrays from disk</li>
+<li><a href="http://hackage.haskell.org/package/repa-algorithms"><code>repa-algorithms</code></a> provides some common algorithms on <code>repa</code> arrays</li>
+<li><a href="http://hackage.haskell.org/package/repa-devil"><code>repa-devil</code></a> integrates <code>repa</code> with the <a href="http://openil.sourceforge.net/">DevIL</a> image library to load images.</li>
+</ul>
+<p>You can find today’s code on <a href="http://github.com/ocharles/blog">Github</a> - go have a play!</p>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2013-12-16-24-days-of-hackage-repa.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/guest-posts/2014-12-18-rank-n-types.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>24 Days of GHC Extensions: Rank N Types</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>24 Days of GHC Extensions: Rank N Types</h1>
+<p>It’s been a while since 24 Days of GHC Extensions looked at an extension that radically altered the landscape of programs we can write. Today, <a href="https://twitter.com/ertesx">ertes</a> is going to walk us through (extensively!) GHC’s <em>rank n types</em> feature.</p>
+<hr />
+<p>Let’s talk about polymorphism today, in particular higher-rank polymorphism using GHC’s <code>RankNTypes</code> extension. This is the one – the type system extension to rule them all.</p>
+<p>We will start with a quick recap of what exactly (regular) polymorphism is and how we might interpret it. Then we will find out what higher-rank polymorphism adds and how we can use it to give our programs a boost in expressivity, safety and even efficiency.</p>
+<p>So what is polymorphism in the first place? To understand it we should understand concrete (<em>monomorphic</em>) values first. Okay, so what is a <em>concrete</em> value? Here is an example:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">intId ::</span> <span class="dt">Integer</span> <span class="ot">-&gt;</span> <span class="dt">Integer</span>
+intId x <span class="fu">=</span> x</code></pre></div>
+<p>This is a concrete value, a function. When we refer to <code>intId</code> we refer to a certain fully defined value (which is a function) of a certain fully defined type (<code>Integer -&gt; Integer</code>). Note that the function itself is the concrete value we refer to. Here is a second example:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">doubleId ::</span> <span class="dt">Double</span> <span class="ot">-&gt;</span> <span class="dt">Double</span>
+doubleId x <span class="fu">=</span> x</code></pre></div>
+<p>Now these two values are of different types, but their definitions are exactly the same. Can we save some typing and perhaps even get additional safety along the way? Indeed, we can. Like many languages Haskell allows us to provide a single definition to cover the above two cases and also infinitely many more:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">id<span class="ot"> ::</span> a <span class="ot">-&gt;</span> a
+id x <span class="fu">=</span> x</code></pre></div>
+<p>You have probably seen this before. As you can see, the definition is still the same. This kind of polymorphism is called <em>parametric polymorphism</em>, and in other languages you will usually find it under the name <em>generics</em>. One thing to note at this point is that Haskell will only allow this if there is indeed a single definition. In other words you cannot choose the definition of a value based on its type (for now).</p>
+<p>It also adds safety through a property called <em>parametricity</em>. If we pretend that there are no infinite loops or exceptions (<a href="http://citeseer.ist.psu.edu/viewdoc/summary?doi=10.1.1.59.8232">it’s okay to do that</a>, so we will do it throughout this article), then the function is actually fully determined by its type. In other words, if we see the type <code>a -&gt; a</code>, we know that the corresponding value <em>must</em> be the identity function.</p>
+<h2 id="rank-1-polymorphism">Rank-1 polymorphism</h2>
+<p>Commonly the above definition is called <em>the</em> identity function. But in fact we should think of it as a whole family of functions. We should really say that <code>id</code> is <em>an</em> identity function <em>for all</em> types <code>a</code>. In other words, for every type <code>T</code> you might come up with, there is an identity function called <code>id</code>, which is of type <code>T -&gt; T</code>. This is the type-checker’s view anyway, and by turning on the <code>RankNTypes</code> extension we can be explicit about that in our code:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">{-# LANGUAGE RankNTypes #-}</span>
+
+id<span class="ot"> ::</span> forall a<span class="fu">.</span> a <span class="ot">-&gt;</span> a
+id x <span class="fu">=</span> x</code></pre></div>
+<p>Now it is much clearer that <code>id</code> is really a family of infinitely many functions. It is fair to say that it is an abstract function (as opposed to a concrete one), because its type abstracts over the type variable <code>a</code>. The common and proper mathematical wording is that the type is <em>universally quantified</em> (or often just <em>quantified</em>) over <code>a</code>.</p>
+<p>When we apply the identity function to a value of a concrete type, then we <em>instantiate</em> the type variable <code>a</code> to that concrete type:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">id (<span class="dv">3</span><span class="ot"> ::</span> <span class="dt">Integer</span>)</code></pre></div>
+<p>At that application site the type variable <code>a</code> becomes a concrete type, namely <code>Integer</code>. It is valid to apply <code>id</code> with different instantiations of its type variable:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">print (id (<span class="dv">3</span><span class="ot"> ::</span> <span class="dt">Integer</span>),
+       id <span class="st">&quot;blah&quot;</span>)</code></pre></div>
+<p>Another way to look at this is in terms of promise and demand. You could say that the type signature of the <code>id</code> function <em>promises</em> that the definition works <em>for all</em> types <code>a</code>. When you actually apply the identity function you <em>demand</em> a certain type. This is a useful interpretation when we move to higher-rank polymorphism.</p>
+<h2 id="rank-2-and-higher-polymorphism">Rank-2 and higher polymorphism</h2>
+<p>So far we have only enabled the extension to allow us to be more explicit about the “for all” part. This alone is just a syntactic change and adds no new expressivity. However, we can use this new syntax within a type alias:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">IdFunc</span> <span class="fu">=</span> forall a<span class="fu">.</span> a <span class="ot">-&gt;</span> a</code></pre></div>
+<p>Remember that the type fully determines the corresponding function? So any value of type <code>IdFunc</code> must be the identity function. But <code>IdFunc</code> is just a plain old regular type alias, isn’t it? That means of course we can use it in type signatures. For example we could have written:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">id<span class="ot"> ::</span> <span class="dt">IdFunc</span>
+id x <span class="fu">=</span> x</code></pre></div>
+<p>Notice that the type variable is gone entirely. A much more interesting way to use <code>IdFunc</code> is as the domain of a function:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">someInt ::</span> <span class="dt">IdFunc</span> <span class="ot">-&gt;</span> <span class="dt">Integer</span></code></pre></div>
+<p>Isn’t this curious? Since any value of type <code>IdFunc</code> must be the identity function the <code>someInt</code> function is a function that expects the identity function as its argument and returns an integer. Let’s give it some (arbitrary) definition:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">someInt id' <span class="fu">=</span> id' <span class="dv">3</span></code></pre></div>
+<p>This is something new that we didn’t have before: <code>someInt</code> has received a function <code>id'</code> about which it knows that it is the fully fledged polymorphic identity function. So it can instantiate its type variable as it likes, and it does so.</p>
+<p>The <code>someInt</code> function isn’t even polymorphic! Rather it expects a polymorphic function as its argument. This becomes clear when we expand the type alias:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">someInt ::</span> (forall a<span class="fu">.</span> a <span class="ot">-&gt;</span> a) <span class="ot">-&gt;</span> <span class="dt">Integer</span></code></pre></div>
+<p>This function is completely monomorphic. Its type is not quantified. When we apply a polymorphic function like <code>id</code> we get to choose which types to instantiate as. The <code>someInt</code> function does not give us such a choice. In fact it requires us to pass a sufficiently polymorphic function to it such that <em>it</em> can make that choice. When we apply it, we need to <em>give it</em> choice.</p>
+<p>If this does not make sense, look at it using the promise/demand interpretation. The identity function makes a promise. It promises to work <em>for all</em> <code>a</code>. When you apply it, you demand <code>a</code> to be a certain type. However, the <code>someInt</code> function makes no such promise. It wants us to pass it a function that makes a promise, such that it gets to demand something from it. We don’t get to demand anything.</p>
+<p>This is called rank-2 polymorphism. You can have arbitrary-rank polymorphism by burying the quantifier in more levels of necessary parentheses. Example:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">SomeInt</span> <span class="fu">=</span> <span class="dt">IdFunc</span> <span class="ot">-&gt;</span> <span class="dt">Integer</span>
+
+<span class="ot">someOtherInt ::</span> <span class="dt">SomeInt</span> <span class="ot">-&gt;</span> <span class="dt">Integer</span>
+someOtherInt someInt' <span class="fu">=</span>
+    someInt' id <span class="fu">+</span> someInt' id</code></pre></div>
+<p>This function is rank-3-polymorphic, because the quantifier is in the third level of necessary parentheses:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">someOtherInt ::</span> ((forall a<span class="fu">.</span> a <span class="ot">-&gt;</span> a) <span class="ot">-&gt;</span> <span class="dt">Integer</span>) <span class="ot">-&gt;</span> <span class="dt">Integer</span></code></pre></div>
+<h2 id="example-random-numbers">Example: random numbers</h2>
+<p>Suppose that you want to initialise a potentially large and recursive data structure with random values of different types. We will use a very simple one, which is sufficient for demonstration:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">import </span><span class="dt">System.Random</span>
+
+<span class="kw">data</span> <span class="dt">Player</span> <span class="fu">=</span>
+    <span class="dt">Player</span> {
+<span class="ot">      playerName ::</span> <span class="dt">String</span>,
+<span class="ot">      playerPos  ::</span> (<span class="dt">Double</span>, <span class="dt">Double</span>)
+    }
+    <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Ord</span>, <span class="dt">Show</span>)</code></pre></div>
+<p>We want to construct a random player. They should get a randomly generated name of a random length and also a random position. One way to do this is to pass around a random number generator explicitly:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">randomPlayer ::</span> (<span class="dt">RandomGen</span> g) <span class="ot">=&gt;</span> g <span class="ot">-&gt;</span> (<span class="dt">Player</span>, g)</code></pre></div>
+<p>But we want to do more. Since the data structure is so huge, we want to print some progress information while we’re generating it. This requires <code>IO</code> of course. Rather than enforcing a certain transformer stack we would just request a sufficiently featureful monad by using effect classes:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">import </span><span class="dt">Control.Monad.State</span>
+
+randomPlayer
+<span class="ot">    ::</span> (<span class="dt">MonadIO</span> m, <span class="dt">MonadState</span> g m, <span class="dt">RandomGen</span> g)
+    <span class="ot">=&gt;</span> m <span class="dt">Player</span></code></pre></div>
+<p>However, the user of <code>randomPlayer</code> may already be using a state monad for something else, or the random number generator may actually live in a mutable variable. You might even run into a case where the random number generator is completely hidden global state, so all you get is monadic actions. At this point things start to become really awkward.</p>
+<p>But with higher-rank polymorphism there is actually a very simple solution. The first step is <em>not</em> to request an explicit functional representation of the random-number generator, but rather just <em>some</em> monad <code>m</code> that provides <em>some</em> means of random number generation. Then generating a random number (or really anything else with a <code>Random</code> instance) is a matter of performing a certain <code>m</code>-action. We can write type aliases for these <code>m</code>-actions:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">GenAction</span> m <span class="fu">=</span> forall a<span class="fu">.</span> (<span class="dt">Random</span> a) <span class="ot">=&gt;</span> m a
+
+<span class="kw">type</span> <span class="dt">GenActionR</span> m <span class="fu">=</span> forall a<span class="fu">.</span> (<span class="dt">Random</span> a) <span class="ot">=&gt;</span> (a, a) <span class="ot">-&gt;</span> m a</code></pre></div>
+<p>A value of type <code>GenAction m</code> is an <code>m</code>-action that supposedly produces a random element of whatever type we request, as long as there is a <code>Random</code> instance. The <code>GenActionR</code> type represents the ranged variants.</p>
+<p>One simple example is the action that generates a random number in a state monad, when the state is a generator:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">genRandom ::</span> (<span class="dt">RandomGen</span> g) <span class="ot">=&gt;</span> <span class="dt">GenAction</span> (<span class="dt">State</span> g)
+genRandom <span class="fu">=</span> state random
+
+<span class="ot">genRandomR ::</span> (<span class="dt">RandomGen</span> g) <span class="ot">=&gt;</span> <span class="dt">GenActionR</span> (<span class="dt">State</span> g)
+genRandomR range <span class="fu">=</span> state (randomR range)</code></pre></div>
+<p>If we expand the <code>GenAction</code> alias and simplify (we will learn how to do that later), then the type of <code>genRandom</code> becomes:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">genRandom ::</span> (<span class="dt">Random</span> a, <span class="dt">RandomGen</span> g) <span class="ot">=&gt;</span> <span class="dt">State</span> g a</code></pre></div>
+<p>Now we can write a function that requests such a random number generator as its argument:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">randomPlayer ::</span> (<span class="dt">MonadIO</span> m) <span class="ot">=&gt;</span> <span class="dt">GenActionR</span> m <span class="ot">-&gt;</span> m <span class="dt">Player</span>
+randomPlayer genR <span class="fu">=</span> <span class="kw">do</span>
+    liftIO (putStrLn <span class="st">&quot;Generating random player...&quot;</span>)
+
+    len <span class="ot">&lt;-</span> genR (<span class="dv">8</span>, <span class="dv">12</span>)
+    name <span class="ot">&lt;-</span> replicateM len (genR (<span class="ch">'a'</span>, <span class="ch">'z'</span>))
+    x <span class="ot">&lt;-</span> genR (<span class="fu">-</span><span class="dv">100</span>, <span class="dv">100</span>)
+    y <span class="ot">&lt;-</span> genR (<span class="fu">-</span><span class="dv">100</span>, <span class="dv">100</span>)
+
+    liftIO (putStrLn <span class="st">&quot;Done.&quot;</span>)
+    return (<span class="dt">Player</span> name (x, y))</code></pre></div>
+<p>Notice how the function uses the fact that it <em>receives</em> a polymorphic function as its argument. It instantiates its type variable as various different types, including <code>Int</code> (for <code>len</code>) and <code>Char</code> (for <code>name</code>). If you have some global-state random number generator, then this function is actually surprisingly easy to use. The <code>randomRIO</code> function from <code>System.Random</code> is such a function:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">randomRIO ::</span> (<span class="dt">Random</span> a) <span class="ot">=&gt;</span> (a, a) <span class="ot">-&gt;</span> <span class="dt">IO</span> a</code></pre></div>
+<p>This type signature fits the <code>GenActionR</code> type,</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">randomRIO ::</span> <span class="dt">GenActionR</span> <span class="dt">IO</span></code></pre></div>
+<p>so we can pass it to <code>randomPlayer</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> randomPlayer randomRIO <span class="fu">&gt;&gt;=</span> print</code></pre></div>
+<h2 id="scott-encoding">Scott encoding</h2>
+<p>The regular list data type is defined as a sum type. We will write a custom version of it:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">List</span> a
+    <span class="fu">=</span> <span class="dt">Cons</span> a (<span class="dt">List</span> a)
+    <span class="fu">|</span> <span class="dt">Nil</span></code></pre></div>
+<p>There are two ways to deconstruct this type in a principled fashion. The first one is called pattern-matching, which means removing one layer of constructors. You could use the usual <code>case</code> construct to do this, but it is syntactically heavy and does not compose well. That’s why we like to write a function to do it:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">uncons ::</span> (a <span class="ot">-&gt;</span> <span class="dt">List</span> a <span class="ot">-&gt;</span> r) <span class="ot">-&gt;</span> r <span class="ot">-&gt;</span> <span class="dt">List</span> a <span class="ot">-&gt;</span> r
+uncons co ni (<span class="dt">Cons</span> x xs) <span class="fu">=</span> co x xs
+uncons co ni <span class="dt">Nil</span>         <span class="fu">=</span> ni</code></pre></div>
+<p>This function takes two <em>continuations</em> and a list. The continuations determine what we reduce the list into depending on which constructor is found. Here is a simple example:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">listNull ::</span> <span class="dt">List</span> a <span class="ot">-&gt;</span> <span class="dt">Bool</span>
+listNull <span class="fu">=</span> uncons (\_ _ <span class="ot">-&gt;</span> <span class="dt">False</span>) <span class="dt">True</span></code></pre></div>
+<p>When we find that the list is a cons, then we know that the list is not empty, so we reduce it to <code>False</code>. When we find that it is the nil, we reduce it to <code>True</code>. The following is a slightly more interesting example, but you will find that it’s really just pattern-matching in a functional style:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">listMap ::</span> (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> <span class="dt">List</span> a <span class="ot">-&gt;</span> <span class="dt">List</span> b
+listMap f <span class="fu">=</span>
+    uncons (\x xs <span class="ot">-&gt;</span> <span class="dt">Cons</span> (f x) (listMap f xs))
+           <span class="dt">Nil</span></code></pre></div>
+<p>So we have a way to construct lists by using the <code>List</code> constructors, and we have a way to deconstruct lists by <em>unconsing</em>, by using the pattern-matching combinator <code>uncons</code>. However, this is actually an indirection. Interestingly a list is actually fully determined by what happens when you uncons it. That means we can represent a list in terms of its uncons operator, which is called <em>Scott encoding</em> and requires a rank-2 type:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">newtype</span> <span class="dt">ListS</span> a <span class="fu">=</span>
+    <span class="dt">ListS</span> {
+<span class="ot">      unconsS ::</span> forall r<span class="fu">.</span> (a <span class="ot">-&gt;</span> <span class="dt">ListS</span> a <span class="ot">-&gt;</span> r) <span class="ot">-&gt;</span> r <span class="ot">-&gt;</span> r
+    }</code></pre></div>
+<p>You may have noticed that the list argument is missing from <code>unconsS</code>, but actually it is not. It is implicit, because it is an accessor function,</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">unconsS ::</span> <span class="dt">ListS</span> a <span class="ot">-&gt;</span> (forall r<span class="fu">.</span> (a <span class="ot">-&gt;</span> <span class="dt">ListS</span> a <span class="ot">-&gt;</span> r) <span class="ot">-&gt;</span> r <span class="ot">-&gt;</span> r)</code></pre></div>
+<p>which is equivalent to:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">unconsS ::</span> <span class="dt">ListS</span> a <span class="ot">-&gt;</span> (a <span class="ot">-&gt;</span> <span class="dt">ListS</span> a <span class="ot">-&gt;</span> r) <span class="ot">-&gt;</span> r <span class="ot">-&gt;</span> r</code></pre></div>
+<p>The only difference is that the list argument has jumped to the front. This type is sufficient to represent lists. There is no reference to the earlier defined <code>List</code> type. How do we construct lists of this type? We just need to consider what happens when we pattern-match on such a list. For example unconsing the empty list would cause the nil continuation to be used. This is how we construct the empty list:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">nilS ::</span> <span class="dt">ListS</span> a
+nilS <span class="fu">=</span> <span class="dt">ListS</span> (\co ni <span class="ot">-&gt;</span> ni)</code></pre></div>
+<p>Now when we uncons this list, we give it two continuations. It ignores our cons continuation and just uses the nil continuation. That’s how <code>nilS</code> represents the empty list. The cons constructor is not much different. This time we ignore the nil continuation and apply the cons continuation:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">consS ::</span> a <span class="ot">-&gt;</span> <span class="dt">ListS</span> a <span class="ot">-&gt;</span> <span class="dt">ListS</span> a
+consS x xs <span class="fu">=</span> <span class="dt">ListS</span> (\co ni <span class="ot">-&gt;</span> co x xs)</code></pre></div>
+<p>Let’s write the mapping function for <code>ListS</code> to see it in action. First it is usually much more convenient to have the list argument be the last argument to the uncons function, so let’s write a custom combinator:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">unconsS' ::</span> (a <span class="ot">-&gt;</span> <span class="dt">ListS</span> a <span class="ot">-&gt;</span> r) <span class="ot">-&gt;</span> r <span class="ot">-&gt;</span> <span class="dt">ListS</span> a <span class="ot">-&gt;</span> r
+unconsS' co ni (<span class="dt">ListS</span> f) <span class="fu">=</span> f co ni</code></pre></div>
+<p>Okay, let’s write the mapping function. In fact this time let’s do it properly. We will write a <code>Functor</code> instance instead of a standalone function:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Functor</span> <span class="dt">ListS</span> <span class="kw">where</span>
+    fmap f <span class="fu">=</span>
+        unconsS' (\x xs <span class="ot">-&gt;</span> consS (f x) (fmap f xs))
+                 nilS</code></pre></div>
+<p>Compare this definition to <code>listMap</code> above.</p>
+<p>You might ask why the <code>ListS</code> type actually requires rank-2 polymorphism. Looking at the operators we have defined so far everything seems to be rank-1. However, we haven’t had a closer look at the <code>ListS</code> constructor itself:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="dt">ListS</span><span class="ot"> ::</span> (forall r<span class="fu">.</span> (a <span class="ot">-&gt;</span> <span class="dt">ListS</span> a <span class="ot">-&gt;</span> r) <span class="ot">-&gt;</span> r <span class="ot">-&gt;</span> r) <span class="ot">-&gt;</span> <span class="dt">ListS</span> a</code></pre></div>
+<p>That’s where the rank-2 type is hidden.</p>
+<h2 id="church-encoding">Church encoding</h2>
+<p>We have defined lists in terms of what happens when we uncons them. Alternatively we can define lists in terms of what happens when we fold them completely. This is the second principled way to deconstruct lists. The fold combinator for lists is called the <em>right fold</em>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">foldr<span class="ot"> ::</span> (a <span class="ot">-&gt;</span> r <span class="ot">-&gt;</span> r) <span class="ot">-&gt;</span> r <span class="ot">-&gt;</span> [a] <span class="ot">-&gt;</span> r</code></pre></div>
+<p>We know how to construct lists, and we know how to fold them. But again a list is fully determined by its fold, so we can <em>identify</em> it with its fold. This is called <em>Church encoding</em>.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">newtype</span> <span class="dt">ListC</span> a <span class="fu">=</span>
+    <span class="dt">ListC</span> {
+<span class="ot">      foldC ::</span> forall r<span class="fu">.</span> (a <span class="ot">-&gt;</span> r <span class="ot">-&gt;</span> r) <span class="ot">-&gt;</span> r <span class="ot">-&gt;</span> r
+    }</code></pre></div>
+<p>Notice the difference? One interesting fact about Church encoding is that the type recursion is gone, so we could use a plain old type alias here. We will prefer the safety of a separate type though, and also we want our <code>Functor</code> instance. Since this is a fold, it is actually easy to write a mapping function:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">foldC' ::</span> (a <span class="ot">-&gt;</span> r <span class="ot">-&gt;</span> r) <span class="ot">-&gt;</span> r <span class="ot">-&gt;</span> <span class="dt">ListC</span> a <span class="ot">-&gt;</span> r
+foldC' co ni (<span class="dt">ListC</span> f) <span class="fu">=</span> f co ni
+
+<span class="kw">instance</span> <span class="dt">Functor</span> <span class="dt">ListC</span> <span class="kw">where</span>
+    fmap f <span class="fu">=</span> foldC' (\x xs <span class="ot">-&gt;</span> consC (f x) xs) nilC</code></pre></div>
+<p>Notice again how the recursion is gone, not only on the type level, but also on the value level, because the recursion is implicitly encoded in the fold.</p>
+<p>Exercise: Write the uncons operator for <code>ListC</code>. If you find this surprisingly difficult, that’s because it <em>is</em> surprisingly difficult. =)</p>
+<h2 id="how-runst-works">How <code>runST</code> works</h2>
+<p>Let’s step out of the rabbit hole for a moment and return to the real world. I promise that we will come back soon. =)</p>
+<p>The <code>ST</code> type represents a family of monads for embedding a stateful imperative program into a regular pure Haskell program safely. <code>IO</code> allows arbitrary effects, including observable side effects, so you cannot run an IO action from within a pure program. It takes one type argument, the result type. However, the <code>ST</code> type takes <em>two</em> arguments. An <code>ST</code> action might look like this:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">writeSTRef ::</span> <span class="dt">STRef</span> s a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">ST</span> s ()</code></pre></div>
+<p>What is this extra argument <code>s</code>? To find that out we have to have a look at the big glue between the imperative <code>ST</code> world and the pure Haskell world:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">runST ::</span> (forall s<span class="fu">.</span> <span class="dt">ST</span> s a) <span class="ot">-&gt;</span> a</code></pre></div>
+<p>This enforces that the <code>ST</code> action we would like to run satisfies two requirements. The first requirement is that <code>s</code> is fully polymorphic, which is important because of the way <code>IO</code> is implemented in GHC, but that’s just an implementation detail we don’t care about. The main restriction is that a higher rank quantified type will not be allowed to leak out of its scope. Only the result of type <code>a</code> is communicated out of the action, but <code>s</code> is not communicated. This allows the type-checker to enforce that you cannot leak stateful resources out of the <code>ST</code> action. Everything the action does is fully deterministic and repeatable. This will make a lot more sense when we talk about the quantifier law later.</p>
+<h2 id="gadts-and-continuation-passing-style">GADTs and continuation passing style</h2>
+<p>This is your last chance. After this there is no turning back. Either you close the browser tab, wake up in your chair and believe whatever you want to believe; or you read on, you stay in Wonderland, and I show you how deep the rabbit hole goes.</p>
+<p>GHC supports type equality constraints, which are enabled when you turn on the <code>TypeFamilies</code> extension:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">{-# LANGUAGE TypeFamilies #-}</span></code></pre></div>
+<p>We are not interested in type families in this article. All we want is those equality constraints, which enable you to write</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="dt">X</span> <span class="fu">~</span> <span class="dt">Y</span></code></pre></div>
+<p>in the context of a type. This expresses that we require <code>X</code> and <code>Y</code> to be the same type. Example:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="dv">15</span><span class="ot"> ::</span> <span class="dt">Int</span>                   <span class="co">-- Okay.</span>
+<span class="dv">15</span><span class="ot"> ::</span> (<span class="dt">Char</span> <span class="fu">~</span> <span class="dt">Char</span>) <span class="ot">=&gt;</span> <span class="dt">Int</span>  <span class="co">-- Okay.</span>
+<span class="dv">15</span><span class="ot"> ::</span> (<span class="dt">Int</span> <span class="fu">~</span> <span class="dt">Int</span>) <span class="ot">=&gt;</span> <span class="dt">Int</span>    <span class="co">-- Okay.</span>
+<span class="dv">15</span><span class="ot"> ::</span> (<span class="dt">Char</span> <span class="fu">~</span> <span class="dt">Int</span>) <span class="ot">=&gt;</span> <span class="dt">Int</span>   <span class="co">-- Type error!</span></code></pre></div>
+<p>The first expression is obviously well-typed. The second expression is well-typed, because <code>Char</code> is indeed equal to <code>Char</code>, so the constraint is satisfied. The third expression is also well-typed. The fourth one is ill-typed. Since <code>Char</code> is not equal to <code>Int</code>, it results in a type error.</p>
+<p>This extension together with higher-rank polymorphism is actually sufficient to encode types that are more general than what you can normally define with algebraic data types. They give us generalised algebraic data types (GADTs) in continuation passing style. Simple example:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">{-# LANGUAGE GADTs #-}</span>
+<span class="ot">{-# LANGUAGE KindSignatures #-}</span>
+
+<span class="kw">data</span> <span class="dt">Some</span><span class="ot"> ::</span> <span class="fu">*</span> <span class="ot">-&gt;</span> <span class="fu">*</span> <span class="kw">where</span>
+    <span class="dt">SomeInt</span><span class="ot">  ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Some</span> <span class="dt">Int</span>
+    <span class="dt">SomeChar</span><span class="ot"> ::</span> <span class="dt">Char</span> <span class="ot">-&gt;</span> <span class="dt">Some</span> <span class="dt">Char</span>
+    <span class="dt">Anything</span><span class="ot"> ::</span> a <span class="ot">-&gt;</span> <span class="dt">Some</span> a</code></pre></div>
+<p>Nothing special here. The magic happens when we pattern-match on values of this type:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">import </span><span class="dt">Data.Char</span>
+
+<span class="ot">unSome ::</span> <span class="dt">Some</span> a <span class="ot">-&gt;</span> a
+unSome (<span class="dt">SomeInt</span> x) <span class="fu">=</span> x <span class="fu">+</span> <span class="dv">3</span>
+unSome (<span class="dt">SomeChar</span> c) <span class="fu">=</span> toLower c
+unSome (<span class="dt">Anything</span> x) <span class="fu">=</span> x</code></pre></div>
+<p>See what’s going on in the <code>SomeInt</code> and <code>SomeChar</code> cases? The function is fully polymorphic in its type variable, yet somehow we managed to convince the compiler that in the <code>SomeInt</code> case it’s safe to add three to whatever was in the value. This is called <em>type refinement</em>.</p>
+<p>The question we’re interested in is: In so many cases it is useful to use Scott or Church encoding or some other form of continuation passing style, but how can we actually do that? Enter type equality constraints:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">newtype</span> <span class="dt">SomeC</span> a <span class="fu">=</span>
+    <span class="dt">SomeC</span> {
+      runSomeC <span class="ot">::</span>
+          forall r<span class="fu">.</span>
+          ((a <span class="fu">~</span> <span class="dt">Int</span>) <span class="ot">=&gt;</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> r) <span class="ot">-&gt;</span>
+          ((a <span class="fu">~</span> <span class="dt">Char</span>) <span class="ot">=&gt;</span> <span class="dt">Char</span> <span class="ot">-&gt;</span> r) <span class="ot">-&gt;</span>
+          (a <span class="ot">-&gt;</span> r) <span class="ot">-&gt;</span>
+          r
+    }</code></pre></div>
+<p>This may look a bit scary, but be brave! Again we started with a sum type, this time with three constructors, so again we have three continuations corresponding to each of those constructors. The first continuation corresponds to the <code>SomeInt</code> constructor. Let’s look at it more closely:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">(a <span class="fu">~</span> <span class="dt">Int</span>) <span class="ot">=&gt;</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> r</code></pre></div>
+<p>This continuation takes an <code>Int</code>. Sure, that’s the argument of the constructor. But it requests a second piece of information. It demands that whenever it is applied, it receives a proof that <code>a</code> is actually equal to <code>Int</code>.</p>
+<p>That’s exactly what type refinement is! When the user of a GADT pattern-matches, they want to learn something new about the type arguments of the type. When the user of a Scott-encoded GADT pattern-matches (passes a bunch of continuations), they expect to learn something new as well, and they do by virtue of the type equality constraint.</p>
+<p>There we go – GADTs without -XGADTs! =)</p>
+<h2 id="dependent-types">Dependent types</h2>
+<p>Thrilling title, isn’t it? Higher-rank polymorphism is in fact related to dependent types, more specifically the dependent function arrow. We are still in Haskell, so our types cannot depend on values (<a href="https://www.youtube.com/watch?v=O805YjOsQjI">yet</a>). However, <code>RankNTypes</code> gives us <em>some</em> of the expressivity. In fact I have <a href="https://twitter.com/ertesx/status/500034598042996736">demonstrated</a> that with a few more extensions Haskell is as expressive as a full dependently typed language.</p>
+<p>So which part does higher-rank polymorphism give us? Let’s see how we would express polymorphism in a dependently typed language like Agda:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">id <span class="fu">:</span> {<span class="dt">A</span> <span class="fu">:</span> <span class="dt">Set</span>} <span class="ot">→</span> <span class="dt">A</span> <span class="ot">→</span> <span class="dt">A</span>
+id x <span class="fu">=</span> x</code></pre></div>
+<p>This syntax says that <code>id</code> is a function of two arguments. The first argument is a <em>type</em> (the type of types is called <code>Set</code> in Agda – it corresponds to the <code>*</code> kind in Haskell). The second argument is the value the function is going to give back. The important thing to note here is that the first argument, a type, is not used on the value level, but it is used on the type level, <em>within</em> the type signature right away. In other words, the dependent function arrow brings the argument itself into scope for the remainder of the type signature. That’s why it can refer to that argument <code>A</code>.</p>
+<p>The first argument is passed implicitly (that’s the curly braces). It is inferred from the other arguments, if not explicitly given. Agda optionally allows us to write a quantification sign there:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">id <span class="fu">:</span> <span class="ot">∀</span> {<span class="dt">A</span> <span class="fu">:</span> <span class="dt">Set</span>} <span class="ot">→</span> <span class="dt">A</span> <span class="ot">→</span> <span class="dt">A</span>
+id x <span class="fu">=</span> x</code></pre></div>
+<p>Haskell on the other hand allows us to write explicit <em>kind</em> signatures when we enable the <code>KindSignatures</code> extension:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">{-# LANGUAGE KindSignatures #-}</span>
+
+id<span class="ot"> ::</span> forall (<span class="ot">a ::</span> <span class="fu">*</span>)<span class="fu">.</span> a <span class="ot">-&gt;</span> a
+id x <span class="fu">=</span> x</code></pre></div>
+<p>Now these two definitions, the Agda and the Haskell one, look almost the same, don’t they? That’s because in fact they <em>are</em> the same. Indeed, <code>forall</code> is the dependent function arrow with the constraint that it can only communicate types and what it communicates is <em>always</em> passed implicitly. So formally in Haskell the identity function is really a function of two arguments, but one of them is always passed implicitly by the type system (and has no run-time representation). This makes it even clearer that <em>the</em> identity function is really a whole family of functions indexed by the type argument.</p>
+<p>As a nice bonus Agda allows us to omit the type when it can be inferred from context:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">id <span class="fu">:</span> <span class="ot">∀</span> {<span class="dt">A</span>} <span class="ot">→</span> <span class="dt">A</span> <span class="ot">→</span> <span class="dt">A</span></code></pre></div>
+<p>And this looks very close to the Haskell version without the kind signature:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">id<span class="ot"> ::</span> forall a<span class="fu">.</span> a <span class="ot">-&gt;</span> a</code></pre></div>
+<p>With this new insight we can explain more formally why <code>runST</code> is defined the way it is. Here is the equivalent definition in Agda:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">runST <span class="fu">:</span> <span class="ot">∀</span> {<span class="dt">A</span>} <span class="ot">→</span> (<span class="ot">∀</span> {<span class="dt">S</span>} <span class="ot">→</span> <span class="dt">ST</span> <span class="dt">S</span> <span class="dt">A</span>) <span class="ot">→</span> <span class="dt">A</span></code></pre></div>
+<p>The second (the first explicit) argument is actually a function that receives the type <code>S</code> from <code>runST</code>. However, it has no way to <em>return</em> the type, because <code>S</code> cannot unify in any way with <code>A</code>. That’s impossible, because the scope of <code>A</code> is broader than the scope of <code>S</code>. In other words, the type <code>A</code> is determined before the type <code>S</code> is, so it cannot in any way depend on <code>S</code>.</p>
+<h2 id="a-useful-quantifier-law">A useful quantifier law</h2>
+<p>This is a more formal section, which allows you to manipulate types with quantifiers. It explains some of the transformations we have done earlier. The phrase “for all” sounds a lot like it might actually come from logic, and that is indeed the case. Considering the Curry-Howard correspondence the identity function is not just a handy function. It is also a proof:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">id<span class="ot"> ::</span> forall a<span class="fu">.</span> a <span class="ot">-&gt;</span> a</code></pre></div>
+<p>The type of <code>id</code> is a proposition, namely: “a proof for <span class="math inline"><em>a</em></span> implies a proof for <span class="math inline"><em>a</em></span>, for all propositions <span class="math inline"><em>a</em></span>”. This sounds true, and it is. The fact that you can write a total value of the given type is a proof of the proposition. Since there is a one-to-one correspondence between types and propositions, we can transfer some of the laws as well. The most important one is the following, which is true for all <code>X</code> and <code>Y</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="dt">X</span> <span class="ot">-&gt;</span> forall a<span class="fu">.</span> <span class="dt">Y</span> a <span class="fu">=</span> forall a<span class="fu">.</span> <span class="dt">X</span> <span class="ot">-&gt;</span> <span class="dt">Y</span> a</code></pre></div>
+<p>If this seems a bit cryptic, don’t worry. It really just means that as long as a quantifier is on the right hand side of a function arrow, we can pull it out and wrap the whole function type with the quantifier. In fact we have already done this:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">GenAction</span> m <span class="fu">=</span> forall a<span class="fu">.</span> (<span class="dt">Random</span> a) <span class="ot">=&gt;</span> m a
+
+<span class="ot">genRandom ::</span> (<span class="dt">RandomGen</span> g) <span class="ot">=&gt;</span> <span class="dt">GenAction</span> (<span class="dt">State</span> g)</code></pre></div>
+<p>Let’s expand the type alias, which gives us the following scary type:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">genRandom ::</span> (<span class="dt">RandomGen</span> g) <span class="ot">=&gt;</span> (forall a<span class="fu">.</span> (<span class="dt">Random</span> a) <span class="ot">=&gt;</span> <span class="dt">State</span> g a)</code></pre></div>
+<p>Firstly the context arrow <code>(=&gt;)</code> is really just another way to pass implicit arguments via type classes. So for the purpose of applying our transformations we can simply read it like the regular function arrow <code>(-&gt;)</code>. Now we see that to the right hand side of the outer arrow is a quantified type, so we can apply our rule from above and pull it out of the arrow:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">genRandom ::</span> forall a<span class="fu">.</span> ((<span class="dt">RandomGen</span> g) <span class="ot">=&gt;</span> ((<span class="dt">Random</span> a) <span class="ot">=&gt;</span> <span class="dt">State</span> g a))</code></pre></div>
+<p>I have added some parentheses for the sake of clarity, but they aren’t technically necessary, so we simply remove them now:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">genRandom ::</span> forall a<span class="fu">.</span> (<span class="dt">RandomGen</span> g) <span class="ot">=&gt;</span> (<span class="dt">Random</span> a) <span class="ot">=&gt;</span> <span class="dt">State</span> g a</code></pre></div>
+<p>While Haskell allows it, it is uncommon in everyday code to have two contexts passed separately. Haskell simply merges them, so we can do that as well:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">genRandom ::</span> forall a<span class="fu">.</span> (<span class="dt">Random</span> a, <span class="dt">RandomGen</span> g) <span class="ot">=&gt;</span> <span class="dt">State</span> g a</code></pre></div>
+<p>Finally since this is a regular rank-1-polymorphic value, we can omit the quantifier altogether:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">genRandom ::</span> (<span class="dt">Random</span> a, <span class="dt">RandomGen</span> g) <span class="ot">=&gt;</span> <span class="dt">State</span> g a</code></pre></div>
+<h2 id="conclusion">Conclusion</h2>
+<p>My experience is that <code>RankNTypes</code> is one of the least appreciated, most confusing and most misunderstood extensions. In fact I myself originally thought that it’s really only there to make <code>ST</code> safe. I was wrong, and very wrong.</p>
+<p>Today I believe it is one of the most powerful and versatile extensions. Even this article does not cover half of what you can do with it. The <code>lens</code> library many of us love so much would not nearly be as beautiful without the power of higher-rank polymorphism. =)</p>
+<p>I realise that this might be the longest post in this series, but I hope that it was useful and to some of you even eye-opening. Every little step towards my mastery of this seemingly innocent extension felt like an epiphany of its own, so I really wanted to share it.</p>
+<p>Thank you for reading and happy holidays! =)</p>
+<p>Ertugrul “ertes” Söylemez</p>
+<hr />
+<p><em>This post is part of <a href="../pages/2014-12-01-24-days-of-ghc-extensions.html">24 Days of GHC Extensions</a> - for more posts like this, check out the <a href="../pages/2014-12-01-24-days-of-ghc-extensions.html">calendar</a></em>.</p>
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/guest-posts/2014-12-18-rank-n-types.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

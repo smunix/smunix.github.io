@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2013-12-04-24-days-of-hackage-extensible-effects.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>24 Days of Hackage: extensible-effects</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>24 Days of Hackage: extensible-effects</h1>
+<p>To a lot of programmers, the idea of programming with monads is almost synonymous with the idea of programming in Haskell. Of course, to those us who write a lot of Haskell we only consider monads a small part of our work - but it’s true, monads do have a fairly important role in how we structure our computations. Despite the benefits monads give us, they are not without their pain points. For a long time, we’ve known how to combine monads (see for example, last year’s post on <a href="2012-12-20-24-days-of-hackage-transformers.html"><code>transformers</code></a>) - but we’ve also known that monads are <em>not</em> closed under composition. This means that if you take any two monads, it’s not always true that they can be composed to form a new monad. There’s some great discussion of this on <a href="http://stackoverflow.com/questions/13034229/concrete-example-showing-that-monads-are-not-closed-under-composition-with-proo">Stack Overflow</a>, which I highly recommend reading.</p>
+<p>So even though it’s not always possible to compose monads, we do at least have the <code>transformers</code> and <code>mtl</code> libraries to allow us to layer up monads to make more powerful monads. This is definitely a very powerful way of programming, but even then having an enforced ordering of the layers can make interaction <em>between</em> the layers a difficult task. Section 5 of the paper “<a href="http://okmij.org/ftp/Haskell/extensible/index.html">Extensible Effects</a>” by Kiselyov, Sabry and Swords discusses just this, and they show some computations that simply can’t be expressed by independent layering of monads. I won’t go into the details now, but this is also interesting reading!</p>
+<p>If we can’t always compose monads, and the layering can be cumbersome, is it time to abandon ship and go back to writing Java? Absolutely not! Monad transformers are actually only one of the available tools we have available, and since the above paper was published we have another new tool - <a href="http://hackage.haskell.org/package/extensible-effects"><code>extensible-effects</code></a>. <code>extensible-effects</code> is a direct implemantion of the concepts explored in the paper. Today, we’ll have a look at how we can use this library to build effectful computations.</p>
+<p>The problem that we’re looking to solve is being able to add in logging support for applications. However, we might change our minds on how we want to perform this logging - for example in production we want to log to syslog, in development we want to log to <code>stderr</code>, and in tests we want to be able to collect the logs into some value that we can inspect - after all, logging is a feature and should be tested as such. Let’s have a look at how we can do this using the effect framework given by <code>extensible-effects</code>.</p>
+<p>The main twist with extensible effects is that it operates under a client/server type abstraction. You, the client, program under the <code>Eff</code> monad, and send <em>requests</em> to a “server”. This server then interprets the request, performing whatever effects it needs to, and then responds to the client. This describes the “effects” part - the “extensible” part comes out of the fact that the set of possible requests and servers to handle them is open - users are able to define their own, outside the <code>extensible-effects</code> library.</p>
+<p>We can see this by looking closer at the type of the <code>Eff</code> monad. <code>Eff</code> takes a type parameter <code>r</code> which describes the set of “requests” that a client can send, which in turn corresponds to the set of possible effects a program can have. This is an open set, so you can add in new effects in your own libraries. In our case, we’re going to build a logging effect. Starting from the top-level, we want to be able to write something like this:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">verboseAddition ::</span> <span class="dt">Member</span> <span class="dt">Log</span> r <span class="ot">=&gt;</span> <span class="dt">Eff</span> r <span class="dt">Int</span>
+verboseAddition <span class="fu">=</span> <span class="kw">do</span>
+  log <span class="st">&quot;I'm starting with 1...&quot;</span>
+  x <span class="ot">&lt;-</span> return <span class="dv">1</span>
+
+  log <span class="st">&quot;and I'm adding 2...&quot;</span>
+  y <span class="ot">&lt;-</span> return <span class="dv">2</span>
+
+  <span class="kw">let</span> r <span class="fu">=</span> x <span class="fu">+</span> y
+
+  log <span class="fu">$</span> <span class="st">&quot;Looks like the result is &quot;</span> <span class="fu">++</span> show r
+  return r</code></pre></div>
+<p>So we know that we have a client/server model, and that this is all managed for us by the <code>Eff</code> monad. But how do we actually submit a request? This is done using the <code>send</code> primitive. The type of <code>send</code> is a bit scary…</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">send ::</span> (forall w<span class="fu">.</span> (a <span class="ot">-&gt;</span> <span class="dt">VE</span> w r) <span class="ot">-&gt;</span> <span class="dt">Union</span> r (<span class="dt">VE</span> w r)) <span class="ot">-&gt;</span> <span class="dt">Eff</span> r a</code></pre></div>
+<p>…but it’s actually really quite simple. To <code>send</code> a request, we have to provide a function that will produce the description of a step in our final computation. We can also provide a result to the next action, though we won’t need that functionality here. I’ll jump right in to the code, and we’ll reflect on how this works after:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Log</span> v <span class="fu">=</span> <span class="dt">Log</span> <span class="dt">String</span> v <span class="kw">deriving</span> (<span class="dt">Functor</span>, <span class="dt">Typeable</span>)
+
+log<span class="ot"> ::</span> <span class="dt">Member</span> <span class="dt">Log</span> r <span class="ot">=&gt;</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Eff</span> r ()
+log txt <span class="fu">=</span> send <span class="fu">$</span> \next <span class="ot">-&gt;</span> inj (<span class="dt">Log</span> txt (next ()))</code></pre></div>
+<p>To <code>log</code> some text, we introduce a <code>Log</code> action and keep hold of the text we should be logging. Logging doesn’t produce a result, so we simply pass on <code>()</code> to the next action. This lets us construct a <code>Log</code> value, which we <em>inject</em> into the open set of requests using <code>inj</code>.</p>
+<p>Now that we have a way to introduce the effect, we also need a way to run it. The concept of running events mean that if we are given an <code>Eff</code> with some effect in its set of effects, we can produce a new <code>Eff</code> which doesn’t have that effect - because we’ve now performed it. So we gradually run the effects we need to, until we have ran all effects.</p>
+<p>There are two functions that we need to run effects. The first is <code>admin</code>, which is used to begin the evaluation process. <code>admin</code> turns our <code>Eff r a</code> into a <code>VE a r</code> - and this type indicates whether we are producing a value (possibly using other effects), or performing an effect and another computation. Let’s start by dealing with the simple case - <code>Val</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">runLogger ::</span> <span class="dt">Eff</span> (<span class="dt">Log</span> <span class="fu">:&gt;</span> r) a <span class="ot">-&gt;</span> <span class="dt">Eff</span> r (a, [<span class="dt">String</span>])
+runLogger logAction <span class="fu">=</span> go (admin logAction)
+ <span class="kw">where</span>
+  go (<span class="dt">Val</span> v) <span class="fu">=</span> return (v, [])</code></pre></div>
+<p>If our <code>logAction</code> is constructed with <code>Val</code> then it produced no log lines, so we return an empty log, and the value itself.</p>
+<p>So far so good. Next, we need to do the interesting part - actually dealing with logging effect. This is done by using the <code>handleRelay</code> function. <code>handleRelay</code> takes a request, and works out whether or not it is an effect that we should deal with, or if it is a different type of effect. Thus we need to know how to relay requests on, and how to deal with an actual logging request. Relaying on requests is as simple as just calling <code>go</code>. If we have a request to log something, then we perform that logging, and then perform the rest of the computation. Therefore, we end up with:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">runLogger ::</span> <span class="dt">Eff</span> (<span class="dt">Log</span> <span class="fu">:&gt;</span> r) a <span class="ot">-&gt;</span> <span class="dt">Eff</span> r (a, [<span class="dt">String</span>])
+runLogger logAction <span class="fu">=</span> go (admin logAction)
+ <span class="kw">where</span>
+  go (<span class="dt">Val</span> v) <span class="fu">=</span> return (v, [])
+  go (<span class="dt">E</span> request) <span class="fu">=</span>
+    <span class="kw">let</span> prefixLogWith txt (v, l) <span class="fu">=</span> (v, txt<span class="fu">:</span>l)
+        performLog (<span class="dt">Log</span> txt next) <span class="fu">=</span>
+          fmap (prefixLogWith txt) (go next)
+    <span class="kw">in</span> handleRelay request go performLog</code></pre></div>
+<p>We use <code>handeRelay</code> on the request, and use <code>go</code> to relay on requests that aren’t interesting to us. If it’s a logging request, then we have access to the <code>Log</code> constructor we introduced earlier. We pattern match on this to discover the text that we have to log, and the computation to run after performing the logging. The later computation will return a value and a log, so we just prefix the log of the further computation with this log entry. And we’re done!</p>
+<p>We can now run our verbose addition:</p>
+<pre><code>&gt; :t run (runLogger verboseAddition) 
+run (runLogger verboseAddition) :: (Int, [String])
+
+&gt; run (runLogger verboseAddition)
+(3,[&quot;I'm starting with 1...&quot;,&quot;and I'm adding 2...&quot;,&quot;Looks like the result is 3&quot;])</code></pre>
+<p>We can also run our logger action by logging to <code>stderr</code>, and here things become a bit more interesting. If you have a computation that requires logging, and you want to run it by logging to <code>stderr</code> then you <em>actually</em> have a computation that requires logging <em>and</em> IO. Here we see our first interaction of effects. Thankfully, it’s really quite straight forward. Here’s the code:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">runIOLogger ::</span> <span class="dt">SetMember</span> <span class="dt">Lift</span> (<span class="dt">Lift</span> <span class="dt">IO</span>) r <span class="ot">=&gt;</span> <span class="dt">Eff</span> (<span class="dt">Log</span> <span class="fu">:&gt;</span> r) a <span class="ot">-&gt;</span> <span class="dt">Eff</span> r a
+runIOLogger logAction <span class="fu">=</span> go (admin logAction)
+ <span class="kw">where</span>
+  go (<span class="dt">Val</span> v) <span class="fu">=</span> return v
+  go (<span class="dt">E</span> request) <span class="fu">=</span>
+    <span class="kw">let</span> performLog (<span class="dt">Log</span> txt next) <span class="fu">=</span>
+          lift (putStrLn txt) <span class="fu">&gt;&gt;</span> go next
+    <span class="kw">in</span> handleRelay request go performLog</code></pre></div>
+<p>Now our <code>performLog</code> function has changed. We pattern match on the <code>Log</code> request as we did before, but the <code>Eff</code> we now return is to first perform some IO, and then to perform the rest of the computation. It’s also worth noticing how the top-level type signature has changed. We can see that <code>runIOLogger</code> takes an <code>Eff</code> and removes the logging effect (by running it), which gives us a subset of the original effects. However, that subset also has to contain the ability to perform IO - and that’s what <code>SetMember Lift (Lift IO) r</code> is all about.</p>
+<p>This time, we have to run the action in a slightly different form:</p>
+<pre><code>&gt; :t runLift $ runIOLogger verboseAddition
+runLift $ runIOLogger verboseAddition :: IO Int
+
+&gt; runLift $ runIOLogger verboseAddition   
+I'm starting with 1...
+and I'm adding 2...
+Looks like the result is 3
+3</code></pre>
+<p>I really like the <code>extensible-effects</code> work, and find it a very refreshing way of exploring ideas. While I haven’t built anything hugely complex with it, I certainly hope I will, as I think it’s a really powerful way of programming. <a href="http://www.haskell.org/pipermail/haskell-cafe/2013-November/111551.html">Oleg mentioned</a> in the Haskell cafe that</p>
+<blockquote>
+<p>I must stress that thinking of extensible-effects effects as just another implementation of MTL is not productive. Not all effects can be decomposed into State, Reader, etc. layers. Manly [sic], effects should not be decomposed into layers.</p>
+</blockquote>
+<p>It’s entirely possible my post has missed the point, so I look forward to being told just how wrong I am! The code for today’s post is on <a href="https://github.com/ocharles/blog/tree/master/code">Github</a>.</p>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2013-12-04-24-days-of-hackage-extensible-effects.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

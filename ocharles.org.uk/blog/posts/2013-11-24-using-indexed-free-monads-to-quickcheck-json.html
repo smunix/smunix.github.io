@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2013-11-24-using-indexed-free-monads-to-quickcheck-json.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>Using indexed free monads to QuickCheck JSON</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>Using indexed free monads to QuickCheck JSON</h1>
+<p>One of the most satisfying parts of my job is the moment when, after months of devout studying into abstract constructions, I can finally apply what I have learnt to solve problems in the real world. One of these rare moments occured last week, and I’m eager to share what I’ve learnt with you. I’ll walk you through a definition of the problem, my first attempts at solving it, and then at the end we’ll see how I used indexed free monads to easily construct a DSL that produces an either more powerful solution. On with the show!</p>
+<h2 id="the-problem">The Problem</h2>
+<p>I have been tasked with building a web service for our frontend AngularJS application to talk to. The frontend developer is going to be manually binding to the output of my web service, so it’s paramount that the encoding never changes. Being JavaScript, the obvious choice of encoding is JSON. For example, we may have the following data type:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Action</span> <span class="fu">=</span> <span class="dt">Action</span> {<span class="ot"> actionType ::</span> <span class="dt">Text</span>
+                     ,<span class="ot"> actionActor ::</span> <span class="dt">Text</span>
+                     }</code></pre></div>
+<p>Which has the following JSON encoding:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">ToJSON</span> <span class="dt">Action</span> <span class="kw">where</span>
+  toJSON <span class="dt">Action</span>{<span class="fu">..</span>} <span class="fu">=</span> object [ <span class="st">&quot;type&quot;</span> <span class="fu">.=</span> actionType
+                             , <span class="st">&quot;actor&quot;</span> <span class="fu">.=</span> actionActor
+                             ]</code></pre></div>
+<p>Now that we’ve done the easy part, we should make sure that we have sufficiently tested this encoding to ensure we are always using the <em>correct</em> encoding. QuickCheck would be a great tool for this: we simply generate <code>Arbitrary</code> <code>Action</code>s, and convert them to JSON, finally verifying that certain paths in the JSON encoding meet our expectations. Note it’s not enough to witness that <code>fromJSON . toJSON = id</code>, because that would only witness that <em>there exists</em> an isomorphism - but we need to be sure that we are using a <em>specific</em> encoding.</p>
+<h2 id="a-first-attempt-at-testing">A First Attempt at Testing</h2>
+<p>My first attempt looked something like this:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">testAction ::</span> <span class="dt">Action</span> <span class="ot">-&gt;</span> <span class="dt">TestTree</span>
+testAction <span class="fu">=</span> testGroup <span class="st">&quot;Action&quot;</span> [ testType, testActor ]
+ <span class="kw">where</span>
+  testType <span class="fu">=</span> testProperty <span class="st">&quot;type&quot;</span> <span class="fu">$</span> \action <span class="ot">-&gt;</span>
+    toJSON action <span class="fu">^?</span> key <span class="st">&quot;type&quot;</span> <span class="fu">==</span> <span class="dt">Just</span> (actionType action)
+
+  testActor <span class="fu">=</span> testProperty <span class="st">&quot;actor&quot;</span> <span class="fu">$</span> \action <span class="ot">-&gt;</span>
+    toJSON action <span class="fu">^?</span> key <span class="st">&quot;actor&quot;</span> <span class="fu">==</span> <span class="dt">Just</span> (actionActor action)</code></pre></div>
+<p>(I’m using <code>lens-aeson</code> to traverse the AST that <code>aeson</code> produces).</p>
+<p>This is a start, but it certainly looks a bit clunky. There’s a lot of repetition going on here - we have to repeat <code>toJSON action</code> and we have to make sure we access sub-parts of the input <code>action</code> correctly. Furthermore, when things go wrong - this doesn’t really explain <em>why</em> things have gone wrong - only that the property is not always satisfied, because our QuickCheck property only returns a boolean.</p>
+<p>Nevertheless, in the spirit of getting the job done, we carry on.</p>
+<p>The next data type I had to approach had a rather awkward encoding:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">newtype</span> <span class="dt">Sections</span> <span class="fu">=</span> <span class="dt">Sections</span> {<span class="ot"> sections ::</span> <span class="dt">Vector</span> <span class="dt">Section</span> }
+
+<span class="kw">data</span> <span class="dt">Section</span> <span class="fu">=</span> <span class="dt">Section</span> {<span class="ot"> sectionName ::</span> <span class="dt">Text</span>
+                       ,<span class="ot"> sectionUrl ::</span> <span class="dt">Text</span>
+                       }
+
+<span class="kw">instance</span> <span class="dt">ToJSON</span> <span class="dt">Sections</span> <span class="kw">where</span>
+  toJSON (<span class="dt">Sections</span> v) <span class="fu">=</span> object <span class="fu">$</span> Vector.toList <span class="fu">$</span>
+    <span class="kw">let</span> indices <span class="fu">=</span> Vector.enumFromN <span class="dv">0</span> (Vector.length v)
+        encodeSection i <span class="dt">Section</span>{<span class="fu">..</span>} <span class="fu">=</span>
+          object
+            [ <span class="st">&quot;sections&quot;</span> <span class="fu">.=</span>
+                object [ sectionName <span class="fu">.=</span> object
+                           [ <span class="st">&quot;sort-order&quot;</span> <span class="fu">.=</span> i
+                           , <span class="st">&quot;url&quot;</span> <span class="fu">.=</span> sectionUrl
+                           ]
+                       ]
+            ]
+    <span class="kw">in</span> Vector.zipWith encodeSection indices v</code></pre></div>
+<p>The encoding of a list of sections is an object from the section name to the section itself, but also containing the sort-order of this section inside the vector. QuickChecking this becomes a lot more involved - we would have to find the sections themselves, pull out the JSON for each section and keep a reference for that, then run tests against it - finally joining everything back together. Also, note that we have to test against arbitrary <code>Sections</code> - which means a single test is very big. Just having a boolean result is really not going to cut it now.</p>
+<h2 id="declarative-tests">Declarative Tests</h2>
+<p>The problem, at least to me, felt like I was explaining <em>how</em> to perform the testing, rather than <em>what</em> tests I needed to take. I would have rather said “for each section, expect a JSON object to exist under that key, and then expect these properties”. Armed with a description of the test, I would then be “free” to interpret these tests separately (get it? eh?). I’d heard a lot about free monads as a way to write DSLs recently, so this seemed like a perfect excuse to see just how much I understood them.</p>
+<p>There appear to be three main tasks that we will perform in our JSON testing:</p>
+<ul>
+<li>Traversing into the value under a key of an object</li>
+<li>Traversing into the value at an index in an array</li>
+<li>Performed a test on the value we are currently looking at</li>
+</ul>
+<p>For the first two, movement in the JSON itself should correspond with a movement in the Haskell value we used to encode the JSON. For example, if I have an <code>Action</code> object above, traversing into the <code>&quot;actionActor&quot;</code> key should be matched by applying the <code>Action</code> we are encoding to the <code>actionActor</code> field accessor. Thus it seems like we can begin writing the functor that will make up our free monad:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">JSONF</span> a <span class="fu">=</span> <span class="dt">Key</span> <span class="dt">String</span> (i <span class="ot">-&gt;</span> j) (j <span class="ot">-&gt;</span> a)</code></pre></div>
+<p>But what a minute, where are these <code>i</code> and <code>j</code> type parameters coming from? We can think of <code>i</code> as being the initial value we are encoding, and <code>j</code> is a smaller part of <code>i</code> that resides under the key we are traversing into. There seems to be no reason to hide these, so we’ll introduce them as type parameters:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">JSONF</span> i j a <span class="fu">=</span> <span class="dt">Key</span> <span class="dt">String</span> (i <span class="ot">-&gt;</span> j) (j <span class="ot">-&gt;</span> a)</code></pre></div>
+<p>To recap, we have the name of the JSON key, an accessor function, and a continuation for the next step of the computation. This continuation receives the smaller structure we have traversed into (on the Haskell side).</p>
+<p>A <code>Functor</code> instance here is easy enough:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Functor</span> (<span class="dt">JSONF</span> i j) <span class="kw">where</span>
+  fmap f (<span class="dt">Key</span> key accessor k) <span class="fu">=</span> <span class="dt">Key</span> key accessor (f <span class="fu">.</span> k)</code></pre></div>
+<p>Which means we are now ready to start experimenting with a free monad built from this functor. We introduce a smart constructor for layers in the free monad:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">key ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> (i <span class="ot">-&gt;</span> j) <span class="ot">-&gt;</span> <span class="dt">Free</span> (<span class="dt">JSONF</span> i j) j
+key k f <span class="fu">=</span> <span class="dt">Free</span> (<span class="dt">Key</span> k f <span class="dt">Pure</span>)</code></pre></div>
+<p>And an interpreter:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">performTests ::</span> <span class="dt">ToJSON</span> i <span class="ot">=&gt;</span> <span class="dt">Free</span> (<span class="dt">JSONF</span> i j) a <span class="ot">-&gt;</span> i <span class="ot">-&gt;</span> <span class="dt">Bool</span>
+performTests f <span class="fu">=</span>
+  <span class="kw">let</span> encoded <span class="fu">=</span> toJSON subject
+      go (<span class="dt">Pure</span> _) _ _ <span class="fu">=</span> <span class="dt">True</span>
+      go (<span class="dt">Free</span> (<span class="dt">Key</span> keyName f k)) actual expected <span class="fu">=</span>
+        <span class="kw">case</span> actual <span class="fu">^?</span> key keyName <span class="kw">of</span>
+          <span class="dt">Just</span> subJSON <span class="ot">-&gt;</span> go (k <span class="fu">$</span> f expected) subJSON (f expected)
+          <span class="dt">Nothing</span>      <span class="ot">-&gt;</span> <span class="dt">False</span>
+  <span class="kw">in</span> go f encoded subject</code></pre></div>
+<p>This so far gives us the ability to check the presence of keys in a JSON structure, but unfortunately we hit a snag. Lets say we have a <code>Sections</code> vector, and we just want to check the URL of one section:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">testSections ::</span> <span class="fu">??</span>
+testSections s <span class="fu">=</span> <span class="kw">do</span>
+  key (sectionName <span class="fu">$</span> Vector.head <span class="fu">$</span> sections s)
+      (Vector.head <span class="fu">.</span> sections)
+
+  key <span class="st">&quot;url&quot;</span> sectionUrl</code></pre></div>
+<pre><code>    Couldn't match type `Section' with `Sections'
+    Expected type: Free (JSONF Sections Section) Text
+      Actual type: Free (JSONF Section Text) Text</code></pre>
+<p>Bummer! The reason this doesn’t type check is a normal free monad builds on top of an un-indexed functor. Notice that the first accessor is from <code>Sections</code> to <code>Section</code>, while the second accessor is from <code>Section</code> to <code>Text</code>. Thus the functors are <code>JSONF Sections Section a</code> and <code>JSONF Section Text a</code>. These are not the same type of functor, thus we cannot use free monads to really do anything meaningful.</p>
+<h2 id="indexed-free-monads">Indexed Free Monads</h2>
+<p>Our <code>JSONF</code> is actually an <em>indexed</em> functor, because the different constructors permit us to change the index as we go. The index in this case is the state of the Haskell value before and after applying some sort of traversal into the JSON structure. Thankfully, it turns out the idea of an “indexed free monad” is perfectly natural, and Fumiaki Kinoshita and Edward Kmett have already done the hard work for us (thanks!).</p>
+<p>The one draw back of this approach is that we can no longer use the <code>Monad</code> type class in the <code>Prelude</code>. If we use <code>-XRebindableSyntax</code> we can at least use <code>do</code> notation though:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">testSections ::</span> <span class="dt">IxFree</span> <span class="dt">JSONF</span> <span class="dt">Sections</span> <span class="dt">Text</span> <span class="dt">Text</span>
+testSections s <span class="fu">=</span> <span class="kw">do</span>
+  key (sectionName <span class="fu">$</span> Vector.head <span class="fu">$</span> sections s)
+      (Vector.head <span class="fu">.</span> sections)
+
+  key <span class="st">&quot;url&quot;</span> sectionUrl</code></pre></div>
+<p>Alright! No changes to the implementation were necessary, just a change to the type signature. We’re on the right track. Now all that remains is to expand our vocabulary a bit more. Here’s a richer language for tests:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">JSONF</span> i j a <span class="kw">where</span>
+  <span class="dt">Key</span><span class="ot"> ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> (i <span class="ot">-&gt;</span> j) <span class="ot">-&gt;</span> (j <span class="ot">-&gt;</span> a) <span class="ot">-&gt;</span> <span class="dt">JSON</span> i j a
+  <span class="dt">Index</span><span class="ot"> ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> (i <span class="ot">-&gt;</span> j) <span class="ot">-&gt;</span> (j <span class="ot">-&gt;</span> a) <span class="ot">-&gt;</span> <span class="dt">JSON</span> i j a
+  <span class="dt">Assert</span><span class="ot"> ::</span> (<span class="dt">Value</span> <span class="ot">-&gt;</span> <span class="dt">Either</span> <span class="dt">String</span> ()) <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">JSON</span> i i a
+
+<span class="ot">key ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> (i <span class="ot">-&gt;</span> j) <span class="ot">-&gt;</span> <span class="dt">JSONF</span> i j j
+key key f <span class="fu">=</span> <span class="dt">Free</span> (<span class="dt">Key</span> key f <span class="dt">Pure</span>)
+
+<span class="ot">nth ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> (i <span class="ot">-&gt;</span> j) <span class="ot">-&gt;</span> <span class="dt">JSONF</span> i j j
+nth n f <span class="fu">=</span> <span class="dt">Free</span> (<span class="dt">Index</span> nth f <span class="dt">Pure</span>)
+
+<span class="ot">assertEq ::</span> <span class="dt">ToJSON</span> a <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">JSONF</span> i i ()
+assertEq expected <span class="fu">=</span>
+  <span class="kw">let</span> p actual
+        <span class="fu">|</span> actual <span class="fu">==</span> (toJSON expected) <span class="fu">=</span> <span class="dt">Right</span> ()
+        <span class="fu">|</span> otherwise <span class="fu">=</span> unlines [ <span class="st">&quot;Expected: &quot;</span> <span class="fu">++</span> show expected
+                              , <span class="st">&quot;     Got: &quot;</span> <span class="fu">++</span> show actual
+                              ]
+  <span class="kw">in</span> <span class="dt">Free</span> (<span class="dt">Assert</span> p (<span class="dt">Pure</span> ())</code></pre></div>
+<p><code>Key</code> and <code>Index</code> move us deeper into the JSON structure, while <code>Assert</code> takes the current JSON <code>Value</code> and checks it against an arbitrary predicate. The predicate can fail with a string indicating why the assertion failed. I’ve added one smart constructor for predicates, which assumes that the current JSON matches the <code>ToJSON</code> encoding of a value. We can now rephrase the initial <code>Action</code> tests in our new DSL:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">testAction <span class="fu">=</span> testGroup <span class="st">&quot;Action&quot;</span> [ testType, testActor ]
+ <span class="kw">where</span>
+  testType <span class="fu">=</span> testProperty <span class="st">&quot;type&quot;</span> <span class="fu">$</span> performTests <span class="fu">$</span> <span class="kw">do</span>
+    actual <span class="ot">&lt;-</span> key <span class="st">&quot;type&quot;</span> actionType
+    assertEq actual
+
+  testActor <span class="fu">=</span> testProperty <span class="st">&quot;actor&quot;</span> <span class="fu">$</span> performTests <span class="fu">$</span> <span class="kw">do</span>
+    actual <span class="ot">&lt;-</span> key <span class="st">&quot;actor&quot;</span> actionActor
+    assertEq actual</code></pre></div>
+<p>Great - we’re at least as capable as before! It turns out we can go further, with just a little more work. If we upgrade to an indexed <code>MonadPlus</code> monad, we also gain the ability to perform multiple tests at once. This is the key part for testing arrays, as it permits us to backtrack our JSON traversal. This requires little work on our part - we simply switch out <code>Control.Monad.Indexed.Free.IxFree</code> for <code>Control.Monad.Indexed.Free.Plus.IxFree</code> and modify the interpreter to deal with the <code>Plus</code> constructor of <code>IxFree</code>. This would let us combine our two tests into one:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">testAction <span class="fu">=</span> testProperty <span class="st">&quot;Action&quot;</span> <span class="fu">$</span> performTests <span class="fu">$</span>
+  isum [ key <span class="st">&quot;type&quot;</span> actionType   <span class="fu">&gt;&gt;&gt;=</span> assertEq
+       , key <span class="st">&quot;actor&quot;</span> actionActor <span class="fu">&gt;&gt;&gt;=</span> assertEq
+       ]
+
+ <span class="kw">where</span><span class="ot"> isum ::</span> [<span class="dt">IxFree</span> i j a] <span class="ot">-&gt;</span> <span class="dt">IxFree</span> i j a</code></pre></div>
+<p>I’ve also demonstrated here that now that we have used a monad as our underlying test representation, we get to make use of all the monadic combinators to structure our tests (or at least the indexed-monad equivalents).</p>
+<h2 id="tell-me-whats-wrong">Tell Me What’s Wrong</h2>
+<p>Now that our tests are more extensive, we really need to work on making it easy to respond to test failures. In order to do so, we need better diagnostics. Now that we have separate the test specification from the test running, it’s easy to add diagnostics - we just extend the test interpreter.</p>
+<p>Each traversal - be it into an object by key or an array by index - is described in full in our functor. Thus when we interpret, we can also build up a human readable string of where we are, and say which properties fail to meet our expectations. The extended interpretor can be found <a href="https://github.com/ocharles/json-assertions/blob/master/src/Test/JSON/Assertions.hs">here</a> - I won’t go into details now, but hopefully you can follow it easily enough.</p>
+<h2 id="yak-shaved.-now-back-to-the-problem">Yak: Shaved. Now Back to the Problem</h2>
+<p>Finally, lets look at testing that horrible <code>Sections</code> vector that got us here in the first place. Our tests can now be expressed as:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">testSections ::</span> <span class="dt">JSONTest</span> <span class="dt">Sections</span> 
+testSections <span class="fu">=</span> performTests <span class="fu">$</span> <span class="kw">do</span>
+  sections <span class="ot">&lt;-</span> key <span class="st">&quot;sections&quot;</span> sections
+  isum <span class="fu">$</span> flip map [<span class="dv">0</span> <span class="fu">..</span> Vector.length sections] <span class="fu">$</span> \i <span class="ot">-&gt;</span> <span class="kw">do</span>
+    <span class="kw">let</span> s <span class="fu">=</span> sections <span class="fu">Vector.!</span> sections
+    key (sectionName s) (const s)
+
+    isum [ jsonTest <span class="fu">$</span> key <span class="st">&quot;url&quot;</span> sectionUrl <span class="fu">&gt;&gt;&gt;=</span> assertEq
+         , jsonTest <span class="fu">$</span> key <span class="st">&quot;sort-order&quot;</span> (const i) <span class="fu">&gt;&gt;&gt;=</span> assertEq 
+         ]</code></pre></div>
+<p>We just need one more combinator - <code>jsonTest</code> - which simply discards the final state. The reason for this is because <code>isum</code> expects that all alternative actions end in the same state. We can easily end in the same state regardless of how we got there if we just always end with <code>()</code> - so <code>jsonTest :: JSONTest i j a -&gt; jsonTest i () a</code>.</p>
+<p>I think this is a really concise way to explain the expectations of JSON serialisation for a fairly convoluted encoding. We move into the “sections” key, which is akin to pulling out the <code>Vector Section</code> from a <code>Sections</code>. Then, we access each element of this vector by its index (zipping each element with it’s index would also be appropriate), and for each <code>Section</code> we attempt to traverse into a key that matches the <code>sectionName</code>. I use <code>const s</code> as I already know the <code>Section</code> that I’m expecting. I complete my tests by summing a series of tests to be performed on this individual section. My tests can refer back to any previous variable that we bound earlier - so the test for the <code>&quot;sort-order&quot;</code> can elegantly refer back to the index of the <code>Section</code> in the original <code>sections</code> <code>Vector</code>.</p>
+<h2 id="conclusion-and-next-steps">Conclusion and Next Steps</h2>
+<p>I feel that I’ve mostly taken logical steps from the initial problem to <em>a</em> solution, but it’s not necessarily the only solution. The indexed monad felt natural due to the changing type of environment as I traverse the JSON. However, this comes with a cost for the user - as they now have to enable <code>RebindableSyntax</code> and bring appropriate definitions for <code>&gt;&gt;=</code> into scope. Is it possible that there are other types that we could use? I expect so! For example, things that move from <code>i</code> to <code>j</code> look suspiciously like arrows which we also get special notation in Haskell. Or maybe there’s a way to use existential types to hide the before or after types. I don’t know, but it may lead to yet simpler tests with less exotic structures underneath them.</p>
+<p>Moving away from the underlying representation, this work could go further in terms of functionality too. So far it only tests that the JSON contains the right keys and values, but it doesn’t test <em>exhaustively</em>. It wouldn’t be much work to extend the interpreter to fail the test if there are unexpected keys too.</p>
+<p>Either way, what I have at the moment feels useful enough to me that the real next step is to get this stuff onto Hackage. In the meantime, you can find this code on <a href="http://github.com/ocharles/json-assertions">my Github account</a>. I just have a few pull requests to get merged, and then I’ll release this.</p>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2013-11-24-using-indexed-free-monads-to-quickcheck-json.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

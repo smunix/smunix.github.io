@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2010-11-28-optimizing-perl.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>A Journey of Optimizing Perl</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>A Journey of Optimizing Perl</h1>
+<p>Perl has a lot of ill-informed preconceptions in the programming community, and speed does seem to be one of them. There is an assumption that one must either make a mutually exclusive decision – clean, readable code that runs slowly, and noisey code that performs all sorts of tricks to become efficient. I’ve recently been in a position of having to do some fast work with Perl, so I am now sharing some of my experiences.</p>
+<h2 id="context-data-transformations">Context: Data transformations</h2>
+<p>In order to set the context for this article, allow me to touch on what I was working on. At <a href="http://musicbrainz.org/">MusicBrainz</a>, we are moving from an old database schema to a much newer one. In the process of this, we need to migrate data from the old schema, to a new one. For the most part, this can be done in SQL, but some of the data requires some more intricate processing.</p>
+<p>We store records called “edits” in our database, which represent some sort of change to data in the system – for example adding data, editing data and removing data are all represented as an edit. Previously, edits consisted of an old value and a new value, in various formats. Some edits used a custom serialization format of a hashmap, others used single strings, others used a scheme that made sense at the time, but does not fit in consistently with any common format.</p>
+<p>The new schema changes some of this. Firstly, both new value and previous value have been combined into one (as it doesn’t make sense to have either of these for some edits), and the serialization format is always JSON. This alone is a transformation that would be difficult to achieve in SQL.</p>
+<p>On top of this, the row IDs that this serialized data points to may no longer be valid. The new schema merges many rows together (segmenting some data out to other tables), so we need to alter these FKs appropriately.</p>
+<p>The data set being migrated here is roughly 12 million rows, and there are 70 different types of rows – not a trivial data migration problem. To add further constraints, the migration process can only be run at the point of schema change – when we launch the new version. As we don’t want downtime for the site during upgrade we put our database into a readonly state while we migrate, but we need to still minimize the amount of time here – 4 hours in total is really at the edge of this limit.</p>
+<h2 id="so-make-it-fast">So Make it FAST</h2>
+<h3 id="step-1-prototype">Step 1: Prototype</h3>
+<p>I spent a fair amount of time considering the correct approach to migrate this data. Do I try to be clever and handle as much as possible in a single complex transformation? Do I operate on a distinct type at a time, and transform a stream? Do I operate on a row by row basis?</p>
+<p>In order to make this decision, I decided to TIAS. I grabbed my toolkit of <a href="http://search.cpan.org/">CPAN</a> modules that make my life easier and threw some solutions together. In the end, the solution that felt most productive to work with and understand was operating on a row by row basis.</p>
+<p>In this approach, I created <a href="http://moose.iinteractive.com/">Moose</a> classes for each transformation. I would inflate a row hash (from DBD) into one of these classes, and call the upgrade method, which gave me a new object back (correctly migrated and ready for re-insertion).</p>
+<p>Finally I ended up with a migration script that ran, but sadly, not within the time frame that we were constrained by. However, program correctness was my main concern here, we are now ready to continue to the next step.</p>
+<h3 id="step-2-understand-your-constraints">Step 2: Understand your constraints</h3>
+<p>Before really diving in and understand the flaws of the program, it’s important to understand your constraints. Where will your program be running? What hardware do you have available? What is the timeframe/rate your program needs to run within? Is your program running in isolation, or do you need to consider load issues?</p>
+<p>These are all important questions that will have an impact on the decisions you make later. The more you can ask, the better an idea of the problem domain you will have. In our case, we would be running the script on a machine with at least 4gb of RAM, and as the main process. These constraints are generous – giving us a lot of freedom to optimize.</p>
+<h3 id="step-3-identify-the-bottlenecks">Step 3: Identify the bottlenecks</h3>
+<p>We have all done it, but diving into a program and blindly rewriting code under the assumption it will run faster is an extremely unproductive task, that rarely yields the goal of program optimization. Rather, the more productive task is to instrument code to identify the critical points in a program – where the real time is spent.</p>
+<p>There are many approaches to instrumentation, and it may be enough to instrument code yourself. We began by lightly instrumenting our master script with the difference in time using <a href="http://search.cpan.org/~jhi/Time-HiRes-1.9721/HiRes.pm">Time::HiRes</a>, a high resolution implementation of gettimeofday for Perl. Later, we needed further granularity, so we used a combination of <a href="http://search.cpan.org/dist/Devel-NYTProf/">Devel::NYTProf</a> and the included nytprofhtml to generate reports. I may well have more to say on using Devel::NYTProf in the future…</p>
+<h3 id="step-4-reducing-the-impact-of-bottlenecks">Step 4: Reducing the impact of bottlenecks</h3>
+<p>With a clear idea of the problem, and the most significant bottlenecks, you are now reading to begin optimization. There is no hard and fast rule on the best way to remove bottlenecks, but here are some of the tricks we employed:</p>
+<h4 id="trade-space-for-time">Trade space for time</h4>
+<p>This is the catchy motto of <a href="http://search.cpan.org/~mjd/Memoize-1.01/Memoize.pm">Memoize</a>, a Perl module implementing automatic memoization of subroutines, based on the input given. <a href="http://en.wikipedia.org/wiki/Memoization">Memoization</a> is the process of caching the result of function, based on its input. Memoization thus allows constant time calls to functions when called with repeated input. There are a few considerations for memoization:</p>
+<h5 id="referential-transparency">Referential transparency</h5>
+<p>It does not make sense to memoize functions that are not <a href="../../../en.wikipedia.org/wiki/Referential_transparency_(computer_science).html">referentially transparent</a>. A function with the property of referential transparent is a function in the purely mathematically sense – for the same input, you will always see the same output. This means functions that depend on outside state will not be suitably for memoization, for example subroutines that depend on network access, random values, and so on may not be suitable.</p>
+<p>However, if you can guarantee a consistent world state /during the execution of your program/, then memoization may turn out to be a useful optimization – avoiding heavy disk I/O when you know the result will be the same.</p>
+<h5 id="hit-rate">Hit rate</h5>
+<p>Another consideration of memoization is one that will be familiar to those who have had to implement caching – the hit rate. Memoizing a function called 20000 times sounds sensible at first, but when you discover it’s called with 20000 inputs, it becomes less sensible. All you achieve here is more memory usage, but the cache is never hit. However, if it’s called with only 200 inputs, then memoization is a strong contender for reducing the impact of this bottleneck.</p>
+<h4 id="approach-the-problem-from-a-different-angle">Approach the problem from a different angle</h4>
+<p>One of the first bottlenecks we encountered was how to get data into the script for the migration process. <code>SELECT</code>ing the entire table was not a solution, as this would use too much memory. The prototype <code>SELECT</code>ed in small chunks, but to do this we had to order the entire table for each select, and pass an offset – an expensive operation, and one that becomes more expensive as the offset increased.</p>
+<p>The next approach we took was to dump the table into CSV files of chunks, and then read from these. <a href="http://search.cpan.org/dist/Text-CSV_XS/">Text::CSV_XS</a> allowed us to read rows in with confidence (trusting the correctness of someone else over ourselves) and drastically reduced the times. Reading a chunk from disk into memory almost felt like a no-op compared to the speed of our SQL query.</p>
+<p>Finally, after more optimizations this too became a bottleneck again, and with a little more thought we used a COPY statement to stream the table into the script. The important thing here though is that we were able to gradually reduce this bottleneck – we did only what was needed to make something else the most important optimization.</p>
+<h4 id="reduce-logic-where-constraints-are-known">Reduce logic where constraints are known</h4>
+<p>After reducing the larger bottlenecks, a simple function had become the bottleneck. This function decodes a string from an old encoding format, into a Perl string. The initial implementation of the function, copied straight out of the legacy code base was:</p>
+<div class="sourceCode"><pre class="sourceCode perl"><code class="sourceCode perl"><span class="kw">sub </span><span class="fu">_decode_value</span> {
+    <span class="kw">my</span> (<span class="dt">$scheme</span>, <span class="dt">$data</span>) = <span class="dt">$_</span>[<span class="dv">1</span>] =~ <span class="kw">/</span><span class="ch">\A</span><span class="ot">\x1B</span><span class="ch">(</span><span class="bn">\w</span><span class="ch">+)</span><span class="ot">;</span><span class="ch">(</span><span class="ot">.</span><span class="ch">*)\z</span><span class="kw">/s</span>
+        <span class="kw">or</span> <span class="kw">return</span> <span class="dt">$_</span>[<span class="dv">1</span>];
+    <span class="kw">return</span> uri_unescape(<span class="dt">$data</span>) <span class="kw">if</span> <span class="dt">$scheme</span> <span class="kw">eq</span> <span class="kw">&quot;</span><span class="st">URI</span><span class="kw">&quot;</span>;
+    <span class="fu">die</span> <span class="kw">&quot;</span><span class="st">Unknown encoding scheme '</span><span class="dt">$scheme</span><span class="kw">'&quot;</span>;
+}</code></pre></div>
+<p>Our initial approach was to memoize this. However, the hit rate is fairly low, so this still didn’t truly help the problem. But looking at this code it felt as simple as it could be, what were we missing?</p>
+<p>The import realisation was that this code contains logic that can be hard coded. Notice how there is a regular expression to check for if any encoding is present, and a further condition for the scheme itself? But there is only a single possible scheme! With this understand, we can use this much more efficient code:</p>
+<div class="sourceCode"><pre class="sourceCode perl"><code class="sourceCode perl"><span class="kw">sub </span><span class="fu">decode_value</span> {
+    <span class="kw">my</span> <span class="dt">$value</span> = <span class="fu">shift</span>;
+    <span class="kw">return</span> uri_unescape(<span class="fu">substr</span>(<span class="dt">$value</span>, <span class="dv">5</span>));
+}</code></pre></div>
+<p>This code doesn’t scale well, if the scheme changes, but we know this cannot happen – as the data we are operating on has already been created (and as the data is immutable, we know our assumptions will hold).</p>
+<h4 id="substitute-for-more-efficient-technologies">Substitute for more efficient technologies</h4>
+<p>Once we had reached program correctness, profiling showed that a substantial amount of time was actually spent within Moose::new_object – constructing objects. Our objects themselves did not really use much of the power given by Moose however – no need for type checks, meta programming, the expressiveness of attributes. In the end, we replaced all classes with much simpler objects that simply used <a href="http://search.cpan.org/dist/Class-Accessor-Fast-XS/">Class::Accessor::Fast::XS</a>. This achieved a speed up in this bottleneck by an order of magnitude.</p>
+<h2 id="mistakes">Mistakes</h2>
+<p>This is my first foray into real optimizations, and I definitely made a lot of mistakes along the way. Here are some that I think stand out the most:</p>
+<h3 id="a-lack-of-understanding-of-bottlenecks">A lack of understanding of bottlenecks</h3>
+<p>I spent a lot of time making assumptions about my code and where it was slow – after all, I wrote it. Sadly, this is the classic problem of programmer ego taking control. Only after watching my futile attempts actually result in a program that ran continually slower, did I step back and take a more scientific approach to the problem. I could have saved a lot of time if I was willing to slow down and actually gain a true understanding of the problem first.</p>
+<h3 id="overly-ambitious-optimizations">Overly ambitious optimizations</h3>
+<p>As we moved through the process of optimizing, our ideas for optimizing became drastically over thought. The best example of this follows once we had a working chunking system. Our system was able to migrate small chunks of data, and appeared CPU bound, so we concluded the best approach would be multi-threading it and using some shared memory. This is a classic example of over-engineering a problem. It’s also a solution I don’t have enough experience in to implement reliably (not to mention I don’t believe Perl is the right job for concurrent programming).</p>
+<p>In the end a few hours of my time were spent into failing to get this system working, when really it was a solution that was not directly addressing the bottleneck. Rather than working around a bottleneck, the better approach would have been to attack the bottleneck head on.</p>
+<h2 id="conclusion">Conclusion</h2>
+<p>Hopefully here I’ve shown you that it is possible to write fast Perl code, we just have to be a little bit more careful in our planning before we begin to approach the problem. Optimizing any code is a delicate operation – you’re really striving for a balance between all parts of the system, and upsetting this balance can easily be done. This is not specific to Perl, and I imagine most parts of this article people will already be aware of from other languages. That said, it’s certainly helped me to step back and work out exactly what I’m trying to achieve, even if this did take a few days more than I would have liked.</p>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2010-11-28-optimizing-perl.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2013-12-23-24-days-of-hackage-fay.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>24 Days of Hackage: fay</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>24 Days of Hackage: fay</h1>
+<p>A few days ago, we <a href="2013-12-19-websockets.html">looked at the <code>websockets</code></a> library. The server side was great - lots of Haskell! However, writing the client left a bit to be desired - we had to write JavaScript and HTML, yuck! <a href="2012-12-22-24-days-of-hackage-blaze.html">Last year we saw that <code>blaze-html</code></a> gives us a nice EDSL for HTML generation, but what about JavaScript? Today we’re going to look at a slightly different approach, and look at <a href="http://fay-lang.org/">Fay</a>.</p>
+<p>Rather than providing a library for GHC Haskell, Fay is a Haskell-to-JavaScript compiler - specifically allowing us to compile a subset of Haskell to JavaScript. Of these differences, the biggest is the lack of type classes, though many experienced Fay developers tend to feel this can be worked around. Let’s jump right in and rewrite our <code>websockets</code> client using Fay. First, a review of the existing JavaScript code:</p>
+<div class="sourceCode"><pre class="sourceCode javascript"><code class="sourceCode javascript"><span class="kw">var</span> prompt <span class="op">=</span> <span class="va">document</span>.<span class="at">getElementById</span>(<span class="st">'prompt'</span>)<span class="op">;</span>
+<span class="kw">var</span> connectionToSanta <span class="op">=</span> <span class="kw">new</span> <span class="at">WebSocket</span>(<span class="st">&quot;ws://localhost:8080/&quot;</span>)<span class="op">;</span>
+<span class="kw">var</span> messages <span class="op">=</span> <span class="va">document</span>.<span class="at">getElementById</span>(<span class="st">'repl'</span>)<span class="op">;</span>
+
+<span class="kw">function</span> <span class="at">log</span>(message<span class="op">,</span> cls) <span class="op">{</span>
+    <span class="kw">var</span> messageNode <span class="op">=</span> <span class="va">document</span>.<span class="at">createElement</span>(<span class="st">&quot;li&quot;</span>)<span class="op">;</span>
+    <span class="va">messageNode</span>.<span class="at">innerHTML</span> <span class="op">=</span> message<span class="op">;</span>
+    <span class="va">messageNode</span>.<span class="at">className</span> <span class="op">=</span> cls<span class="op">;</span>
+    <span class="va">repl</span>.<span class="at">appendChild</span>(messageNode)<span class="op">;</span>
+<span class="op">}</span>
+
+<span class="va">connectionToSanta</span>.<span class="at">onopen</span> <span class="op">=</span> <span class="kw">function</span>(e) <span class="op">{</span>
+    <span class="va">prompt</span>.<span class="at">disabled</span> <span class="op">=</span> <span class="kw">false</span><span class="op">;</span>
+    <span class="va">prompt</span>.<span class="at">onkeydown</span> <span class="op">=</span> <span class="kw">function</span> (e) <span class="op">{</span>
+        <span class="cf">if</span> (<span class="va">e</span>.<span class="at">keyCode</span> <span class="op">==</span> <span class="dv">13</span>) <span class="op">{</span>
+            <span class="va">connectionToSanta</span>.<span class="at">send</span>(<span class="va">prompt</span>.<span class="at">value</span>)<span class="op">;</span>
+            <span class="at">log</span>(<span class="va">prompt</span>.<span class="at">value</span><span class="op">,</span> <span class="st">&quot;me&quot;</span>)<span class="op">;</span>
+            <span class="va">prompt</span>.<span class="at">value</span> <span class="op">=</span> <span class="st">&quot;&quot;</span><span class="op">;</span>
+        <span class="op">}</span>
+    <span class="op">}</span>
+<span class="op">};</span>
+<span class="va">connectionToSanta</span>.<span class="at">onmessage</span> <span class="op">=</span> <span class="kw">function</span> (m) <span class="op">{</span>
+    <span class="at">log</span>(<span class="va">m</span>.<span class="at">data</span><span class="op">,</span> <span class="st">&quot;&quot;</span>)<span class="op">;</span>
+<span class="op">}</span></code></pre></div>
+<p>There’s not a lot of JavaScript code here, but you’ll see that we do exercise a reasonable amount of the language. We’re using a few variables, some functions for callbacks, defining common functionality via a named function, and making API calls to create WebSockets.</p>
+<p>First, lets look at the <code>log</code> function - that looks easy enough. We need to create a new DOM element, set a few properties on it, and then append it to another document element. Fay doesn’t come with functions to do this directly, but it does expose a <em>foreign function interface</em> that allows us to easily translate Haskell code into JavaScript calls. To do this, we simply create a function who’s body is a call to <code>ffi</code>, and provide an associated type signature. For <code>createElement</code>, we have:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Element</span>
+
+<span class="ot">createElement ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Fay</span> <span class="dt">Element</span>
+createElement <span class="fu">=</span> ffi <span class="st">&quot;document.createElement(%1)&quot;</span></code></pre></div>
+<p>The type signature indicates the type of the foreign function, and we use <code>ffi</code> to describe what actual code to run. Fay will interpolate function arguments into the JavaScript, using placeholders marked by <code>%1</code>, etc. We operate in the Fay monad, for the same reason we do potentially real-world side effecting work in the IO monad.</p>
+<p>We’ve also introduced a <code>Element</code> type, which uses the <code>EmptyDataDecls</code> extension to add no constructors. This means the only way to create <code>Element</code>s is by calling out via foreign functions.</p>
+<p>We need a more <code>ffi</code> routines to set the <code>innerHTML</code> and <code>className</code>, and another to append one <code>Element</code> to another. We write these in much the same way:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">setInnerHTML ::</span> <span class="dt">Element</span> <span class="ot">-&gt;</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Fay</span> ()
+setInnerHTML <span class="fu">=</span> ffi <span class="st">&quot;%1['innerHTML'] = %2&quot;</span>
+
+<span class="ot">setClassName ::</span> <span class="dt">Element</span> <span class="ot">-&gt;</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Fay</span> ()
+setClassName <span class="fu">=</span> ffi <span class="st">&quot;%1['innerHTMl'] = %2&quot;</span>
+
+<span class="ot">appendChild ::</span> <span class="dt">Element</span> <span class="ot">-&gt;</span> <span class="dt">Element</span> <span class="ot">-&gt;</span> <span class="dt">Fay</span> ()
+appendChild <span class="fu">=</span> ffi <span class="st">&quot;%1.appendChild(%2)&quot;</span></code></pre></div>
+<p>Now we can write our <code>log</code> function:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">log<span class="ot"> ::</span> <span class="dt">Element</span> <span class="ot">-&gt;</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Fay</span> ()
+log container msg cls <span class="fu">=</span> <span class="kw">do</span>
+  logNode <span class="ot">&lt;-</span> createElement <span class="st">&quot;li&quot;</span>
+  setInnerHTML logNode msg
+  setClassName logNode cls
+  container <span class="ot">`appendChild`</span> logNode</code></pre></div>
+<p>Here we simply use the <code>Fay</code> monad to sequence DOM-manipulating operations. As before, we create a new <code>li</code> element, set the class and content, and then append this to a log container. Because in Haskell we don’t have global variables, we have to explicitly pass in the log container - which is arguably more maintainable code anyway!</p>
+<p>Now that we’ve seen how the FFI works, we can also see how to write the first lines of our script - we need FFI routines to select the prompt and log container elements, and one more call to create our WebSocket:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">getElementById ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Fay</span> <span class="dt">Element</span>
+getElementById <span class="fu">=</span> ffi <span class="st">&quot;document.getElementById(%1)&quot;</span>
+
+<span class="kw">data</span> <span class="dt">WebSocket</span>
+
+<span class="ot">newWebSocket ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Fay</span> <span class="dt">WebSocket</span>
+newWebSocket <span class="fu">=</span> ffi <span class="st">&quot;new WebSocket(%1)&quot;</span></code></pre></div>
+<p>To create new objects the syntax is the same as creating objects in JavaScript, and the same <code>ffi</code> call in Haskell - which is nice for consistency. We introduce a new type for WebSockets, in order to leverage the lovely benefits of type-safety in our Fay code.</p>
+<p>Finally, we need to deal with callbacks. This is actually really simple and the answer is - you guessed it - another <code>ffi</code> declaration. This time, we’ll be a little more general, and create a <code>ffi</code> binding to add an event listener in the general case:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Eventable</span>
+
+<span class="kw">data</span> <span class="dt">Event</span>
+
+<span class="kw">instance</span> <span class="dt">Eventable</span> <span class="dt">WebSocket</span>
+<span class="kw">instance</span> <span class="dt">Eventable</span> <span class="dt">Element</span>
+
+<span class="ot">addEventListener ::</span> <span class="dt">Eventable</span> a <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">String</span> <span class="ot">-&gt;</span> (<span class="dt">Event</span> <span class="ot">-&gt;</span> <span class="dt">Fay</span> ()) <span class="ot">-&gt;</span> <span class="dt">Fay</span> ()
+addEventListener <span class="fu">=</span> ffi <span class="st">&quot;%1[%2] = %3&quot;</span></code></pre></div>
+<p>Here we use the limited type class support in Fay to create a class of <code>Eventable</code> objects - and both <code>Element</code>s and <code>WebSockets</code> can have event listeners.</p>
+<p>There are only a few more <code>ffi</code> bindings to go now, and then we’re ready to write the bulk of our application. I’ll leave the bindings to the associated code, and lets look at how our application looks when we put it all together:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">main ::</span> <span class="dt">Fay</span> ()
+main <span class="fu">=</span> <span class="kw">do</span>
+  prompt <span class="ot">&lt;-</span> getElementById <span class="st">&quot;prompt&quot;</span>
+  messages <span class="ot">&lt;-</span> getElementById <span class="st">&quot;repl&quot;</span>
+  connectionToSanta <span class="ot">&lt;-</span> newWebSocket <span class="st">&quot;ws://localhost:8080&quot;</span>
+
+  addEventListener connectionToSanta <span class="st">&quot;onopen&quot;</span> <span class="fu">$</span> \_ <span class="ot">-&gt;</span> <span class="kw">do</span>
+    setDisabled prompt <span class="dt">False</span>
+    addEventListener prompt <span class="st">&quot;onkeydown&quot;</span> <span class="fu">$</span> \e <span class="ot">-&gt;</span> <span class="kw">do</span>
+      <span class="kw">if</span> (eventKeyCode e <span class="fu">==</span> <span class="dv">13</span>)
+        <span class="kw">then</span> <span class="kw">do</span>
+          <span class="kw">let</span> message <span class="fu">=</span> elementValue prompt
+          connectionToSanta <span class="ot">`send`</span> message
+          log messages message <span class="st">&quot;me&quot;</span>
+          clearValue prompt
+        <span class="kw">else</span> return ()
+
+  addEventListener connectionToSanta <span class="st">&quot;onmessage&quot;</span> <span class="fu">$</span> \e <span class="ot">-&gt;</span> <span class="kw">do</span>
+    log messages (messageData e) <span class="st">&quot;&quot;</span></code></pre></div>
+<p>To use this from the HTML page, we just need to drop in:</p>
+<div class="sourceCode"><pre class="sourceCode html"><code class="sourceCode html"><span class="kw">&lt;script</span><span class="ot"> src=</span><span class="st">&quot;2013-12-23-fay.js&quot;</span><span class="ot"> type=</span><span class="st">&quot;application/javascript&quot;</span><span class="kw">&gt;&lt;/script&gt;</span></code></pre></div>
+<p>Once we include this, our page behaves exactly as before. Except we also get that warm fuzzy feeling of knowing that we got to write Haskell to generate all of this.</p>
+<div style="text-align: center">
+<p><img src="https://ocharles.org.uk/blog/img/2013-12-23-fay.png" /></p>
+</div>
+<p>The code for today’s post can be found on my <a href="http://github.com/ocharles/blog">Github account</a>, as always. Make sure to join me again tomorrow of for this year’s final 24 Days of Hackage post as we’ll take a look back at the posts this months - with a twist.</p>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2013-12-23-24-days-of-hackage-fay.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2014-08-07-postgresql-simple-generic-sop.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>Working with postgresql-simple with generics-sop</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>Working with postgresql-simple with generics-sop</h1>
+<p>The least interesting part of my job as a programmer is the act of pressing keys on a keyboard, and thus I actively seek ways to reduce typing. As programmers, we aim for reuse in a our programs - abstracting commonality into reusable functions such that our programs get more concise. Functional programmers are aware of the benefits of higher-order functions as one form of generic programming, but another powerful technique is that of data type generic programming.</p>
+<p>This variant of generic programming allows one to build programs that work over arbitrary data types, providing they have some sort of known “shape”. We describe the shape of data types by representing them via a code - often we can describe a data type as a sum of products. By sum, we are talking about the choice of a constructor in a data type (such as choosing between <code>Left</code> and <code>Right</code> to construct <code>Either</code> values), and by product we mean the individual fields in a constructor (such as the individual fields in a record).</p>
+<p>Last month, <a href="http://www.edsko.net/">Edsko</a> and <a href="http://www.andres-loeh.de/">Löh</a> announced a new library for generic programming: <a href="http://hackage.haskell.org/package/generics-sop"><code>generics-sop</code></a>. I’ve been playing with this library in the last couple of days, and I absolutely love the approach. In today’s short post, I want to demonstrate how easy it is to use this library. I don’t plan to go into a lot of detail, but I encourage interested readers to check out the associated paper - <a href="http://www.andres-loeh.de/TrueSumsOfProducts/">True Sums of Products</a> - a paper with a lovely balance of theory and a plethora of examples.</p>
+<h2 id="postgresql-simple"><code>postgresql-simple</code></h2>
+<p>When working with <code>postgresql-simple</code>, one often defines records and corresponding <code>FromRow</code> and <code>ToRow</code> instances. Let’s assume we’re modelling a library. No library is complete without books, so we might begin with a record such as:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Book</span> <span class="fu">=</span> <span class="dt">Book</span>
+  {<span class="ot"> bookTitle ::</span> <span class="dt">Text</span>
+  ,<span class="ot"> bookAuthor ::</span> <span class="dt">Text</span>
+  ,<span class="ot"> bookISBN ::</span> <span class="dt">ISBN</span>
+  ,<span class="ot"> bookPublishYear ::</span> <span class="dt">Int</span>
+  }</code></pre></div>
+<p>In order to store and retrieve these in our database, we need to write the following instances:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">FromRow</span> <span class="dt">Book</span> <span class="kw">where</span>
+  toRow <span class="fu">=</span> <span class="dt">Book</span> <span class="fu">&lt;$&gt;</span> field <span class="fu">&lt;*&gt;</span> field <span class="fu">&lt;*&gt;</span> field <span class="fu">&lt;*&gt;</span> field
+
+<span class="kw">instance</span> <span class="dt">ToRow</span> <span class="dt">Book</span> <span class="kw">where</span>
+  toRow <span class="dt">Book</span>{<span class="fu">..</span>} <span class="fu">=</span>
+    [ toField bookTitle
+    , toField bookAuthor
+    , toField bookISBN
+    , toField bookPublishYear
+    ]</code></pre></div>
+<p>As you can see - that’s a lot of boilerplate. In fact, it’s nearly twice as much code as the data type itself! The definitions of these instances are trivial, so it’s frustrating that I have to manually type the implementation bodies by hand. It’s here that we turn to <code>generics-sop</code>.</p>
+<p>First, we’re going to need a bit of boiler-plate in order to manipulate <code>Book</code>s generically:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Book</span> <span class="fu">=</span> <span class="fu">...</span>
+  <span class="kw">deriving</span> (<span class="dt">GHC.Generics.Generic</span>)
+
+<span class="kw">instance</span> <span class="dt">Generics.SOP.Generic</span> <span class="dt">Book</span></code></pre></div>
+<p>We derive generic representations of our <code>Book</code> using <code>GHC.Generics</code>, and in turn use this generic representation to derive the <code>Generics.SOP.Generic</code> instance. With this out of the way, we’re ready to work with <code>Book</code>s in a generic manner.</p>
+<h3 id="generics-sop"><code>generics-sop</code></h3>
+<p>The <code>generics-sop</code> library works by manipulating heterogeneous lists of data. If we look at our <code>Book</code> data type, we can see that the following two are morally describing the same data:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">book <span class="fu">=</span> <span class="dt">Book</span> <span class="st">&quot;Conceptual Mathematics&quot;</span> <span class="st">&quot;Lawvere, Schanuel&quot;</span> <span class="st">&quot;978-0-521-71916-2&quot;</span> <span class="dv">2009</span>
+book <span class="fu">=</span> [ <span class="st">&quot;Conceptual Mathematics&quot;</span>, <span class="st">&quot;Lawvere, Schanuel&quot;</span>, <span class="st">&quot;978-0-521-71916-2&quot;</span>, <span class="dv">2009</span> ]</code></pre></div>
+<p>Of course, we can’t actually write such a thing in Haskell - lists are required to have all their elements of the same type. However, using modern GHC extensions, we can get very close to modelling this:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">HList</span><span class="ot"> ::</span> [<span class="fu">*</span>] <span class="ot">-&gt;</span> <span class="fu">*</span> <span class="kw">where</span>
+  <span class="dt">Nil</span><span class="ot"> ::</span> <span class="dt">HList</span> <span class="ch">'[]</span>
+<span class="ot">  (:*) ::</span> x <span class="ot">-&gt;</span> <span class="dt">HList</span> xs <span class="ot">-&gt;</span> <span class="dt">HList</span> (x <span class="ch">': xs)</span>
+
+<span class="ot">book ::</span> <span class="dt">HList</span> <span class="ch">'[Text, Text, ISBN, Int]</span>
+book <span class="fu">=</span> <span class="st">&quot;Conceptual Mathematics&quot;</span>
+    <span class="fu">:*</span> <span class="st">&quot;Lawvere, Schanuel&quot;</span>
+    <span class="fu">:*</span> <span class="st">&quot;978-0-521-71916-2&quot;</span>
+    <span class="fu">:*</span> <span class="dv">2009</span>
+    <span class="fu">:*</span> <span class="dt">Nil</span></code></pre></div>
+<p>Once we begin working in this domain, a lot of the techniques we’re already familiar with continue fairly naturally. We can map over these lists, exploit their applicative functor-like structure, fold them, and so on.</p>
+<p><code>generics-sop</code> continues in the trend, using kind polymorphism and a few other techniques to maximise generality. We can see what exactly is going on with <code>generics-sop</code> if we ask GHCI for the <code>:kind!</code> of <code>Book</code>’s generic <code>Code</code>:</p>
+<pre><code>&gt; :kind! Code Book
+Code Book = SOP I '[ '[ Text, Text, ISBN, Int ] ]</code></pre>
+<p>The list of fields is contained within another list of all possible constructors - as <code>Book</code> only has one constructor, thus there is only one element in the outer list.</p>
+<h3 id="fromrow-generically"><code>FromRow</code>, Generically</h3>
+<p>How does this help us solve the problem of our <code>FromRow</code> and <code>ToRow</code> instances? First, let’s think about what’s happening when we write instances of <code>FromRow</code>. Our <code>Book</code> data type has four fields, so we need to use <code>field</code> four times. <code>field</code> has side effects in the <code>RowParser</code> functor, so we sequence all of these calls using applicative syntax, finally applying the results to the <code>Book</code> constructor.</p>
+<p>Now that we’ve broken the problem down, we’ll start by solving our first problem - calling <code>field</code> the correct number of times. Calling <code>field</code> means we need to have an instance of <code>FromField</code> for each field in a constructor, so to enforce this, we can use <code>All</code> to require all fields have an instance of a type class. We also use a little trick with <code>Proxy</code> to specify which type class we need to use. We combine all of this with <code>hcpure</code>, which is a variant of <code>pure</code> that can be used to build a product:</p>
+<pre><code>fields :: (All FromField xs, SingI xs) =&gt; NP RowParser xs
+fields = hcpure fromField field
+  where fromField = Proxy :: Proxy FromField</code></pre>
+<p>So far, we’ve built a product of <code>field</code> calls, which you can think of as being a list of <code>RowParser</code>s - something akin to <code>[RowParser ..]</code>. However, we need a single row parser returning multiple values, which is more like <code>RowParser [..]</code>. In the <code>Prelude</code> we have a function to sequence a list of monadic actions:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">sequence<span class="ot"> ::</span> <span class="dt">Monad</span> m <span class="ot">=&gt;</span> [m a] <span class="ot">-&gt;</span> m [a]</code></pre></div>
+<p>There is an equivalent in <code>generics-sop</code> for working with heterogeneous lists - <code>hsequence</code>. Thus if we <code>hsequence</code> our fields, we build a single <code>RowParser</code> that returns a product of values:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">fields ::</span> (<span class="dt">All</span> <span class="dt">FromField</span> xs, <span class="dt">SingI</span> xs) <span class="ot">=&gt;</span> <span class="dt">RowParser</span> (<span class="dt">NP</span> <span class="dt">I</span> xs)
+fields <span class="fu">=</span> hsequence (hcpure fromField field)
+  <span class="kw">where</span> fromField <span class="fu">=</span> <span class="dt">Proxy</span><span class="ot"> ::</span> <span class="dt">Proxy</span> <span class="dt">FromField</span></code></pre></div>
+<p>(<code>I</code> is the “do nothing” identity functor).</p>
+<p>Remarkably, these few lines of code are enough to construct data types. All we need to do is embed this product in a constructor of a sum, and then switch from the generic representation to a concrete data type. We’ll restrict ourselves to data types that have only one constructor, and this constraint is mentioned in the type below (<code>Code a ~ '[ xs ]</code> forces <code>a</code> to have only one constructor):</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">gfrowRow
+<span class="ot">  ::</span> (<span class="dt">All</span> <span class="dt">FromField</span> xs, <span class="dt">Code</span> a <span class="fu">~</span> <span class="ch">'[xs], SingI xs, Generic a)</span>
+  <span class="ot">=&gt;</span> <span class="dt">RowParser</span> a
+gfrowRow <span class="fu">=</span> to <span class="fu">.</span> <span class="dt">SOP</span> <span class="fu">.</span> <span class="dt">Z</span> <span class="fu">&lt;$&gt;</span> hsequence (hcpure fromField field)
+  <span class="kw">where</span> fromField <span class="fu">=</span> <span class="dt">Proxy</span><span class="ot"> ::</span> <span class="dt">Proxy</span> <span class="dt">FromField</span></code></pre></div>
+<p>That’s all there is to it! No type class instances, no skipping over meta-data - we just build a list of <code>field</code> calls, <code>sequence</code> them, and turn the result into our data type.</p>
+<h3 id="torow-generically"><code>ToRow</code>, Generically</h3>
+<p>It’s not hard to apply the same ideas for <code>ToRow</code>. Recall the definition of <code>ToRow</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">ToRow</span> a <span class="kw">where</span>
+<span class="ot">  toRow ::</span> a <span class="ot">-&gt;</span> [<span class="dt">Action</span>]</code></pre></div>
+<p><code>toRow</code> takes a value of type <code>a</code> and turns it into a list of actions. Usually, we have one action for each field - we just call <code>toField</code> on each field in the record.</p>
+<p>To work with data generically, we first need move from the original data type to its generic representation, which we can do with <code>from</code> and a little bit of pattern matching:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">gtoRow ::</span> (<span class="dt">Generic</span> a, <span class="dt">Code</span> a <span class="fu">~</span> <span class="ch">'[xs]) =&gt; a -&gt; [Action]</span>
+gtoRow a <span class="fu">=</span>
+  <span class="kw">case</span> from a <span class="kw">of</span>
+    <span class="dt">SOP</span> (<span class="dt">Z</span> xs) <span class="ot">-&gt;</span> _</code></pre></div>
+<p>Here we pattern match into the fields of the first constructor of the data type. <code>xs</code> is now a product of all fields, and we can begin turning into <code>Action</code>s. The most natural way to do this is simply to map <code>toField</code> over each field, collecting the resulting <code>Action</code>s into a list. That is, we’d like to do:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">map toField xs</code></pre></div>
+<p>That’s not quite possible in <code>generics-sop</code>, but we can get very close. Using <code>hcliftA</code>, we can lift a method of a type class over a heterogeneous list:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">gtoRow ::</span> (<span class="dt">Generic</span> a, <span class="dt">Code</span> a <span class="fu">~</span> <span class="ch">'[xs], All ToField xs, SingI xs) =&gt; a -&gt; [Action]</span>
+gtoRow a <span class="fu">=</span>
+  <span class="kw">case</span> from a <span class="kw">of</span>
+    <span class="dt">SOP</span> (<span class="dt">Z</span> xs) <span class="ot">-&gt;</span> _ (hcliftA toFieldP (<span class="dt">K</span> <span class="fu">.</span> toField <span class="fu">.</span> unI) xs)
+
+  <span class="kw">where</span> toFieldP <span class="fu">=</span> <span class="dt">Proxy</span><span class="ot"> ::</span> <span class="dt">Proxy</span> <span class="dt">ToField</span></code></pre></div>
+<p>We unwrap from the identity functor <code>I</code>, call <code>toField</code> on the value, and then pack this back up using the constant functor <code>K</code>. The details here are a little subtle, but essentially this moves us from a heterogeneous list to a homogeneous list, where each element of the list is an <code>Action</code>. Now that we have a homogeneous list, we can switch back to a more basic representation by collapsing the structure with <code>hcollapse</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">gtoRow ::</span> (<span class="dt">Generic</span> a, <span class="dt">Code</span> a <span class="fu">~</span> <span class="ch">'[xs], All ToField xs, SingI xs) =&gt; a -&gt; [Action]</span>
+gtoRow a <span class="fu">=</span>
+  <span class="kw">case</span> from a <span class="kw">of</span>
+    <span class="dt">SOP</span> (<span class="dt">Z</span> xs) <span class="ot">-&gt;</span> hcollapse (hcliftA toFieldP (<span class="dt">K</span> <span class="fu">.</span> toField <span class="fu">.</span> unI) xs)
+
+  <span class="kw">where</span> toFieldP <span class="fu">=</span> <span class="dt">Proxy</span><span class="ot"> ::</span> <span class="dt">Proxy</span> <span class="dt">ToField</span></code></pre></div>
+<p>Admittedly this definition is a little more complicated than one might hope, but it’s still extremely concise and declarative - there’s only a little bit of noise added. However, again we should note there was no need to write type class instances, perform explicit recursion or deal with meta-data - <code>generics-sop</code> stayed out of way and gave us just what we needed.</p>
+<h3 id="conclusion">Conclusion</h3>
+<p>Now that we have <code>gfromRow</code> and <code>gtoRow</code> it’s easy to extend our application. Perhaps we now want to extend our database with <code>Author</code> objects. We’re now free to do so, with minimal boiler plate:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Book</span> <span class="fu">=</span> <span class="dt">Book</span>
+  {<span class="ot"> bookId ::</span> <span class="dt">Int</span>
+  ,<span class="ot"> bookTitle ::</span> <span class="dt">Text</span>
+  ,<span class="ot"> bookAuthorId ::</span> <span class="dt">Int</span>
+  ,<span class="ot"> bookISBN ::</span> <span class="dt">ISBN</span>
+  ,<span class="ot"> bookPublishYear ::</span> <span class="dt">Int</span>
+  } <span class="kw">deriving</span> (<span class="dt">GHC.Generics.Generic</span>)
+
+<span class="kw">instance</span> <span class="dt">Generic.SOP.Generic</span> <span class="dt">Book</span>
+<span class="kw">instance</span> <span class="dt">FromRow</span> <span class="dt">Book</span> <span class="kw">where</span> fromRow <span class="fu">=</span> gfromRow
+<span class="kw">instance</span> <span class="dt">ToRow</span> <span class="dt">Book</span> <span class="kw">where</span> toRow <span class="fu">=</span> gtoRow
+
+<span class="kw">data</span> <span class="dt">Author</span> <span class="fu">=</span> <span class="dt">Author</span>
+  {<span class="ot"> authorId ::</span> <span class="dt">Int</span>
+  ,<span class="ot"> authorName ::</span> <span class="dt">Text</span>
+  ,<span class="ot"> authorCountry ::</span> <span class="dt">Country</span>
+  } <span class="kw">deriving</span> (<span class="dt">GHC.Generics.Generic</span>)
+
+<span class="kw">instance</span> <span class="dt">Generic.SOP.Generic</span> <span class="dt">Author</span>
+<span class="kw">instance</span> <span class="dt">FromRow</span> <span class="dt">Author</span> <span class="kw">where</span> fromRow <span class="fu">=</span> gfromRow
+<span class="kw">instance</span> <span class="dt">ToRow</span> <span class="dt">Author</span> <span class="kw">where</span> toRow <span class="fu">=</span> gtoRow</code></pre></div>
+<p><code>generics-sop</code> is a powerful library for dealing with data generically. By using heterogeneous lists, the techniques we’ve learnt at the value level naturally extend and we can begin to think of working with generic data in a declarative manner. For me, this appeal to familiar techniques makes it easy to dive straight in to writing generic functions - I’ve already spent time learning to think in maps and folds, it’s nice to see the ideas transfer to yet another problem domain.</p>
+<p><code>generics-sop</code> goes a lot further than we’ve seen in this post. For more real-world examples, see the links at the top of the <a href="http://hackage.haskell.org/package/generics-sop"><code>generics-sop</code></a> Hackage page.</p>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2014-08-07-postgresql-simple-generic-sop.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

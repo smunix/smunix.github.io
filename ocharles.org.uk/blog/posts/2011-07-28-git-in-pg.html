@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2011-07-28-git-in-pg.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>Versioning Multiple Versions of Data in Relational Databases</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>Versioning Multiple Versions of Data in Relational Databases</h1>
+<p>At <a href="http://musicbrainz.org/">MusicBrainz</a>, we have quite an interesting approach to letting users edit our data. Because our main product is our database, we care deeply about having the highest quality data we can. To ensure that we get high quality data, we ask that most changes have to be voted on by the community before the changes are actually reflected in the database. It’s a fairly simple process, but it catches all sorts of problems – from typos, to potentially disastrous modifications.</p>
+<p>It’s also an interesting technical challenge. In this article, I’m going to explain my brief research into a system for versioning data in a relational database, with the ability to maintain full referential integrity and past revisions. Before we start looking at my solution, lets analyze the requirements first.</p>
+<p>We need…</p>
+<ul>
+<li>A system where we can defer changes – recording them, and applying them later.</li>
+<li>A system which allows multiple changes to be outstanding. We have an active editor community, and it’s important that the system does not stop them from entering edits.</li>
+<li>A system which allows meta-data to be attached to a change – most importantly the ability to have a discussion about the change.</li>
+</ul>
+<p>There are a few ways you can get to these goals. Our current solution is to encode changes into a single object, which we refer to as “edits.” An edit is a container of all the data needed to apply it, and we serialize this as JSON at the moment. It’s a horrible model. With this model, you lose the ability to query inside edits (without going down the path of writing a JSON parser/indexing support for PostgreSQL), you lose referential integrity, and it’s painful to work with.</p>
+<p>I’ve spent a good deal of time trying to find a better solution to this, and I think I’ve got somewhere close now. The beauty is, I didn’t invent it – Linus Torvalds did. It’s Git! As I spent time designing a better system for edits, I wanted something which was essentially a <a href="http://en.wikipedia.org/wiki/Persistent_data_structure">persistent graph</a> – this allows us to maintain past versions of data entirely by design, without any special tricks. Git is also a beautifully simple system – you just have objects, commits, trees and… wait that’s pretty much it. Unfortunately, relational theory doesn’t lend itself intuitively to persistent data structures, and it takes a step back to see how to get there.</p>
+<h2 id="example">Example</h2>
+<p>Lets look at an example of versioning some data. In this example, we’ll take a very simple schema with “artists” and “cds” (MusicBrainz folks are probably going to flame me!).</p>
+<div class="sourceCode"><pre class="sourceCode sql"><code class="sourceCode sql"><span class="kw">CREATE</span> <span class="kw">TABLE</span> artist (
+    <span class="kw">id</span> SERIAL <span class="kw">NOT</span> <span class="kw">NULL</span> <span class="kw">PRIMARY</span> <span class="kw">KEY</span>,
+    name TEXT <span class="kw">NOT</span> <span class="kw">NULL</span>
+);
+
+<span class="kw">CREATE</span> <span class="kw">TABLE</span> cd (
+    <span class="kw">id</span> SERIAL <span class="kw">NOT</span> <span class="kw">NULL</span> <span class="kw">PRIMARY</span> <span class="kw">KEY</span>,
+    artist <span class="dt">INT</span> <span class="kw">NOT</span> <span class="kw">NULL</span> <span class="kw">REFERENCES</span> artist (<span class="kw">id</span>),
+    name TEXT <span class="kw">NOT</span> <span class="kw">NULL</span>
+);</code></pre></div>
+<p>However, to get this into a persistent graph, we have to understand that the above is simply the <em>view that we want</em> but it’s <em>not enough for underlying storage</em>2. We need a little bit of extra information – a way to identify the version of an artist or cd, and we have to expand the one-to-many relationship between CDs and artists into a many-to-many relationship:</p>
+<div class="sourceCode"><pre class="sourceCode sql"><code class="sourceCode sql"><span class="kw">CREATE</span> <span class="kw">TABLE</span> artist_version (
+    <span class="kw">id</span> <span class="dt">INT</span> <span class="kw">NOT</span> <span class="kw">NULL</span>,
+    version SERIAL <span class="kw">NOT</span> <span class="kw">NULL</span> <span class="kw">PRIMARY</span> <span class="kw">KEY</span>,
+    name TEXT <span class="kw">NOT</span> <span class="kw">NULL</span>
+);
+
+<span class="kw">CREATE</span> <span class="kw">TABLE</span> cd_version (
+    <span class="kw">id</span> <span class="dt">INT</span> <span class="kw">NOT</span> <span class="kw">NULL</span>,
+    version <span class="dt">INT</span> <span class="kw">NOT</span> <span class="kw">NULL</span> <span class="kw">PRIMARY</span> <span class="kw">KEY</span>,
+    name TEXT <span class="kw">NOT</span> <span class="kw">NULL</span>
+);
+
+<span class="kw">CREATE</span> <span class="kw">TABLE</span> artist_version_cd (
+    artist_version <span class="dt">INT</span> <span class="kw">NOT</span> <span class="kw">NULL</span> <span class="kw">REFERENCES</span> artist_version (version),
+    cd_version <span class="dt">INT</span> <span class="kw">NOT</span> <span class="kw">NULL</span> <span class="kw">REFERENCES</span> cd_version (version)
+);</code></pre></div>
+<p>Why do we need to expand the relationship to a many-to-many relationship? In order to have a persistent graph, we need to maintain links between values (artists and cds) as data changes. For example, renaming an artist shouldn’t change the CDs that the artist released. This means there are now 2 versions of an artist with the same set of CDs, hence many-to-many. Now, all we need to do is create a few views on top of this, and we can get back to the original view of the data:</p>
+<div class="sourceCode"><pre class="sourceCode sql"><code class="sourceCode sql"><span class="kw">CREATE</span> <span class="kw">VIEW</span> artist <span class="kw">AS</span>
+<span class="kw">SELECT</span> <span class="kw">DISTINCT</span> <span class="kw">ON</span> (artist.id) artist.id, artist.name <span class="kw">FROM</span> artist
+<span class="kw">ORDER</span> <span class="kw">BY</span> version <span class="kw">DESC</span>;
+
+<span class="co">-- Likewise for cd</span></code></pre></div>
+<h2 id="going-further">Going further</h2>
+<p>What we have above is enough to version artists and cds, but it doesn’t meet all the criteria above – namely we don’t have that metadata support, nor do we have the ability to defer changes. A new version will immediately show up in our view, and that’s not what we want! So we need another level of indirection, and again – Git has this problem solved</p>
+<p>When we introduce the concept of ‘branches’ into the system, things get much more interesting. To start with, all versioned data has a ‘master’ branch. The view above would use the master branch to determine which version to display. When we create new versions in the future, they get their own branch which means they <em>don’t</em> cause the “official” view of data to be changed. Further more, a branch is something we can refer to in our schema – which means we can attach the necessary metadata for it. And to apply the change, all we need to do is merge it into master (the simplest way to do this is simply make <code>master = new branch</code> – a fast forward merge in Git terminology).</p>
+<h2 id="summary">Summary</h2>
+<p>With just a little bit more indirection and an ample amount of motivation from Git, we can achieve a very powerful model of versioning data. It plays entirely to the strengths of a relational database, and as such performs well – in my test databases for this I’ve seen little overhead on a low performance laptop, so I imagine this is a trivial issue for larger servers (though I definitely acknowledge this area needs a little more research).</p>
+<p>With a little thought, the approach is also very intuitive. There are really no complex concepts such as ‘edits’ or ‘acception’ and ‘rejection’ events – you simply create a new version of the data, and you merge it or you don’t. This isn’t to say you can’t layer more behavior on top, however. I can immediately see all sorts of potential for this to go a lot further:</p>
+<ul>
+<li>By introducing the idea of ‘commits’ we can attach metadata to versions of data, and it’s now possible to discuss individual changes as part of a larger picture. For example, a user may add a new CD, but have made a typo on one track. There’s now a clear line of action – simply add a new commit that fixes the typo, and then this is all ready to be merged in one go.2</li>
+<li>Because this is now all relational data, we can derive a fantastic amount of information from it.</li>
+<li>Want to know where a certain change came from (ala <code>git-bisect</code>)? That’s just a quick query away Want to rollback changes? That’s no problem, you can simply move to a previous version of the data.</li>
+</ul>
+<p>I haven’t entirely finished everything yet, but I have to say I’m extremely excited about where this is going.</p>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2011-07-28-git-in-pg.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

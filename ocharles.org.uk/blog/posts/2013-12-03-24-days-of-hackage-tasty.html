@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2013-12-03-24-days-of-hackage-tasty.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>24 Days of Hackage: tasty</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>24 Days of Hackage: tasty</h1>
+<p>Last year, when discussing <a href="2012-12-08-24-days-of-hackage.html">QuickCheck</a>, I said:</p>
+<blockquote>
+<p>While we try and constrain our types as much as possible, there is always a trade off between exact types and pragmatism, not to mention that there are some invariants that are very difficult to encode in the Haskell type system. As such, without rigorous testing, there is still a risk of exceptions or unexpected behaviors at runtime.</p>
+</blockquote>
+<p>The necessessity of testing is just as essential today. Last year we looked at a specific testing techinque, namely the use of <code>QuickCheck</code>, but we didn’t look at testing from the bigger perspective: how do you formulate entire test suites? Hackage has a lot of options available to us here - including <code>test-framework</code>, <code>hspec</code>, the ellusive <code>detailed-1.0</code> <code>test-suite</code> setting of Cabal, and the newest entry to field: <a href="http://documentup.com/feuerbach/tasty"><code>tasty</code></a>.</p>
+<p>For a long time, I was perfectly content with <code>test-framework</code>. However, as time has gone on, <code>test-framework</code> has failed to stay up to date. The Github repository doesn’t show much activity and is accumulating pull requests, and it’s said that the codebase itself can make it difficult to make modifications. This is not meant to be critiscism of Max - these things happen. For these reasons, and a few others, <a href="http://ro-che.info/">Roman Cheplyaka</a> created his own testing framework - <code>tasty</code>, which is now my testing framework of choice.</p>
+<p>There are two main parts to <code>tasty</code>: test trees and ingredients.</p>
+<p>Test trees specify the hierarchy of tests. You can specify groups of tests using <code>testGroup</code>, or you can create individual tests using <code>TestTree</code> builders for specific testing tools. <code>tasty-hunit</code> gives us the <code>testCase</code> builder, while <code>tasty-smallcheck</code> gives us <code>testProperty</code>.</p>
+<p>To illustrate the formulation of a test tree, allow me to reproduce a subset of the example in <code>tasty</code>s documentation:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> defaultMain <span class="fu">$</span>
+  testGroup <span class="st">&quot;Tests&quot;</span>
+    [ testGroup <span class="st">&quot;(checked by SmallCheck)&quot;</span>
+        [ testProperty <span class="st">&quot;sort == sort . reverse&quot;</span> <span class="fu">$</span>
+            \list <span class="ot">-&gt;</span> sort (<span class="ot">list ::</span> [<span class="dt">Int</span>]) <span class="fu">==</span> sort (reverse list)
+
+        , testProperty <span class="st">&quot;Fermat's last theorem&quot;</span> <span class="fu">$</span>
+            \x y z n <span class="ot">-&gt;</span> (<span class="ot">n ::</span> <span class="dt">Integer</span>) <span class="fu">&gt;=</span> <span class="dv">3</span> <span class="fu">==&gt;</span>
+              x<span class="fu">^</span>n <span class="fu">+</span> y<span class="fu">^</span>n <span class="fu">/=</span> (z<span class="fu">^</span><span class="ot">n ::</span> <span class="dt">Integer</span>)
+        ]
+
+    , testGroup <span class="st">&quot;Unit tests&quot;</span>
+        [ testCase <span class="st">&quot;List comparison (different length)&quot;</span> <span class="fu">$</span>
+            [<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">3</span>] <span class="ot">`compare`</span> [<span class="dv">1</span>,<span class="dv">2</span>] <span class="fu">@?=</span> <span class="dt">GT</span>
+
+        , testCase <span class="st">&quot;List comparison (same length)&quot;</span> <span class="fu">$</span>
+            [<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">3</span>] <span class="ot">`compare`</span> [<span class="dv">1</span>,<span class="dv">2</span>,<span class="dv">2</span>] <span class="fu">@?=</span> <span class="dt">LT</span>
+        ]
+    ]</code></pre></div>
+<p>As you can see, it’s both easy and consistent to form a test tree using different testing tools. This helps encourage us to use the right testing tool for the job. Above we see the use of both SmallCheck and HUnit.</p>
+<p>Once you have a <code>TestTree</code>, you presumably want to do something with it - such as actually running the tests! That’s what <em>ingredients</em> are all about. Ingredients are small units of functionality that have the ability to parse command line options, and can conditionally choose to run a <code>TestTree</code>. <code>tasty</code> itself ships with an ingredient to run the tests and output pretty ANSI-coloured terminal output, and also an ingredient that simply lists the names of all tests.</p>
+<p>Ingredients provide an extension point for <code>tasty</code>, which is one area where this framework trumps the competition. As a case in point, I wanted the ability to run tests on our <a href="http://jenkins-ci.org/">Jenkins</a> continuous integration server - which expects test runs to produce an XML file in a specific schema. <code>test-framework</code> ships with this baked right into the library itself, but for <code>tasty</code> I was able to write my own ingredient that observes a test run and renders XML as it goes. And to top it off, it took me little more than 100 lines of code and a few hours of hacking (the result is <a href="http://hackage.haskell.org/package/tasty-ant-xml"><code>tasty-ant-xml</code></a>).</p>
+<p><code>tasty</code>’s interpretation of test trees is also a massive productivity win when we’re developing, as we can run specific parts of the tree by using <em>test patterns</em>. Test patterns let us run only test cases who’s name match a specific pattern, with the ability to match the test hierarchy too. For example, if you’re tweaking the serialisation format of a library you might run with <code>--pattern 'Serialization/**'</code> to avoid the longer IO tests. Or maybe you have added a new PostgreSQL database backend, and are only interested in tests that refer to that, so you would use <code>--patern **/*PostgreSQL*/**</code>.</p>
+<p>Roman has already done a lot of work getting <code>tasty</code> usable with the other big testing tools. Specifically, right now the tasty suite (menu?) consists of:</p>
+<ul>
+<li><a href="http://hackage.haskell.org/package/tasty-hunit"><code>tasty-hunit</code></a> — for unit tests (based on HUnit)</li>
+<li><a href="http://hackage.haskell.org/package/tasty-golden"><code>tasty-golden</code></a> — for golden tests, which are unit tests whose results are kept in files</li>
+<li><a href="http://hackage.haskell.org/package/tasty-smallcheck"><code>tasty-smallcheck</code></a> — exhaustive property-based testing (based on smallcheck)</li>
+<li><a href="http://hackage.haskell.org/package/tasty-quickcheck"><code>tasty-quickcheck</code></a> — for randomized property-based testing (based on QuickCheck)</li>
+<li><a href="http://hackage.haskell.org/package/tasty-hspec"><code>tasty-hspec</code></a> — for Hspec tests</li>
+<li><a href="http://hackage.haskell.org/package/tasty-ant-xml"><code>tasty-ant-xml</code></a> — to run tests on Jenkins</li>
+<li><a href="http://hackage.haskell.org/package/tasty-th"><code>tasty-th</code></a> — to automatically build the test hierachy from names that are in scope.</li>
+</ul>
+<p>Code for today’s example can be found in <a href="https://github.com/ocharles/blog/tree/master/code">my blog’s Github repository</a>.</p>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2013-12-03-24-days-of-hackage-tasty.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

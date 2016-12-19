@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2013-12-07-24-days-of-hackage-threepenny-gui.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>24 Days of Hackage: threepenny-gui</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>24 Days of Hackage: threepenny-gui</h1>
+<p>While a lot of the work I tend to do in Haskell is building libraries, there have been plenty of times where I would have loved to provide a GUI. Usually, I shy away from this task, and settle for a command line interface - working with GUI libraries is usually a nightmare, both in code and deployment! In July earlier this year, <a href="http://apfelmus.nfshost.com/">Heinrich Apfelmus</a> <a href="http://apfelmus.nfshost.com/blog/2013/07/21-threepenny-gui-0-1.html">announced the release</a> of his new GUI library <a href="http://hackage.haskell.org/package/threepenny-gui"><code>threepenny-gui</code></a>, which can solve both of these problems. <code>threepenny-gui</code> is a Haskell library to build GUIs, but with a twist: rather than deal with bindings to GTK or QT, <code>threepenny-gui</code> uses an interface that is already almost universally acceptable - web pages!</p>
+<p><code>threepenny-gui</code> is thus a collection of common UI elements, a way of composing them into web pages, and the ability to watch these interface elements for interactions. <code>threepenny-gui</code> also uses web sockets to provide a tight feedback loop between the client and the server. Today, we’ll explore the <code>threepenny-gui</code> library by building a to-do list.</p>
+<p>Before we even begin considering how to write the GUI, we should start by defining a few data types that will sufficiently model the application. We could use <code>persistent</code> for our data store, as we <a href="2013-12-06-24-days-of-hackage-persistent-esqueleto.html">at saw yesterday</a> - but instead I’ll just work with an in-memory database using Haskell types.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">Database</span> <span class="fu">=</span> <span class="dt">Map</span> <span class="dt">UserName</span> <span class="dt">ToDoList</span>
+<span class="kw">type</span> <span class="dt">UserName</span> <span class="fu">=</span> <span class="dt">String</span>
+<span class="kw">type</span> <span class="dt">ToDoList</span> <span class="fu">=</span> <span class="dt">Set</span> <span class="dt">String</span></code></pre></div>
+<p>Our “database” will be a map from usernames to to-do lists, where a username is just a <code>String</code> and a to-do list is a <code>Set</code> of <code>String</code>s - very straight forward. Next, we can start up a server for our application using <code>threepenny-gui</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> startGUI defaultConfig setup
+
+<span class="ot">setup ::</span> <span class="dt">Window</span> <span class="ot">-&gt;</span> <span class="dt">UI</span> ()
+setup rootWindow <span class="fu">=</span> undefined</code></pre></div>
+<p><code>startGUI</code> begins a HTTP server, here we use the default configuration which listens on port 10000. The <code>setup</code> action takes a <code>Window</code> - which corresponds to the browser page the client is viewing - and builds up the UI of the entire application. Every client connection will call <code>setup</code> on connection, which means by default there is no cross-communication or state. To add state and cross-communication, we need to explicitly introduce a shared variable. To achieve this sharing, we’ll use a mutable variable within the STM framework:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> <span class="kw">do</span>
+  database <span class="ot">&lt;-</span> atomically <span class="fu">$</span> newTVar (Map.empty)
+  startGUI defaultConfig (setup database)
+
+<span class="ot">setup ::</span> <span class="dt">TVar</span> <span class="dt">Database</span> <span class="ot">-&gt;</span> <span class="dt">Window</span> <span class="ot">-&gt;</span> <span class="dt">UI</span> ()
+setup database rootWindow <span class="fu">=</span> <span class="kw">do</span></code></pre></div>
+<p>Now we’re in a position to start building our UI. The first stage of the UI is to prompt the client for their username in order to determine which to-do list to display to them:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">setup ::</span> <span class="dt">TVar</span> <span class="dt">Database</span> <span class="ot">-&gt;</span> <span class="dt">Window</span> <span class="ot">-&gt;</span> <span class="dt">UI</span> ()
+setup database rootWindow <span class="fu">=</span> void <span class="fu">$</span> <span class="kw">do</span>
+  userNameInput <span class="ot">&lt;-</span> UI.input
+    <span class="fu">#</span> set (attr <span class="st">&quot;placeholder&quot;</span>) <span class="st">&quot;User name&quot;</span>
+
+  loginButton <span class="ot">&lt;-</span> UI.button <span class="fu">#+</span> [ string <span class="st">&quot;Login&quot;</span> ]
+
+  getBody rootWindow <span class="fu">#+</span>
+    map element [ userNameInput, loginButton ]</code></pre></div>
+<p>First of all we call <code>UI.input</code>, which creates a new <code>&lt;input&gt;</code> element. The <code>#</code> operator is reverse function application, which we use to then change the placeholder attribute of our newly created text field. To create our login button, we create a button element with <code>UI.button</code>, and then we add a string element as a child of the button element in order to set the text content.</p>
+<p>Now that we have both of these UI elements, we can append them to the body of the <code>rootWindow</code> UI element. <code>getBody</code> takes a <code>Window</code> and returns the corresponding <code>Element</code> for the window, which we can append to using <code>#+</code>.</p>
+<p>Next, we need to respond to the user clicking the “login” button, which we do by observing the <code>click</code> event:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">  on UI.click loginButton <span class="fu">$</span> \_ <span class="ot">-&gt;</span> <span class="kw">do</span></code></pre></div>
+<p>Now, what do we need to do when someone clicks “login”? We need to look up that username in our database and, if they exist, present a list of to-do items the user has created. We should also show an input field to add new to-do items. The first part is straight forward:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">    userName <span class="ot">&lt;-</span> get value userNameInput
+
+    currentItems <span class="ot">&lt;-</span> fmap Set.toList <span class="fu">$</span> liftIO <span class="fu">$</span> atomically <span class="fu">$</span> <span class="kw">do</span>
+      db <span class="ot">&lt;-</span> readTVar database
+      <span class="kw">case</span> Map.lookup userName db <span class="kw">of</span>
+        <span class="dt">Nothing</span> <span class="ot">-&gt;</span> <span class="kw">do</span>
+           writeTVar database (Map.insert userName Set.empty db)
+           return Set.empty
+
+        <span class="dt">Just</span> items <span class="ot">-&gt;</span> return items</code></pre></div>
+<p>We get the value of the <code>userNameInput</code> input field, and then enter an STM transaction to find all the to-do items. We attempt to lookup the user in the database, and if they have items we return them. Otherwise, we “register” a new user and give them an empty set of to-do items. Next, we render the user’s to-do items:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">    <span class="kw">let</span> showItem item <span class="fu">=</span> UI.li <span class="fu">#+</span> [ string item ]
+    toDoContainer <span class="ot">&lt;-</span> UI.ul <span class="fu">#+</span> map showItem currentItems</code></pre></div>
+<p>Again, straight forward! I just map a <code>showItem</code> routine over each to-do entry, and contain them all in a <code>&lt;ul&gt;</code> container. We’ll need to add new entries to this list later, so we’ll bind the <code>&lt;ul&gt;</code> element to a name.</p>
+<p>The last bit of functionality is the ability to create new to-do items. For this, lets use another <code>&lt;input&gt;</code> element, and when the user presses “return” have the item be added to the list:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">    newItem <span class="ot">&lt;-</span> UI.input
+
+    on UI.sendValue newItem <span class="fu">$</span> \input <span class="ot">-&gt;</span> <span class="kw">do</span>
+      liftIO <span class="fu">$</span> atomically <span class="fu">$</span> modifyTVar database <span class="fu">$</span>
+        Map.adjust (Set.insert input) userName
+
+      set UI.value <span class="st">&quot;&quot;</span> (element newItem)
+      element toDoContainer <span class="fu">#+</span> [ showItem input ]</code></pre></div>
+<p>A new input element is created, and we listen for the <code>sendValue</code> event, which is produced when a client presses return. Then we run a little STM transaction to add a new item to the to-do list. Once this transaction completes, we clear the input field and append the newly created to-do item to the to-do list.</p>
+<p>Finally, we combine this all together into a UI:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">    header <span class="ot">&lt;-</span> UI.h1 <span class="fu">#+</span> [ string <span class="fu">$</span> userName <span class="fu">++</span> <span class="st">&quot;'s To-Do List&quot;</span> ]
+    set children
+      [ header, toDoContainer, newItem ]
+      (getBody rootWindow)</code></pre></div>
+<p>And we’re done! If we head over to <code>http://localhost:10000</code> we’re presented with a username field, and if we fill this in we’ll be shown a list of to-do items. Changing the values and then logging in as the same user again shows the items have persisted, just as we were intending.</p>
+<p>Today is my first exposure to <code>threepenny-gui</code>, and overall I really like what I’m seeing! In a little over 50 lines of code we have a functioning application, and I feel I understand a lot of what I’m doing. There are a few parts that still feel a little odd - for example passing around <code>UI Element</code>s, where (to me) it would feel more natural to just pass an <code>Element</code> instead. Nonetheless, that’s a minor concern that shouldn’t stop you experimenting with this fantastic project.</p>
+<p>I also started my first draft of this post raving on about FRP, but observant readers will notice we didn’t really use any of the FRP functionality that <code>threepenny-gui</code> offers. Sadly, I didn’t get time to touch this part of the library, and I think it has the potential to do more interesting things. For example, making the to-do list collaborative by reacting to asynchronous changes to the to-do list.</p>
+<p>As always, the code for today’s example is <a href="https://github.com/ocharles/blog/blob/master/code/2013-12-07-threepenny-gui.hs">over on Github</a> - feel free to have a play and see what you come up with!</p>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2013-12-07-24-days-of-hackage-threepenny-gui.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

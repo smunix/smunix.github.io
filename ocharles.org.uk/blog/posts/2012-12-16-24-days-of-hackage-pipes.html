@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2012-12-16-24-days-of-hackage-pipes.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>24 Days of Hackage: pipes</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>24 Days of Hackage: pipes</h1>
+<p>Today’s article is going to be an interesting one… not just because the library that I’ll look at - <code>pipes</code> - is interesting, but it’s also very new to me! However, we’ll see that <code>pipes</code> is a library providing functionality that can otherwise be difficult, providing an API that even us newbies can understand. With that subtle disclaimer out of the way, let’s get going!</p>
+<p>Long running input/output in Haskell is unfortunately a hard problem. We’re used to writing code that is modular and composes elegantly, but naïve approaches to dealing with IO quickly turn ugly - producing code that really doesn’t compose at all well. Somewhat even more dishearteningly, if you try and solve these problems you quickly come across ‘enumerators’, ‘iterators’, ‘iteratees’ and all sorts of other concepts. Unless you’re willing to spend some time with these theories, most people are likely left feeling a little deflated, not to mention stuck. This really doesn’t help in a work environment when you’ve got deadlines!</p>
+<p>Now there are already a number of solutions on Hackage, but today we’re going to look at <a href="http://hackage.haskell.org/package/pipes"><code>pipes</code></a>, as I feel the theory behind it is extremely compelling, and the provided API is something that doesn’t require hours of academic reading to get results from.</p>
+<h2 id="a-christmas-list-manager">A Christmas List Manager</h2>
+<p>To dive right in, lets first understand the underlying idea of the library. As a user, you will: build <code>Producer</code>s of values, the input to your computation; <code>Consumer</code>s that will take values and do something with them, and <code>Pipe</code>s which allow you to transform from one form of data to another. Once you’ve built these components, you then compose things together to form a <code>Session</code>, which can be ran to produce your actual application.</p>
+<p>The “hello, world” of these libraries is some form of echo, but lets add a Christmas twist. We’re going to build an application which requests a name, and a list of Christmas presents, until the user submits an empty line. Then it will echo all of this back. The first thing we need is a something that <em>produces</em> the name:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">name ::</span> <span class="dt">Proxy</span> p <span class="ot">=&gt;</span> () <span class="ot">-&gt;</span> <span class="dt">Producer</span> p <span class="dt">String</span> <span class="dt">IO</span> ()
+name () <span class="fu">=</span> runIdentityP <span class="fu">$</span> <span class="kw">do</span>
+  lift <span class="fu">$</span> putStr <span class="st">&quot;Ho ho ho! What is your name? &quot;</span>
+  lift getLine <span class="fu">&gt;&gt;=</span> respond</code></pre></div>
+<p>Our <code>Producer</code> prints out a prompt, and then responds with whatever the user entered. Simple! We can test this in GHCi:</p>
+<pre><code>&gt; runProxy $ name
+Ho ho ho! What is your name? Oliver</code></pre>
+<p>Nothing was returned though, because we didn’t connect a <code>Consumer</code>. A trivial <code>Consumer</code> is provided by <code>pipes</code> in the form of <code>printD</code>. We attach a <code>Consumer</code> to a <code>Producer</code> with the <code>&gt;-&gt;</code> composition operator:</p>
+<pre><code>&gt; runProxy $ name &gt;-&gt; printD
+Ho ho ho! What is your name? Oliver
+&quot;Oliver&quot;</code></pre>
+<p>Excellent, <code>printD</code> consumed the <code>String</code> produced by <code>name</code> and then printed it back out. Now, how about a <code>Producer</code> for that stream of presents?</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Present</span> <span class="fu">=</span> <span class="dt">Present</span> <span class="dt">String</span>
+  <span class="kw">deriving</span> (<span class="dt">Show</span>)
+
+<span class="ot">presents ::</span> <span class="dt">Proxy</span> p <span class="ot">=&gt;</span> () <span class="ot">-&gt;</span> <span class="dt">Producer</span> p <span class="dt">Present</span> <span class="dt">IO</span> ()
+presents () <span class="fu">=</span> runIdentityP <span class="fu">$</span>
+    lift (putStrLn <span class="st">&quot;And what presents would you like?&quot;</span>) <span class="fu">&gt;&gt;</span> go ()
+  <span class="kw">where</span>
+    go <span class="fu">=</span> getLineS <span class="fu">&gt;-&gt;</span> takeWhileD (not <span class="fu">.</span> null) <span class="fu">&gt;-&gt;</span> mapD <span class="dt">Present</span></code></pre></div>
+<p>Before we look at what’s going on here, what happens if we try and run this?</p>
+<pre><code>Main&gt; runProxy $ presents &gt;-&gt; printD
+And what presents would you like?
+GameBoy
+Present &quot;GameBoy&quot;
+Nintendo 64
+Present &quot;Nintendo 64&quot;
+A Pony
+Present &quot;A Pony&quot;
+
+Main&gt;</code></pre>
+<p>Well that’s interesting! Everytime we entered a present, we <em>produced</em> a new <code>Present</code> value, which immediately got sent to <code>printD</code>! This shows one of the fundamental principles of <code>pipes</code> - you are working with streams of data - something that I think is a very natural way of programming.</p>
+<p>Now, what’s going on in this <code>Producer</code>? Well, first of all we output a basic prompt, and then produce a list of <code>Present</code>s. We do this by first reading a line, and constantly consuming these lines until we encounter one that is empty. We map over all lines that we read, turning them into <code>Present</code>. Again, nothing that you wouldn’t write in Haskell otherwise; <code>pipes</code> doesn’t require you to relearn these basic ideas - they simply extend nicely to <code>pipes</code>.</p>
+<p>Now that we have all of this, lets compose everything together to build our final application:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> <span class="kw">do</span>
+  <span class="dt">First</span> (<span class="dt">Just</span> name) <span class="ot">&lt;-</span> execWriterT <span class="fu">$</span> runProxy <span class="fu">$</span>
+    raiseK name <span class="fu">&gt;-&gt;</span> headD_
+  presents <span class="ot">&lt;-</span> execWriterT <span class="fu">$</span> runProxy <span class="fu">$</span>
+    raiseK presents <span class="fu">&gt;-&gt;</span> toListD
+  putStrLn (name <span class="fu">++</span> <span class="st">&quot; wants: &quot;</span> <span class="fu">++</span> show presents)</code></pre></div>
+<p>I’ve used the <code>headD_</code> utility to take the first value from the <code>name</code> <code>Producer</code>, and then used <code>toListD</code> to consume everything in the <code>presents</code> <code>Producer</code> and convert it to a list. I then output this using <code>putStrLn</code> and <code>show</code>, as normal.</p>
+<p>This might seem awfully verbose for what we’ve achieved, and for this example, it is. But even so, the code seems very elegant to me as we’ve split things apart into small, reasonable, pieces of code. For example, we might want to store all of this in a database as it’s entered - every time a present is added it pass through a <code>storeInDatabase</code> pipe, which would store each <code>Present</code> the moment it’s entered. Or we might later expand what a <code>Present</code> consists of, and now we only have to change our <code>Present</code> <code>Producer</code>.</p>
+<h2 id="echo-echo-echo">Echo (echo, echo)</h2>
+<p><a href="http://haskellforall.com/">Gabriel Gonzalez</a> handed me a little example for showing off <code>pipes</code>, in the form of a pair of applications - a client and a server. This shows how pipes can be used with some slightly more interesting (less contrived!) IO:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">server <span class="fu">=</span> withSocketsDo <span class="fu">$</span> <span class="kw">do</span>
+    s <span class="ot">&lt;-</span> listenOn (<span class="dt">PortNumber</span> <span class="dv">5553</span>)
+    (h, _, _) <span class="ot">&lt;-</span> accept s
+    hSetBuffering h <span class="dt">LineBuffering</span>
+    runProxy <span class="fu">$</span> hGetLineS h <span class="fu">&gt;-&gt;</span> putStrLnD
+    hClose h</code></pre></div>
+<p>The server simply opens a socket and listens port 5553, and then consumes lines as they are sent in. The client is equally elegant:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">client <span class="fu">=</span> withSocketsDo <span class="fu">$</span> <span class="kw">do</span>
+    h <span class="ot">&lt;-</span> connectTo <span class="st">&quot;localhost&quot;</span> (<span class="dt">PortNumber</span> <span class="dv">5553</span>)
+    hSetBuffering h <span class="dt">LineBuffering</span>
+    runProxy <span class="fu">$</span> getLineS <span class="fu">&gt;-&gt;</span> takeWhileD (<span class="fu">/=</span> <span class="st">&quot;quit&quot;</span>) <span class="fu">&gt;-&gt;</span> hPutStrLnD h
+    hClose h</code></pre></div>
+<p>The client connects to the server, and then consumes user input, until the user types “quit”. For every line typed, it is sent directly to the server.</p>
+<h2 id="the-rest">The Rest</h2>
+<p>As you can see, pipes really doesn’t require you to learn a whole lot of stuff - once you get to grips with <code>runProxy</code>, and composition via <code>&gt;-&gt;</code> and <code>&gt;=&gt;</code>, you are already able to do a <em>lot</em> of stuff. Gabriel has done a fantastic job with documentation on this library too, a practice I really hope other authors will follow. I highly recommend reading the <a href="http://hackage.haskell.org/packages/archive/pipes/3.0.0/doc/html/Control-Proxy-Tutorial.html">tutorial</a>, which will also show you how pipes can be used for:</p>
+<ul>
+<li>Bidirectional communication - sending requests upstream, possibly with metadata.</li>
+<li>Resource management</li>
+<li>Error handling</li>
+<li>More!</li>
+</ul>
+<p><code>pipes</code> is a really nice library, and while it’s still not quite there, it’s well on the way to being a great solution to framing IO computations in Haskell. Thanks Gabriel, and good luck with your future work!</p>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2012-12-16-24-days-of-hackage-pipes.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

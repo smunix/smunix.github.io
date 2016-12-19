@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2014-06-10-reversible-serialization.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>A Category for Correct-By-Construction Serializers and Deserializers</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>A Category for Correct-By-Construction Serializers and Deserializers</h1>
+<p>Frequently in computer programming we need to work with data in different representations, and we need to work with the data on both sides of said representation. For example, we might have some Haskell data types in memory, which we later serialize to disk. When the user restarts our application, we need to reload this data back into Haskell data types, to allow them to resume work.</p>
+<p>Haskell provides us with machinery for doing this serialization via the <a href="http://hackage.haskell.org/package/binary"><code>binary</code></a> library, which gives us the <code>Binary</code> type class with two methods:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Binary</span> t <span class="kw">where</span>
+<span class="ot">  put ::</span> t <span class="ot">-&gt;</span> <span class="dt">Put</span>
+<span class="ot">  get ::</span> <span class="dt">Get</span> t</code></pre></div>
+<p><code>get</code> deserializes a sequence of bytes into Haskell values, while <code>put</code> operates in the reverse direction - transforming Haskell values to a sequence of bytes.</p>
+<p>Usually, we want the implementations of these methods to be mutual inverses - the computation in <code>get</code> should restore data serialized with <code>put</code>, and vice versa. Unfortunately, nothing in the type system nor the structure of these methods gives us this guarantee - it’s all down to the programmer. I don’t trust myself, so I set out to investigate a more reliable approach.</p>
+<p>Ideally, we would like to build up serializers and deserializers from smaller pieces, such that each piece carries its own inverse. For example, we could pair up serialization for a <code>String</code> with its own inverse:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">Serializer</span> a <span class="fu">=</span> (<span class="dt">Get</span> a, a <span class="ot">-&gt;</span> <span class="dt">Put</span>)
+
+<span class="ot">string ::</span> <span class="dt">Serializer</span> <span class="dt">String</span>
+string <span class="fu">=</span> (get, put)</code></pre></div>
+<p>As long as <code>String</code> has a <code>Binary</code> instance where <code>get</code> and <code>put</code> correctly specified, we know that <code>string</code> is going to function as we expect in both directions.</p>
+<p>We’re on to something here, but currently this only works for single <code>String</code>s. What if I have a pair of <code>String</code>s that I want to serialize? From what we’ve seen so far, there’s no way to combine our bidirectional serializers. Earlier I mentioned that we would like to work with small pieces and compose them - lets see if we can solve this problem for just serialization first.</p>
+<p>Serialization <em>consumes</em> data. If we have data to serialize, the application of one serializer should consume some of this data, leaving us with slightly less data that we have to continue serializing. By repeated application of serializers, we will eventually have considered the entire structure and will have nothing left to do. This consumption of a structure bit-by-bit suggests that serialization will be a type changing operation, as a record with a field removed is certainly not the same type as its larger record. So let’s try and incorporate that:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Serializing</span> a b <span class="fu">=</span> <span class="dt">Serializing</span> (a <span class="ot">-&gt;</span> <span class="dt">PutM</span> b)
+
+<span class="ot">pString2 ::</span> <span class="dt">Serializing</span> (<span class="dt">String</span>, <span class="dt">String</span>) <span class="dt">String</span>
+pString2 <span class="fu">=</span> <span class="dt">Serializing</span> <span class="fu">$</span> \(a, b) <span class="ot">-&gt;</span> <span class="kw">do</span> put a; return b
+
+<span class="ot">pString1 ::</span> <span class="dt">Serializing</span> <span class="dt">String</span> ()
+pString1 <span class="fu">=</span> <span class="dt">Serializing</span> <span class="fu">$</span> \a <span class="ot">-&gt;</span> put a</code></pre></div>
+<p>Composition of <code>Serializing</code> should now be clear - we just need to compose them one after another:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">(.) ::</span> <span class="dt">Serializing</span> b c <span class="ot">-&gt;</span> <span class="dt">Serializing</span> a b <span class="ot">-&gt;</span> <span class="dt">Serializing</span> a c
+(<span class="dt">Serializing</span> g) <span class="fu">.</span> (<span class="dt">Serializing</span> f) <span class="fu">=</span> <span class="dt">Serializing</span> (f <span class="fu">&gt;=&gt;</span> g)
+
+<span class="ot">putTwoStrings ::</span> <span class="dt">Serializing</span> (<span class="dt">String</span>, <span class="dt">String</span>) ()
+putTwoStrings <span class="fu">=</span> pString1 <span class="fu">.</span> pString2</code></pre></div>
+<p>We’ve built a serializer that can serialize a tuple of two strings, and we did so piece-by-piece. While what we have so far is not entirely satisfactory, it seems like we’re heading in the right direction. We’ll come back to this later, but first let’s see if the same ideas translate to deserializers.</p>
+<p>Our serializer consumed data, so deserialization is naturally the opposite of consuming data - that is, deserialization <em>produces</em> data. When we deserialize we’ll start with nothing, and we’ll deserialize a few bytes into part of our structure one step at a time. Each step of deserialization should take the smaller structure and expand it into a larger structure - eventually leading us to the desired structure. Again, this will be a type changing operation, and we can encode all of this just as we did with <code>Serializing</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Deserializing</span> a b <span class="fu">=</span> <span class="dt">Deserializing</span> (a <span class="ot">-&gt;</span> <span class="dt">Get</span> b)
+
+<span class="ot">getString1 ::</span> <span class="dt">Deserializing</span> () <span class="dt">String</span>
+getString1 <span class="fu">=</span> <span class="dt">Deserializing</span> <span class="fu">$</span> \() <span class="ot">-&gt;</span> get
+
+<span class="ot">getString2 ::</span> <span class="dt">Deserializing</span> <span class="dt">String</span> (<span class="dt">String</span>, <span class="dt">String</span>)
+getString2 <span class="fu">=</span> <span class="dt">Deserializing</span> <span class="fu">$</span> \s <span class="ot">-&gt;</span> <span class="kw">do</span> { s' <span class="ot">&lt;-</span> get; return (s, s') }
+
+<span class="ot">(.) ::</span> <span class="dt">Deserializing</span> b c <span class="ot">-&gt;</span> <span class="dt">Deserializing</span> a b <span class="ot">-&gt;</span> <span class="dt">Deserializing</span> a c
+(<span class="dt">Deserializing</span> g) <span class="fu">.</span> (<span class="dt">Deserializing</span> f) <span class="fu">=</span> <span class="dt">Deserializing</span> (f <span class="fu">&gt;=&gt;</span> g)
+
+<span class="ot">getTwoStrings ::</span> <span class="dt">Deserializing</span> () (<span class="dt">String</span>, <span class="dt">String</span>)
+getTwoStrings <span class="fu">=</span> getString2 <span class="fu">.</span> getString1</code></pre></div>
+<p>As you can see, it’s pretty much exactly the same idea. The only difference is that now each of our deserializers return a slightly <em>bigger</em> structure, whereas our serializers would move our structure to something <em>smaller</em>.</p>
+<p>Just to prove that what we have so far works, we can try this in GHCI:</p>
+<pre><code>&gt; let bytes = case putTwoStrings of Serializing p -&gt; runPut (p (&quot;Hello&quot;, &quot;World!&quot;))
+&gt; case getTwoStrings of Deserializing g -&gt; runGet (g ()) (LBS.pack bytes)
+(&quot;Hello&quot;,&quot;World!&quot;)</code></pre>
+<p>To carry on working towards our goal, we need to pair the <code>Serializer</code> up with its <code>Deserializer</code>. Unfortunately, what we have so far won’t work:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Serializer</span> a b <span class="fu">=</span> <span class="dt">Serializer</span> (a <span class="ot">-&gt;</span> <span class="dt">Get</span> b) (a <span class="ot">-&gt;</span> <span class="dt">Put</span> b)</code></pre></div>
+<p>Notice here how the types <em>both</em> move from <code>a</code> to <code>b</code> - that’s certainly not going to work, as the shape of the data is changing in opposite directions! In <code>Get</code>, <code>a</code> is “smaller” than <code>b</code>, whereas for <code>Put</code> <code>a</code> is “larger” then <code>b</code>. In order to work around this, we just need to swap the order of types in one of these functions - I’ve swapped the order for <code>Put</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Serializer</span> a b <span class="fu">=</span> <span class="dt">Serializer</span> (a <span class="ot">-&gt;</span> <span class="dt">Get</span> b) (b <span class="ot">-&gt;</span> <span class="dt">PutM</span> a)</code></pre></div>
+<p>This makes sense - if <code>put</code> will shrink our structure, then <code>get</code> can move from this smaller structure back to the original structure. We can express our <code>string1</code> and <code>string2</code> serializers now:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">string2 ::</span> <span class="dt">Serializer</span> (<span class="dt">String</span>, <span class="dt">String</span>) <span class="dt">String</span>
+string2 <span class="fu">=</span> <span class="dt">Serializer</span> (\(a, b) <span class="ot">-&gt;</span> <span class="kw">do</span> put a; return b)
+                     (\s <span class="ot">-&gt;</span> <span class="kw">do</span> { s' <span class="ot">&lt;-</span> get; return (s', s) })
+
+<span class="ot">string1 ::</span> <span class="dt">Serializer</span> <span class="dt">String</span> ()
+string1 <span class="fu">=</span> <span class="dt">Serializer</span> put (\() <span class="ot">-&gt;</span> get)</code></pre></div>
+<p>We were able to compose things before, and we can certainly compose things here…</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">(.) ::</span> <span class="dt">Serializer</span> b c <span class="ot">-&gt;</span> <span class="dt">Serializer</span> a b <span class="ot">-&gt;</span> <span class="dt">Serializer</span> a c
+(<span class="dt">Serializer</span> g g') <span class="fu">.</span> (<span class="dt">Serializer</span> f f') <span class="fu">=</span> <span class="dt">Serializer</span> (f <span class="fu">&gt;=&gt;</span> g) (g' <span class="fu">&gt;=&gt;</span> f')
+
+<span class="ot">twoStrings ::</span> <span class="dt">Serializer</span> (<span class="dt">String</span>, <span class="dt">String</span>) ()
+twoStrings <span class="fu">=</span> string1 <span class="fu">.</span> string2</code></pre></div>
+<p>However, this has a rather significant problem - can you spot it? Take time to think about this and see if you can work out what’s going wrong.</p>
+<p>Did you find it? If we fire up GHCI and have a play with our <code>twoStrings</code> serializer, lets see what we get…</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="fu">&gt;</span> <span class="kw">let</span> bytes <span class="fu">=</span> <span class="kw">case</span> twoStrings <span class="kw">of</span> <span class="dt">Serializer</span> _ p <span class="ot">-&gt;</span> runPut (p (<span class="st">&quot;A&quot;</span>, <span class="st">&quot;B&quot;</span>))
+<span class="fu">&gt;</span> <span class="kw">case</span> twoStrings <span class="kw">of</span> <span class="dt">Serializer</span> g _ <span class="ot">-&gt;</span> runGet (g ()) bytes
+(<span class="st">&quot;B&quot;</span>,<span class="st">&quot;A&quot;</span>)</code></pre></div>
+<p>Oh no - that’s not what we wanted at all! The problem is that the order of effects are being reversed. When we <code>put</code> data, we put the first tuple element first, and then the second. However, we’re reading data in the opposite order - expecting the <em>second</em> element to be first in the stream, which is clearly not correct. For <code>(String, String)</code> the deserializer works but the tuple is in the wrong order - for other data types this would lead to a runtime exception.</p>
+<p>With the current definition of <code>Serializer</code>, there’s simply no way around this - the types won’t let us run effects in different orders. The reason for this is that we can only access the underlying <code>Get</code> computation by having the smaller structure around first. However, we can be sneaky and changes things around just enough to let us run <code>Get</code> in a different order. Now the <code>Get</code> computation is no longer a function, but is a computation that <em>returns</em> a function:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Serializer</span> a b <span class="fu">=</span> <span class="dt">Serializer</span> (<span class="dt">Get</span> (a <span class="ot">-&gt;</span> b)) (b <span class="ot">-&gt;</span> <span class="dt">PutM</span> a)</code></pre></div>
+<p>With this change we <em>do</em> have access to any <code>Get</code> computation we like, and we are free to run them in a different order:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">(.) ::</span> <span class="dt">Serializer</span> b c <span class="ot">-&gt;</span> <span class="dt">Serializer</span> a b <span class="ot">-&gt;</span> <span class="dt">Serializer</span> a c
+(<span class="dt">Serializer</span> g g') <span class="fu">.</span> (<span class="dt">Serializer</span> f f') <span class="fu">=</span>
+  <span class="dt">Serializer</span> (<span class="kw">do</span> buildF <span class="ot">&lt;-</span> g
+                 buildG <span class="ot">&lt;-</span> f
+                 return (buildF <span class="fu">.</span> buildG))
+             (g' <span class="fu">&gt;=&gt;</span> f')</code></pre></div>
+<p>Now it’s clear that both our <code>Put</code> and our <code>Get</code> computations are sequenced in the same order - nice! It turns out that our composition comes with a sane definition of identity too, which means our <code>Serializer</code> can be used with <code>Category</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Category</span> <span class="dt">Serializer</span> <span class="kw">where</span>
+  (<span class="dt">Serializer</span> g g') <span class="fu">.</span> (<span class="dt">Serializer</span> f f') <span class="fu">=</span>
+    <span class="dt">Serializer</span> (<span class="kw">do</span> buildF <span class="ot">&lt;-</span> g
+                   buildG <span class="ot">&lt;-</span> f
+                   return (buildF <span class="fu">.</span> buildG))
+               (g' <span class="fu">&gt;=&gt;</span> f')
+
+  id <span class="fu">=</span> <span class="dt">Serializer</span> (return id) return</code></pre></div>
+<h2 id="serializing-through-heterogeneous-lists">Serializing Through Heterogeneous Lists</h2>
+<p>We have finally reached a nice core to our solution, but the surface API isn’t really working out. We had to write different <code>Serializer</code>s for both <code>(String, String)</code> and <code>String</code>, which is certainly not desirable. Ultimately, we would like to be able to work with just one <code>Serializer</code> for <code>String</code>, and compose them however we please.</p>
+<p>Unfortunately, working with tuples is causing us the real pain here. The reason for this is that tuples don’t really have any structure that would allow us to work with them in any sort of principled manner. Instead, what we can do is use a heterogeneous list, which we can recurse on just like an ordinary linked list. So, we introduce a type for heterogeneous lists:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">List</span><span class="ot"> ::</span> [<span class="fu">*</span>] <span class="ot">-&gt;</span> <span class="fu">*</span> <span class="kw">where</span>
+  <span class="dt">Nil</span><span class="ot"> ::</span> <span class="dt">List</span> <span class="ch">'[]</span>
+  <span class="dt">Cons</span><span class="ot"> ::</span> a <span class="ot">-&gt;</span> <span class="dt">List</span> as <span class="ot">-&gt;</span> <span class="dt">List</span> (a <span class="ch">': as)</span></code></pre></div>
+<p>And now we can use the new poly-kinded <code>Category</code> to upgrade <code>Serializer</code> to work with these lists:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Serializer</span><span class="ot"> ::</span> [<span class="fu">*</span>] <span class="ot">-&gt;</span> [<span class="fu">*</span>] <span class="ot">-&gt;</span> <span class="fu">*</span> <span class="kw">where</span>
+  <span class="dt">Serializer</span><span class="ot"> ::</span> (<span class="dt">Get</span> (<span class="dt">List</span> a <span class="ot">-&gt;</span> <span class="dt">List</span> b))
+             <span class="ot">-&gt;</span> (<span class="dt">List</span> b <span class="ot">-&gt;</span> <span class="dt">PutM</span> (<span class="dt">List</span> a))
+             <span class="ot">-&gt;</span> <span class="dt">Serializer</span> a b
+
+<span class="kw">instance</span> <span class="dt">Category</span> <span class="dt">Serializer</span> <span class="kw">where</span>
+  (<span class="dt">Serializer</span> g g') <span class="fu">.</span> (<span class="dt">Serializer</span> f f') <span class="fu">=</span>
+    <span class="dt">Serializer</span> (<span class="kw">do</span> mkB <span class="ot">&lt;-</span> g
+                   mkA <span class="ot">&lt;-</span> f
+                   return (mkB <span class="fu">.</span> mkA))
+               (g' <span class="fu">&gt;=&gt;</span> f')
+
+  id <span class="fu">=</span> <span class="dt">Serializer</span> (return id) return</code></pre></div>
+<p>This was quite a detour, and has this really helped us? Indeed it has, as we can now we can write a much more general <code>Serializer String</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">string ::</span> <span class="dt">Serializer</span> as (<span class="dt">String</span> <span class="ch">': as)</span>
+string <span class="fu">=</span> <span class="dt">Serializer</span> (<span class="kw">do</span> a <span class="ot">&lt;-</span> get; return (<span class="dt">Cons</span> a))
+                    (\(<span class="dt">Cons</span> a as) <span class="ot">-&gt;</span> <span class="kw">do</span> put a; return as)</code></pre></div>
+<p>The type of <code>string</code> now indicates that this <code>Serializer</code> can serialize anything that starts with a <code>String</code>, and likewise when deserializing it expects a <code>String</code> to be the first element. This composes exactly as we’d expect:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">twoStrings ::</span> <span class="dt">Serializer</span> as (<span class="dt">String</span> <span class="ch">': String '</span><span class="fu">:</span> as)
+twoStrings <span class="fu">=</span> string <span class="fu">.</span> string</code></pre></div>
+<p>All we need to do is unwrap the <code>List</code> resulting from a <code>Get</code> or wrap up data in a <code>List</code> for <code>Put</code> and we’re good to go:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="fu">&gt;</span> <span class="kw">let</span> bytes <span class="fu">=</span> <span class="kw">case</span> twoStrings <span class="kw">of</span>
+                <span class="dt">Serializer</span> _ p <span class="ot">-&gt;</span> runPut (void <span class="fu">$</span> p (<span class="st">&quot;A&quot;</span> <span class="ot">`Cons`</span> (<span class="st">&quot;B&quot;</span> <span class="ot">`Cons`</span> <span class="dt">Nil</span>)))
+
+<span class="fu">&gt;</span> <span class="kw">case</span> twoStrings <span class="kw">of</span>
+    <span class="dt">Serializer</span> g _ <span class="ot">-&gt;</span> runGet ((<span class="fu">$</span> <span class="dt">Nil</span>) <span class="fu">&lt;$&gt;</span> g) bytes
+
+<span class="dt">Cons</span> <span class="st">&quot;A&quot;</span> (<span class="dt">Cons</span> <span class="st">&quot;B&quot;</span> <span class="dt">Nil</span>)</code></pre></div>
+<h2 id="destructuring-data-via-prisms">Destructuring Data Via Prisms</h2>
+<p>The API we’ve built works really well if we already have data decomposed into a <code>List</code>, but we don’t normally have this luxury. This means we need a way to convert from a data type to it’s constituent parts, and this is exactly the functionality that <code>Prism</code>s in the <a href="http://hackage.haskell.org/package/lens"><code>lens</code></a> library provide us with. While <code>Prism</code>s can be a little hard to get your head around, it can be illuminating to experiment with them in GHCI:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="fu">&gt;</span> review _<span class="dt">Cons</span> (<span class="dv">10</span>, [])
+[<span class="dv">10</span>]
+
+<span class="fu">&gt;</span> review _<span class="dt">Cons</span> (<span class="dv">10</span>, [<span class="dv">20</span>])
+[<span class="dv">10</span>,<span class="dv">20</span>]
+
+<span class="fu">&gt;</span> review _<span class="dt">Cons</span> (<span class="dv">1</span>, [<span class="dv">2</span><span class="fu">..</span><span class="dv">5</span>])
+[<span class="dv">1</span>,<span class="dv">2</span>,<span class="dv">3</span>,<span class="dv">4</span>,<span class="dv">5</span>]
+
+<span class="fu">&gt;</span> preview _<span class="dt">Cons</span> [<span class="dv">10</span>, <span class="dv">20</span>, <span class="dv">30</span>]
+<span class="dt">Just</span> (<span class="dv">10</span>,[<span class="dv">20</span>,<span class="dv">30</span>])
+
+<span class="fu">&gt;</span> preview _<span class="dt">Cons</span> [<span class="dv">10</span>]
+<span class="dt">Just</span> (<span class="dv">10</span>,[])
+
+<span class="fu">&gt;</span> preview _<span class="dt">Cons</span> []
+<span class="dt">Nothing</span></code></pre></div>
+<p><code>Prisms</code> have two main operations: <code>review</code> and <code>preview</code>. <code>review</code> lets us construct some data out of its parts - above we use <code>_Cons</code> with <code>(10, [20])</code>, which is the same as <code>(10 : [20])</code> - resulting in the list <code>[10, 20]</code>. <code>preview</code> lets us go the other way, which is the same idea as pattern matching on a constructor. If we <code>preview _Cons</code> on non-empty lists, then the pattern matching succeeds and the list is separated into its head and tail. However, we can’t pattern match with <code>_Cons</code> on an empty list, so <code>preview</code> returns <code>Nothing</code> - which corresponds to a pattern match failure.</p>
+<p>Armed with <code>Prism</code>, we’re almost entirely ready to go! The only problem is that <code>Prism</code> normally works with tuples, which we’ve already seen aren’t a great data for our needs. It’s entirely mechanical to convert between tuples and <code>List</code>, so we simply move between them with a type class. Combining this all together, we have the following:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">ListIso</span> a b <span class="fu">|</span> a <span class="ot">-&gt;</span> b, b <span class="ot">-&gt;</span> a <span class="kw">where</span>
+  _<span class="dt">HList</span><span class="ot"> ::</span> <span class="dt">Iso'</span> b (<span class="dt">List</span> a)
+
+<span class="ot">usePrism ::</span> <span class="dt">ListIso</span> a b  <span class="ot">=&gt;</span> <span class="dt">Prism'</span> d b <span class="ot">-&gt;</span> <span class="dt">Serializer</span> a <span class="ch">'[d]</span>
+usePrism p <span class="fu">=</span> <span class="dt">Serializer</span> get put
+  <span class="kw">where</span>
+  put (<span class="dt">Cons</span> d <span class="dt">Nil</span>) <span class="fu">=</span> <span class="kw">do</span>
+    <span class="dt">Just</span> tuple <span class="ot">&lt;-</span> return (preview p d)
+    return (tuple <span class="fu">^.</span> _<span class="dt">HList</span>)
+
+  get <span class="fu">=</span>
+    return <span class="fu">$</span> \hlist <span class="ot">-&gt;</span> <span class="dt">Cons</span> (review p (hlist <span class="fu">^.</span> from _<span class="dt">HList</span>)) <span class="dt">Nil</span></code></pre></div>
+<p>Now we are free to use this on our data types, just as we’d expect:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">ListIso</span> <span class="ch">'[a, b] (a, b) where</span>
+  _<span class="dt">HList</span> <span class="fu">=</span> iso (\(a, b) <span class="ot">-&gt;</span> <span class="dt">Cons</span> a (<span class="dt">Cons</span> b <span class="dt">Nil</span>)) (\(<span class="dt">Cons</span> a (<span class="dt">Cons</span> b <span class="dt">Nil</span>)) <span class="ot">-&gt;</span> (a, b))
+
+<span class="kw">data</span> <span class="dt">PairOfStrings</span> <span class="fu">=</span> <span class="dt">PairOfStrings</span> <span class="dt">String</span> <span class="dt">String</span>
+makePrisms <span class="ch">''</span><span class="dt">PairOfStrings</span>
+
+<span class="ot">pairOfStrings ::</span> <span class="dt">Serializer</span> <span class="ch">'[] '</span>[<span class="dt">PairOfStrings</span>]
+pairOfStrings <span class="fu">=</span> usePrism _<span class="dt">PairOfStrings</span> <span class="fu">.</span> string <span class="fu">.</span> string</code></pre></div>
+<h2 id="choices">Choices</h2>
+<p>If you look closely at our definition of <code>usePrism</code> you might have seen something suspicious. Here’s the relevant code:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">usePrism <span class="fu">=</span> <span class="fu">...</span>
+  <span class="kw">where</span>
+  put (<span class="dt">Cons</span> d <span class="dt">Nil</span>) <span class="fu">=</span> <span class="kw">do</span>
+    <span class="dt">Just</span> tuple <span class="ot">&lt;-</span> return (Lens.preview p d)
+    return (tuple <span class="fu">^.</span> _<span class="dt">HList</span>)</code></pre></div>
+<p>In our <code>put</code> definition, we are assuming that <code>Lens.preview</code> is always returning a <code>Just</code> value. However, we saw earlier that this isn’t necessarily the case - the Prism corresponds to one of potentially many constructors. If we try and use <code>usePrism</code> with a prism that doesn’t match our expectations, then things go horribly wrong:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Strings</span> <span class="fu">=</span> <span class="dt">PairOfStrings</span> <span class="dt">String</span> <span class="dt">String</span> <span class="fu">|</span> <span class="dt">ThreeStrings</span> <span class="dt">String</span> <span class="dt">String</span> <span class="dt">String</span>
+makePrims <span class="ch">''</span><span class="dt">Strings</span></code></pre></div>
+<pre><code>&gt; case pairOfStrings of
+    Serializer _ p -&gt; runPut (void $ p (ThreeStrings &quot;Uh&quot; &quot;Oh&quot; &quot;!&quot; `Cons` Nil))
+
+&quot;*** Exception: Pattern match failure in do expression at ...</code></pre>
+<p>What we need to do is to allow for choice - if we have multiple possible prisms, then we need to consider each one. This corresponds to exhaustive pattern matching in case analysis.</p>
+<p>It turns out choice is relatively straight forward to add in. <code>Get</code> is already an instance of <code>MonadPlus</code>, so we get choice there for free. <code>Put</code> however is a little more involved, as it doesn’t have an instance of <code>MonadPlus</code>. The best solution I’ve found thus far is to wrap up our <code>Put</code> computation inside <code>Maybe</code>, but this isn’t entirely satisfactory. Unfortunately <code>binary</code> doesn’t quite export enough to have a less expensive solution (<code>PairS</code> doesn’t have its oconstructor exported).</p>
+<p><code>Monoid</code> is a sensible type class to use for alternatives - choice is associative, and there is a sane identity (an always-failing <code>Serializer</code>). Thus the final definition of <code>Serializer</code> and its associated type classes are:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Serializer</span><span class="ot"> ::</span> [<span class="fu">*</span>] <span class="ot">-&gt;</span> [<span class="fu">*</span>] <span class="ot">-&gt;</span> <span class="fu">*</span> <span class="kw">where</span>
+  <span class="dt">Serializer</span><span class="ot"> ::</span> (<span class="dt">Get</span> (<span class="dt">List</span> a <span class="ot">-&gt;</span> <span class="dt">List</span> b)) <span class="ot">-&gt;</span> (<span class="dt">List</span> b <span class="ot">-&gt;</span> <span class="dt">Maybe</span> (<span class="dt">PutM</span> (<span class="dt">List</span> a))) <span class="ot">-&gt;</span> <span class="dt">Serializer</span> a b
+
+<span class="kw">instance</span> <span class="dt">Category</span> <span class="dt">Serializer</span> <span class="kw">where</span>
+  (<span class="dt">Serializer</span> g g') <span class="fu">.</span> (<span class="dt">Serializer</span> f f') <span class="fu">=</span>
+    <span class="dt">Serializer</span> (g <span class="fu">&gt;&gt;=</span> \b <span class="ot">-&gt;</span> f <span class="fu">&gt;&gt;=</span> \a <span class="ot">-&gt;</span> return (b <span class="fu">.</span> a))
+               (\a <span class="ot">-&gt;</span> <span class="kw">do</span> putF <span class="ot">&lt;-</span> g' a
+                         <span class="kw">let</span> (b, lbs) <span class="fu">=</span> runPutM putF
+                         putG <span class="ot">&lt;-</span> f' b
+                         return (putLazyByteString lbs <span class="fu">&gt;&gt;</span> putG))
+
+  id <span class="fu">=</span> <span class="dt">Serializer</span> (return id) (return <span class="fu">.</span> return)
+
+<span class="kw">instance</span> <span class="dt">Monoid</span> (<span class="dt">Serializer</span> a b) <span class="kw">where</span>
+  mempty <span class="fu">=</span> <span class="dt">Serializer</span> mzero (const mzero)
+  (<span class="dt">Serializer</span> g p) <span class="ot">`mappend`</span> (<span class="dt">Serializer</span> g' p') <span class="fu">=</span>
+    <span class="dt">Serializer</span> (g <span class="ot">`mplus`</span> g') (\i <span class="ot">-&gt;</span> p i <span class="ot">`mplus`</span> p' i)</code></pre></div>
+<p>Armed with this final definition of <code>Serializer</code>, we’re almost ready to provide a complete definition of serializing our <code>Strings</code> type. We need to provide a little extra information however, which allows us to disambiguate constructors. This is because if we are deserializing, if I read two strings I don’t necessarily know constructor to choose (yes, if we considered EOF this could be done, I’m going for brevity). You can find the definition of <code>disambiguate</code> in the full code listing.</p>
+<p>Thus the final user-facing code is just:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">strings ::</span> <span class="dt">Serializer</span> <span class="ch">'[] '</span>[<span class="dt">Strings</span>]
+strings <span class="fu">=</span> mconcat
+  [ usePrism _<span class="dt">PairOfStrings</span> <span class="fu">.</span> disambiguate <span class="dv">1</span> <span class="fu">.</span> string <span class="fu">.</span> string
+  , usePrism _<span class="dt">ThreeStrings</span> <span class="fu">.</span> disambiguate <span class="dv">2</span> <span class="fu">.</span> string <span class="fu">.</span> string <span class="fu">.</span> string
+  ]</code></pre></div>
+<p>And just to prove it all works…</p>
+<pre><code>&gt; let Just putter = case strings of
+        Serializer _ p -&gt; p (ThreeStrings &quot;A&quot; &quot;B&quot; &quot;C&quot; `Cons` Nil)
+      bytes = runPut (void putter)
+
+&gt; case strings of Serializer g _ -&gt; runGet (($ Nil) &lt;$&gt; g) bytes
+Cons (ThreeStrings &quot;A&quot; &quot;B&quot; &quot;C&quot;) Nil
+
+
+&gt; let Just putter = case strings of
+        Serializer _ p -&gt; p (PairOfStrings  &quot;Hello&quot; &quot;World!&quot; `Cons` Nil)
+      bytes = runPut (void putter)
+
+&gt; case strings of Serializer g _ -&gt; runGet (($ Nil) &lt;$&gt; g) bytes
+Cons (PairOfStrings &quot;Hello&quot; &quot;World!&quot;) Nil</code></pre>
+<h2 id="final-thoughts">Final Thoughts</h2>
+<p>We’ve seen that it’s possible to build correct-by-construction serializers and deserializers, and we got there by breaking down our problem into small parts and finding a good way to combine the parts together. Hopefully, I’ve illustrated some of the problems that arise from a naive solution, and how these problems guided us towards an implementation that is both more correct and more flexible.</p>
+<p><code>Serializer</code> is still not perfect however. With the idea of choice above, there’s no way to indicate exhaustive pattern matching. For example, in <code>strings</code> we are considering both constructors, yet <code>put strings</code> returns <code>Maybe Put</code>. This isn’t particularly satisfactory, because it should now always be possible to serialize this data type! On a similar note, it becomes harder to get compile time checks about exhaustive pattern matching, because we’re no longer doing <code>case</code> analysis explicitly. This is an interesting problem to me, and one that I would still like to solve.</p>
+<p>There is also a bit more work that we might want to consider doing with <code>Get</code> and <code>Put</code>, which is to use a different concept of choice. There are other options than using <code>Maybe</code> - for example we could use lists which would inform us of <em>all</em> possible serializations for a data type, which might provide better debugging information than simply using the first one that matches.</p>
+<p>I’d like to conclude by mentioning that the ideas here aren’t particularly new. In 2010 <a href="http://www.tillmann-rendel.com/p/publications.html">Rendel and Ostermann</a> presented a solution using a category of partial isomorphisms and product functors from this category to Hask, which lead to various libraries on Hackage such as <a href="http://hackage.haskell.org/package/invertible-syntax"><code>invertible-syntax</code></a>, and <a href="http://hackage.haskell.org/package/boomerang"><code>boomerang</code></a>. At ZuriHack, <a href="http://martijn.van.steenbergen.nl/">Martijn van Steenbergen</a> presented the latest version of <a href="http://hackage.haskell.org/package/JsonGrammar"><code>JsonGrammar</code></a>, which uses a free category to describe operations on a JSON AST, and also illustrated how one can use prisms to provide a modern vocabulary for partial isomorphisms. <code>json-grammar</code> uses a <code>stack-prism</code> data type, which achieves the same goal as using heterogeneous lists, but does require another Template Haskell call (<code>makeStackPrisms</code>).</p>
+<p>While I’m happy with the solution so far, I haven’t finished playing around with this. It’s unclear to me how this plays with recursive data types (for example, does this work for lists? What about trees?), and I need to learn more about <code>stack-prism</code> to see if using heterogenous lists impedes composition (as <a href="https://github.com/sjoerdvisscher/blog">Sjoerd Visscher</a> has warned me!). Hopefully I’ll be able to start using what I have so far in production, iron out the last problems, and release this to Hackage in the near future.</p>
+<p>Thanks for reading, a full code listing can be found <a href="https://github.com/ocharles/blog/blob/master/code/2014-06-10-reversible-serialization.hs">on Github</a></p>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2014-06-10-reversible-serialization.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

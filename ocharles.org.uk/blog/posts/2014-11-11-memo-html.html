@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2014-11-11-memo-html.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>Self-Memoizing HTML Rendering via Mutually Recursive Data Types</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>Self-Memoizing HTML Rendering via Mutually Recursive Data Types</h1>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="ot">{-# LANGUAGE TypeFamilies #-}</span>
+<span class="ot">&gt;</span> <span class="ot">{-# LANGUAGE TypeOperators #-}</span>
+<span class="ot">&gt;</span> <span class="kw">import </span><span class="dt">Debug.Trace</span>
+<span class="ot">&gt;</span> <span class="kw">import </span><span class="dt">Data.Monoid</span>
+<span class="ot">&gt;</span> <span class="kw">import </span><span class="dt">Data.HashMap.Strict</span>
+<span class="ot">&gt;</span> <span class="kw">import </span><span class="dt">Data.MemoTrie</span></code></pre></div>
+<p>This post demonstrates a cute little construct I’ve been playing with recently, which allows building HTML trees that use memoization to cache the result of their rendering function. By storing memoization at each node, we can then mutate the tree, but subsequent renders only do as little work as necessary.</p>
+<p>We start out with the deep embedding of a HTML tree. This is exactly as you might expect; a constructor for text and a constructor for elements, with their tag name and a list of children.</p>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="kw">data</span> <span class="dt">HTML'</span> <span class="fu">=</span> <span class="dt">Text</span> <span class="dt">String</span> <span class="fu">|</span> <span class="dt">Element</span> <span class="dt">String</span> [<span class="dt">HTML</span>]</code></pre></div>
+<p>However, notice that the list of children is <em>not</em> of type <code>HTML'</code>, as one might expect. Instead, we bounce over to the next data type:</p>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="kw">data</span> <span class="dt">HTML</span> <span class="fu">=</span> <span class="dt">HTML</span> (<span class="dt">HTML'</span> <span class="fu">:-&gt;:</span> <span class="dt">String</span>) <span class="dt">HTML'</span></code></pre></div>
+<p>Here we wrap up the <code>HTML'</code> values with a trie that tabulates the rendering function. We’re using Conal’s excellent <a href="http://hackage.haskell.org/package/MemoTrie"><code>MemoTrie</code></a> library. Notice how <code>HTML'</code> has values of type <code>HTML</code>, but <code>HTML</code> itself refers back to <code>HTML'</code> - this is an example of mutually recursive data types.</p>
+<p>What we have so far is a <code>HTML</code> type that “knows how to render itself”, but also carries the deep-embedding that was used to construct it. Furthermore, each subtree knows how to render itself, so we can modify the tree but only pay to render what we changed. We’ll see an example of this shortly.</p>
+<p>In order to work with the <code>MemoTrie</code> library, we need to define instance of <code>HasTrie</code>. As scary as these definitions look, they mostly come from using the basic instances and then following the types.</p>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="kw">instance</span> <span class="dt">HasTrie</span> <span class="dt">HTML'</span> <span class="kw">where</span>
+<span class="ot">&gt;</span>   <span class="kw">data</span> <span class="dt">HTML'</span> <span class="fu">:-&gt;:</span> x <span class="fu">=</span> <span class="dt">HTML'Trie</span> (<span class="dt">String</span> <span class="fu">:-&gt;:</span> x) ((<span class="dt">String</span>, [<span class="dt">HTML</span>]) <span class="fu">:-&gt;:</span> x)
+<span class="ot">&gt;</span>   trie f <span class="fu">=</span> <span class="dt">HTML'Trie</span> (trie (f <span class="fu">.</span> <span class="dt">Text</span>)) (trie (f <span class="fu">.</span> uncurry <span class="dt">Element</span>))
+<span class="ot">&gt;</span>   untrie (<span class="dt">HTML'Trie</span> f _) (<span class="dt">Text</span> t) <span class="fu">=</span> untrie f t
+<span class="ot">&gt;</span>   untrie (<span class="dt">HTML'Trie</span> _ g) (<span class="dt">Element</span> a c) <span class="fu">=</span> untrie g (a, c)
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span> <span class="kw">instance</span> <span class="dt">HasTrie</span> <span class="dt">HTML</span> <span class="kw">where</span>
+<span class="ot">&gt;</span>   <span class="kw">newtype</span> <span class="dt">HTML</span> <span class="fu">:-&gt;:</span> x <span class="fu">=</span> <span class="dt">HTMLTrie</span> (<span class="dt">HTML'</span> <span class="fu">:-&gt;:</span> x)
+<span class="ot">&gt;</span>   trie f <span class="fu">=</span> <span class="dt">HTMLTrie</span> (trie (f <span class="fu">.</span> <span class="dt">HTML</span> (trie render')))
+<span class="ot">&gt;</span>   untrie (<span class="dt">HTMLTrie</span> f) (<span class="dt">HTML</span> _ x) <span class="fu">=</span> untrie f x</code></pre></div>
+<p>The data types we defined above are private, so we export smart constructors. The application of a smart constructor ensures we pair up the rendering function with the correct data.</p>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt; text ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">HTML</span>
+<span class="ot">&gt;</span> text t <span class="fu">=</span> embed (<span class="dt">Text</span> t)</code></pre></div>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt; element ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> [<span class="dt">HTML</span>] <span class="ot">-&gt;</span> <span class="dt">HTML</span>
+<span class="ot">&gt;</span> element el children <span class="fu">=</span> embed (<span class="dt">Element</span> el children)</code></pre></div>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt; embed ::</span> <span class="dt">HTML'</span> <span class="ot">-&gt;</span> <span class="dt">HTML</span>
+<span class="ot">&gt;</span> embed <span class="fu">=</span> <span class="dt">HTML</span> (trie render')</code></pre></div>
+<p>All that is left is to define how to render our deep embedding of a HTML tree. This can be done naively with some trusty pattern matching and recursion. We could, of course, also call out to another library like <code>xmlhtml</code>.</p>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt; render' ::</span> <span class="dt">HTML'</span> <span class="ot">-&gt;</span> <span class="dt">String</span>
+<span class="ot">&gt;</span> render' (<span class="dt">Text</span> t) <span class="fu">=</span> trace <span class="st">&quot;** RENDERING TEXT **&quot;</span> t
+<span class="ot">&gt;</span> render' (<span class="dt">Element</span> el children) <span class="fu">=</span>
+<span class="ot">&gt;</span>   trace <span class="st">&quot;** RENDERING ELEMENT **&quot;</span> <span class="fu">$</span>
+<span class="ot">&gt;</span>   <span class="st">&quot;&lt;&quot;</span> <span class="fu">++</span> el <span class="fu">++</span> <span class="st">&quot;&gt;&quot;</span> <span class="fu">++</span> concatMap render children <span class="fu">++</span> <span class="st">&quot;&lt;/&quot;</span> <span class="fu">++</span> el <span class="fu">++</span> <span class="st">&quot;&gt;&quot;</span></code></pre></div>
+<p>There are a few <code>trace</code> calls here so we can see what goes on as we try and evaluate these values. Also, note that <code>render'</code> itself is somewhat shallow - it doesn’t call itself in the recursive position, but instead it calls <code>render</code>:</p>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt; render ::</span> <span class="dt">HTML</span> <span class="ot">-&gt;</span> <span class="dt">String</span>
+<span class="ot">&gt;</span> render (<span class="dt">HTML</span> f x) <span class="fu">=</span> untrie f x</code></pre></div>
+<p><code>render</code> builds the rendering function from the trie at hand, which gets us back to <code>render'</code>. However, this function is also memoized, so only initial calls will enter the function. We export <code>render</code> but keep <code>render'</code> private.</p>
+<h2 id="examples">Examples</h2>
+<p>Let’s start by building a simple document:</p>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt; document ::</span> <span class="dt">HTML</span>
+<span class="ot">&gt;</span> document <span class="fu">=</span> element <span class="st">&quot;div&quot;</span>
+<span class="ot">&gt;</span>              [ element <span class="st">&quot;h1&quot;</span> [ text <span class="st">&quot;Hello!&quot;</span> ]
+<span class="ot">&gt;</span>              , element <span class="st">&quot;p&quot;</span> [ text <span class="st">&quot;Bonjour tout le monde&quot;</span> ]
+<span class="ot">&gt;</span>              ]</code></pre></div>
+<p>When we try and render this, we’ll be forced to do some work:</p>
+<pre><code>... render document
+
+&quot;** RENDERING ELEMENT **
+&lt;div&gt;** RENDERING ELEMENT **
+&lt;h1&gt;** RENDERING TEXT **
+Hello!&lt;/h1&gt;** RENDERING ELEMENT **
+&lt;p&gt;** RENDERING TEXT **
+Bonjour tout le monde&lt;/p&gt;&lt;/div&gt;&quot;
+</code></pre>
+<p>However, if we try and render the same document again (in the same environment), something interesting happens…</p>
+<pre><code>... render document
+&quot;&lt;div&gt;&lt;h1&gt;Hello!&lt;/h1&gt;&lt;p&gt;Bonjour tout le monde&lt;/p&gt;&lt;/div&gt;&quot;
+</code></pre>
+<p>No tracing! The lack of any tracing calls indicates that we never actually did any rendering - instead we returned the memoized value we computed prior. This starts to become really useful when we have functions to modify a document. For example, this combinator appends a child element to a document:</p>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt; (&lt;+/&gt;) ::</span> <span class="dt">HTML</span> <span class="ot">-&gt;</span> <span class="dt">HTML</span> <span class="ot">-&gt;</span> <span class="dt">HTML</span>
+<span class="ot">&gt;</span> html<span class="fu">@</span>(<span class="dt">HTML</span> f (<span class="dt">Text</span> _)) <span class="fu">&lt;+/&gt;</span> _ <span class="fu">=</span> html
+<span class="ot">&gt;</span> (<span class="dt">HTML</span> f (<span class="dt">Element</span> x children)) <span class="fu">&lt;+/&gt;</span> y <span class="fu">=</span> <span class="dt">HTML</span> f (<span class="dt">Element</span> x (children <span class="fu">++</span> [y]))</code></pre></div>
+<p>Taking our original document, we can expand it with another paragraph:</p>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt; document' ::</span> <span class="dt">HTML</span>
+<span class="ot">&gt;</span> document' <span class="fu">=</span>
+<span class="ot">&gt;</span>   document <span class="fu">&lt;+/&gt;</span> (
+<span class="ot">&gt;</span>    element <span class="st">&quot;p&quot;</span> [text <span class="st">&quot;That's an approximation of 'Hello, world!' in French&quot;</span>])</code></pre></div>
+<p>Again, we can <code>render</code> this document:</p>
+<pre><code>... render document'
+&quot;** RENDERING ELEMENT **
+&lt;div&gt;&lt;h1&gt;Hello!&lt;/h1&gt;&lt;p&gt;Bonjour tout le monde&lt;/p&gt;** RENDERING ELEMENT **
+&lt;p&gt;** RENDERING TEXT **
+That's an approximation of 'Hello, world!' in French&lt;/p&gt;&lt;/div&gt;&quot;</code></pre>
+<p>This time we do see some tracing, but only on the elements that have actually changed - in this case the new paragraph, and the container <code>div</code> itself. A final call to <code>render document'</code> does no work and gives us back the rendering:</p>
+<pre><code>... render document'
+&quot;&lt;div&gt;
+&lt;h1&gt;Hello!&lt;/h1&gt;&lt;p&gt;Bonjour tout le monde&lt;/p&gt;
+&lt;p&gt;That's an approximation of 'Hello, world!' in French&lt;/p&gt;&lt;/div&gt;&quot;</code></pre>
+<p>(Line breaks added for clarity)</p>
+<h2 id="concluding-thoughts">Concluding Thoughts</h2>
+<p>I’m pretty blown away with how elegantly Haskell is able to capture such an idea. This work arose as I’m currently exploring some ideas using GHCJS and <code>reactive-banana</code>, so I really do have documents that change over time and need to be fast. While <code>reactive-banana</code> has a network that means I already do minimal recomputation, it’s easy to still pay too much. <code>reactive-banana</code> is based around behaviors, and events can be constructed using <code>Applicative</code>, such that if one changes so does the other. However, beyond this basic dependency information, <code>reactive-banana</code> has no way of knowing what’s “inside” the function.</p>
+<p>One thing that I don’t yet understand though, is how this plays out with memory usage. For example, if I’m caching from my root element, this presumably means every single view that makes it to the browser stays in memory… forever. That seems pretty bad! One easy fix is to annotate my rendering with explicit “don’t cache this” points, but everytime I find a model that requires the programmer to annotate it for performance, my heart sinks.</p>
+<p>I’m sure this work has been discovered before me, so if anyone has any thoughts or pointers to related work, I’m all ears.</p>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2014-11-11-memo-html.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

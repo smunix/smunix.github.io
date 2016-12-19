@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2010-11-24-factories-in-perl.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>Implementing Factories in Perl</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>Implementing Factories in Perl</h1>
+<p>Factories are a useful construct, and even though their usage is common in Java and other heavily biased object-orientation languages, they don’t see as much in more dynamic languages. This doesn’t mean you can’t use them or they don’t have their uses though. In this article, I’m going to try and explain why and when we need to use factories and how we can go about implementing them in Perl.</p>
+<p>This article was inspired be a recent discussion I had with someone in <a href="irc://irc.perl.org/moose/"><code>#moose</code></a>, but hopefully this larger write up will be useful to some people, though understand the concepts here are simple and I’m writing for a different audience than usual. With that introduction over, lets get started!</p>
+<h2 id="what-are-factories">What Are Factories</h2>
+<p>A factory is really just the name for something that creates objects. We could say new is a very specific factory (that only creates objects of the same type as the class), but normally a factory performs a little more logic. We usually use factories when we need to create objects, but we don’t know what type of object until we get to run time. We will work with the following example.</p>
+<p>Our system has <code>Flight</code> objects, and there are different types of <code>Flight</code>s. For now, lets say we have <code>Flight::Holiday</code>s and <code>Flight::Cargo</code>s. Holiday flights take a set of passengers, and cargo flights take a set of cargo items. Our job is to take flight bookings, and store them in a database somehow. As part of our solution to this problem we decide that we will need to create the appropriate <code>Flight</code> object, and then it can be stored.</p>
+<div class="sourceCode"><pre class="sourceCode perl"><code class="sourceCode perl"><span class="kw">package</span> Flight;
+<span class="fu">use</span> <span class="fu">Moose::Role</span>;
+
+<span class="kw">package</span> <span class="fu">Flight::Holiday</span>;
+<span class="fu">use</span> Moose;
+with <span class="kw">'</span><span class="st">Flight</span><span class="kw">'</span>;
+
+has <span class="kw">'</span><span class="st">passengers</span><span class="kw">'</span> =&gt; ( is =&gt; <span class="kw">'</span><span class="st">ro</span><span class="kw">'</span> );
+
+<span class="kw">package</span> <span class="fu">Flight::Cargo</span>;
+<span class="fu">use</span> Moose;
+with <span class="kw">'</span><span class="st">Flight</span><span class="kw">'</span>;
+
+has <span class="kw">'</span><span class="st">cargo</span><span class="kw">'</span> =&gt; ( is =&gt; <span class="kw">'</span><span class="st">ro</span><span class="kw">'</span> );</code></pre></div>
+<p>Simple so far, right? Where do factories come into play? The problem is that the external data we get doesn’t specify which type of flight we need to create! Lets pretend we’re given a hash reference of parameters to new. We would like to inspect this to decide how to create objects. Rather than doing this every time we create a <code>Flight</code>, we should put this in a separate function:</p>
+<div class="sourceCode"><pre class="sourceCode perl"><code class="sourceCode perl"><span class="kw">sub </span><span class="fu">new_flight</span> {
+    <span class="kw">my</span> (<span class="dt">$class</span>, <span class="dt">$data</span>) = <span class="dt">@_</span>;
+    <span class="kw">if</span> (<span class="fu">exists</span> <span class="dt">$data</span>-&gt;{cargo}) {
+        <span class="kw">return</span> <span class="fu">Flight::Cargo</span>-&gt;new(<span class="dt">$data</span>);
+    }
+    <span class="kw">elsif</span> (<span class="fu">exists</span> <span class="dt">$data</span>-&gt;{passengers}) {
+        <span class="kw">return</span> <span class="fu">Flight::Holiday</span>-&gt;new(<span class="dt">$data</span>);
+    }
+    <span class="kw">else</span> {
+        <span class="fu">die</span> <span class="kw">&quot;</span><span class="st">I don't know how to create this type of Flight</span><span class="kw">&quot;</span>;
+    }
+}</code></pre></div>
+<p>Nothing complicated here? Well guess what… we just wrote a factory! Move this to a separate <code>FlightFactory</code> class, and we’re done. We can now create flights by calling <code>FlightFactory-&gt;new_flight({ cargo =&gt; [] })</code> and we will get a <code>Flight::Cargo</code> back.</p>
+<p>Neat.</p>
+<h2 id="going-further">Going Further</h2>
+<p>This is great, we’ve already abstracted the object construction away, but we can do better. There is a problem with our current factory, it introduces multiple points of change. Our factory is also doing too much – why should <code>FlightFactory</code> care about what makes a <code>Flight::Cargo</code>? Surely that’s <code>Flight::Cargo</code>‘s job. Let’s address this issue first:</p>
+<div class="sourceCode"><pre class="sourceCode perl"><code class="sourceCode perl"><span class="kw">sub </span><span class="fu">new_flight</span> {
+    <span class="kw">my</span> (<span class="dt">$class</span>, <span class="dt">$data</span>) = <span class="dt">@_</span>;
+    <span class="kw">if</span> (<span class="fu">Flight::Cargo</span>-&gt;understands(<span class="dt">$data</span>)) {
+        <span class="kw">return</span> <span class="fu">Flight::Cargo</span>-&gt;new(<span class="dt">$data</span>);
+    }
+    <span class="kw">elsif</span> (<span class="fu">Flight::Holiday</span>-&gt;understands(<span class="dt">$data</span>)) {
+        <span class="kw">return</span> <span class="fu">Flight::Holiday</span>-&gt;new(<span class="dt">$data</span>);
+    }
+    <span class="kw">else</span> {
+        <span class="fu">die</span> <span class="kw">&quot;</span><span class="st">I don't know how to create this type of Flight</span><span class="kw">&quot;</span>;
+    }
+}</code></pre></div>
+<p>And we add code like the following to <code>Flight::Holiday</code> and <code>Flight::Cargo</code>:</p>
+<div class="sourceCode"><pre class="sourceCode perl"><code class="sourceCode perl"><span class="kw">sub </span><span class="fu">understands</span> {
+    <span class="kw">my</span> (<span class="dt">$class</span>, <span class="dt">$data</span>) = <span class="dt">@_</span>;
+    <span class="kw">return</span> <span class="fu">exists</span> <span class="dt">$data</span>-&gt;{cargo};
+}</code></pre></div>
+<p>Great! Now the logic for deciding which class to instantiate has been moved to the appropriate area of responsibility. But we still have the problem about multiple points of change. Let’s have a look at that deeper to see what the problem is.</p>
+<p>Imagine our requirements change, and we’re now asked to handle Flight::Personals – people flying their own planes. What changes does this require? Well, we need a Flight::Personal class, that’s for sure:</p>
+<div class="sourceCode"><pre class="sourceCode perl"><code class="sourceCode perl"><span class="kw">package</span> <span class="fu">Flight::Personal</span>;
+<span class="fu">use</span> Moose;
+with <span class="kw">'</span><span class="st">Flight</span><span class="kw">'</span>;
+
+<span class="kw">sub </span><span class="fu">understands</span> {
+    <span class="kw">my</span> (<span class="dt">$class</span>, <span class="dt">$data</span>) = <span class="dt">@_</span>;
+    <span class="kw">return</span> <span class="fu">exists</span> <span class="dt">$data</span>-&gt;{owner};
+}</code></pre></div>
+<p>This should be enough, but it’s not. If we pass <code>{ owner =&gt; 'Ollie' }</code> to <code>new_flight</code> we won’t get a <code>Flight::Personal</code> back because the factory does not yet know about <code>Flight::Personal</code>, so let’s add it in:</p>
+<div class="sourceCode"><pre class="sourceCode perl"><code class="sourceCode perl"><span class="kw">sub </span><span class="fu">new_flight</span> {
+    ...
+    <span class="kw">elsif</span> (<span class="fu">Flight::Personal</span>-&gt;understands(<span class="dt">$data</span>)) {
+        <span class="kw">return</span> <span class="fu">Flight::Personal</span>-&gt;new(<span class="dt">$data</span>);
+    }
+    ...
+}</code></pre></div>
+<p>Wait a minute! I see an abstraction emerging here! We seem to be doing the same sort of code for each branch in our if statement, lets see if we can do better here… maybe it will reveal a solution to the problem we’re investigating</p>
+<div class="sourceCode"><pre class="sourceCode perl"><code class="sourceCode perl"><span class="kw">sub </span><span class="fu">new_flight</span> {
+    <span class="kw">my</span> (<span class="dt">$class</span>, <span class="dt">$data</span>) = <span class="dt">@_</span>;
+
+    <span class="kw">my</span> <span class="dt">@classes</span> = (
+        <span class="fu">Flight::Personal</span>,
+        <span class="fu">Flight::Holiday</span>,
+        <span class="fu">Flight::Cargo</span>;
+    );
+    <span class="kw">for</span> <span class="kw">my</span> <span class="dt">$subclass</span> (<span class="dt">@classes</span>) {
+        <span class="kw">return</span> <span class="dt">$subclass</span>-&gt;<span class="dt">new</span>(<span class="dt">$data</span>)
+            <span class="kw">if</span> <span class="dt">$subclass</span>-&gt;<span class="dt">understands</span>(<span class="dt">$data</span>);
+    }
+
+    <span class="fu">die</span> <span class="kw">&quot;</span><span class="st">I don't know how to create this type of flight</span><span class="kw">&quot;</span>;
+}</code></pre></div>
+<p>Aha! Not only have we abstracted out some repetition and made it easier to change, we’ve reduced the effort to add a new type of Flight. We’re not happy that the factory has to change at all though – can you see how to achieve this yet? We need a way to dynamically set <code>@classes</code>. There are a few ways to do this, but I’ll show you a solution using <a href="http://search.cpan.org/dist/Module-Pluggable/"><code>Module::Pluggable</code></a>:</p>
+<div class="sourceCode"><pre class="sourceCode perl"><code class="sourceCode perl"><span class="kw">package</span> FlightFactory;
+<span class="fu">use</span> <span class="fu">Module::Pluggable</span> search_path =&gt; <span class="kw">'</span><span class="st">Flight</span><span class="kw">'</span>, sub_name =&gt; <span class="kw">'</span><span class="st">classes</span><span class="kw">'</span>;
+
+<span class="kw">sub </span><span class="fu">new_flight</span> {
+    <span class="kw">my</span> (<span class="dt">$class</span>, <span class="dt">$data</span>) = <span class="dt">@_</span>;
+
+    <span class="kw">for</span> <span class="kw">my</span> <span class="dt">$subclass</span> (<span class="dt">$class</span>-&gt;<span class="dt">classes</span>) {
+        <span class="co"># As before</span>
+    }
+}</code></pre></div>
+<p><code>Module::Pluggable</code> gives us the classes class method, which returns all classes under the <code>Flight::</code> namespace. We probably want to be a bit more specific here and make sure we only get things that are concrete classes – checking that they do the <code>Flight</code> role would be a start. I’ll leave this to readers as an exercise.</p>
+<h2 id="dont-reinvent-the-wheel">Don’t reinvent the wheel</h2>
+<p>LeoNerd in the comments below has pointed out that the idiom of looping over clases to filter a specific one, is what <code>Module::PluginFinder</code> was designed for. So, in the spirit of writing even better code, lets try using that! <code>Module::PluginFinder</code> works like <code>Module::Pluggable</code>, but we can specify a filter for matching classes. It can also handle the instantiation for us:</p>
+<div class="sourceCode"><pre class="sourceCode perl"><code class="sourceCode perl"><span class="kw">package</span> FlightFactory;
+<span class="fu">use</span> <span class="fu">Module::PluginFinder</span>;
+
+<span class="kw">my</span> <span class="dt">$finder</span> = <span class="fu">Module::PluginFinder</span>-&gt;new(
+    search_path =&gt; <span class="kw">'</span><span class="st">Flight</span><span class="kw">'</span>,
+    filter =&gt; <span class="kw">sub </span>{
+        <span class="kw">my</span> (<span class="dt">$class</span>, <span class="dt">$data</span>) = <span class="dt">@_</span>;
+        <span class="dt">$class</span>-&gt;<span class="dt">understands</span>(<span class="dt">$data</span>)
+    }
+);
+
+<span class="kw">sub </span><span class="fu">new_flight</span> {
+    <span class="kw">my</span> (<span class="dt">$self</span>, <span class="dt">$data</span>) = <span class="dt">@_</span>;
+
+    <span class="kw">return</span> <span class="dt">$finder</span>-&gt;<span class="dt">construct</span>(<span class="dt">$data</span>, <span class="dt">$data</span>)
+        <span class="kw">or</span> <span class="fu">die</span> <span class="kw">&quot;</span><span class="st">I don't know how to create this type of Flight</span><span class="kw">&quot;</span>;
+}</code></pre></div>
+<h2 id="conclusion">Conclusion</h2>
+<p>Hopefully in this post I’ve given you a clear illustration of the need for factories, when we might want to use them, and how we can implement them. We went past basic factories to make them dynamic, and extendible (even extendible outside the distribution). Along the way, I tried to illustrate this in the approach I would take while I do this at work, which also has hopefully given you a good idea of how you can apply basic refactoring to your code as you write it, and end up with clean, separated code.</p>
+<p>If you want to follow along with this tutorial, I have pushed out a Git repository to <a href="https://github.com/ocharles/OCharles-Blog-Factories">my Github account</a>. You can follow along with this by checking out the code, and then reading the log with patches, in reverse:</p>
+<pre><code>git clone git@github.com:ocharles/OCharles-Blog-Factories.git
+git log --reverse -p</code></pre>
+<p>It’s a little different, as I wrote it after the article, but hopefully it’s useful. This is the first time I’ve tried posting accompanying code, so I’m curious to see how useful people find it. If you want to run Example.pm you will need Moose, Module::Pluggable, and a reasonable version of Perl (5.8 upwards should do the job).</p>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2010-11-24-factories-in-perl.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/guest-posts/2013-12-22-24-days-of-hackage-profunctors.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>24 Days of Hackage: profunctors</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>24 Days of Hackage: profunctors</h1>
+<p><a href="2013-12-21-24-days-of-hackage-contravariant.html">Yesterday</a>, Tom showed us a different type of functor than the ordinary Haskell <code>Functor</code> - the contravariant functor. Today, Tom’s going to guide us through another type of functor - the <em>profunctor</em>.</p>
+<hr />
+<p>Yesterday, we considered the intuition that functors are producers of output, and contravariant functors are consumers of input - and both functors can be adapted to work with different types. What about a datatype that represents both an “adaptable consumer of input” and an “adaptable producer of output” at the same time, i.e. some sort of “pipe” structure? This is exactly what a <code>Profunctor</code> instance is, and again the function arrow <code>a -&gt; b</code> gives us our prototypical example of such a type. A <code>Profunctor</code> has two type parameters, <code>a</code> and <code>b</code>. The first can be thought of as an “input of type <code>a</code>” and can be adapted with a function of type <code>c -&gt; a</code>, like <code>Contravariant</code>. The second can be thought of as an “output of type <code>b</code>” and can be adapted with a function of type <code>b -&gt; d</code>, like <code>Functor</code>. This gives us the following type class:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Profunctor</span> p <span class="kw">where</span>
+<span class="ot">  lmap ::</span> (c <span class="ot">-&gt;</span> a) <span class="ot">-&gt;</span> p a b <span class="ot">-&gt;</span> p c b
+<span class="ot">  rmap ::</span> (b <span class="ot">-&gt;</span> d) <span class="ot">-&gt;</span> p a b <span class="ot">-&gt;</span> p a d
+<span class="ot">  dimap ::</span> (c <span class="ot">-&gt;</span> a) <span class="ot">-&gt;</span> (b <span class="ot">-&gt;</span> d) <span class="ot">-&gt;</span> p a b <span class="ot">-&gt;</span> p c d</code></pre></div>
+<p><code>lmap</code> adapts the input (left hand type variable) and <code>rmap</code> adapts the output (right hand type variable). <code>dimap</code> adapts them both at the same time.</p>
+<p>Much like <code>Functor</code> and <code>Contravariant</code>, <code>Profunctor</code> instances must satisfy some laws. The laws that a <code>Profunctor</code> must satisfy are a combination of the <code>Functor</code> and <code>Contravariant</code> laws for its type parameters:</p>
+<ul>
+<li><code>dimap id id = id</code></li>
+<li><code>dimap (h' . h) (f . f') = dimap h f . dimap h' f'</code></li>
+</ul>
+<p>Furthermore, <code>rmap f</code> should be equivalent to <code>dimap id f</code>, and <code>lmap f</code> should be equivalent to <code>dimap f id</code>. Because of this, the minimal definition of a <code>Profunctor</code> instance is either specifying <code>rmap</code> and <code>lmap</code> in terms of <code>dimap</code>, or <code>dimap</code> in terms of <code>rmap</code> and <code>lmap</code>.</p>
+<p>For functions, the <code>Profunctor</code> instance is:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Profunctor</span> (<span class="ot">-&gt;</span>) <span class="kw">where</span>
+  lmap h g <span class="fu">=</span> g <span class="fu">.</span> h
+  rmap f g <span class="fu">=</span> f <span class="fu">.</span> g
+  dimap h f g <span class="fu">=</span> f <span class="fu">.</span> g <span class="fu">.</span> h</code></pre></div>
+<p>If you study this, you’ll see that <code>lmap</code> adapts a function <code>g</code> by composing <code>h</code> on the right (changing the “input”), while <code>rmap</code> adapts <code>g</code> by composing <code>f</code> on the left (changing the “output”). Using equational reasoning, we can easily prove that this instance does indeed satisfy the laws:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">dimap id id <span class="fu">=</span> \g <span class="ot">-&gt;</span> id <span class="fu">.</span> g <span class="fu">.</span> id <span class="fu">=</span> \g <span class="ot">-&gt;</span> g <span class="fu">=</span> id
+dimap (h' <span class="fu">.</span> h) (f <span class="fu">.</span> f') <span class="fu">=</span> \g <span class="ot">-&gt;</span> (f <span class="fu">.</span> f') <span class="fu">.</span> g <span class="fu">.</span> (h' <span class="fu">.</span> h)
+                        <span class="fu">=</span> \g <span class="ot">-&gt;</span> f <span class="fu">.</span> (f' <span class="fu">.</span> g <span class="fu">.</span> h') <span class="fu">.</span> h
+                        <span class="fu">=</span> \g <span class="ot">-&gt;</span> f <span class="fu">.</span> dimap h' f' g <span class="fu">.</span> h
+                        <span class="fu">=</span> \g <span class="ot">-&gt;</span> dimap h f (dimap h' f' g)
+                        <span class="fu">=</span> dimap h f <span class="fu">.</span> dimap h' f'</code></pre></div>
+<p>So all is well.</p>
+<p>The function arrow is the prototypical example of a profunctor, but it is also probably the most boring one. Here’s a more interesting example: a datatype that represents the concept of a left fold.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">L</span> a b <span class="fu">=</span> forall s<span class="fu">.</span> <span class="dt">L</span> (s <span class="ot">-&gt;</span> b) (s <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> s) s</code></pre></div>
+<p>The left fold is a process that updates state according to its input, and can transform this state into a final result. The datatype contains some value of type <code>s</code> representing the initial state, a map of type <code>s -&gt; a -&gt; s</code> which reads a value <code>a</code> and updates the state accordingly, and a map of type <code>s -&gt; b</code> which converts the final state into the return value. This is a <code>Profunctor</code> or “adaptable pipe with input of type <code>a</code> and output of type <code>b</code>”. (You’ll find this definition in the <a href="http://hackage.haskell.org/package/folds"><code>folds</code></a> package).</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Profunctor</span> <span class="dt">L</span> <span class="kw">where</span>
+  dimap h f (<span class="dt">L</span> result iterate initial) <span class="fu">=</span>
+    <span class="dt">L</span> (f <span class="fu">.</span> result) (\s <span class="ot">-&gt;</span> iterate s <span class="fu">.</span> h) initial
+
+<span class="ot">runFold ::</span> <span class="dt">L</span> a b <span class="ot">-&gt;</span> [a] <span class="ot">-&gt;</span> b
+runFold (<span class="dt">L</span> result iterate initial) <span class="fu">=</span> result <span class="fu">.</span> foldl iterate initial</code></pre></div>
+<p>Here’s a left fold that represents a sum.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">summer ::</span> <span class="dt">Num</span> a <span class="ot">=&gt;</span> <span class="dt">L</span> a a
+summer <span class="fu">=</span> <span class="dt">L</span> id (<span class="fu">+</span>) <span class="dv">0</span>
+
+<span class="ot">testSummer ::</span> <span class="dt">Int</span>
+testSummer <span class="fu">=</span> runFold summer [<span class="dv">1</span><span class="fu">..</span><span class="dv">10</span>]</code></pre></div>
+<pre><code>&gt; testSummer
+55</code></pre>
+<p>This is fine if we’re summing a list of <code>Num</code> instances, but can we use this to fold other types of lists? Of course we can, and to do so we’ll need to change the input type to our fold. Here’s an example of adapting the left fold to a different input and output type.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">lengther ::</span> <span class="dt">L</span> <span class="dt">String</span> <span class="dt">String</span>
+lengther <span class="fu">=</span> dimap length (\s <span class="ot">-&gt;</span> <span class="st">&quot;The total length was &quot;</span> <span class="fu">++</span> show s) summer
+
+<span class="ot">testLengther ::</span> <span class="dt">String</span>
+testLengther <span class="fu">=</span> runFold lengther [<span class="st">&quot;24&quot;</span>, <span class="st">&quot;days&quot;</span>, <span class="st">&quot;of&quot;</span>, <span class="st">&quot;hackage&quot;</span>, <span class="st">&quot;!&quot;</span>]</code></pre></div>
+<pre><code>&gt; testLengther
+&quot;The total length was 16&quot;</code></pre>
+<p>There are not many <code>Profunctor</code> definitions on hackage, although they are used in the internals of <a href="http://hackage.haskell.org/package/lens"><code>lens</code></a>. Personally I have used them heavily in a Haskell relation database EDSL that I have developed (currently private, but which I hope will be open-sourced at some point in the future). In that library there are profunctors which act exactly as the intuition about them suggests: they can be seen as consuming values of one type and producing values of another. For example there is a <code>Profunctor</code> instance for “consuming” the rows returned by a query running on PostgreSQL and “producing” the equivalent values in Haskell.</p>
+<p>Defining a <code>Contravariant</code> or <code>Profunctor</code> instance for your datatype can give you more certainty about the correctness of your code, just like defining a <code>Functor</code> instance can. Unless I am much mistaken, parametricity implies that there is at most one valid <code>Contravariant</code> or <code>Profunctor</code> instance for your datatype. Thus defining such an instance cannot restrict you in any way, and acts as an additional property for the type checker to check that your program satisfies. If you expected your type to be contravariant in its argument, or a profunctor in two arguments, but you can’t write a definition to satisfy the compiler then perhaps you have a bug in your type definition!</p>
+<p>Have a look through your code and if you find suitable datatypes, give yourself the gift of <code>Contravariant</code> and <code>Profunctor</code> instances this Christmas.</p>
+<p>Thanks to merijn on the #haskell IRC channel who suggested the output/input/pipe adaptor analogy.</p>
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/guest-posts/2013-12-22-24-days-of-hackage-profunctors.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

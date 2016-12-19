@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2012-12-07-24-days-of-hackage-aeson.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>24 Days of Hackage: aeson</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>24 Days of Hackage: aeson</h1>
+<p>Many of today’s programmers would likely consider the ability to parse JSON fairly essential when choosing a programming language. With tools like CouchDB, not to mention a large proportion of web services offering JSON (and sometimes <em>only</em> JSON), JSON is unavoidable. Fret not, Haskell is perfectly capable of this task, and in today’s post we will look at <a href="http://www.serpentine.com/blog/">Bryan O’Sullivan</a>’s aeson library.</p>
+<p><a href="http://hackage.haskell.org/package/aeson">Aeson</a> is a small library, offering not much in way of an API - something I regard as a feature. Essentially, <code>aeson</code> consists of a parser, and a pair of To/From JSON classes to convert between JSON and richer Haskell structures.</p>
+<p>These type classes are probably where most people will spend time programming with <code>aeson</code>, so let’s have a look at these first. The <code>ToJSON</code> type class allows you to convert any Haskell value into JSON. <code>Aeson</code> comes with some batteries included, allowing you to convert text, numbers, lists, dates, and more. The <code>FromJSON</code> type class acts in the opposite direction, mapping a JSON AST into Haskell values. Again, there are many instances out of the box.</p>
+<p>Careful readers will have noticed that there are two separate type classes here, rather than one - why is that? After all, wouldn’t the API be simpler if we only had one type class with both <code>toJSON</code> <em>and</em> <code>parseJSON</code>? On the one hand, yes, but by having two classes, we are able to be a lot more flexible. Perhaps our Haskell values contain internal identifiers in their construction, something we don’t want to expose in our JSON web service, so it would be impossible to implement <code>parseJSON</code>. By splitting the type classes, this is now no longer a problem.</p>
+<p>I think it’s time for an example!</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Cheese</span> <span class="fu">=</span> <span class="dt">Cheese</span> {<span class="ot"> cheeseMaturity ::</span> <span class="dt">Maturity</span>
+                     ,<span class="ot"> cheeseWeight ::</span> <span class="dt">Double</span>
+                     <span class="co">-- etc</span>
+                     }
+
+<span class="kw">data</span> <span class="dt">Maturity</span> <span class="fu">=</span> <span class="dt">Strong</span> <span class="fu">|</span> <span class="dt">Mild</span>
+
+<span class="kw">instance</span> <span class="dt">ToJSON</span> <span class="dt">Maturity</span> <span class="kw">where</span>
+  toJSON <span class="dt">Strong</span> <span class="fu">=</span> <span class="dt">String</span> <span class="st">&quot;strong&quot;</span>
+  toJSON <span class="dt">Mild</span>   <span class="fu">=</span> <span class="dt">String</span> <span class="st">&quot;mild&quot;</span>
+
+<span class="kw">instance</span> <span class="dt">FromJSON</span> <span class="dt">Maturity</span> <span class="kw">where</span>
+  parseJSON (<span class="dt">String</span> <span class="st">&quot;strong&quot;</span>) <span class="fu">=</span> pure <span class="dt">Strong</span>
+  parseJSON (<span class="dt">String</span> <span class="st">&quot;mild&quot;</span>)   <span class="fu">=</span> pure <span class="dt">Mild</span>
+  parseJSON _                 <span class="fu">=</span> fail <span class="st">&quot;Unknown cheese strength!&quot;</span>
+
+<span class="kw">instance</span> <span class="dt">ToJSON</span> <span class="dt">Cheese</span> <span class="kw">where</span>
+  toJSON <span class="dt">Cheese</span>{<span class="fu">..</span>} <span class="fu">=</span> object [ <span class="st">&quot;maturity&quot;</span> <span class="fu">.=</span> cheeseMaturity
+                             , <span class="st">&quot;weight&quot;</span> <span class="fu">.=</span> cheeseWeight
+                             ]
+
+<span class="kw">instance</span> <span class="dt">FromJSON</span> <span class="dt">Cheese</span> <span class="kw">where</span>
+  parseJSON (<span class="dt">Object</span> o) <span class="fu">=</span> <span class="dt">Cheese</span> <span class="fu">&lt;$&gt;</span> o <span class="fu">.:</span> <span class="st">&quot;maturity&quot;</span>
+                                <span class="fu">&lt;*&gt;</span> o <span class="fu">.:</span> <span class="st">&quot;weight&quot;</span>
+  parseJSON _ <span class="fu">=</span> fail <span class="st">&quot;Failed to parse cheese!&quot;</span></code></pre></div>
+<p>As you can see, <code>aeson</code> provides some nice combinators for implementing <code>toJSON</code> - <code>object</code> and <code>.=</code> combine to provide an expressive readable EDSL for building up JSON structures. As I’m stressing throughout this series, combinators let us build up complexity from small building blocks. Combinators, combinators, combinators!</p>
+<p><code>FromJSON</code> also benefits from a rich parser, and this time you don’t have to learn anything new! All parsing is done in the <code>Parser</code> <code>Monad</code>, which is also an <code>Applicative</code> functor, which we take advantage to construct <code>Cheese</code>!</p>
+<p><code>Parser</code> provides even more than that though - there is also an <code>Alternative</code> instance so you can try parsing multiple representations - which comes in really handy when dealing with multiple versions of a web service!</p>
+<p><code>Aeson</code> can also be used to work directly with the AST too , you don’t have to write <code>To</code>/<code>FromJSON</code> instances if you don’t want. The AST is simple, in fact the Value data type is just the sum of string, array, object, number and null constructors. <a href="http://chrisdone.com/">Chris Done</a> has written some <a href="http://chrisdone.com/aeson/dist/doc/html/aeson/Data-Aeson.html">great documentation</a> on why you might want to do this. Hopefully soon <code>aeson</code> will have a new release and this will be on Hackage for all the world to see.</p>
+<p>So there we have it, a great API with a fast implementation and type safety - is there anything Haskell can’t do?</p>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2012-12-07-24-days-of-hackage-aeson.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

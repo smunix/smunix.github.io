@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2012-07-20-nes-does-it-better-2.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>NES Does it Better: Building NES</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>NES Does it Better: Building NES</h1>
+<p>In the <a href="2012-07-10-nes-does-it-better-1.html">previous article</a> we looked at why MusicBrainz needs NES, and summarised the major components. In this article, we’ll have a look at the design decisions behind NES, and how I reached I came to this final design.</p>
+<h2 id="requirements">Requirements</h2>
+<p>We looked at the problems in more detail in the previous post, but lets reiterate them so we all understand where we’re trying to head:</p>
+<ul>
+<li><p>Simpler code base. Ideally we don’t want to have different edit types, and would prefer to have a simpler interface for making changes.</p></li>
+<li><p>Database integration. Rather than having a separate database with a separate schema, integrate with the database so FKs and other data integrity checks are valid.</p></li>
+<li><p>Full versioning. It should be possible to rollback changes to entities. This is more than just undoing basic changes, we should be able to undo entire deletes and merges.</p></li>
+<li><p>Deferred application. It’s still important that some changes have to be voted on before they are applied.</p></li>
+<li><p>Aggregated changes. It should be possible to make changes between entities in one go - for example adding a release and adding new artists at the same time.</p></li>
+</ul>
+<p>Now that we know the problems we are trying to solve, lets derive a better edit system!</p>
+<h2 id="deriving-nes">Deriving NES</h2>
+<p>I will now walk you through a derivation of the new edit system. We will consider the <code>artist</code> table first, but the steps apply to any other entity. We will begin with a schema that is almost identical to the current MusicBrainz schema, and then slowly turn it into the schema that NES uses.</p>
+<h3 id="versioning-101">Versioning 101</h3>
+<p>The <code>artist</code> table contains all basic data for an artist - the artist’s name, when they were born/founded, the ‘latest’ MBID for the artist, and so on. There are also various tables joined to <code>artist</code>, such as <code>artist_alias</code>, <code>artist_ipi</code>.</p>
+<p>These tables currently only have enough data to version a single version of an artist. If we introduce another increasing integer column, <code>revision_id</code>, we now support multiple versions of artists. As the <code>artist</code> table now really contains revisions (versions) of artists, lets rename it <code>artist_revision</code>. This table now has a primary key on <code>(mbid, revision_id)</code>.</p>
+<p>As the primary key has changed, this means we have to change the foreign key for all the other tables that refer to artists. In the case of <code>artist_alias</code> it makes sense to use <code>(mbid, revision_id)</code> as an alias only exists for a specific version of an artist - aliases can change or be deleted. However, for some other data such as ratings and tags, the data is not dependent on a version so it seems incorrect to have to specify the version of an artist a tag applies to. Lets reintroduce an <code>artist</code> table, but in this case it will only contain the unique MBIDs of artists. Now <code>artist_tag</code> can point to the <code>artist</code> table. Perfect!</p>
+<h3 id="trees">Trees</h3>
+<p>Stepping back from artists, and looking at versioning more generally, we can see there are 3 main components to versioned data. The data itself; revisions, which associate meta-data with a link to the actual data; and entities which pull it all together and provide us with a way to point a public facing ID (in our case, MBIDs) with a canonical master revision.</p>
+<p>Yet our current schema seems to blur the first 2 aspects together - the data itself has a very close tie to the actual revision. If we split this abstraction, we gain more power. This split comes from ‘tree’ objects.</p>
+<p>If you imagine your computer, your data is laid out in a tree. You have lots of files and folders. The same can apply to artists. Running with the file system analogy, an artist has basic data (a file), and a list of aliases (a folder with alias files). So we have an <code>artist_tree</code>, and this artist tree has <code>artist_data</code> and <code>artist_alias</code> links. <code>artist_revision</code> now has a pointer to the <code>artist</code> it belongs to, the <code>artist_tree</code> containing all its data, and a <code>revision_id</code> column.</p>
+<p>Interestingly, it’s now really simple to do rollbacks. Say we have version 1 of an artist, and make some changes to produce version 2. However, these changes were completely incorrect and we’d like to go back to version 1, while also capturing the fact that we have explicitly reverted changes. All we have to do is create a new revision, and point back to the ‘version 1’ artist tree. Simple!</p>
+<h3 id="credit-where-credit-due">Credit Where Credit Due</h3>
+<p>We’re now at a stage where we have a schema that can have data changed, and we keep a full history. The data is all inside the database, and we benefit from PostgreSQL doing all sorts of data integrity checks. However, it’s not very social - there’s no way of associating this work with the user who actually did that work. Furthermore, we would benefit from a bit of extra meta-data - importantly when the change was created.</p>
+<p>This meta-data is quite general, so lets begin modelling it independent of other data for now. We create a <code>revision</code> table with a unique <code>revision_id</code>, and a reference to an <code>editor_id</code>. We also store the time the revision was created with a <code>created_at</code> timestamp.</p>
+<p>Now all that’s left is to unite our grand revision table with the artist stuff we already worked on. There’s a reason we took a little detour with the tree objects as well, now that all the artist data is dependent on the <code>artist_tree</code>, we can re-purpose the <code>artist_revision.revision_id</code> column and link this to <code>revision</code> objects.</p>
+<h3 id="deferring-edits">Deferring Edits</h3>
+<p>Reflecting back on our requirements list we have achieved most of the versioning requirement, certainly achieved full database integration, but we’re lacking deferred edits. This is where things might get a little bit complicated, so hold on to your seats!</p>
+<p>To defer edits we need to record a change the moment an editor makes it, but <em>not</em> change the representation of what is considered canonical (that is, what people will see on the web site). Our system lets us make whatever changes we like, but if we simply take the latest changes, we lose the ability to defer changes. What we need is a way to explicitly point an artist MBID to a known revision and change this when deferred changes passed peer review.</p>
+<p>We augment the <code>artist</code> table to gain a new column, <code>publisher_revision_id</code> which points to an <code>artist_revision</code> that is considered peer reviewed. Now we can freely make other revisions without impacting the published data.</p>
+<p>To apply these changes later we will need a merge, specifically a three-way merge between the new changes, the currently published version, and the common base between the new changes and the current version. To do this, revisions are linked together via the <code>revision_parent</code> table. This lets us say that if we have revision 1 and we make changes to get to revision 2, revision 1 is the <em>parent</em> of revision 2. A revision can have multiple children, but interestingly a child can have multiple parents - if we merge revision 1 into revision 2, we create revision 3 which has parents revision 2 <em>and</em> revision 1. This is what is known as a directed acyclic graph, DAG.</p>
+<h3 id="might-i-make-a-request">Might I Make a Request?</h3>
+<p>We’re almost there! We now have multiple, in database versions of entities, with the ability to defer these changes until later. What we don’t have though, is a way to discuss these changes, and a way to request peer-review. This is where merge requests come in.</p>
+<p>If we think of edits as very small changes, akin to the undo log in a text editor, the merge request is much larger operation. A merge request is made when an editor has finished all of their work, and they wish to request peer review. Merge requests have a special place on the website where people can view all of the changes that are being made, and have the ability to discuss these changes. People can vote on merge requests to vote whether they agree with the changes, or disagree with them. Using the current MusicBrainz model, these are about as close as you can get to the old ‘edits’.</p>
+<p>In terms of data, a merge request contains one or more revisions to merge. I say one or more, as this allows us to merge changes to an artist, a release, and a label, all in one go. These revisions must be unique over MBIDs, it wouldn’t make much sense to merge multiple versions of the same artist!</p>
+<h2 id="are-we-there-yet">Are We There Yet?</h2>
+<p>I wish. NES is a very large project, and is going to take a lot of coordination to get to. I currently have implemented the NES schema for MusicBrainz entirely, but it’s a bit useless if there’s nothing using it! The next major chunk of work is to integrate NES with the MusicBrainz web site and web service. We’re currently trying to figure out how to get there, and doing some rethinking of our MusicBrainz architecture at the same time.</p>
+<p>I did plan to have some concrete plans to share with you, but I sadly do not have these yet. We are currently focusing on how to re-architect MusicBrainz in site of NES. I will share these details as I get them!</p>
+<p>In spite of all the technology planning we have to do, there’s still NES work that you can help with - question it! I encourage lots of discussion about NES, and the best place to do this is within the various MusicBrainz discussion channels - musicbrainz-devel and #musicbrainz-devel are both areas I am very active in, if you need to get directly to me.</p>
+<p>A wiki page will be coming shortly to try and consolidate NES work, and will feature a schema diagram and explanation of tables, but without all the hand-holding and motivation that is in these blog posts.</p>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2012-07-20-nes-does-it-better-2.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

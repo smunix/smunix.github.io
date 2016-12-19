@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2013-02-12-quick-dsls-with-endo-writers.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>Quick and Easy DSLs with Writer Endo</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>Quick and Easy DSLs with Writer Endo</h1>
+<p>In the last week, I’ve had to briefly take off my beloved programmer hat and wear my slightly less fetching management hat. We have a complex project in the works and need to do some planning to understand which tasks are critical, which are flexible, and what options we have to realise the plan. I ended up using <a href="http://taskjuggler.org/">TaskJuggler</a> but couldn’t help but wonder - how would this look if Haskell was my declaration language?</p>
+<p>If you’ve never used TaskJuggler, its a great piece of software that uses its own language to declare the topology of a project, if you will. You are given primitives such as tasks and projects, in order to create a dependency graph that can then be scheduled. For example, a minimal project might be:</p>
+<pre><code>project worldDom &quot;World domination&quot;
+task write &quot;Write blog post&quot;
+task post &quot;Post to reddit&quot;
+task unknown &quot;???&quot;
+task profit &quot;Acquire profit&quot;</code></pre>
+<p>In this post, we’ll look at mimicking this type of DSL in Haskell.</p>
+<p>Before we can begin writing our language, we need to have the data structures that the language will use as building blocks. Here is a plausible model:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Project</span> <span class="fu">=</span> <span class="dt">Project</span> {<span class="ot"> projectName ::</span> <span class="dt">String</span>
+                       ,<span class="ot"> projectStartDate ::</span> <span class="dt">Day</span>
+                       ,<span class="ot"> projectEndDate ::</span> <span class="dt">Maybe</span> <span class="dt">Day</span>
+                       ,<span class="ot"> projectTasks ::</span> [<span class="dt">Task</span>]
+                       }
+
+<span class="kw">data</span> <span class="dt">Task</span> <span class="fu">=</span> <span class="dt">Task</span> {<span class="ot"> taskName ::</span> <span class="dt">String</span> }</code></pre></div>
+<p>Armed with these data types, we are ready to build our DSL. Translating the original example, I desire to write something like the following:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">worldDom <span class="ot">&lt;-</span> project <span class="st">&quot;World domination&quot;</span> startDate <span class="fu">$</span> <span class="kw">do</span>
+  task <span class="st">&quot;Write blog post&quot;</span>
+  task <span class="st">&quot;Post to reddit&quot;</span>
+  task <span class="st">&quot;???&quot;</span>
+  task <span class="st">&quot;Acquire profit&quot;</span></code></pre></div>
+<p>The syntax is clean, and hopefully readable by non-Haskell programmers. How can we realise this syntax?</p>
+<p>A good tool for this is the <code>Writer</code> monad, a monad which allows us to accumulate changes in some monoid. But which monoid? Is <code>Project</code> a monoid? Sadly, no. Notice how we made the start date of the project required - in order to be able to make our <code>Project</code> into a monoid we would need some concept of the empty <code>Project</code>, and we’re stuck needing the ill-defined “empty date”.</p>
+<p>So if <code>Project</code> isn’t a monoid, is there anyway to use it in a monoid? There certainly is, and before we look at the answer, let’s consider the following:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">withTask ::</span> <span class="dt">Task</span> <span class="ot">-&gt;</span> <span class="dt">Project</span> <span class="ot">-&gt;</span> <span class="dt">Project</span>
+withTask t p <span class="fu">=</span> p { projectTasks <span class="fu">=</span> projectTasks p <span class="fu">&lt;&gt;</span> [t] }
+
+worldDom <span class="fu">=</span>
+  withTask <span class="st">&quot;Write blog post&quot;</span>
+    (withTask <span class="st">&quot;Post to reddit&quot;</span>
+      (withTask <span class="st">&quot;???&quot;</span>
+        (withTask <span class="st">&quot;Acquire profit&quot;</span>
+          <span class="dt">Project</span> { <span class="fu">...</span> })))</code></pre></div>
+<p>Notice how we’re chaining together a bunch of transformations on a <code>Project</code>? This looks like a monoid! But wait, you suspiciously call out, what about the empty element? That would have to take a <code>Project</code> and perform no modifications - the identity transformation. We have that element at our disposal too, its just the standard <code>id</code> function from the prelude.</p>
+<p>The monoid of repeated <code>a -&gt; a</code> transformations along with <code>id</code> as the empty element is called the <code>Endo a</code> monoid, and we’re specifically interested in <code>Endo Project</code>.</p>
+<p>Finally, we have our monoid, and we’re ready to define our first construct, <code>task</code>. <code>task</code> should take a project to itself, but with one more task appended. This transformation is what we defined as <code>withTask</code> earlier. All we need to do now, is this wrap this transformation up into <code>Endo</code> and write into our monad:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">task ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Writer</span> (<span class="dt">Endo</span> <span class="dt">Project</span>) <span class="dt">Task</span>
+task name <span class="fu">=</span> <span class="kw">do</span>
+    tell <span class="fu">$</span> <span class="dt">Endo</span> (\p <span class="ot">-&gt;</span> withTask t p)
+    return t
+  <span class="kw">where</span>
+    t <span class="fu">=</span> <span class="dt">Task</span> { taskName <span class="fu">=</span> name }
+    withTask t p <span class="fu">=</span> p { projectTasks <span class="fu">=</span> projectTasks p <span class="fu">&lt;&gt;</span> [t] }</code></pre></div>
+<p>I’ve also made the task construct return the newly constructed task, which we allow us to refer to this task in other tasks. For example, we might later extend our DSL to support something like:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">a <span class="ot">&lt;-</span> task <span class="st">&quot;A&quot;</span> (pure ())
+b <span class="ot">&lt;-</span> task <span class="st">&quot;B&quot;</span> <span class="fu">$</span> <span class="kw">do</span>
+  dependOn a</code></pre></div>
+<p>The last step is to run all of this to produce a final <code>Project</code> value, and we do this through the <code>project</code> function:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">project ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Day</span> <span class="ot">-&gt;</span> <span class="dt">Writer</span> (<span class="dt">Endo</span> <span class="dt">Project</span>) a <span class="ot">-&gt;</span> <span class="dt">Project</span>
+project name start projectBuilder <span class="fu">=</span> appEndo (execWriter projectBuilder)
+  <span class="dt">Project</span> { projectName <span class="fu">=</span> name
+          , projectStartDate <span class="fu">=</span> start
+          , projectEndDate <span class="fu">=</span> <span class="dt">Nothing</span>
+          , projectTasks <span class="fu">=</span> mempty
+          }</code></pre></div>
+<p>We take our project builder - the <code>Writer (Endo Project) a</code> action, and run it for its side effects discarding the result. This yields a function that is <code>Project -&gt; Project</code>, so we simply apply a start <code>Project</code> to this, and are returned a <code>Project</code> with all the transformations we requested.</p>
+<p>Now that we’ve seen a general technique for building DSLs on top of pretty much any data type, its worth asking what we gain from doing so. Amongst other things, some advantages are:</p>
+<ul>
+<li>Monad transformers compose.</li>
+</ul>
+<p>For example, we could also use <code>WriterT (Endo Project) IO</code> as our monad, which would let us perform arbitrary IO while defining the tasks of a project. We might take advantage of this to query a bug tracker, and create a project from known bug reports.</p>
+<ul>
+<li>Shallow embedding gives us many tools for free.</li>
+</ul>
+<p>While the final project tree we build up is a <a href="http://www.haskell.org/haskellwiki/Embedded_domain_specific_language#Degree_of_embedding">deep embedding</a>, we have a somewhat shallow embedding in the monad. This lets use take advantage of all the existing Haskell functions to build up our project. For example, if we want to conditionally include a task, we can use <code>Control.Monad.when</code>, and if we want to include a list of tasks, we can use <code>Control.Monad.mapM</code>.</p>
+<ul>
+<li>We don’t need to write a parser.</li>
+</ul>
+<p>The less code we have to write, the less bugs we risk introducing! By using a <code>Writer</code> monad, we essentially got the parser ‘for free’ - it’s the Haskell parser itself.</p>
+<p>All of this is very new to me, so if you have other thoughts on how this DSL could be nicer, I’d love to hear your thoughts.</p>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2013-02-12-quick-dsls-with-endo-writers.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/guest-posts/2014-12-22-template-haskell.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>24 Days of GHC Extensions: Template Haskell</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>24 Days of GHC Extensions: Template Haskell</h1>
+<p>Today I’m happy to announce another guest post; this time <a href="http://fieldsofgoldfish.posthaven.com/">Sean Westfall</a> is going to give us an extensive run down on Template Haskell. Template Haskell is a somewhat contentious extension, but still remains an important tool in the Haskellers toolbox, allowing us to solve problems concisely. Sean’s gone in to a great amount of detail in this post, and you’ll be sure to take something away with you.</p>
+<hr />
+<p>Template Haskell is an extension of Haskell 98 that allows for compile-time metaprogramming – allowing one to directly convert back and forth between concrete Haskell syntax and the underlying abstract syntax tree (AST) of GHC. Anyone familiar with Lisp’s macro system will immediately recognize the similarities – though in Haskell, specific datatypes are used to represent an AST that is used to draw and splice back in code fragments. The ability to generate code at compile time allows one to implement macro-like expansions, polytypic programs, user directed optimization (such as inlining), and the generation of supporting data structures and functions from existing data structures and functions.<a href="#fn1" class="footnoteRef" id="fnref1"><sup>1</sup></a></p>
+<p>In brief, Oxford brackets <code>[|</code> and <code>|]</code> are used to get the abstract syntax tree for the enclosed expression and ‘splice’ brackets <code>$(</code> and <code>)</code> are used to convert from the abstract syntax tree back into Haskell. The Quotation Monad is used to give unique names to the parsed tokens from the supplied Haskell code, and reification can be used to look up the name, type, constructor, and state of expression, and as well as the AST of Haskell types.<a href="#fn2" class="footnoteRef" id="fnref2"><sup>2</sup></a></p>
+<p>Template Haskell was introduced by Tim Sheard and Simon Peyton Jones in their paper “Template Meta-Programming for Haskell” (The original paper can be found <a href="http://research.microsoft.com/en-us/um/people/simonpj/papers/meta-haskell/meta-haskell.pdf">here</a>) in 2002, though its changed quite a bit since (see <a href="http://research.microsoft.com/en-us/um/people/simonpj/tmp/notes2.ps">here</a>). It was inspired by C++ templates, though TH is functionally more similar to a macro system. <a href="http://hackage.haskell.org/package/template-haskell-2.9.0.0/docs/Language-Haskell-TH-Quote.html">Quasiquotation</a> is often used in conjunction with Template Haskell, but makes up a pretty big section, so I will only briefly describe it here. Only another full article of its own, could do quasiquotation justice.</p>
+<p>In the wild, Template Haskell is used extensively by Yesod for routing and HTML template binding.<a href="#fn3" class="footnoteRef" id="fnref3"><sup>3</sup></a> Outside of Haskell, compile-time metaprogramming is used for the creation of Domain Specific Languages (DSLs), typically in the domains of testing and modeling, and generative metaprogramming (compile-time or not) for object relational mapping, typically for mapping database schemas to non-compiled code. And within Lisp, which is famous for it’s macro system, metaprogramming is used to create syntax extensions (syntactic sugar), such as the syntax used in lisp comprehensions.<a href="#fn4" class="footnoteRef" id="fnref4"><sup>4</sup></a></p>
+<hr />
+<p><em>All code in this guide was executed with GHCi version 7.6.3 and Template Haskell version 2.9.0.0</em></p>
+<p>To get started, start up GHCi with the Template Haskell extension by including <code>-XTemplateHaskell</code>, then load the AST datatypes:</p>
+<pre><code>$ ghci -XTemplateHaskell
+Prelude&gt; :m + Language.Haskell.TH
+Prelude Language.Haskell.TH&gt;</code></pre>
+<p>To see the AST syntax of some Haskell code insert valid Haskell syntax into oxford brackets and run it through <code>runQ</code> which stands for the Q monad (quotation monad):</p>
+<pre><code>&gt; runQ [| 1 + 2 |]
+InfixE (Just (LitE (IntegerL 1))) (VarE GHC.Num.+) (Just (LitE (IntegerL 2)))</code></pre>
+<p>If you parse through the parentheses you’ll see the return expression forms a tree – an abstract syntax tree!</p>
+<div class="figure">
+<img src="https://raw.githubusercontent.com/seanwestfall/templatehaskell/master/syntax_tree.png" alt="abstract syntax tree" />
+<p class="caption">abstract syntax tree</p>
+</div>
+<p>Checkout the lift class <a href="http://hackage.haskell.org/package/template-haskell-2.7.0.0/docs/src/Language-Haskell-TH-Syntax.html#Lift">source</a>, which is what’s being invoked by the oxford brackets. The Language.Haskell.TH.Syntax contains the definitions of all the types used in the AST. Using these types, it’s possible to construct any fragment of the Haskell language. Have a look at the <a href="http://hackage.haskell.org/package/template-haskell-2.9.0.0/docs/Language-Haskell-TH-Syntax.html#t:Lit">Lit</a> data type as an example. Lit stands for literal,</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Lit</span> <span class="fu">=</span> <span class="dt">CharL</span> <span class="dt">Char</span>
+         <span class="fu">|</span> <span class="dt">StringL</span> <span class="dt">String</span>
+         <span class="fu">|</span> <span class="dt">IntegerL</span> <span class="dt">Integer</span>     <span class="co">-- ^ Used for overloaded and non-overloaded</span>
+                                <span class="co">-- literals. We don't have a good way to</span>
+                                <span class="co">-- represent non-overloaded literals at</span>
+                                <span class="co">-- the moment. Maybe that doesn't matter?</span>
+         <span class="fu">|</span> <span class="dt">RationalL</span> <span class="dt">Rational</span>   <span class="co">-- Ditto</span>
+         <span class="fu">|</span> <span class="dt">IntPrimL</span> <span class="dt">Integer</span>
+         <span class="fu">|</span> <span class="dt">WordPrimL</span> <span class="dt">Integer</span>
+         <span class="fu">|</span> <span class="dt">FloatPrimL</span> <span class="dt">Rational</span>
+         <span class="fu">|</span> <span class="dt">DoublePrimL</span> <span class="dt">Rational</span>
+         <span class="fu">|</span> <span class="dt">StringPrimL</span> <span class="dt">String</span>	<span class="co">-- ^ A primitive C-style string, type Addr#</span>
+    <span class="kw">deriving</span>( <span class="dt">Show</span>, <span class="dt">Eq</span>, <span class="dt">Data</span>, <span class="dt">Typeable</span> )</code></pre></div>
+<p>tokens represented by it make up literals defined throughout your syntax in the AST, as you can see in our example AST above. Within Language.Haskell.TH.syntax, 35 generic data types are declared with the <a href="http://hackage.haskell.org/package/base-4.6.0.1/docs/Data-Data.html">Data.Data</a> module. If you’re curious about what the AST syntax is referring to study the <a href="http://hackage.haskell.org/package/template-haskell-2.7.0.0/docs/src/Language-Haskell-TH-Syntax.html#line-716">source</a>.</p>
+<p>The <a href="http://hackage.haskell.org/package/template-haskell-2.9.0.0/docs/Language-Haskell-TH-Syntax.html#t:Q">Q</a> monad handles the expression’s typing via context, and also gives it a unique <a href="http://hackage.haskell.org/package/template-haskell-2.9.0.0/docs/src/Language-Haskell-TH-Syntax.html#newName">name</a> by appending an integer at the end of the expression name to handle scoping distinction. Quotations are lexically scoped and the Q monad handles this using it’s naming scheme. (see the user’s guide <a href="https://downloads.haskell.org/~ghc/latest/docs/html/users_guide/template-haskell.html">wiki</a> for a more in depth explanation of TH’s lexical scoping).</p>
+<p>Let’s bind the returned AST expression from the example above to Haskell and evaluate it, using the splice brackets:</p>
+<pre><code>&gt; $( return (InfixE (Just (LitE (IntegerL 1))) (VarE (mkName &quot;+&quot;)) (Just (LitE (IntegerL 2)))))
+3</code></pre>
+<p>Ta da, you converted concrete Haskell to AST and then evaluated it. Though, as you can see, identifiers have to be defined with the <code>mkName</code> type in the AST to evaluate properly.</p>
+<p>It’s possible to avoid having to modify the AST to splice it back, but you’ll have to bind it to a variable, as my next example illustrates:</p>
+<p>In this example, the Fibonacci sequence is generated using zipWith:<a href="#fn5" class="footnoteRef" id="fnref5"><sup>5</sup></a></p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">let</span><span class="ot"> fibs ::</span> [<span class="dt">Integer</span>]
+    fibs <span class="fu">=</span> <span class="dv">0</span> <span class="fu">:</span> <span class="dv">1</span> <span class="fu">:</span> zipWith (<span class="fu">+</span>) fibs (tail fibs)
+
+<span class="kw">let</span><span class="ot"> fibQ ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Q</span> <span class="dt">Exp</span>
+    fibQ n <span class="fu">=</span> [<span class="fu">|</span> fibs <span class="fu">!!</span> n <span class="fu">|</span>]</code></pre></div>
+<p>Now run <code>$( ... )</code> to excute the expansion:</p>
+<pre><code>&gt; $(fibQ 22)
+17711</code></pre>
+<p>TH splices in the expression that <code>fibQ</code> represents along with the variable (that is <code>fibs !! n</code>).</p>
+<p>Note, expressions and splices can be nested:</p>
+<pre><code>&gt; $(runQ [| fibs !! $( [| 8 |]) |])
+21</code></pre>
+<p>I’ll explain TH’s syntax next – but after, I’ll show some more impressive examples that show the possibilities of splicing and ASTs.</p>
+<h4 id="syntax">Syntax</h4>
+<p>Template Haskell quotation expression come with 4 different parser types, and an extensive 5th optional type that allows one to define their own types of quotations, called quasi-quotations.</p>
+<ul>
+<li><p><code>[| ... |]</code>, or <code>[e| ... |]</code>, generates expression AST syntax; it has the type <code>Q Exp</code>.</p>
+<pre><code>&gt; runQ [| 1 + 2 |]
+InfixE (Just (LitE (IntegerL 1))) (VarE GHC.Num.+) (Just (LitE (IntegerL 2)))</code></pre></li>
+<li><p><code>[d| ... |]</code>, generates a list of top-level declaration AST sytnax; it has the type <code>Q [Dec]</code>.</p>
+<pre><code>&gt; runQ [d|x = 5|]
+[ValD (VarP x_4) (NormalB (LitE (IntegerL 5))) []]</code></pre></li>
+<li><p><code>[t| ... |]</code>, generates a type AST syntax; it has the type <code>Q Type</code>.</p>
+<pre><code>&gt; runQ [t|Int|]
+ConT GHC.Types.Int</code></pre></li>
+<li><p><code>[p| ... |]</code>, generates a pattern AST syntax; it has the type <code>Q Pat</code>.</p>
+<pre><code>&gt; runQ [p|(x,y)|]
+TupP [VarP x_5,VarP y_6]</code></pre></li>
+<li><p>Custom “quasi-quotations”, have the form <code>[&quot;quoter&quot;| ... |]</code>. The “quoter” can be anything except e, d, t, and p, and the token cannot contain spaces. Though, all GHC is doing is determining which parser to use based on the context within the oxford brackets.<a href="#fn6" class="footnoteRef" id="fnref6"><sup>6</sup></a></p>
+<p>Quasi-quotations is a big second part to meta-programming. They’re essentially what makes it possible to write DSLs. I’m not going to cover it here since this guide is pretty long as it is, but if you’re interested, there are many guides to using quasi-quotations, find them <a href="https://www.cs.drexel.edu/~mainland/publications/mainland07quasiquoting.pdf">here</a>, <a href="https://downloads.haskell.org/~ghc/latest/docs/html/users_guide/template-haskell.html#th-quasiquotation">here</a>, and <a href="https://www.fpcomplete.com/user/marcin/quasiquotation-101">here</a> (this one assumes you’re familiar with Parsec parsing).</p></li>
+</ul>
+<p>An important restriction on Template Haskell to remember is <em>when inside a splice you can only call functions defined in imported modules, not functions defined elsewhere in the same module.</em> Quotations and splice have to be defined in separate modules, otherwise you’ll see this error:</p>
+<pre><code>GHC stage restriction:
+  `...' is used in a top-level splice or annotation,
+  and must be imported, not defined locally</code></pre>
+<p>Though, if you’re just binding variables in GHCi with <code>let</code>, you don’t have to worry about this – only when you’re compiling Haskell.</p>
+<h4 id="debugging-and-reification">Debugging and Reification</h4>
+<p>You’re probably wondering if you can evaluate a Q expression the other way, to see what the splice is evaluating. Of course you can – run <code>runQ(Q exp) &gt;&gt;= putStrLn.pprint</code> to see what an expression with a <code>Q Exp</code> type will evaluate to:</p>
+<pre><code>&gt; let myExp :: Q Exp; myExp = runQ [| 1 + 2 |]
+&gt; runQ(myExp) &gt;&gt;= putStrLn.pprint
+1 GHC.Num.+ 2</code></pre>
+<p>If you want to see the expansion of splices, use the flag <code>-ddump-splices</code> when starting GHCi : <code>ghci -XTemplateHaskell -ddump-splices</code>.</p>
+<p>Now let’s test it on another fun example with primes:<a href="#fn7" class="footnoteRef" id="fnref7"><sup>7</sup></a></p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">let</span><span class="ot"> isPrime ::</span> (<span class="dt">Integral</span> a) <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">Bool</span>
+    isPrime k <span class="fu">|</span> k <span class="fu">&lt;=</span><span class="dv">1</span> <span class="fu">=</span> <span class="dt">False</span> <span class="fu">|</span> otherwise <span class="fu">=</span> not <span class="fu">$</span> elem <span class="dv">0</span> (map (mod k)[<span class="dv">2</span><span class="fu">..</span>k<span class="fu">-</span><span class="dv">1</span>])
+
+<span class="kw">let</span><span class="ot"> nextPrime ::</span> (<span class="dt">Integral</span> a) <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> a
+    nextPrime n <span class="fu">|</span> isPrime n <span class="fu">=</span> n <span class="fu">|</span> otherwise <span class="fu">=</span> nextPrime (n<span class="fu">+</span><span class="dv">1</span>)
+
+<span class="co">-- returns a list of all primes between n and m, using the nextPrime function</span>
+<span class="kw">let</span><span class="ot"> doPrime ::</span> (<span class="dt">Integral</span> a) <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> [a]
+    doPrime n m
+        <span class="fu">|</span> curr <span class="fu">&gt;</span> m <span class="fu">=</span> []
+        <span class="fu">|</span> otherwise <span class="fu">=</span> curr<span class="fu">:</span>doPrime (curr<span class="fu">+</span><span class="dv">1</span>) m
+        <span class="kw">where</span> curr <span class="fu">=</span> nextPrime n
+
+<span class="co">-- and our Q expression</span>
+<span class="kw">let</span><span class="ot"> primeQ ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Q</span> <span class="dt">Exp</span>
+    primeQ n m <span class="fu">=</span> [<span class="fu">|</span> doPrime n m <span class="fu">|</span>]</code></pre></div>
+<pre><code>&gt; $(primeQ 0 67)
+&lt;interactive&gt;:18:3-13: Splicing expression
+    primeQ 0 67 ======&gt; doPrime 0 67
+[2,3,5,7,11,13,17,19,23,29,31,37,41,43,47,53,59,61,67]</code></pre>
+<p>Try it on a nested expression, to really see how useful the dump-splices flag is:</p>
+<pre><code>&gt; $(primeQ ($(primeQ 0 23) !! 3) 167)
+&lt;interactive&gt;:20:13-23: Splicing expression
+    primeQ 0 23 ======&gt; doPrime 0 23
+&lt;interactive&gt;:20:3-34: Splicing expression
+    primeQ ($(primeQ 0 23) !! 3) 167 ======&gt; doPrime 7 167
+[7,11,13,17,19,23,29,31,37,41,43,47,53,59,61,67,71,73,79,83,89,97,101,103,107,109,113,127,131,137,139,149,151,157,163,167]</code></pre>
+<p><code>-ddump-splices</code> and <code>&gt;&gt;= putStrLn.pprint</code> should come in handy when debugging.</p>
+<p>Now for probably, what I consider to be the hardest aspect of Template Haskell to understand – reification.</p>
+<p>Reification allows one to query the state of Haskell <a href="http://hackage.haskell.org/package/template-haskell-2.9.0.0/docs/Language-Haskell-TH-Syntax.html#t:Name"><code>Name</code></a>s and get information about them. Specifically, reify returns a data type called <a href="http://hackage.haskell.org/package/template-haskell-2.9.0.0/docs/Language-Haskell-TH-Syntax.html#t:Info"><code>info</code></a> – which returns data in a specific format on any <code>Name</code> in Haskell, where the format and information depends on whether it’s being interpreted in a type context or an expression context.</p>
+<p>TH introduces two new identifiers specifically for reification: Prefix <code>Name</code>s to be evaluted in an expression context with a single quote, and prefix <code>Name</code>s to be evaluated in a type context with a double quote. Though, <code>Name</code>s must be interpretable within those contexts to be reified. (If you intend to use reify on expressions, don’t use quotes in the names of those expressions – otherwise it won’t parse correctly.)</p>
+<p>To use reify on a type, use double quotes:</p>
+<pre><code>&gt; $(stringE . show =&lt;&lt; reify ''Bool)
+&quot;TyConI (DataD [] GHC.Types.Bool [] [NormalC GHC.Types.False [],NormalC GHC.Types.True []] [])&quot;</code></pre>
+<p>Reifying a type returns the AST as represented by TH, here’s the AST in a diagram of the boolean type from above:</p>
+<div class="figure">
+<img src="https://raw.githubusercontent.com/seanwestfall/templatehaskell/master/syntax_tree_bool.png" alt="abstract syntax tree boolean" />
+<p class="caption">abstract syntax tree boolean</p>
+</div>
+<p>The AST of a simple primitive type like Bool produces a small tree, but when used on types deeper down the module chain, relatively large ASTs will be generated. Try reify on <code>''Lit</code> or <code>''Exp</code> to know what I mean, though reify can work on any Haskell type.</p>
+<p>To reify an expression, use single quotes, here’s an example with our <code>primeQ</code> expression from above:</p>
+<pre><code>&gt; $(stringE . show =&lt;&lt; reify 'primeQ)
+&quot;VarI primeQ_1627395913 (AppT (AppT ArrowT (ConT GHC.Types.Int)) (AppT (AppT ArrowT (ConT GHC.Types.Int)) (AppT (ConT Language.Haskell.TH.Syntax.Q) (ConT Language.Haskell.TH.Syntax.Exp)))) Nothing (Fixity 9 InfixL)&quot;</code></pre>
+<p>As you can see <code>info</code> returns different information depending on whether it’s a type or an expression. A type returns its structure in TH’s AST semantics. An expression returns information regarding its name, type, it’s constructor, and it’s fixity.</p>
+<p>Use reification of expressions to extract the types associated with the construction of an expression, then reify those types to get its structure in an AST. This allows one to generate the AST of any data type in Haskell – no matter how deep into Haskell it gets.</p>
+<p>Reification is very useful from the standpoint of what one can do with an AST to draw and splice back in code fragments within a programming language. Below, in Examples, the second example shows how one can use reify to extract the types from a record’s constructor to write a generic Show function that can generate a <code>Show</code> for any record.</p>
+<h4 id="examples">Examples</h4>
+<p>A good example to show what one can do with Template Haskell is a type safe Haskell version of c’s printf function (from <a href="http://www.gnu.org/software/libc/manual/html_node/Formatted-Output-Functions.html">stdio.h</a>):<a href="#fn8" class="footnoteRef" id="fnref8"><sup>8</sup></a></p>
+<p><em>Main.hs</em></p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">{-# LANGUAGE TemplateHaskell #-}</span>
+
+<span class="co">-- Import our template &quot;printf&quot;</span>
+<span class="kw">import </span><span class="dt">PrintF</span> (printf)
+
+<span class="co">-- The splice operator $ takes the Haskell source code</span>
+<span class="co">-- generated at compile time by &quot;printf&quot; and splices it into</span>
+<span class="co">-- the argument of &quot;putStrLn&quot;.</span>
+main <span class="fu">=</span> <span class="kw">do</span>
+    putStrLn <span class="fu">$</span> <span class="fu">$</span>(printf <span class="st">&quot;Hello %s %%x%% %d %%x%%&quot;</span>) <span class="st">&quot;World&quot;</span> <span class="dv">12</span>
+    putStrLn <span class="fu">$</span> <span class="fu">$</span>(printf <span class="st">&quot;Hello %s %s %s %d&quot;</span>) <span class="st">&quot;Russian&quot;</span> <span class="st">&quot;with&quot;</span> <span class="st">&quot;Love&quot;</span> <span class="dv">5000</span></code></pre></div>
+<p><em>PrintF.hs</em></p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">{-# LANGUAGE TemplateHaskell #-}</span>
+<span class="kw">module</span> <span class="dt">PrintF</span> <span class="kw">where</span>
+
+<span class="co">-- NB: printf needs to be in a separate module to the one where</span>
+<span class="co">-- you intend to use it.</span>
+
+<span class="co">-- Import some Template Haskell syntax</span>
+<span class="kw">import </span><span class="dt">Language.Haskell.TH</span>
+
+<span class="co">-- Possible string tokens: %d %s and literal strings</span>
+<span class="kw">data</span> <span class="dt">Format</span> <span class="fu">=</span> <span class="dt">D</span> <span class="fu">|</span> <span class="dt">S</span> <span class="fu">|</span> <span class="dt">L</span> <span class="dt">String</span>
+    <span class="kw">deriving</span> <span class="dt">Show</span>
+
+<span class="co">-- a poor man's tokenizer</span>
+<span class="ot">tokenize ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> [<span class="dt">Format</span>]
+tokenize [] <span class="fu">=</span> []
+tokenize (<span class="ch">'%'</span><span class="fu">:</span>c<span class="fu">:</span>rest) <span class="fu">|</span> c <span class="fu">==</span> <span class="ch">'d'</span> <span class="fu">=</span> <span class="dt">D</span> <span class="fu">:</span> tokenize rest
+                      <span class="fu">|</span> c <span class="fu">==</span> <span class="ch">'s'</span> <span class="fu">=</span> <span class="dt">S</span> <span class="fu">:</span> tokenize rest
+tokenize (s<span class="fu">:</span>str) <span class="fu">=</span> <span class="dt">L</span> (s<span class="fu">:</span>p) <span class="fu">:</span> tokenize rest <span class="co">-- so we don't get stuck on weird '%'</span>
+    <span class="kw">where</span> (p,rest) <span class="fu">=</span> span (<span class="fu">/=</span> <span class="ch">'%'</span>) str
+
+<span class="co">-- generate argument list for the function</span>
+<span class="ot">args ::</span> [<span class="dt">Format</span>] <span class="ot">-&gt;</span> [<span class="dt">PatQ</span>]
+args fmt <span class="fu">=</span> concatMap (\(f,n) <span class="ot">-&gt;</span> <span class="kw">case</span> f <span class="kw">of</span>
+                                  <span class="dt">L</span> _ <span class="ot">-&gt;</span> []
+                                  _   <span class="ot">-&gt;</span> [varP n]) <span class="fu">$</span> zip fmt names
+    <span class="kw">where</span> names <span class="fu">=</span> [ mkName <span class="fu">$</span> <span class="ch">'x'</span> <span class="fu">:</span> show i <span class="fu">|</span> i <span class="ot">&lt;-</span> [<span class="dv">0</span><span class="fu">..</span>] ]
+
+<span class="co">-- generate body of the function</span>
+<span class="ot">body ::</span> [<span class="dt">Format</span>] <span class="ot">-&gt;</span> <span class="dt">ExpQ</span>
+body fmt <span class="fu">=</span> foldr (\ e e' <span class="ot">-&gt;</span> infixApp e [<span class="fu">|</span> (<span class="fu">++</span>) <span class="fu">|</span>] e') (last exps) (init exps)
+    <span class="kw">where</span> exps <span class="fu">=</span> [ <span class="kw">case</span> f <span class="kw">of</span>
+                    <span class="dt">L</span> s <span class="ot">-&gt;</span> stringE s
+                    <span class="dt">D</span>   <span class="ot">-&gt;</span> appE [<span class="fu">|</span> show <span class="fu">|</span>] (varE n)
+                    <span class="dt">S</span>   <span class="ot">-&gt;</span> varE n
+                 <span class="fu">|</span> (f,n) <span class="ot">&lt;-</span> zip fmt names ]
+          names <span class="fu">=</span> [ mkName <span class="fu">$</span> <span class="ch">'x'</span> <span class="fu">:</span> show i <span class="fu">|</span> i <span class="ot">&lt;-</span> [<span class="dv">0</span><span class="fu">..</span>] ]
+
+<span class="co">-- glue the argument list and body together into a lambda</span>
+<span class="co">-- this is what gets spliced into the haskell code at the call</span>
+<span class="co">-- site of &quot;printf&quot;</span>
+<span class="ot">printf ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Q</span> <span class="dt">Exp</span>
+printf format <span class="fu">=</span> lamE (args fmt) (body fmt)
+    <span class="kw">where</span> fmt <span class="fu">=</span> tokenize format</code></pre></div>
+<p>Notice that we had to separate the splicing and the expression definitions in separate modules, as mentioned in the syntax section above.</p>
+<p>Compile the following with:</p>
+<pre><code>$ ghc --make Main.hs -o main</code></pre>
+<p>running main will print out:</p>
+<pre><code>$ ./main
+Hello World %%x%% 22 %%x%%
+Hello Russian with Love 5000</code></pre>
+<p>Now for an example that shows what one can do with reify – a Generic Show that can produce a <code>Show</code> for any record type:<a href="#fn9" class="footnoteRef" id="fnref9"><sup>9</sup></a></p>
+<p><em>Main.hs</em></p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">{- Main.hs -}</span>
+<span class="kw">module</span> <span class="dt">Main</span> <span class="kw">where</span>
+<span class="kw">import </span><span class="dt">Derive</span>
+
+<span class="kw">data</span> <span class="dt">T</span> <span class="fu">=</span> <span class="dt">A</span> <span class="dt">Int</span> <span class="dt">String</span> <span class="fu">|</span> <span class="dt">B</span> <span class="dt">Integer</span> <span class="fu">|</span> <span class="dt">C</span>
+<span class="fu">$</span>(deriveShow <span class="ch">''</span><span class="dt">T</span>)
+
+main <span class="fu">=</span> print [<span class="dt">A</span> <span class="dv">1</span> <span class="st">&quot;s&quot;</span>, <span class="dt">B</span> <span class="dv">2</span>, <span class="dt">C</span>]  <span class="co">-- prints exactly &lt;&lt;[A 1 &quot;s&quot;,B 2,C]&gt;&gt;</span></code></pre></div>
+<p><em>Derive.hs</em></p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">{- Derive.hs -}</span>
+<span class="kw">module</span> <span class="dt">Derive</span> <span class="kw">where</span>
+
+<span class="kw">import </span><span class="dt">Language.Haskell.TH</span>
+<span class="kw">import </span><span class="dt">Control.Monad</span>
+
+<span class="kw">data</span> <span class="dt">T1</span> <span class="fu">=</span> <span class="dt">T1</span>
+<span class="kw">data</span> <span class="dt">T2</span> a <span class="fu">=</span> <span class="dt">T2</span> a
+
+deriveShow t <span class="fu">=</span> <span class="kw">do</span>
+  <span class="co">-- Get list of constructors for type t</span>
+  <span class="dt">TyConI</span> (<span class="dt">DataD</span> _ _ _ constructors _)  <span class="ot">&lt;-</span>  reify t
+
+  <span class="co">-- Make `show` clause for one constructor:</span>
+  <span class="co">--   show (A x1 x2) = &quot;A &quot;++show x1++&quot; &quot;++show x2</span>
+  <span class="kw">let</span> showClause (<span class="dt">NormalC</span> name fields) <span class="fu">=</span> <span class="kw">do</span>
+        <span class="co">-- Name of constructor, i.e. &quot;A&quot;. Will become string literal in generated code</span>
+        <span class="kw">let</span> constructorName <span class="fu">=</span> nameBase name
+        <span class="co">-- Get variables for left and right side of function definition</span>
+        (pats,vars) <span class="ot">&lt;-</span> genPE (length fields)
+        <span class="co">-- Recursively build (&quot; &quot;++show x1++...++&quot;&quot;) expression from [x1...] variables list</span>
+        <span class="kw">let</span> f []       <span class="fu">=</span> [<span class="fu">|</span> <span class="st">&quot;&quot;</span> <span class="fu">|</span>]
+            f (v<span class="fu">:</span>vars) <span class="fu">=</span> [<span class="fu">|</span> <span class="st">&quot; &quot;</span> <span class="fu">++</span> show <span class="fu">$</span>v <span class="fu">++</span> <span class="fu">$</span>(f vars) <span class="fu">|</span>]
+        <span class="co">-- Generate function clause for one constructor</span>
+        clause [conP name pats]                                 <span class="co">-- (A x1 x2)</span>
+               (normalB [<span class="fu">|</span> constructorName <span class="fu">++</span> <span class="fu">$</span>(f vars) <span class="fu">|</span>]) []  <span class="co">-- &quot;A &quot;++show x1++&quot; &quot;++show x2</span>
+
+  <span class="co">-- Make body for function `show`:</span>
+  <span class="co">--   show (A x1 x2) = &quot;A &quot;++show x1++&quot; &quot;++show x2</span>
+  <span class="co">--   show (B x1)    = &quot;B &quot;++show x1</span>
+  <span class="co">--   show C         = &quot;C&quot;</span>
+  showbody <span class="ot">&lt;-</span> mapM showClause constructors
+
+  <span class="co">-- Generate template instance declaration and then replace</span>
+  <span class="co">--   type name (T1) and function body (\x -&gt; &quot;text&quot;) with our data</span>
+  d <span class="ot">&lt;-</span> [d<span class="fu">|</span> <span class="kw">instance</span> <span class="dt">Show</span> <span class="dt">T1</span> <span class="kw">where</span>
+             show x <span class="fu">=</span> <span class="st">&quot;text&quot;</span>
+       <span class="fu">|</span>]
+  <span class="kw">let</span>    [<span class="dt">InstanceD</span> [] (<span class="dt">AppT</span> showt (<span class="dt">ConT</span> _<span class="dt">T1</span>)) [<span class="dt">FunD</span> showf _text]] <span class="fu">=</span> d
+  return [<span class="dt">InstanceD</span> [] (<span class="dt">AppT</span> showt (<span class="dt">ConT</span> t  )) [<span class="dt">FunD</span> showf showbody]]
+
+
+<span class="co">-- Generate n unique variables and return them in form of patterns and expressions</span>
+genPE n <span class="fu">=</span> <span class="kw">do</span>
+  ids <span class="ot">&lt;-</span> replicateM n (newName <span class="st">&quot;x&quot;</span>)
+  return (map varP ids, map varE ids)</code></pre></div>
+<p>Compile the following with:</p>
+<pre><code>$ ghc --make Main.hs -o main</code></pre>
+<p>running main will print out:</p>
+<pre><code>$ ./main
+[A 1 &quot;s&quot;,B 2,C]</code></pre>
+<h4 id="conclusion">Conclusion</h4>
+<p>This guide was for the most part written from collecting information written in other guides on Template Haskell, quasi-quoting, and Lisp macros – from online, wiki, and academic sources. Please check my bibliography to see where what came from what so credit can be properly given where it’s due.</p>
+<p>Meta-programming is a powerful programming technique that can allow for the generation of user generated syntax extensions and DSLs. This is useful in that it can allow a programmer to generate custom code generating syntax extensions without otherwise having to change the core language. Template Haskell in particular is especially powerful over similar programming language constructs (i.e. The C Preprocessor, Lisp’s Macro system) in that it makes use of ASTs, reification (through a specific function), and – much in the spirit of Haskell – type-safety. The examples presented above only scratch the surface of what’s possible with reification – imagine the ability to construction entire systems, and then use reify to build ASTs, then swap in and out entire modules, entirely with the use of Template Haskell.</p>
+<p>Some questions that have arisen within me from writing this article are: What are the limits of TH’s data type system? Is it truly possible for TH to represent all of Haskell with the finite set of data types written into the module? Is it possible for future language features to defy this set? What are the limits of meta-programming – TH, macros, and similar meta-prorgramming constructs make it possible to write code that writes code – but are there limits to this – is it possible to write a macro that can generate a macro, and so on indefinitely?</p>
+<p>Don’t forget to checkout the API. Everything you need to know, you can for the most part find in the <a href="http://hackage.haskell.org/package/template-haskell-2.9.0.0/docs/Language-Haskell-TH-Syntax.html#t:Lit">source</a>. Also TH does in fact have bugs, check the issue tracking page if you’re dealing with a known issue: see <a href="https://ghc.haskell.org/trac/ghc/query?status=new&amp;status=assigned&amp;status=reopened&amp;component=Template+Haskell&amp;order=priority">here</a>.</p>
+<h4 id="bibliography">Bibliography</h4>
+<h4 id="license">License</h4>
+<p>(The MIT License)</p>
+<p>Copyright (c) 2014 Sean Westfall</p>
+<p>Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ‘Software’), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:</p>
+<p>The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.</p>
+<p>THE SOFTWARE IS PROVIDED ‘AS IS’, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.</p>
+<div class="footnotes">
+<hr />
+<ol>
+<li id="fn1"><p>Tim Sheard and Simon Peyton Jones, “<a href="http://research.microsoft.com/en-us/um/people/simonpj/papers/meta-haskell/meta-haskell.pdf">Template meta-programming for Haskell</a>,” ACM SIGPLAN 2002 Haskell Workshop 3 (October 2002): 1-6, doi: 10.1145/581690.581691<a href="#fnref1">↩</a></p></li>
+<li id="fn2"><p><a href="https://downloads.haskell.org/~ghc/latest/docs/html/users_guide/template-haskell.html">The Glorious Glasgow Haskell Compilation System User’s Guide</a>, Version 7.8.3, 2007<a href="#fnref2">↩</a></p></li>
+<li id="fn3"><p>Greg Weber, <a href="http://www.yesodweb.com/blog/2011/10/code-generation-conversation">Code that writes code and conversation about conversations</a>, 2011:<a href="#fnref3">↩</a></p></li>
+<li id="fn4"><p>Peter Seibel, <a href="http://www.gigamonkeys.com/book/macros-defining-your-own.html"><em>Practical Common Lisp</em></a> (Apress, 2005)<a href="#fnref4">↩</a></p></li>
+<li id="fn5"><p>Mike Ledger, “<a href="http://quasimal.com/posts/2012-05-25-quasitext-and-quasiquoting.html">A look at QuasiQuotation</a>,” 2012.<a href="#fnref5">↩</a></p></li>
+<li id="fn6"><p>Sami Hangaslammi, <a href="https://github.com/leonidas/codeblog/blob/master/2011/2011-12-27-template-haskell.md">Basic Tutorial of Template Haskell</a>, 2011:<a href="#fnref6">↩</a></p></li>
+<li id="fn7"><p>Peter Seibel, <a href="http://www.gigamonkeys.com/book/macros-defining-your-own.html"><em>Practical Common Lisp</em></a> (Apress, 2005)<a href="#fnref7">↩</a></p></li>
+<li id="fn8"><p><a href="https://www.haskell.org/haskellwiki/Template_Haskell">Template Haskell, Haskell Wiki</a>, last updated October 2014: https://www.haskell.org/haskellwiki/Template_Haskell<a href="#fnref8">↩</a></p></li>
+<li id="fn9"><p><a href="http://web.archive.org/web/20100703060856/http://www.haskell.org/bz/thdoc.htm">Unknown Author, Template Haskell doc</a><a href="#fnref9">↩</a></p></li>
+</ol>
+</div>
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/guest-posts/2014-12-22-template-haskell.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

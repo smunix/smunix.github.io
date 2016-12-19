@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2013-12-19-websockets.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>24 Days of Hackage: websockets</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>24 Days of Hackage: websockets</h1>
+<p>Traditionally, the web has been modelled around a request/response abstraction. Clients request information from a server, who respond to these requests. However, this is all starting to change with the emergence of HTML5 technologies. One of these technologies is the <a href="https://en.wikipedia.org/wiki/WebSocket">WebSocket</a> protocol, which provides full-duplex communications channels over a single TCP connection. This radically changes how we build applications, as we now have the ability to have much closer to real-time communication between web pages and servers. The good news is, you don’t have to go running off to Node.js to play with this - thanks to the hard work of <a href="http://jaspervdj.be/">Jasper Van der Jeugt</a> of <a href="http://www.erudify.com/">Erudify</a>, we have production grade support in Haskell via the <a href="http://hackage.haskell.org/package/websockets"><code>websocket</code></a> library.</p>
+<p><code>websockets</code> is usable at a few different layers of the stack - the library exposes both low level bytes, but also higher level abstractions if you are working with text based messages. All of the framing and protocol handshaking is dealt with for you, along with the various different versions of WebSocket protocols. As has been the mantra for libraries this year - <code>websockets</code> gets out of your way and lets you concentrate on the interesting work. Let’s jump in and see how this all fits together.</p>
+<p>Today, we’ll build a simple REPL for interacting with Santa’s wish-list. There are two commands: “I want <em>x</em>” is used to record a desired present, and “What do I want?” is used to query the server for the list of desired presents. To begin with, let’s start up a server:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> runServer <span class="st">&quot;127.0.0.1&quot;</span> <span class="dv">8080</span> handleConnection</code></pre></div>
+<p><code>runServer</code> sets up a server (suitable for development purposes) on port 8080, and <code>handleConnection</code> will be invoked every time a client connects to the server. The interesting work is at <code>handleConnection</code>. Being a REPL, we can easily write a read-evaluate loop for the body of this. First of all though, we need to accept the connection to complete the handshake.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">handleConnection pending <span class="fu">=</span> <span class="kw">do</span>
+  connection <span class="ot">&lt;-</span> acceptRequest pending
+  <span class="kw">let</span> loop wants <span class="fu">=</span> <span class="kw">do</span></code></pre></div>
+<p>Once the connection has been accepted, we enter an infinite loop and block awaiting a command. To await a command, we need to read from the socket, which we can do with <code>receiveDataMessage</code>. <code>receiveDataMessage</code> is an example of a slightly higher level abstraction, as it filters out the so-called <em>control messages</em>.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">        commandMsg <span class="ot">&lt;-</span> receiveDataMessage connection</code></pre></div>
+<p>There are two types of data messages, <code>Text</code> and <code>Binary</code>. We’re writing our own little text protocol, so we’ll concern ourselves with the former first. We check what type of message we have by doing case analysis on <code>commandMsg</code>. Even better, we can pattern match on the contents of commands by using a fantastic GHC extension called <a href="http://www.haskell.org/ghc/docs/latest/html/users_guide/syntax-extns.html#view-patterns">view patterns</a>.</p>
+<p>To use view patterns, rather than pattern matching against a variable or literal, we pattern match using a function, and then pattern match the result of the call. The <code>Text</code> constructor for messages is a lazy <code>ByteString</code>, so we can write a function that transforms our lazy <code>ByteString</code> into what the user wants, possible failing:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">parseWant ::</span> <span class="dt">LBS.ByteString</span> <span class="ot">-&gt;</span> <span class="dt">Maybe</span> <span class="dt">Text</span>
+parseWant p <span class="fu">=</span> stripPrefix <span class="st">&quot;I want &quot;</span> <span class="fu">.</span> decodeUtf8 <span class="fu">.</span> LBS.toStrict</code></pre></div>
+<p>This naturally fits in to our case analysis:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">        <span class="kw">case</span> commandMsg <span class="kw">of</span>
+          <span class="dt">Text</span> (parseWant <span class="ot">-&gt;</span> <span class="dt">Just</span> want) <span class="ot">-&gt;</span> <span class="kw">do</span>
+            sendTextData connection
+              (<span class="st">&quot;Hohoho, as long as you've been good this year!&quot;</span><span class="ot"> ::</span> <span class="dt">Text</span>)
+            loop (want <span class="fu">:</span> wants)</code></pre></div>
+<p>If the pattern match succeeds then we learn what the user wants. We acknowledge this by sending a text message back, and then we continue to loop keeping track of their want.</p>
+<p>For querying, it’s very similar. However, this time we don’t need to use a view pattern because the command is a constant string:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">         <span class="dt">Text</span> <span class="st">&quot;What do I want?&quot;</span> <span class="ot">-&gt;</span> <span class="kw">do</span>
+            mapM (sendTextData connection) wants
+            loop wants</code></pre></div>
+<p>This time we send every wanted item as a single text message, and then continue to await another command.</p>
+<p>Finally, we need to handle the case where neither of these patterns match. In this case, we’ll transmit some HTML that the client should embed, and loop with the same state once again:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">        _ <span class="ot">-&gt;</span> <span class="kw">do</span>
+          sendTextData connection (<span class="st">&quot;&lt;img src=\&quot;http://bit.ly/1kmRC7Q\&quot; /&gt;&quot;</span><span class="ot"> ::</span> <span class="dt">Text</span>)
+          loop wants</code></pre></div>
+<p>To wrap it all up, we simply begin our loop with an empty wish-list:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">  loop []</code></pre></div>
+<p>And we’re done! With <a href="https://github.com/ocharles/blog/blob/master/code/2013-12-19-client.html">a little HTML</a>, we get a web page that lets us have interactions as shown below:</p>
+<div style="text-align: center">
+<p><img src="https://ocharles.org.uk/blog/img/2013-12-19-websockets.png" /></p>
+</div>
+<p>In production you’ll want to use a better server than the development server, and Hackage has your covered there too:</p>
+<ul>
+<li><a href="http://hackage.haskell.org/package/wai-websockets"><code>wai-websockets</code></a> can be used intercept requests with the Warp server.</li>
+<li><a href="http://hackage.haskell.org/package/websockets-snap"><code>websockets-snap</code></a> allows you to add WebSocket support to a Snap application.</li>
+</ul>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2013-12-19-websockets.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2014-01-20-announcing-tasty-rerun.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>Announcing tasty-rerun</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>Announcing tasty-rerun</h1>
+<p>If you’re a firm believer of writing tests for your work, it shouldn’t take much to convince you that having your tests run fast is of the utmost importance. Every second the tests are running is a second that you drift out of the zone and have to context switch when you return back to coding. Sadly, I don’t have a magic solution to make all your tests run faster, but I do have something to that can help ease the pain, and that is <a href="http://hackage.haskell.org/package/tasty-rerun"><code>tasty-rerun</code></a>.</p>
+<p>Inspired by <a href="https://metacpan.org/pod/release/LEONT/Test-Harness-3.30/bin/prove"><code>prove</code></a> – Perl’s standard testing tool – <code>tasty-rerun</code> adds the ability to run your tests by filtering the test tree based on what happened in a previous test run. For example, <code>tasty-rerun</code> allows you to only run tests that failed when the test suite was last ran, or you can chose to run only tests that have been added since the last run. I think this is a massive win for productivity, as the majority of the time we have the type system to keep our refactorings in check, and now we can use our tests to focus on the design of specific functionality.</p>
+<p><code>tasty-rerun</code> works by providing an <em>ingredient transformer</em>. If you’re not familiar with <code>tasty</code>, <a href="http://documentup.com/feuerbach/tasty#packages/ingredients">ingredients</a> are used to decide how tests are ran, or how test progress should be observed. For <code>tasty-rerun</code>, we only need to do a little bit of filtering before the test run and save some state after the test run, so we hand off the bulk of the work to another ingredient after transforming the test tree. Let’s see some code to see how this works.</p>
+<h2 id="an-example-tasty-rerun-session">An Example <code>tasty-rerun</code> Session</h2>
+<p>We begin with our test file:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">import </span><span class="dt">Test.Tasty</span>
+<span class="kw">import </span><span class="dt">Test.Tasty.HUnit</span>
+<span class="kw">import </span><span class="dt">Test.Tasty.Runners</span>
+
+<span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> defaultMainWithIngredients [ consoleTestReporter ] tests
+
+<span class="ot">tests ::</span> <span class="dt">TestTree</span>
+tests <span class="fu">=</span> testGroup <span class="st">&quot;Sums&quot;</span>
+  [ testCase <span class="st">&quot;Addition&quot;</span> <span class="fu">$</span> <span class="dv">1</span> <span class="fu">+</span> <span class="dv">1</span> <span class="fu">@?=</span> <span class="dv">3</span>
+  , testCase <span class="st">&quot;Multiplication&quot;</span> <span class="fu">$</span> <span class="dv">2</span> <span class="fu">*</span> <span class="dv">2</span> <span class="fu">@?=</span> <span class="dv">4</span>
+  ]</code></pre></div>
+<p>To add <code>tasty-rerun</code> support to this we simply import <code>Test.Tasty.Ingredients.Rerun</code> and then transform our ingredients (<code>[ consoleTestReporter ]</code>) with <code>rerunningTests</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">import </span><span class="dt">Test.Tasty.Ingredients.Rerun</span>
+
+<span class="fu">...</span>
+
+main <span class="fu">=</span> defaultMainWithIngredients [ rerunningTests [ consoleTestReporter ] ] tests</code></pre></div>
+<p>Simple! Now, when we first run our test suite we supply the <code>--rerun-update</code> flag, which indicates that <code>tasty-rerun</code> should save the results of this test file for use in future sessions.</p>
+<pre><code>&gt; ./tests --rerun-update
+Sums
+  Addition:       FAIL
+    expected: 3
+     but got: 2
+  Multiplication: OK
+
+1 out of 2 tests failed</code></pre>
+<p>We’d like to focus on just this failing addition test, so we now run our tests with the <code>--rerun-filter failures</code> flag. This indicates that <code>tasty-rerun</code> should first filter the test tree to only those tests that failed in a previous test run (and still exist in the current test tree). With this, another run of the tests shows:</p>
+<pre><code>&gt; ./tests --rerun-update --rerun-filter failures
+Sums
+  Addition: FAIL
+    expected: 3
+     but got: 2
+
+1 out of 1 tests failed</code></pre>
+<p><code>tasty-rerun</code> noticed that multiplication passed without problems on the previous test run, and has filtered it out of this test run. When we fix our addition test…</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">testCase <span class="st">&quot;Addition&quot;</span> <span class="fu">$</span> <span class="dv">1</span> <span class="fu">+</span> <span class="dv">1</span> <span class="fu">@?=</span> <span class="dv">3</span></code></pre></div>
+<p>Then running with <code>rerun-filter failures</code> shows:</p>
+<pre><code>&gt; ./tests --rerun-update --rerun-filter failures
+Sums
+  Addition: OK
+
+All 1 tests passed</code></pre>
+<p>The addition test previously failed, so we try it again. Now it passes, the test state is updated and a further test run (with <code>--rerun-filter failures</code>) shows that there are no tests to run:</p>
+<pre><code>&gt; ./tests --rerun-update --rerun-filter failures
+All 0 tests passed</code></pre>
+<p>At this point, we’re ready to add another test! We’ll add in one final test as a QuickCheck property:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">testProperty <span class="st">&quot;Negation involution&quot;</span> <span class="fu">$</span> \x <span class="ot">-&gt;</span> negate (negate x) <span class="fu">==</span> (<span class="ot">x ::</span> <span class="dt">Int</span>)</code></pre></div>
+<p>If we run our tests as we did before, nothing will happen:</p>
+<pre><code>&gt; ./tests --rerun-update --rerun-filter failures
+All 0 tests passed</code></pre>
+<p>This is because we told <code>tasty-rerun</code> that we are <em>only</em> interested in tests that have previously failed. However, <code>tasty-rerun</code> allows the <code>--rerun-filter</code> flag to take multiple filters, so we can change this to <code>--rerun-filter failures,new</code> to run new tests:</p>
+<pre><code>&gt; ./tests --rerun-update --rerun-filter failures,new
+Sums
+  Addition:            OK
+  Multiplication:      OK
+  Negation involution: OK
+    +++ OK, passed 100 tests.
+
+All 3 tests passed</code></pre>
+<p>In this case all the tests are ran because our last test ran no tests at all - thus <em>all</em> the tests are new.</p>
+<p>In practice, you probably want to run once with <code>--rerun-update</code> to build your initial test state, and then subsequent runs with only <code>--rerun-filter failures,new</code>. This will allow you to repeatedly run your tests focusing on only tests that have been newly added or were previously broken. Updating the state on every test run can be slightly confusing (as the above example may demonstrate), though I have some ideas on how I might be able to make this a bit more useful.</p>
+<p>I hope you find <code>tasty-rerun</code> useful – it’s on Hackage already, so you can start using it today. As always, please report <a href="https://github.com/ocharles/tasty-rerun/issues">issues on Github</a> so we can make this project even more awesome. Many thanks to <a href="http://ro-che.info/">Roman Cheplyaka</a> for explaining to me how this project could be achieved in <code>tasty</code>, providing thorough code/style reviews, and of course for <code>tasty</code> itself.</p>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2014-01-20-announcing-tasty-rerun.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

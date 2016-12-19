@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/guest-posts/2014-12-21-arrows.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>24 Days of GHC Extensions: Arrows</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>24 Days of GHC Extensions: Arrows</h1>
+<p>Today’s guest post comes from <a href="http://web.jaguarpaw.co.uk/~tom/blog/">Tom Ellis</a>. If you haven’t heard, Tom released a novel library for interacting with relational databases this year - <a href="http://hackage.haskell.org/package/opaleye">Opaleye</a>. While similar to HaskellDB in some respects, Opaleye is distinct in its extensive use of arrows in order to guarantee safety of queries. In this post, Tom’s going to guide us through GHC’s special syntax support for the <code>Arrow</code> type class.</p>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="ot">{-# LANGUAGE Arrows #-}</span>
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span> <span class="kw">import </span><span class="dt">Control.Monad</span> (guard)
+<span class="ot">&gt;</span> <span class="kw">import </span><span class="dt">Control.Monad.Identity</span> (<span class="dt">Identity</span>, runIdentity)
+<span class="ot">&gt;</span> <span class="kw">import </span><span class="dt">Control.Arrow</span> (returnA, <span class="dt">Kleisli</span>(<span class="dt">Kleisli</span>), runKleisli)</code></pre></div>
+<p>In Haskell we use the <code>Monad</code> typeclass to provide an interface for encoding certain forms of computation. The <code>Arrow</code> typeclass provides an interface that is in many ways similar. Everything that can be made an instance of <code>Monad</code> (in a law-abiding way) can also be adapted to be an <code>Arrow</code> (in a law-abiding way). This means that the <code>Arrow</code> interface is less powerful than <code>Monad</code>, but that more things can be made instances of <code>Arrow</code>.</p>
+<p>Working directly with <code>Monad</code> combinators like <code>&gt;&gt;=</code> and <code>&gt;&gt;</code> can sometimes be awkward so Haskell provides “<code>do</code> notation” as an alternative way of writing monad expressions in a way that can often be clearer. Likewise there is an “arrow notation” for writing arrow expressions. It is not enabled in GHC by default but can be turned on with the <code>Arrows</code> language extension.</p>
+<p>The subject of this blog post is how to understand and use arrow notation. It will also serve as an introduction to the <code>Arrow</code> typeclass whilst keeping mention of the arrow combinators to a minimum. We will use develop our intuition for arrow computation rather than learn any technical and formal definitions!</p>
+<p>Let’s kick off by refreshing our memory of <code>do</code> notation. A very basic way to think of <code>do</code> notation is that it is similar to a sequence of let bindings. For example, a basic Haskell expression to perform a numerical calculation might be</p>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt; f ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> (<span class="dt">Int</span>, <span class="dt">Int</span>)
+<span class="ot">&gt;</span> f <span class="fu">=</span> \x <span class="ot">-&gt;</span>
+<span class="ot">&gt;</span>   <span class="kw">let</span> y  <span class="fu">=</span> <span class="dv">2</span> <span class="fu">*</span> x
+<span class="ot">&gt;</span>       z1 <span class="fu">=</span> y <span class="fu">+</span> <span class="dv">3</span>
+<span class="ot">&gt;</span>       z2 <span class="fu">=</span> y <span class="fu">-</span> <span class="dv">5</span>
+<span class="ot">&gt;</span>   <span class="kw">in</span> (z1, z2)
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span> <span class="co">-- ghci&gt; f 10</span>
+<span class="ot">&gt;</span> <span class="co">-- (23, 15)</span></code></pre></div>
+<p><code>do</code> notation supports expressing the exact same computation inside the <code>Identity</code> monad, that is, a monad that has no “side effects”.</p>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt; fM ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Identity</span> (<span class="dt">Int</span>, <span class="dt">Int</span>)
+<span class="ot">&gt;</span> fM <span class="fu">=</span> \x <span class="ot">-&gt;</span> <span class="kw">do</span>
+<span class="ot">&gt;</span>   y  <span class="ot">&lt;-</span> return (<span class="dv">2</span> <span class="fu">*</span> x)
+<span class="ot">&gt;</span>   z1 <span class="ot">&lt;-</span> return (y <span class="fu">+</span> <span class="dv">3</span>)
+<span class="ot">&gt;</span>   z2 <span class="ot">&lt;-</span> return (y <span class="fu">-</span> <span class="dv">5</span>)
+<span class="ot">&gt;</span>   return (z1, z2)
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span> <span class="co">-- ghci&gt; runIdentity (fM 10)</span>
+<span class="ot">&gt;</span> <span class="co">-- (23,15)</span></code></pre></div>
+<p>The <code>let</code> bindings in <code>f</code> become <code>&lt;-</code> under <code>do</code> notation. (For technical reasons we have to wrap every intermediate expression in <code>return</code> to lift them into the <code>Identity</code> monad.) Arrow notation supports a similar translation:</p>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt; fA ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> (<span class="dt">Int</span>, <span class="dt">Int</span>)
+<span class="ot">&gt;</span> fA <span class="fu">=</span> proc x <span class="ot">-&gt;</span> <span class="kw">do</span>
+<span class="ot">&gt;</span>   y  <span class="ot">&lt;-</span> (<span class="dv">2</span> <span class="fu">*</span>) <span class="fu">-&lt;</span> x
+<span class="ot">&gt;</span>   z1 <span class="ot">&lt;-</span> (<span class="fu">+</span> <span class="dv">3</span>) <span class="fu">-&lt;</span> y
+<span class="ot">&gt;</span>   z2 <span class="ot">&lt;-</span> (subtract <span class="dv">5</span>) <span class="fu">-&lt;</span> y
+<span class="ot">&gt;</span>   returnA <span class="fu">-&lt;</span> (z1, z2)
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span> <span class="co">-- ghci&gt; fA 10</span>
+<span class="ot">&gt;</span> <span class="co">-- (23,15)</span></code></pre></div>
+<p>In arrow notation <code>proc</code> plays the part of “lambda”, i.e. backslash, <code>\</code>, <code>&lt;-</code> plays the part of <code>=</code> and <code>-&lt;</code> feeds an argument into a “function”. We use <code>returnA</code> instead of <code>return</code>.</p>
+<p>The benefit of <code>do</code> notation comes when we want to encode a computation that can’t be written using pure <code>let</code> bindings alone. Here’s an example that uses the list monad to generate all coordinates within a given radius of the origin:</p>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt; range ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> [<span class="dt">Int</span>]
+<span class="ot">&gt;</span> range r <span class="fu">=</span> [<span class="fu">-</span>r<span class="fu">..</span>r]
+<span class="ot">&gt;</span> 
+<span class="ot">&gt; cM ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> [(<span class="dt">Int</span>, <span class="dt">Int</span>)]
+<span class="ot">&gt;</span> cM <span class="fu">=</span> \r <span class="ot">-&gt;</span> <span class="kw">do</span>
+<span class="ot">&gt;</span>   x <span class="ot">&lt;-</span> range <span class="dv">5</span>
+<span class="ot">&gt;</span>   y <span class="ot">&lt;-</span> range <span class="dv">5</span>
+<span class="ot">&gt;</span>   guard (x<span class="fu">*</span>x <span class="fu">+</span> y<span class="fu">*</span>y <span class="fu">&lt;=</span> r<span class="fu">*</span>r)
+<span class="ot">&gt;</span>   return (x, y)
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span> <span class="co">-- ghci&gt; take 10 (cM 5)</span>
+<span class="ot">&gt;</span> <span class="co">-- [(-5,0),(-4,-3),(-4,-2),(-4,-1),(-4,0),(-4,1),(-4,2),(-4,3),(-3,-4),(-3,-3)]</span></code></pre></div>
+<p>We read this as</p>
+<ul>
+<li>for each <code>x</code> in -5 to 5</li>
+<li>for each <code>y</code> in -5 to 5</li>
+<li>where <code>x*x + y*y &lt;= r*r</code></li>
+<li>return the pair of <code>x</code> and <code>y</code></li>
+</ul>
+<p>Now let’s see how to use arrow notation to express the same computation. For trivial technical reasons we need to wrap the list monad to make it suitable for use with arrow notation. The wrapping and unwrapping don’t actually do anything except shuffle some type parameters around. In arrow computations we will use <code>K [] a b</code> where instead of <code>a -&gt; [b]</code>. We’ll use abbreviated versions of the relevant wrapping and unwrapping functions:</p>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="kw">type</span> <span class="dt">K</span> <span class="fu">=</span> <span class="dt">Kleisli</span>
+<span class="ot">&gt;</span> 
+<span class="ot">&gt; k ::</span> (a <span class="ot">-&gt;</span> m b) <span class="ot">-&gt;</span> <span class="dt">Kleisli</span> m a b
+<span class="ot">&gt;</span> k <span class="fu">=</span> <span class="dt">Kleisli</span>
+<span class="ot">&gt;</span> 
+<span class="ot">&gt; runK ::</span> <span class="dt">Kleisli</span> m a b <span class="ot">-&gt;</span> (a <span class="ot">-&gt;</span> m b)
+<span class="ot">&gt;</span> runK <span class="fu">=</span> runKleisli</code></pre></div>
+<p>Then we can use arrow notation to implement the radius list computation as follows:</p>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt; cA ::</span> <span class="dt">Kleisli</span> [] <span class="dt">Int</span> (<span class="dt">Int</span>, <span class="dt">Int</span>)
+<span class="ot">&gt;</span> cA <span class="fu">=</span> proc r <span class="ot">-&gt;</span> <span class="kw">do</span>
+<span class="ot">&gt;</span>   x <span class="ot">&lt;-</span> k range <span class="fu">-&lt;</span> <span class="dv">5</span>
+<span class="ot">&gt;</span>   y <span class="ot">&lt;-</span> k range <span class="fu">-&lt;</span> <span class="dv">5</span>
+<span class="ot">&gt;</span>   k guard <span class="fu">-&lt;</span> (x<span class="fu">*</span>x <span class="fu">+</span> y<span class="fu">*</span>y <span class="fu">&lt;=</span> r<span class="fu">*</span>r)
+<span class="ot">&gt;</span>   returnA <span class="fu">-&lt;</span> (x, y)
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span> <span class="co">-- ghci&gt; take 10 (runK cA 5)</span>
+<span class="ot">&gt;</span> <span class="co">-- [(-5,0),(-4,-3),(-4,-2),(-4,-1),(-4,0),(-4,1),(-4,2),(-4,3),(-3,-4),(-3,-3)]</span></code></pre></div>
+<p>What’s the point of arrow notation? So far we have only seen that it is able to replicate some examples in <code>do</code> notation. Well, the point is that arrow notation forbids some computations that <code>do</code> notation allows. In particular all “arrow actions” must be “statically” known“. That sentence was a mouthful! What does it mean? I am calling the expression that comes between <code>&lt;-</code> and <code>-&lt;</code> in a row of arrow notation the”arrow action“.”Statically known&quot; means that if we have a couple of rows of arrow notation</p>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="co">--    y &lt;- action1 -&lt; x</span>
+<span class="ot">&gt;</span> <span class="co">--    z &lt;- action2 -&lt; y</span></code></pre></div>
+<p>then the expression <code>action2</code> cannot depend on <code>x</code> or indeed anything bound on the left hand side of an arrow notation row.</p>
+<p>This restriction has important practical consequences. For example, our Haskell IO system might be based on the following primitives</p>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt; getLineM ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">String</span>
+<span class="ot">&gt;</span> getLineM prompt <span class="fu">=</span> <span class="kw">do</span>
+<span class="ot">&gt;</span>   print prompt
+<span class="ot">&gt;</span>   getLine
+<span class="ot">&gt;</span> 
+<span class="ot">&gt; printM ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
+<span class="ot">&gt;</span> printM <span class="fu">=</span> print
+<span class="ot">&gt;</span> 
+<span class="ot">&gt; writeFileM ::</span> FilePath <span class="ot">-&gt;</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
+<span class="ot">&gt;</span> writeFileM (filePath, string) <span class="fu">=</span> writeFile filePath string</code></pre></div>
+<p>then we could use <code>do</code> notation to write a procedure which reads a line of user input and either prints something out or writes to a file based on that input.</p>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt; procedureM ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
+<span class="ot">&gt;</span> procedureM <span class="fu">=</span> \prompt <span class="ot">-&gt;</span> <span class="kw">do</span>
+<span class="ot">&gt;</span>   input <span class="ot">&lt;-</span> getLineM prompt
+<span class="ot">&gt;</span>   <span class="kw">if</span> input <span class="fu">==</span> <span class="st">&quot;Hello&quot;</span>
+<span class="ot">&gt;</span>     <span class="kw">then</span> printM <span class="st">&quot;You said 'Hello'&quot;</span>
+<span class="ot">&gt;</span>     <span class="kw">else</span> writeFileM (<span class="st">&quot;/tmp/output&quot;</span>, <span class="st">&quot;The user said '&quot;</span> <span class="fu">++</span> input <span class="fu">++</span> <span class="st">&quot;'&quot;</span>)
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span> <span class="co">-- ghci&gt; procedureM &quot;Say something&quot;</span>
+<span class="ot">&gt;</span> <span class="co">-- &quot;Say something&quot;</span>
+<span class="ot">&gt;</span> <span class="co">-- Hello</span>
+<span class="ot">&gt;</span> <span class="co">-- &quot;You said 'Hello'&quot;</span>
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span> <span class="co">-- ghci&gt; procedureM &quot;Say something&quot;</span>
+<span class="ot">&gt;</span> <span class="co">-- &quot;Say something&quot;</span>
+<span class="ot">&gt;</span> <span class="co">-- Bye bye</span>
+<span class="ot">&gt;</span> <span class="co">-- (Writes to /tmp/output)</span></code></pre></div>
+<p>However, there is no way to express this in arrow notation using only the same primitives.</p>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="co">-- procedureA :: K IO String ()</span>
+<span class="ot">&gt;</span> <span class="co">-- procedureA = proc prompt -&gt; do</span>
+<span class="ot">&gt;</span> <span class="co">--  input &lt;- k getLineM -&lt; prompt</span>
+<span class="ot">&gt;</span> <span class="co">--  if input == &quot;Hello&quot;</span>
+<span class="ot">&gt;</span> <span class="co">--   then printM</span>
+<span class="ot">&gt;</span> <span class="co">--   else writeFileM &quot;/tmp/output&quot; ...</span>
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span> <span class="co">-- Oh no!  This won't work because we were trying to refer to a &lt;-</span>
+<span class="ot">&gt;</span> <span class="co">-- bound variable on the left hand side of a -&lt;</span></code></pre></div>
+<p>Why do we want to use arrows when they have these restrictions? Going into details would take a whole other blog post of its own, but I will mention briefly a few places where the full generality of monads is too much.</p>
+<p>Firstly, an arrow-only interface can often allow you to take advantage of opmizations that a monadic interface could not. For example parsers written using parser combinators can be made more memory efficient if we know statically the parsing action they are going to perform. Similarly it can help to reduce the chance of memory leaks in functional reactive programming (e.g. with <code>netwire</code>) if actions cannot depend in an unrestrained way on the result of previous actions.</p>
+<p>In embedded domain specific languages this forcing non-dependence can make code generation more easily match a target language. For example in the SQL-generating relational query language Opaleye queries are built up from arrows called <code>QueryArr</code>. Using an arrow rather than a monad allows the semantics of the domain specific language to more closely match the semantics of the underlying SQL language.</p>
+<p>So in summary, arrows are a Haskell abstraction, similar to monads, and arrow notation is a way of writing arrow expressions which is similar to to <code>do</code> notation. However, there are some restrictions on what you can do with arrows that are not shared by monads. The benefit of the restriction is you can often receive a performance benefit or use your more specific knowledge about the structure of an arrow computation to your advantage.</p>
+<hr />
+<p><em>This post is part of <a href="../pages/2014-12-01-24-days-of-ghc-extensions.html">24 Days of GHC Extensions</a> - for more posts like this, check out the <a href="../pages/2014-12-01-24-days-of-ghc-extensions.html">calendar</a></em>.</p>
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/guest-posts/2014-12-21-arrows.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

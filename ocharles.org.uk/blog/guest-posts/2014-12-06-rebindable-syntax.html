@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/guest-posts/2014-12-06-rebindable-syntax.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>24 Days of GHC Extensions: Rebindable Syntax</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>24 Days of GHC Extensions: Rebindable Syntax</h1>
+<p>As the first week of 24 Days of GHC Extensions (or as I like to call it, 24 DOGE) comes to an end, it’s with great pleasure that I give the stage to our first guest poster - <a href="http://kovach.me/">Benjamin Kovach</a>. Ben has two posts lined up for us, so without further ado, lets look at his first extension.</p>
+<hr />
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">{-# LANGUAGE RebindableSyntax, NoMonomorphismRestriction #-}</span>
+
+<span class="kw">import </span><span class="dt">Prelude</span> <span class="kw">hiding</span> ((&gt;&gt;), (&gt;&gt;=), return)
+<span class="kw">import </span><span class="dt">Data.Monoid</span>
+<span class="kw">import </span><span class="dt">Control.Monad</span> ((&lt;=&lt;))
+<span class="kw">import </span><span class="dt">Data.Map</span> <span class="kw">as</span> <span class="dt">M</span></code></pre></div>
+<p>Today we’ll be talking about <a href="https://downloads.haskell.org/~ghc/latest/docs/html/users_guide/syntax-extns.html#rebindable-syntax"><code>RebindableSyntax</code></a>. <code>RebindableSyntax</code> allows you to rewrite your own versions of operators in the Prelude (with different types, even!). At first glance, this doesn’t seem incredibly useful: Why would we want to rebind operators when we can just define new functions or operators to handle the functionality we want? Well, there are a couple of cases where overloading an operator <em>drastically</em> changes how you can write code. In particular, we’ll be overloading <code>&gt;&gt;</code> and <code>return</code> in order to make <code>do</code> notation <code>do</code> – basically – whatever we want it to!</p>
+<p>Recall that:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">do</span> x <span class="ot">&lt;-</span> a  <span class="fu">==</span>  a <span class="fu">&gt;&gt;=</span> \x <span class="ot">-&gt;</span> g x
+   g x</code></pre></div>
+<p>and:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">do</span> x  <span class="fu">==</span> x <span class="fu">&gt;&gt;</span> y
+   y</code></pre></div>
+<p>As a first example of how we can leverage <code>RebindableSyntax</code>, let’s say you want to sum up some numbers. You could write a chain of <code>+</code>s, but why would you do that when you can leverage <code>do</code> notation and just write out numbers instead?</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">addNumbers <span class="fu">=</span> <span class="kw">do</span>
+  <span class="dv">80</span>
+  <span class="dv">60</span>
+  <span class="dv">10</span>
+  <span class="kw">where</span> (<span class="fu">&gt;&gt;</span>) <span class="fu">=</span> (<span class="fu">+</span>)</code></pre></div>
+<p>I’m joking, of course, but this produces exactly what you’d expect: <code>150</code>.</p>
+<h2 id="monoids">Monoids</h2>
+<p>If you’ve been using Haskell for long enough, or have some experience with abstract algebra, you’ll know that Integers form a <code>Monoid</code> using 0 as the identity element and addition as the binary operator. Why not generalize the above, using <code>Data.Monoid</code>’s <code>Sum</code> data type. For the next couple of examples, we’ll use the following top-level bindings:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">(<span class="fu">&gt;&gt;</span>) <span class="fu">=</span> mappend
+return <span class="fu">=</span> mempty</code></pre></div>
+<p>We can perform the same computation as above using the <code>Sum</code> wrapper:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">someSum ::</span> <span class="dt">Sum</span> <span class="dt">Int</span>
+someSum <span class="fu">=</span> <span class="kw">do</span>
+    <span class="dt">Sum</span> <span class="dv">80</span>
+    <span class="dt">Sum</span> <span class="dv">60</span>
+    <span class="dt">Sum</span> <span class="dv">10</span>
+    return</code></pre></div>
+<p>We’re explicitly using <code>return</code> just to illustrate that we can use it as the identity in the same way we use it as the identity in monads, but it’s optional in this case. We can also use the <code>Product</code> wrapper to multiply elements in sequence:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">someProduct ::</span> <span class="dt">Product</span> <span class="dt">Int</span>
+someProduct <span class="fu">=</span> <span class="kw">do</span>
+    <span class="dt">Product</span> <span class="dv">10</span>
+    <span class="dt">Product</span> <span class="dv">30</span></code></pre></div>
+<p>Why not try something non-numeric?</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">tummyMuscle ::</span> <span class="dt">String</span>
+tummyMuscle <span class="fu">=</span> <span class="kw">do</span>
+    <span class="st">&quot;a&quot;</span>
+    <span class="st">&quot;b&quot;</span></code></pre></div>
+<p>Cool, we can use <code>do</code> notation now to handle monoidal computations! What else can we do?</p>
+<h2 id="composition">Composition</h2>
+<p>If you’re coming from an imperative programming language, you might be wondering if we can apply a bunch of functions in sequence. Well, sure we can! Using flipped composition as <code>&gt;&gt;</code>, we can apply functions to an input in sequence and output the result. For the next few examples, we’ll use the following bindings:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">(<span class="fu">&gt;&gt;</span>)    <span class="fu">=</span> flip (<span class="fu">.</span>)
+return  <span class="fu">=</span> id</code></pre></div>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">arithmetic <span class="fu">=</span> <span class="kw">do</span>
+    (<span class="fu">+</span><span class="dv">1</span>)
+    (<span class="fu">*</span><span class="dv">100</span>)
+    (<span class="fu">/</span><span class="dv">300</span>)
+    return</code></pre></div>
+<p>Here, the input is numeric and all functions operate on a number. What if we want to take a list and output a string? No problem:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">check <span class="fu">=</span> <span class="kw">do</span>
+    sum
+    sqrt
+    floor
+    show</code></pre></div>
+<p>As long as the domain/range pairs match up in the usual way, we have no problem. So now we can compose normal functions, that’s cool! But what if we want to compose – say – <code>Kleisli</code> arrows (functions of the form <code>Monad m =&gt; a -&gt; m b</code>)? We can do this as well, why not?</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">(<span class="fu">&gt;&gt;</span>) <span class="fu">=</span> (<span class="fu">&lt;=&lt;</span>)</code></pre></div>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">kleisliExample ::</span> (<span class="dt">Ord</span> a, <span class="dt">Ord</span> b) <span class="ot">=&gt;</span> <span class="dt">Map</span> b c <span class="ot">-&gt;</span> <span class="dt">Map</span> a b <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">Maybe</span> c
+kleisliExample mp1 mp2 <span class="fu">=</span> <span class="kw">do</span>
+  flip M.lookup mp1
+  flip M.lookup mp2</code></pre></div>
+<p>Another thing you might be wondering is if we can replace <code>&gt;&gt;=</code> with <code>=&gt;&gt;</code>, and <code>return</code> with <code>extract</code> (from <code>Control.Comonad</code>) and get some meaningful expression from it. The short answer is: Not really. If you think about the following equivalence:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">do</span> x <span class="ot">&lt;-</span> a  <span class="fu">==</span>  a <span class="fu">&gt;&gt;=</span> \x <span class="ot">-&gt;</span> g x
+   g x</code></pre></div>
+<p>Recall that <code>(=&gt;&gt;) :: Comonad w =&gt; w a -&gt; (w a -&gt; b) -&gt; w b</code>. If we replace <code>&gt;&gt;=</code> with <code>=&gt;&gt;</code>, we get:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">a <span class="ot">=&gt;</span><span class="fu">&gt;</span> \x <span class="ot">-&gt;</span> g x</code></pre></div>
+<p>See the problem? The <code>x</code> we’re “extracting” is just the <code>a</code> we passed in. So <code>do{ x &lt;- a; g x }</code> is exactly equivalent to <code>g a</code>, which isn’t very useful.</p>
+<h2 id="forcing-the-monad">Forcing the Monad</h2>
+<p>It’s a relatively common problem in Haskell to <em>think</em> you have a <code>Monad</code> instance for some data type, but in reality, additional constraints make this impossible. A good example is <code>Set</code> from <code>Data.Set</code>.</p>
+<p>One might expect that <code>Set</code>s admit a monad instance given that <code>[]</code> does – we want to be able to, for example, write this:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">import </span><span class="dt">Data.Set</span> <span class="kw">as</span> <span class="dt">S</span>
+
+main <span class="fu">=</span> print <span class="fu">$</span> <span class="kw">do</span>
+	x <span class="ot">&lt;-</span> S.fromList [<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">3</span>]
+	y <span class="ot">&lt;-</span> S.fromList [<span class="dv">4</span>, <span class="dv">5</span>, <span class="dv">6</span>]
+	return (x <span class="fu">*</span> y)</code></pre></div>
+<p>…but that doesn’t work because <code>Set</code>s require <code>Ord</code> constrained elements. However, we can write a function</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">setBind ::</span> <span class="dt">Ord</span> b <span class="ot">=&gt;</span> <span class="dt">Set</span> a <span class="ot">-&gt;</span> (a <span class="ot">-&gt;</span> <span class="dt">Set</span> b) <span class="ot">-&gt;</span> <span class="dt">Set</span> b
+setBind s f <span class="fu">=</span> S.foldr S.union S.empty (S.map f s)</code></pre></div>
+<p>…which obeys the monad laws as long as <code>b</code> is orderable. Using <code>RebindableSyntax</code>, we can use this as <code>&gt;&gt;=</code> and pretend that <code>Set</code> is a real monad.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">main <span class="fu">=</span> print <span class="fu">$</span> <span class="kw">do</span>
+    x <span class="ot">&lt;-</span> S.fromList [<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">3</span>]
+    y <span class="ot">&lt;-</span> S.fromList [<span class="dv">4</span>, <span class="dv">5</span>, <span class="dv">6</span>]
+    return (x <span class="fu">*</span> y)
+    <span class="kw">where</span> (<span class="fu">&gt;&gt;=</span>) <span class="fu">=</span> setBind
+          return <span class="fu">=</span> S.singleton</code></pre></div>
+<p>Another useful feature of <code>RebindableSyntax</code> is that it allows “extended” monads to be used as if they were just plain old monads. For instance, <a href="http://hackage.haskell.org/package/category-extras-0.53.1/docs/Control-Monad-Indexed.html#t:IxMonad">Indexed Monads</a> come equipped with a <code>&gt;&gt;&gt;=</code> operator and an <code>ireturn</code> function which behave – as one might imagine – similarly to <code>&gt;&gt;=</code> and <code>return</code>. Using <code>RebindableSyntax</code> we can bind the normal monadic functions to these and have nice readable code that performs functions outside the scope of regular monads. To talk about this at a deeper level is beyond the scope of this post, but if you’re interested, check out Ollie Charles’s blog post on <a href="../posts/2013-11-24-using-indexed-free-monads-to-quickcheck-json.html">using indexed free monads to quickcheck JSON</a>.</p>
+<p>Finally, I wanted to shamelessly plug my own work and mention my drum machine language <a href="https://github.com/5outh/Bang"><code>Bang</code></a>, which uses two separate operators to compose beats sequentially (<code>&lt;&gt;</code>) and concurrently (<code>&gt;&lt;</code>). Using these operators as <code>&gt;&gt;</code>, we can compose drum machine patterns in a readable way using <code>do</code> notation (to run this example you’ll have to <code>cabal install bang</code>):</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">music1,<span class="ot"> music2 ::</span> <span class="dt">Music</span> <span class="dt">Dur</span> <span class="dt">PercussionSound</span>
+music1 <span class="fu">=</span> <span class="kw">do</span>
+  m4 bd bd bd bd
+  hc
+  m4 bd qr bd qr <span class="fu">&gt;&lt;</span> m4 hc hc hc hc
+  <span class="kw">where</span> (<span class="fu">&gt;&gt;</span>) <span class="fu">=</span> (<span class="fu">&lt;&gt;</span>)
+
+music2 <span class="fu">=</span> quintuplets <span class="fu">$</span> <span class="dv">5</span> <span class="fu">#&gt;</span> <span class="kw">do</span>
+    bd
+    cc
+    <span class="kw">where</span> (<span class="fu">&gt;&gt;</span>) <span class="fu">=</span> (<span class="fu">&gt;&lt;</span>)
+
+<span class="ot">music ::</span> <span class="dt">IO</span> ()
+music <span class="fu">=</span> bang <span class="fu">$</span> <span class="dv">4</span> <span class="fu">#&gt;</span> <span class="kw">do</span>
+    music1
+    music2
+    <span class="kw">where</span> (<span class="fu">&gt;&gt;</span>) <span class="fu">=</span> (<span class="fu">&lt;&gt;</span>)</code></pre></div>
+<p>This will play <code>music1</code>’s rows sequentially, <code>music2</code>s rows concurrently, and finally play <code>music1</code>, then <code>music2</code>, sequentially, in <code>music</code>.</p>
+<hr />
+<p><em>This post is part of <a href="../pages/2014-12-01-24-days-of-ghc-extensions.html">24 Days of GHC Extensions</a> - for more posts like this, check out the <a href="../pages/2014-12-01-24-days-of-ghc-extensions.html">calendar</a></em>.</p>
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/guest-posts/2014-12-06-rebindable-syntax.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

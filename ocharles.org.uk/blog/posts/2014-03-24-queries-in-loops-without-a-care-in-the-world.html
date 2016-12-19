@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2014-03-24-queries-in-loops-without-a-care-in-the-world.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>Queries in Loops Without a Care in the World</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>Queries in Loops Without a Care in the World</h1>
+<p>If you’ve interacted with databases when programming, chances are you’ve heard about the “N+1 Selects Problem”, <a href="http://use-the-index-luke.com/sql/join/nested-loops-join-n1-problem">discussed in detail</a> at <a href="http://use-the-index-luke.com/">Use the Index, Luke!</a>. Roughly speaking, this problem is characterised by performing <code>SELECT</code> statements repeatedly inside a loop. For example,</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">do</span> userIds <span class="ot">&lt;-</span> getAllUsers
+   users <span class="ot">&lt;-</span> for userIds <span class="fu">$</span> \userId <span class="ot">-&gt;</span> <span class="kw">do</span>
+     getUserById userId
+   doSomething users</code></pre></div>
+<p>With the above approach, we do one query to find all user ids, and then we do another query <em>for each user id</em> to get user information. The problem is one of efficiency, as it reduces performance in two areas. Firstly, this increases network traffic and incurs more blocking, and it also reduces your ability to actually take advantage of your database to its full potential. The correct solution is to perform a constant amount of queries. Ideally a single query, though even two queries will perform and scale better.</p>
+<p>However, I would argue that it’s easier to write code in the above form. I don’t want to have to think about collapsing data into single queries, nor do I want to worry about how to re-associate all that data. To take a more realistic example, lets imagine we are building a system where we have entities that have an owner and a type. If we want to get a list of all entities with their owner and type properties fully expanded, then we have two possibilities. The first is to throw good practice out of the window, and write the obvious solution:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">do</span> entities <span class="ot">&lt;-</span> getAllEntities
+   expandedEntities <span class="ot">&lt;-</span> for entities <span class="fu">$</span> \entity <span class="ot">-&gt;</span> <span class="kw">do</span>
+     entityType <span class="ot">&lt;-</span> getEntityTypeById (entityTypeId entity)
+     entityOwner <span class="ot">&lt;-</span> getEntityOwnerById (entityOwnerId entity)
+     return <span class="fu">$</span> <span class="dt">ExpandedEntity</span> entity entityType entityOwner
+
+   doSomething expandedEntities</code></pre></div>
+<p>This suffers from the “N+1 Selects Problem”, so we should instead collect all our data to perform a single query:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">do</span> entities <span class="ot">&lt;-</span> getAllEntities
+   <span class="kw">let</span> entityTypeIds <span class="fu">=</span> map entityTypeId entities
+       entityOwnerIds <span class="fu">=</span> map entityOwnerId entities
+   entityTypes <span class="ot">&lt;-</span> getEntityTypesById entityTypeIds
+   entityOwners <span class="ot">&lt;-</span> getEntityOwnersById entityOwnerIds
+   doSomething <span class="fu">$</span> flip map entities <span class="fu">$</span> \entity <span class="ot">-&gt;</span>
+    <span class="dt">ExpandedEntity</span> entity
+                   (entityTypeId entity <span class="ot">`lookup`</span> entityTypes)
+                   (entityOwnerId entity <span class="ot">`lookup`</span> entityOwners)</code></pre></div>
+<p>Oof. That got a lot more complicated!</p>
+<p>Is it possible to write our code in the first way, but have it optimise away to only issue a constant amount of queries? With a little trickery it turns out - yes, we can.</p>
+<h2 id="tell-me-what-you-want">Tell Me What You Want</h2>
+<p>Before we dive into the code, lets consider how we might reach the solution I’m going to demonstrate. There are two “phases” in our code, and we want to keep the two as separate as possible. In the first phase, we determine a set of keys that should be looked up in the database. I’ll call this the <em>key collection</em> phase. After we’ve got an idea of all these keys, we move onto the next phase, which is the <em>querying</em> phase. In this phase, we perform a query with all the keys we collected earlier, and then we route the results back to the places where the query was originally performed.</p>
+<p>The type of keys and the data underlying these keys is determined by the query we are performing. A query for entity types by their id is a query from <code>EntityTypeId</code> to <code>EntityType</code>, whereas a query for entity owners would be from <code>EntityOwnerId</code> to <code>EntityOwner</code>. This suggests a data type parameterized on these two types:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Query</span> k v</code></pre></div>
+<p>Now, the code performing a query needs to somehow “communicate” with this query, registering both the key that is being queried for, and allowing information to flow back in order to use the query results. We can model this by using some imperative programming constructs (you don’t hear that often!). We’ll use an <code>IORef</code> to keep track of a mapping of keys to query results. The keys will be used to query results from the database, and those results will be represented as a <code>Maybe</code> value (allowing query failures to be indicated) stored in an <code>MVar</code>. Thus <code>Query</code> now becomes:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Query</span> k v <span class="fu">=</span> <span class="dt">Query</span> (<span class="dt">IORef</span> (<span class="dt">Map</span> k [<span class="dt">MVar</span> (<span class="dt">Maybe</span> v)]))</code></pre></div>
+<p>Now we can perform queries by adding a key to the <code>Map</code> inside the <code>Query</code> and providing an <code>MVar</code> for the result to be placed in:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">(<span class="dt">Query</span> keys) <span class="fu">@?</span> k <span class="fu">=</span> <span class="kw">do</span>
+  result <span class="ot">&lt;-</span> newEmptyMVar
+  modifyIORef' keys (Map.insertWith (<span class="fu">++</span>) k [result])</code></pre></div>
+<p>This doesn’t let us use the query result though, so we’ll also return an <code>IO</code> computation to read from the <code>MVar</code>:</p>
+<pre><code>(Query keys) @? k = do
+  result &lt;- newEmptyMVar
+  modifyIORef' keys (Map.insertWith (++) k [result])
+  return (takeMVar result)</code></pre>
+<p>This is preferred over returning the <code>MVar</code> itself, as we’ll see later that we can guarantee that the <code>MVar</code> is never read from before it is written to (which would hang the whole program indefinitely).</p>
+<p>Now that we have some basic building blocks, we need a way to structure this in a safe way. Currently, if you issue a query and immediately ask for a result the whole computation will block. We need to guarantee that query results can only be asked for <em>after</em> performing the query that will populate the <code>MVar</code>s. Lets see if we can find a way to both compose these queries in a non-blocking fashion.</p>
+<h2 id="composing">Composing</h2>
+<p>When thinking of a way to compose things, we should first see if there is a well established form of composition that we could use. Monads are used extensively for modelling effects, but they don’t give us the ability to statically analyse the computation before executing it, as the computation can choose what to do next based on what has already happened. For example, consider the following:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">do</span> entity <span class="ot">&lt;-</span> getEntityById <span class="dv">1</span>
+   <span class="kw">if</span> entityOwnerId entity <span class="ot">`mod`</span> <span class="dv">2</span> <span class="fu">==</span> <span class="dv">0</span>
+     <span class="kw">then</span> <span class="kw">do</span> owner <span class="ot">&lt;-</span> getEntityOwnerById (entityOwnerId entity)
+             return (entity, <span class="dt">Just</span> owner)
+     <span class="kw">else</span> return (entity, <span class="dt">Nothing</span>)</code></pre></div>
+<p>If we only have this to consider, then there’s no way of determining which entity owners to select without running some of the computation. The choice of selecting entity owners <em>depends on the result</em> of the initial call to <code>getEntityById</code>.</p>
+<p>However, if we choose a less powerful, though still effectful, structure - namely the applicative functor - then we <em>do</em> get the ability to statically analyse the computation, as we have given up the ability to make branches as above.</p>
+<p>So maybe we’ll have luck with the applicative functor, but how do we form it? I like to construct applicative functors somewhat mechanically, so we’ll start by remembering that there were two phases to this computation - the key collection phase and the query phase. Both of these phases need <code>IO</code> - the former to modify an <code>IORef</code> and the latter to take from the result <code>MVar</code>. Applicative functors have the nice property of being closed under composition, and as all monads are applicative functors, we can compose two <code>IO</code> actions into one applicative functor:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">newtype</span> <span class="dt">Querying</span> a <span class="fu">=</span> <span class="dt">Querying</span> {<span class="ot"> runQuerying ::</span> <span class="dt">Compose</span> <span class="dt">IO</span> <span class="dt">IO</span> a }</code></pre></div>
+<p>If you’ve never seen <code>Compose</code> before, allow me to repeat it’s definition here:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">newtype</span> <span class="dt">Compose</span> f g a <span class="fu">=</span> <span class="dt">Compose</span> {<span class="ot"> getCompose ::</span> f (g a) }
+
+<span class="kw">instance</span> (<span class="dt">Applicative</span> f, <span class="dt">Applicative</span> g) <span class="ot">=&gt;</span> <span class="dt">Applicative</span> (<span class="dt">Compose</span> f g) <span class="kw">where</span>
+    pure x <span class="fu">=</span> <span class="dt">Compose</span> (pure (pure x))
+    <span class="dt">Compose</span> f <span class="fu">&lt;*&gt;</span> <span class="dt">Compose</span> x <span class="fu">=</span> <span class="dt">Compose</span> ((<span class="fu">&lt;*&gt;</span>) <span class="fu">&lt;$&gt;</span> f <span class="fu">&lt;*&gt;</span> x)</code></pre></div>
+<p>The <code>Applicative</code> instance for <code>Compose</code> shows that <code>pure</code> is lifted through both layers, and <code>&lt;*&gt;</code> applies effects at the outer- and the inner-functors (f and g, respectively).</p>
+<p>It turns out the <code>(@?)</code> operator we introduced above already fits the form above, if we simply wrap it all up with <code>Querying . Compose</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">(@?) ::</span> (<span class="dt">Ord</span> k, <span class="dt">Eq</span> k) <span class="ot">=&gt;</span> <span class="dt">Query</span> k v <span class="ot">-&gt;</span> k <span class="ot">-&gt;</span> <span class="dt">Querying</span> (<span class="dt">Maybe</span> v)
+(<span class="dt">Query</span> keys) <span class="fu">@?</span> k <span class="fu">=</span> <span class="dt">Querying</span> <span class="fu">$</span> <span class="dt">Compose</span> <span class="fu">$</span> <span class="kw">do</span>
+  result <span class="ot">&lt;-</span> newEmptyMVar
+  modifyIORef' keys (Map.insertWith (<span class="fu">++</span>) k [result])
+  return (takeMVar result)</code></pre></div>
+<h2 id="performing-queries">Performing Queries</h2>
+<p>There are two omissions from this article so far - how do we introduce <code>Query</code> values, and perhaps more importantly - how do we actually run this thing? First of all, lets look at how to introduce a <code>Query</code>. When we introduce a <code>Query</code>, we need to ensure that people use them in a safe manner in order to avoid them blocking. We can do this by using a <code>bracket</code>-like construction. The only way to introduce a <code>Query</code> will be by using <code>withQuery</code>, which will provide a <code>Query</code> to a <code>Querying</code> computation. It will then inspect its own <code>IORef</code>, perform the query, and populate any related <code>MVar</code>s:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">withQuery ::</span> (<span class="dt">Ord</span> k, <span class="dt">Eq</span> k) <span class="ot">=&gt;</span> ([k] <span class="ot">-&gt;</span> <span class="dt">IO</span> (<span class="dt">Map.Map</span> k v)) <span class="ot">-&gt;</span> (<span class="dt">Query</span> k v <span class="ot">-&gt;</span> <span class="dt">Querying</span> a) <span class="ot">-&gt;</span> <span class="dt">Querying</span> a
+withQuery runner k <span class="fu">=</span> <span class="dt">Querying</span> <span class="fu">$</span> <span class="dt">Compose</span> <span class="fu">$</span> <span class="kw">do</span>
+  <span class="co">-- Create a IORef to keep track of requested keys and result MVars</span>
+  keysRef <span class="ot">&lt;-</span> newIORef Map.empty
+
+  <span class="co">-- Run the first phase of the Querying action</span>
+  getResponse <span class="ot">&lt;-</span> getCompose <span class="fu">$</span> runQuerying (k (<span class="dt">Query</span> keysRef))
+
+  <span class="co">-- Check which keys were requested and perform a query</span>
+  keys <span class="ot">&lt;-</span> readIORef keysRef
+  qResults <span class="ot">&lt;-</span> runner (Map.keys keys)
+
+  <span class="co">-- Populate all MVars with results</span>
+  flip Map.traverseWithKey keys <span class="fu">$</span> \k mvars <span class="ot">-&gt;</span>
+    for_ mvars <span class="fu">$</span> \mvar <span class="ot">-&gt;</span>
+      putMVar mvar (Map.lookup k qResults)
+
+  <span class="co">-- Return the IO action that reads from the MVar</span>
+  return getResponse</code></pre></div>
+<p>Finally, we just need a way to run escape from <code>Querying</code>, which is trivial. The first phase has already been performed, so we only need to perform the second phase. This is eloquently expressed by <code>join</code>ing the two <code>IO</code> actions:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">runQuerying ::</span> <span class="dt">Querying</span> a <span class="ot">-&gt;</span> <span class="dt">IO</span> a
+runQuerying (<span class="dt">Querying</span> (<span class="dt">Compose</span> io)) <span class="fu">=</span> join io</code></pre></div>
+<h2 id="examples">Examples</h2>
+<p>To wrap up, here’s a little example of everything in action:</p>
+<pre><code>getUserAgesById :: [Int] -&gt; IO (Map.Map Int Int)
+getUserAgesById keys = do
+  putStrLn $ &quot;Looking up &quot; ++ show keys
+  return $ Map.fromList $ [(1, 1), (2, 2)]
+
+example :: IO (Maybe Int)
+example = runQuerying $
+  withQuery getUserAgesById $ \usersAgeById -&gt;
+    liftA2 (+) &lt;$&gt; (usersAgeById @? 1) &lt;*&gt; (usersAgeById @? 2)</code></pre>
+<p>And if we run <code>example</code>, we see:</p>
+<pre><code>&gt; example
+Looking up [1,2]
+Just 3
+</code></pre>
+<p>Voila.</p>
+<h2 id="addendum-or-iorefs-mvars-are-you-mad">Addendum (or, IORefs!? MVars?! ARE YOU MAD?)</h2>
+<p>My first attempts to solve this problem didn’t use <code>MVar</code>s or <code>IORef</code>s, but I’ve come to see them as a very useful tool to create a sort of request-response pattern internally. They allow me to separate the request type and the response type into something I can easily pass around, and by combining them with a suitable applicative functor, I think a lot of the details can be kept sufficiently abstract.</p>
+<p>However, I would love to know how this could be done without mutable cells. I’ve had a little bit of a play with continuations (getting as far as delimited continuations and then rocking in a corner), but the problem here seems to be that the <code>k</code> and <code>v</code> types would have to be part of the <code>Querying</code> applicative itself. Worse, every time you introduce a new query, you’d have to some how get more types in.</p>
+<p>I think that there may be a solution here that uses existential types, as we immediately consume the value that we ask for - but again, I couldn’t pull that off.</p>
+<p>As a final bit of food for thought, Henrik Nilsson pointed out that this all feels very circular. The normal tool for circular programming is <code>fix</code> and laziness, and that extends to effectful computations with <code>mfix</code>. Again, maybe there is a way to do it using <code>mfix</code>, but I had difficult working out how to keep everything separated.</p>
+<p>If anyone wants to take this idea and see what an even more Haskell-y solution would look like, I would <em>love</em> to see it!</p>
+<p>One remaining piece of future work is to see if it’s possible to do this without <code>withQuery</code>. Currently there is a bit of duplication - you have to introduce a binding for every query you’re going to perform, which can be tedious - especially when you’re trying to extract common queries. On the flip side, it seems to make sense, in as far as it matches a functional API: we perform a query, and then we bind the results to some variable and we pull individual rows out of this result set.</p>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2014-03-24-queries-in-loops-without-a-care-in-the-world.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

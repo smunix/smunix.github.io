@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2012-12-09-24-days-of-hackage-lens.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>24 Days of Hackage: lens</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>24 Days of Hackage: lens</h1>
+<p>One of my favourite aspects of functional programming is the emphasis on immutability - rather than mutating things and making direct changes to them, you work with copies and the differences are reflected in the construction. I won’t harp on about the benefits of doing this, but instead I’ll note that it isn’t all ponies and unicorns. Working with purely functional data can be difficult, especially when you have nested data structures; you often have to clone something deep inside and then reassemble everything by hand - yuck!</p>
+<p><a href="http://comonad.com/"><code>Edward Kmett</code></a>’s <a href="http://lens.github.com/"><code>lens</code></a> package aims to solve this problem. <code>lens</code> provides “families of lenses, isomorphisms, folds, traversals, getters and setters”. This is probably still a little unclear, and it’s easiest to see what <code>lens</code> gives you from an example:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Point</span> <span class="fu">=</span> <span class="dt">Point</span>
+  { _x, _<span class="ot">y ::</span> <span class="dt">Double</span> } <span class="kw">deriving</span> (<span class="dt">Show</span>)
+
+<span class="kw">data</span> <span class="dt">Monster</span> <span class="fu">=</span> <span class="dt">Monster</span>
+  { _<span class="ot">monsterLocation  ::</span> <span class="dt">Point</span>
+  } <span class="kw">deriving</span> (<span class="dt">Show</span>)
+
+makeLenses <span class="ch">''</span><span class="dt">Point</span>
+makeLenses <span class="ch">''</span><span class="dt">Monster</span>
+
+ogre <span class="fu">=</span> <span class="dt">Monster</span> (<span class="dt">Point</span> <span class="dv">0</span> <span class="dv">0</span>)</code></pre></div>
+<p>I’ve got 2 data structures for my little game - a 2D <code>Point</code>, and a <code>Monster</code>. I’ve made an example <code>Monster</code> - the <code>ogre</code>. All <code>Monster</code>s have a location, and we presumably want them to move around. To move the <code>ogre</code> without <code>lens</code>, it might look like:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">λ<span class="fu">&gt;</span> ogre { _monsterLocation <span class="fu">=</span> (_monsterLocation ogre) {
+            _x <span class="fu">=</span> _x (_monsterLocation ogre) <span class="fu">+</span> <span class="dv">1</span>
+        } }
+<span class="dt">Monster</span> {_monsterLocation <span class="fu">=</span> <span class="dt">Point</span> {_x <span class="fu">=</span> <span class="fl">1.0</span>, _y <span class="fu">=</span> <span class="fl">0.0</span>}}</code></pre></div>
+<p>URGH! All of that, just to move 1 to the right?! Lets see how this looks with <code>lens</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">λ<span class="fu">&gt;</span> monsterLocation<span class="fu">.</span>x <span class="fu">+~</span> <span class="dv">1</span> <span class="fu">$</span> ogre
+<span class="dt">Monster</span> {_monsterLocation <span class="fu">=</span> <span class="dt">Point</span> {_x <span class="fu">=</span> <span class="fl">1.0</span>, _y <span class="fu">=</span> <span class="fl">0.0</span>}}</code></pre></div>
+<p>That’s much better! We’ve composed the <code>monsterLocation</code> and <code>x</code> lens to move into the <code>x</code> part of the <code>Point</code> of a <code>Monster</code>, and then used <code>+~ 1</code> to add one to it. Almost magically, these changes gets applied and our new <code>Monster</code> is rebuild and returned to us.</p>
+<p><code>lens</code> considers itself to come with “batteries included”, but this seems like it’s selling itself short - it really gives you a whole power station! As of this time of writing, lens has 99 operators and covers a huge range of operations you might wish to do on data. A recent addition is “prisms”, which are 0-or-1 target traversals, meaning they could give you either 1 answer or no answer at all, depending on the data that is viewed through them.</p>
+<p>Natural numbers are a good example of this:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">nat ::</span> <span class="dt">SimplePrism</span> <span class="dt">Integer</span> <span class="dt">Natural</span>
+nat <span class="fu">=</span> prism toInteger <span class="fu">$</span> \ i <span class="ot">-&gt;</span>
+   <span class="kw">if</span> i <span class="fu">&lt;</span> <span class="dv">0</span>
+   <span class="kw">then</span> <span class="dt">Left</span> i
+   <span class="kw">else</span> <span class="dt">Right</span> (fromInteger i)</code></pre></div>
+<p>Now we can ask if an <code>Int</code> is a <code>Natural</code>, by trying to view an <code>Int</code> through the <code>nat</code> prism:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">λ<span class="fu">&gt;</span> <span class="dv">5</span> <span class="fu">^?</span> nat
+<span class="dt">Just</span> <span class="dv">5</span>
+
+λ<span class="fu">&gt;</span> (<span class="fu">-</span><span class="dv">5</span>) <span class="fu">^?</span> nat
+<span class="dt">Nothing</span></code></pre></div>
+<p>Prisms fit in perfectly with the lens API, which means that we can compose them like any other lens - just like we did with <code>Monster</code>s and <code>Point</code>s above. In this example, we’ve got a pair of <code>Int</code>s, perhaps from user input. We want to multiple each side of this input by 2, but <em>only</em> if it’s already a natural number. It sounds tricky, and that we’d likely need conditionals to pull it off, but not so with <code>lens</code>!</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">λ<span class="fu">&gt;</span> both<span class="fu">.</span>nat <span class="fu">*~</span> <span class="dv">2</span> <span class="fu">$</span> (<span class="fu">-</span><span class="dv">3</span>,<span class="dv">4</span>)
+(<span class="fu">-</span><span class="dv">3</span>,<span class="dv">8</span>)
+
+λ<span class="fu">&gt;</span> both<span class="fu">.</span>nat <span class="fu">*~</span> <span class="dv">2</span> <span class="fu">$</span> (<span class="dv">8</span>,<span class="dv">4</span>)
+(<span class="dv">16</span>,<span class="dv">8</span>)</code></pre></div>
+<p>When <code>lens</code> views the <code>(-3)</code> through the <code>nat</code> prism, it doesn’t view anything, because <code>(-3)</code> is of course, not a natural number. As such, we just return <code>(-3)</code>, unchanged. We’ve composed the <code>nat</code> prism with <code>both</code> to view “both sides” of a tuple through the <code>nat</code> prism. This example is a variant of the <a href="http://hackage.haskell.org/packages/archive/lens/3.7.0.2/doc/html/Control-Lens-Prism.html">official prism documentation</a>, so be sure to check that out if you like this!</p>
+<p>As always, I’ve only covered a tiny portion of the full API. <code>lens</code> can also do traversals, monadic actions, folds, along with including a bunch of lens for common data structures such as <code>Set</code>, <code>Text</code>, <code>Vector</code> and much more.</p>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2012-12-09-24-days-of-hackage-lens.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

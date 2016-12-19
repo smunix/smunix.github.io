@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2014-12-14-functional-dependencies.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>24 Days of GHC Extensions: Functional Dependencies</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>24 Days of GHC Extensions: Functional Dependencies</h1>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="ot">{-# LANGUAGE FlexibleInstances #-}</span>
+<span class="ot">&gt;</span> <span class="ot">{-# LANGUAGE MultiParamTypeClasses #-}</span>
+<span class="ot">&gt;</span> <span class="ot">{-# LANGUAGE FunctionalDependencies #-}</span>
+<span class="ot">&gt;</span> <span class="kw">import </span><span class="dt">Data.Foldable</span> (forM_)
+<span class="ot">&gt;</span> <span class="kw">import </span><span class="dt">Data.IORef</span></code></pre></div>
+<p>Over the last few days we’ve seen a few different ways to model the class of mutable variables using type classes. First of all we saw that we could use <a href="2014-12-12-type-families.html">type families</a> to associate the type of monad with the type of mutable variables, and yesterday we saw that we could almost take the same approach using <a href="2014-12-13-multi-param-type-classes.html">multi-parameter type classes</a>. Unfortunately, when we moved to multi-parameter type classes, the type inference engine became a little less useful, as there are multiple possible choices of monad for any given mutable variable.</p>
+<p>What we really wanted to do with the multiple types was to model a <em>relation</em> between the types - knowing the type of the mutable variable should be enough to inform us as to the type of monad. By using the <code>FunctionalDependencies</code> extension, we have the ability to augment a type class with information about <a href="https://en.wikipedia.org/wiki/Functional_dependency"><em>functional dependencies</em></a> - a concept you might already be familiar with from relational database theory. Loosely speaking, a functional dependency lets us indicate that a given set of one or more types determine the type of a single other type. The notation for this is to indicate a list of types and then use an arrow (<code>-&gt;</code>) to note the dependency.</p>
+<p>Revisiting our mutable variables type class, we can now write:</p>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="kw">class</span> <span class="dt">Store</span> store m <span class="fu">|</span> store <span class="ot">-&gt;</span> m <span class="kw">where</span>
+<span class="ot">&gt;  new ::</span> a <span class="ot">-&gt;</span> m (store a)
+<span class="ot">&gt;  get ::</span> store a <span class="ot">-&gt;</span> m a
+<span class="ot">&gt;  put ::</span> store a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> m ()</code></pre></div>
+<p>This is the same type class as yesterday, but we have now indicated that <code>store</code> determines <code>m</code>. We are able to re-use the existing instances unchanged:</p>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="kw">instance</span> <span class="dt">Store</span> <span class="dt">IORef</span> <span class="dt">IO</span> <span class="kw">where</span>
+<span class="ot">&gt;</span>   new <span class="fu">=</span> newIORef
+<span class="ot">&gt;</span>   get <span class="fu">=</span> readIORef
+<span class="ot">&gt;</span>   put ioref a <span class="fu">=</span> modifyIORef ioref (const a)</code></pre></div>
+<p>However, <em>now</em> when we ask for the type of yesterday’s <code>ex</code> function and choose <code>IORef</code> as our store, GHC will be able to infer that the type of <code>m</code> must be <code>IO</code> - as that was determined by the instance above:</p>
+<pre><code>.&gt; :t ex
+ex :: [Present] -&gt; IO [Present]</code></pre>
+<p>Perfect!</p>
+<p>While this may seem inconsequential, this use of functional dependencies to direct the type inference engine is significant if we want to build practical libraries. While it’s great to be able to do a lot with types, many agree that giving up type inference can be too much of a cost.</p>
+<p>That said, the fun doesn’t stop there - as functional dependencies and multi-parameter type classes really do start to capture relations between types we can start using type classes as a form of logic programming. A prime example of this is the paper <a href="http://www.cse.chalmers.se/~hallgren/Papers/wm01.html">Fun with Functional Dependencies</a>. Another example is in the work around the <a href="http://hackage.haskell.org/package/HList">HList</a> library - discussed in the paper <a href="http://okmij.org/ftp/Haskell/HList-ext.pdf">Strongly Typed Heterogeneous Collections</a>.</p>
+<hr />
+<p>To recap, here is yesterday’s code:</p>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="kw">type</span> <span class="dt">Present</span> <span class="fu">=</span> <span class="dt">String</span>
+<span class="ot">&gt; storePresents ::</span> (<span class="dt">Store</span> store m, <span class="dt">Monad</span> m) <span class="ot">=&gt;</span> [<span class="dt">Present</span>] <span class="ot">-&gt;</span> m (store [<span class="dt">Present</span>])
+<span class="ot">&gt;</span> storePresents xs <span class="fu">=</span> <span class="kw">do</span>
+<span class="ot">&gt;</span>   store <span class="ot">&lt;-</span> new []
+<span class="ot">&gt;</span>   forM_ xs <span class="fu">$</span> \x <span class="ot">-&gt;</span> <span class="kw">do</span>
+<span class="ot">&gt;</span>     old <span class="ot">&lt;-</span> get store
+<span class="ot">&gt;</span>     put store (x <span class="fu">:</span> old)
+<span class="ot">&gt;</span>   return store
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span> ex ps <span class="fu">=</span> <span class="kw">do</span>
+<span class="ot">&gt;</span>   store <span class="ot">&lt;-</span> storePresents ps
+<span class="ot">&gt;</span>   get (<span class="ot">store ::</span> <span class="dt">IORef</span> [<span class="dt">Present</span>])</code></pre></div>
+<hr />
+<p><em>This post is part of <a href="../pages/2014-12-01-24-days-of-ghc-extensions.html">24 Days of GHC Extensions</a> - for more posts like this, check out the <a href="../pages/2014-12-01-24-days-of-ghc-extensions.html">calendar</a></em>.</p>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2014-12-14-functional-dependencies.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2013-12-13-24-days-of-hackage-async.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>24 Days of Hackage: async</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>24 Days of Hackage: async</h1>
+<p>Over the last decade, it’s likely that you’ve noticed a shift in how we use computers. Users no longer expect to do a single task at a time, but rather several tasks at once. This change in usage is so prevalent, users have come to expect even single applications perform multiple steps concurrently. This change from sequential to concurrent processing is reflected in modern consumer processors too - its not uncommon to find dual or even quad core processors in laptops and even phones. Given all of this, is Haskell up to the job of building applications that meet these requirements? You bet! And with Simon Marlow’s <a href="http://hackage.haskell.org/package/async"><code>async</code></a> library, the transition is seemless.</p>
+<p>Fundamentally, async offers us a handful of routines that enable us to treat concurrent work as a first class citizen. That is - a concurrent job can be passed around in a value, its state inspected and final result extracted. To create some asynchronous work, we simply wrap up a computation with the <code>async</code> combinator.</p>
+<p>For example, let’s assume we have a long computation that finds a list of all naughty children within a mile radius of a location - <code>naughtyChildrenAround</code>. This is an expensive database query to perform, and if we simply call it within the current thread, we’ll completely block our application. Instead, we can use the <code>async</code> operation to run this IO computation asynchronously:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">waitExample ::</span> <span class="dt">IO</span> ()
+waitExample <span class="fu">=</span> <span class="kw">do</span>
+  putStrLn <span class="st">&quot;Requesting a list of naughty children&quot;</span>
+  search <span class="ot">&lt;-</span> async (naughtyChildrenAround <span class="st">&quot;London&quot;</span> <span class="dv">1</span>)
+  putStrLn <span class="st">&quot;Searching!&quot;</span></code></pre></div>
+<p>I mentioned before that <code>async</code> gives us <em>first-class</em> asynchronous operations, and we can see this if we take a closer look at the type of <code>search</code>. While <code>naughtyChildrenAround</code> has type <code>String -&gt; Int -&gt; IO [Child]</code>, <code>search</code> does not have type <code>[Child]</code>, but it has type <code>Async [Child]</code>. This makes it clear that we are holding a reference to an asychronous computation, and not the final value itself.</p>
+<p>So what can we do with this? First, we can block the current computation to try and extract the result:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">  searchResults <span class="ot">&lt;-</span> wait search
+  print searchResults</code></pre></div>
+<p>This is a start - we can start this operation in the background and then do some other work. Later, we can block as late as possible. An alternative would be to poll this asynchronous computation and ask it: are you done yet? We can do this with <code>poll</code>. With only a little bit more work, we can now be a bit more interactive in our program, and show an indication that we’re still doing some work and haven’t just entered an infinite loop:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">  <span class="kw">let</span> loop <span class="fu">=</span> <span class="kw">do</span>
+        maybeResults <span class="ot">&lt;-</span> poll search
+        <span class="kw">case</span> maybeResults <span class="kw">of</span>
+          <span class="dt">Nothing</span> <span class="ot">-&gt;</span> <span class="kw">do</span>
+            putStrLn <span class="st">&quot;Still searching...&quot;</span>
+            threadDelay <span class="dv">100000</span>
+            loop
+          <span class="dt">Just</span> r <span class="ot">-&gt;</span> return r
+
+  loop <span class="fu">&gt;&gt;=</span> print</code></pre></div>
+<p>However, the type of <code>searchResults</code> is a bit different this time - rather than having a <code>[Child]</code>, we now have <code>Either SomeException [Child]</code>. This brings us nicely onto the next feature, <code>async</code>’s exception handling.</p>
+<p>Just running code on a different thread isn’t a big deal in Haskell - <code>forkIO</code> and lightweight threads mean we don’t really even have to think about it. However, there’s a problem. When you <code>forkIO</code>, it becomes very difficult to check whether the computation succeeded or failed. With <code>Async</code> values though, we can easily inspect a computation to see if it failed or not.</p>
+<p>The semantics of <code>wait</code> that we saw earlier is to rethrow any exceptions of the asynchronous computation. This works well for some tasks, but if we use <code>waitCatch</code>, then we can build more of a worker model, where our child threads don’t necessarily take down the parent, also giving us the option to add logging, etc.</p>
+<p>Finally, <code>async</code> can also be useful to distribute a large amount of work over multiple concurrent processes. Using <code>mapConcurrently</code> we can map over any <code>Traversable</code> concurrently, and using <code>race</code> we can race multiple computations until one of them completes. This is really useful in very dynamic environments where it’s hard to predict what’s most efficient - so instead we can just try them all at once!</p>
+<p>Writing anything interesting about the <code>async</code> library is a tad tricky, because it’s just so darn simple! A common mistake is to think asynchronous programming is simple, and on the surface that seems the case. I just fork and away I go, right? This can be fine when things operate correctly, but as things become more complex, the intricate details become apparent. <code>async</code> is not a silver bullet that will make all of this pain disappear. The good news, however, is that once you’ve got a good idea for how you want to distribute work, <code>async</code> deals with the nitty-gritty details of exception handling and lets you focus on the interesting stuff.</p>
+<p>If you want to learn more about <code>async</code>, and a bit about designing Haskell libraries, I highly recommend <a href="http://skillsmatter.com/podcast/home/high-performance-concurrency">Simon Marlow’s talk on <code>async</code></a>. If you want to learn more about concurrent programming in Haskell, I can highly recommend the book <a href="http://chimera.labs.oreilly.com/books/1230000000929">Parallel and Concurrent Programming in Haskell</a>, also by Simon Marlow. It’s currently available for free - so that’s perfect reading for unwinding after that big Christmas dinner.</p>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2013-12-13-24-days-of-hackage-async.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

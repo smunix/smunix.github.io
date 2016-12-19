@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2012-12-23-24-days-of-hackage-base.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>24 Days of Hackage: base</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>24 Days of Hackage: base</h1>
+<p>As 24 Days of Hackage comes to a close, I see no better library to review than <code>base</code> itself. <a href="http://hackage.haskell.org/package/base"><code>base</code></a> is a library that all Haskell users will be familiar with, as it defines the <code>Prelude</code>, along with a variety of other useful modules. <code>base</code> could be considered to be a bare-bones standard library for Haskell, and while the <code>Prelude</code> is fairly extensive, there’s actually a lot of other useful functionality that is provided.</p>
+<p>Some of my favourite constructs lie in the <code>Control.Concurrent</code> namespace. Concurrency is a pretty hard problem, but provided with good tools it doesn’t have to be a painful experience. The <code>Control.Concurrent.Chan</code> module provides “unbounded” channels, which give you a tiny little message queue that runs in memory.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">echo ::</span> <span class="dt">Chan</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
+echo c <span class="fu">=</span> forever <span class="fu">$</span> readChan c <span class="fu">&gt;&gt;=</span> putStrLn
+
+<span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> <span class="kw">do</span>
+  c <span class="ot">&lt;-</span> newChan
+  forkIO (echo c)
+  forever <span class="fu">$</span> getLine <span class="fu">&gt;&gt;=</span> writeChan c</code></pre></div>
+<p>In <code>main</code> we create a new channel, then fork a separate thread to consume messages from this channel. Finally, in the original thread we write messages into the channel from user input. This gives us a concurrent application, with two threads communicating almost transparently.</p>
+<p>Concurrency is not all <code>base</code> has to offer, and recently I’ve been increasingly intrested in <code>Data.Monoid</code>, after reading Brent Yorgey’s excellent <a href="http://www.cis.upenn.edu/~byorgey/pub/monoid-pearl.pdf">Monoids: Themes and Variations</a> paper. Monoids aren’t particularly complicated beasts, they just have an “empty” element, and an operation to combine two values into one larger value. This can be really nice when combined with tuples, as you can have some really expressive transformations. For example, we can use a variety of monoids to find the sum and product of a list of integers:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">stats ::</span> [<span class="dt">Int</span>] <span class="ot">-&gt;</span> (<span class="dt">Sum</span> <span class="dt">Int</span>, <span class="dt">Product</span> <span class="dt">Int</span>)
+stats <span class="fu">=</span> mconcat <span class="fu">.</span> map (\x <span class="ot">-&gt;</span> (<span class="dt">Sum</span> x, <span class="dt">Product</span> x))</code></pre></div>
+<p>After a while, this has started to feel like a really natural way to aggregate data. Combined with <a href="http://hackage.haskell.org/package/semigroups"><code>semigroups</code></a>, you can be extremely expressive in very little typing.</p>
+<p>If you’ve been following these blog posts, then it’ll be no surprise that I love <code>Control.Applicative</code>, but <code>Control.Monad</code> and <code>Data.Foldable</code> are also great modules. They provide a few more abstractions, and a whole bunch of combinators which can make working with these common data structures an absolute breeze. Combinators like <code>mapM</code>, <code>forever</code>, <code>when</code> and <code>unless</code> frequently appear in my code, and the combinatros in <code>Data.Traversable</code> are extremely handy. I commonly have <code>Maybe</code> values that I want to apply an IO action to:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">lookupEnv <span class="st">&quot;HOME&quot;</span> <span class="fu">&gt;&gt;=</span> traverse putStrLn</code></pre></div>
+<p>Of course, <code>traverse</code> is a lot more powerful than this - you only need to look at recent papers, or the <code>lens</code> library to see what I mean.</p>
+<p>All in all, <code>base</code> is fairly spartan, but still provides a lot of power. It’s not quite the Python standard library, but that was never it’s aim - we have the Haskell platform for that!</p>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2012-12-23-24-days-of-hackage-base.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

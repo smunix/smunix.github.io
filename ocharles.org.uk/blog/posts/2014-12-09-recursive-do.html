@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2014-12-09-recursive-do.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>24 Days of GHC Extensions: Recursive Do</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>24 Days of GHC Extensions: Recursive Do</h1>
+<p>Ordinarily, when we’re programming computations under a monad, we’re limited to forming bindings in the order they appear in a <code>do</code> block. However, there are a class of monads that support extra <em>value recursion</em> through the type class <code>MonadFix</code>. This extra functionality has special syntax support in GHC, and can be useful in a variety of situations.</p>
+<h2 id="monadfix-and-recursive-bindings"><code>MonadFix</code> and Recursive Bindings</h2>
+<p>First of all, we’ll take a look at how <code>MonadFix</code> can be used to easily create recursive data structures. Before we get to that, lets look at a little program that works with rose trees. We’ll begin with the definition of a rose tree:</p>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="ot">{-# LANGUAGE RecursiveDo #-}</span>
+<span class="ot">&gt;</span> <span class="kw">import </span><span class="dt">Control.Monad.Fix</span></code></pre></div>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="kw">data</span> <span class="dt">RoseTree</span> a <span class="fu">=</span> <span class="dt">RoseTree</span> a [<span class="dt">RoseTree</span> a]
+<span class="ot">&gt;</span>   <span class="kw">deriving</span> (<span class="dt">Show</span>)</code></pre></div>
+<p>A rose tree is a node paired up with a list of child trees. Thus this data structure is a simple model of a multi-way tree. One thing we’d like to be able to do with our rose trees is to pair each element in the tree with the largest element in the <em>entire</em> tree. For example, if we have the following:</p>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt; exampleTree ::</span> <span class="dt">RoseTree</span> <span class="dt">Int</span>
+<span class="ot">&gt;</span> exampleTree <span class="fu">=</span> <span class="dt">RoseTree</span> <span class="dv">5</span> [<span class="dt">RoseTree</span> <span class="dv">4</span> [], <span class="dt">RoseTree</span> <span class="dv">6</span> []]</code></pre></div>
+<p>then we can pair each item in the tree with the biggest element - 6:</p>
+<pre><code>.&gt; pureMax exampleTree
+RoseTree (5, 6) [RoseTree (4, 6) [], RoseTree (4, 6) []]</code></pre>
+<p>On the surface, we might think that this operation should take two traversals of the tree - one to find out what the largest element is, and then another pass through the tree to change all the elements. Interestingly, this can actually be done in a single pass, if we exploit laziness! Here’s how:</p>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt; pureMax ::</span> <span class="dt">Ord</span> a <span class="ot">=&gt;</span> <span class="dt">RoseTree</span> a <span class="ot">-&gt;</span> <span class="dt">RoseTree</span> (a, a)
+<span class="ot">&gt;</span> pureMax tree <span class="fu">=</span>
+<span class="ot">&gt;</span>   <span class="kw">let</span> (t, largest) <span class="fu">=</span> go largest tree
+<span class="ot">&gt;</span>   <span class="kw">in</span> t
+<span class="ot">&gt;</span>  <span class="kw">where</span>
+<span class="ot">&gt;   go ::</span> <span class="dt">Ord</span> a <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">RoseTree</span> a <span class="ot">-&gt;</span> (<span class="dt">RoseTree</span> (a, a), a)
+<span class="ot">&gt;</span>   go biggest (<span class="dt">RoseTree</span> x []) <span class="fu">=</span> (<span class="dt">RoseTree</span> (x, biggest) [], x)
+<span class="ot">&gt;</span>   go biggest (<span class="dt">RoseTree</span> x xs) <span class="fu">=</span>
+<span class="ot">&gt;</span>       <span class="kw">let</span> sub <span class="fu">=</span> map (go biggest) xs
+<span class="ot">&gt;</span>           (xs', largests) <span class="fu">=</span> unzip sub
+<span class="ot">&gt;</span>       <span class="kw">in</span> (<span class="dt">RoseTree</span> (x, biggest) xs', max x (maximum largests))</code></pre></div>
+<p>If you’ve not seen this before - this may seem a little cryptic! Let’s take it slowly. We walk through our tree with the <code>go</code> function. <code>go</code> takes two paremeters - one is the tree that we’re working on, while the other is the known largest element. But wait… don’t we need to calculate the largest element? You’re right - and that’s exactly what we do in <code>go</code>.</p>
+<p>Notice that <code>go</code> returns two values - the relabelled rose tree, along with the known largest element in that tree. The magic happens right at the start of <code>pureMax</code> - notice that we pattern match to bind the variable <code>largest</code>, though we also feed in <code>largest</code> to relabel the trees.</p>
+<p>What’s happening is that we’re exploiting lazy evaluation - what we actually do is relabel the tree with a thunk at every node. Once we’ve finished recursing the entire tree, we’ve got enough information, should we need to force that node. This technique is known as <em>circular programming</em>, and Richard Bird has a lovely write up on a similar problem - the <em>repmin problem</em>.</p>
+<p>So far, we’ve seen a pure solution to the problem, but what happens if we need to use effectful computations to determine the largest value? For example, let’s work with an exclusive secret santa. In this exclusive secret santa, people can invite others into the game - forming a tree of invites. Furthermore, we also have a database lookup function that will tell us what their budget is. We’d like to be able to relabel the invite tree with the minimum budget for fairness. If we had a tree of budgets, that would be easy - we could just use a variation of <code>pureMax</code> above. However, determining the budget requires a database lookup.</p>
+<p>It looks like we’re stuck, but what we can do is make an effectful variation of <code>pureMax</code>:</p>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt; impureMin ::</span> (<span class="dt">MonadFix</span> m, <span class="dt">Ord</span> b) <span class="ot">=&gt;</span> (a <span class="ot">-&gt;</span> m b) <span class="ot">-&gt;</span> <span class="dt">RoseTree</span> a <span class="ot">-&gt;</span> m (<span class="dt">RoseTree</span> (a, b))
+<span class="ot">&gt;</span> impureMin f tree <span class="fu">=</span> <span class="kw">do</span>
+<span class="ot">&gt;</span>   rec (t, largest) <span class="ot">&lt;-</span> go largest tree
+<span class="ot">&gt;</span>   return t
+<span class="ot">&gt;</span>  <span class="kw">where</span>
+<span class="ot">&gt;</span>   go smallest (<span class="dt">RoseTree</span> x []) <span class="fu">=</span> <span class="kw">do</span>
+<span class="ot">&gt;</span>     b <span class="ot">&lt;-</span> f x
+<span class="ot">&gt;</span>     return (<span class="dt">RoseTree</span> (x, smallest) [], b)
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span>   go smallest (<span class="dt">RoseTree</span> x xs) <span class="fu">=</span> <span class="kw">do</span>
+<span class="ot">&gt;</span>     sub <span class="ot">&lt;-</span> mapM (go smallest) xs
+<span class="ot">&gt;</span>     b <span class="ot">&lt;-</span> f x
+<span class="ot">&gt;</span>     <span class="kw">let</span> (xs', bs) <span class="fu">=</span> unzip sub
+<span class="ot">&gt;</span>     return (<span class="dt">RoseTree</span> (x, smallest) xs', min b (minimum bs))</code></pre></div>
+<p>If you compare this to <code>pureMax</code> you should notice that the programs are very similar. Infact, all we’ve had to do is replace the pure <code>let x = y</code> bindings with effectful <code>x &lt;- y</code> bindings, and call out to our effectful function. Finally, the magic sauce at the top is to use a new piece of syntax <code>rec</code>. <code>rec</code> comes from the <a href="https://downloads.haskell.org/~ghc/latest/docs/html/users_guide/syntax-extns.html#recursive-do-notation">RecursiveDo</a> extension, and while the details are beyond the scope of this post (there’s a whole thesis on it!), we can see here that it serves the same purpose as forming recursive bindings, as we did with <code>let</code>.</p>
+<p>To wrap up this example, let’s work with some test data and see how it all plays out:</p>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt; budget ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">Int</span>
+<span class="ot">&gt;</span> budget <span class="st">&quot;Ada&quot;</span>      <span class="fu">=</span> return <span class="dv">10</span> <span class="co">-- A struggling startup programmer</span>
+<span class="ot">&gt;</span> budget <span class="st">&quot;Curry&quot;</span>    <span class="fu">=</span> return <span class="dv">50</span> <span class="co">-- A big-earner in finance</span>
+<span class="ot">&gt;</span> budget <span class="st">&quot;Dijkstra&quot;</span> <span class="fu">=</span> return <span class="dv">20</span> <span class="co">-- Teaching is the real reward</span>
+<span class="ot">&gt;</span> budget <span class="st">&quot;Howard&quot;</span>   <span class="fu">=</span> return <span class="dv">5</span>  <span class="co">-- An frugile undergraduate!</span></code></pre></div>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> inviteTree <span class="fu">=</span> <span class="dt">RoseTree</span> <span class="st">&quot;Ada&quot;</span> [ <span class="dt">RoseTree</span> <span class="st">&quot;Dijkstra&quot;</span> []
+<span class="ot">&gt;</span>                             , <span class="dt">RoseTree</span> <span class="st">&quot;Curry&quot;</span> [ <span class="dt">RoseTree</span> <span class="st">&quot;Howard&quot;</span> []]
+<span class="ot">&gt;</span>                             ]</code></pre></div>
+<p>Now we can ask our system what budget we should use</p>
+<pre><code>.&gt; impureMin budget inviteTree
+RoseTree (&quot;Ada&quot;,5) [RoseTree (&quot;Dijkstra&quot;,5) [],RoseTree (&quot;Curry&quot;,5) [RoseTree (&quot;Howard&quot;,5) []]]</code></pre>
+<p>Alright, 5 gold coins it is!</p>
+<p>In this post I’ve shown just one of many things that can be done with <code>RecursiveDo</code> syntax. Another common usage of this extension is in <code>reactive-banana</code> - here it’s possible for reactive behaviors to depend on events, where the events sample the same behavior. A more extreme example (if you really want a headache!) is the <a href="http://hackage.haskell.org/package/tardis-0.3.0.0/docs/Control-Monad-Tardis.html"><code>Tardis</code> monad</a> - a monad where data can travel forwards and backwards in time!</p>
+<p>Edits:</p>
+<ul>
+<li><a href="https://twitter.com/dfornika">Dan Fornika</a> <a href="https://twitter.com/dfornika/status/542422590313091073">points out</a> that another cool use case of this extension is in implementing <a href="http://wall.org/~lewis/2013/10/15/asm-monad.html">jump labels for assembly code</a>.</li>
+</ul>
+<hr />
+<p><em>This post is part of <a href="../pages/2014-12-01-24-days-of-ghc-extensions.html">24 Days of GHC Extensions</a> - for more posts like this, check out the <a href="../pages/2014-12-01-24-days-of-ghc-extensions.html">calendar</a></em>.</p>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2014-12-09-recursive-do.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

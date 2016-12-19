@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2012-07-12-musicbrainz-database-abstraction-choices.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>A New Database Abstraction Layer</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>A New Database Abstraction Layer</h1>
+<p>The New Edit System, NES, requires a fairly hefty new schema due to increase of tables to actually do the versioning. While the bulk of this schema is done, it’s fairly useless if the website can’t talk to it!</p>
+<p>The next step for me is to get the website to talk to the new database. This isn’t quite as straight forward as changing the implementation of existing API methods - the whole API needs to change to match the main ideas of NES (trees, revisions, etc). Even if it was a case of just changing the API, this means I have to write more Perl code, fix hundreds of tests, etc.</p>
+<p>It doesn’t fill me with great joy to do this rewrite, partly because it’s just not fun work, but also because I don’t believe I’ll do a good a job as I can, simply because it’s Perl.</p>
+<p>In this post, I’ve outlined the 2 major ideas going round - PostgreSQL as an API, and database as a service.</p>
+<hr />
+<h2 id="postgresql-as-an-api">PostgreSQL As An API</h2>
+<p>One option is to move a lot of the heavy lifting to PostgreSQL through stored procedures. Before we look at the pro’s and con’s of this, lets have a look at what this would look like:</p>
+<div class="sourceCode"><pre class="sourceCode sql"><code class="sourceCode sql"><span class="kw">CREATE</span> <span class="kw">TYPE</span> loaded_artist (
+  artist_id uuid,
+  revision_id <span class="dt">integer</span>,
+  artist_tree_id <span class="dt">integer</span>,
+  name text,
+  sort_name text,
+  artist_type_id <span class="dt">integer</span>,
+  <span class="co">-- etc</span>
+);
+
+<span class="co">-- This gets the latest 'master' version of an artist and joins in basic data</span>
+<span class="co">-- from the artist tree</span>
+<span class="kw">CREATE</span> <span class="kw">FUNCTION</span> get_latest_artist_by_mbid(in_mbid UUID)
+RETURNS SETOF loaded_artist <span class="kw">AS</span> $$
+    <span class="kw">SELECT</span>
+      artist_id, revision_id, artist_tree_id, name.name,
+      sort_name.name <span class="kw">AS</span> sort_name, artist_type_id
+    <span class="kw">FROM</span> artist
+    <span class="kw">JOIN</span> artist_revision <span class="kw">USING</span> (artist_id)
+    <span class="kw">JOIN</span> artist_tree <span class="kw">USING</span> (artist_tree_id)
+    <span class="kw">JOIN</span> artist_data <span class="kw">USING</span> (artist_data_id)
+    <span class="kw">WHERE</span> artist.master_revision_id = revision_id
+      <span class="kw">AND</span> artist_id = $<span class="dv">1</span>
+$$ LANGUAGE SQL;</code></pre></div>
+<p>This is a real-world example of something that we need to do in NES - loading artists by their MBID. The first part of the above code snippet declares a new data type, <code>loaded_artist</code> which we can use to enforce a little more type safety throughout the API. By defining functions in terms of <code>loaded_artist</code>, we are bound to a contract that they /must/ return data that matches that structure.</p>
+<p>For some clients, direct queries into the database might be enough, but most people are going to going to want to talk to the database by some language specific bindings. In Perl, it might look something like:</p>
+<div class="sourceCode"><pre class="sourceCode perl"><code class="sourceCode perl"><span class="kw">sub </span><span class="fu">get_latest_by_mbid</span> {
+    <span class="kw">my</span> (<span class="dt">$self</span>, <span class="dt">$mbid</span>) = <span class="dt">@_</span>;
+    <span class="kw">return</span> <span class="dt">$self</span>-&gt;<span class="dt">new_from_row</span>(
+        <span class="dt">$self</span>-&gt;<span class="dt">sql</span>-&gt;<span class="dt">select_single_row_hash</span>(
+            <span class="kw">'</span><span class="st">SELECT * FROM get_latest_artist_by_mbid(?)</span><span class="kw">'</span>,
+            <span class="dt">$mbid</span>));
+}</code></pre></div>
+<p>Where <code>new_from_row</code> knows how to turn a <code>loaded_artist</code> into some Perl data type. The Perl code is now minimized to being a very light wrapper around the database.</p>
+<h3 id="advantages">Advantages</h3>
+<h4 id="type-safety">Type Safety</h4>
+<p>PostgreSQL has a pretty nice type system. Method’s can only be called if you specify the correct number of arguments, of the write types. Return types allow function composition to be type safe.</p>
+<h4 id="api-cohesion">API Cohesion</h4>
+<p>The type system also creates some great cohesion. In the above example if I changed the specification of what a <code>loaded_artist</code> is but didn’t update <code>get_latest_artist_by_mbid</code>, I wouldn’t be able to make those changes.</p>
+<h4 id="universally-useful">Universally Useful</h4>
+<p>No matter what programming language you’re working in, if you can talk to the database you immediately have a very rich API to work with.</p>
+<h4 id="documentation">Documentation</h4>
+<p>Documentation in PostgreSQL is sometimes overlooked, but the <a href="http://www.postgresql.org/docs/9.1/interactive/sql-comment.html">COMMENT</a> declaration lets you assign comments to various objects in the database. This requires the object actual exis</p>
+<h4 id="simplicity">Simplicity</h4>
+<p>This does not change our application stack at all. We already require PostgreSQL, we’re just using it for more higher level operations.</p>
+<h3 id="disadvantegs">Disadvantegs</h3>
+<h4 id="api-cohesion-1">API Cohesion</h4>
+<p>We only get the aforementioned type of cohesion at stuff that’s first class, and more complicated functions (such as PL/Python, PL/Perl and even PL/PGSQL) will not be type checked at all. This means they may crash at runtime.</p>
+<p>Also, this type saftey is not great over <code>ALTER</code>ing things - if I later run <code>ALTER TYPE</code> on <code>loaded_artist</code> and drop an attribute, the existing functions will only break at runtime. This problem can be avoided by always doing ‘full’ installations rather than migrations (think loading snapshots rather than deltas).</p>
+<h4 id="deployment">Deployment</h4>
+<p>Releasing new versions of the server now involves having to do database updates as well. There are tools to help with this, such as <a href="https://github.com/depesz/Versioning">Versioning</a>, <a href="http://sqitch.org/">Sqitch</a> and more.</p>
+<h4 id="tool-support">Tool Support</h4>
+<p>Tool support is weaker for PostgreSQL. There is no real way to debug things other than print tracing. <code>EXPLAIN</code> and log analysis is about as far as you get with a code profiler (which is not awful by any means).</p>
+<h4 id="limited-language">Limited Language</h4>
+<p>SQL is not the most flexible of languages, and this shows when you start to what to do things like abstract functions out. Take the example of relationships - fetching relationships between <code>x</code> and <code>y</code> is always the same, but the <code>l_a_b</code> table changes, as do the tables you link to. This either leads to massive amounts of copying and pasting, or <a href="http://www.postgresql.org/docs/9.1/interactive/plpgsql-statements.html#PLPGSQL-STATEMENTS-EXECUTING-DYN">dynamic SQL</a>. I usually go with the latter these days, and create <code>install_</code> functions that are then immediately selected with various parameters, which gives a poor mans compile time phase.</p>
+<h4 id="not-cache-aware">Not Cache Aware</h4>
+<p>As you’re talking directly to the database, you can’t really make use of memcached in between. Client libraries would have to do this,</p>
+<h3 id="personal-opinion">Personal Opinion</h3>
+<p>I like the increased safety, but it just feels a bit <em>weird</em>, though I can’t quite my finger on where. Not very helpful, I know! I’ve been somewhat prototyping this API in my <a href="https://github.com/ocharles/nes-playground">nes-playground</a> project, if you want to have a look.</p>
+<hr />
+<h2 id="database-as-a-service">Database As a Service</h2>
+<p>Rather than having applications talk to PostgreSQL, they actually talk to a service somewhere. This could be a REST server, a SOAP server, a Thrift server, that isn’t really important to this discussion. But the idea is that you make the database an implementation detail, so when handling website requests you consult this service, rather talk to the database directly.</p>
+<p>This is essentially what we have right now, it’s just that the service happens to run in the same process as the web server itself. However, I think if we were going with this idea we’d be looking at moving this service out of the web server process and into its own process, giving us the ability to implement this in a different language.</p>
+<h3 id="advantages-1">Advantages</h3>
+<h4 id="language-choices">Language Choices</h4>
+<p>Rewriting the service layer doesn’t have to be done in Perl, we could write it in Java, Python, C, whatever. This will let us do a separate round of language evaluation, and hopefully we can choose something that doesn’t have quite the same amount of <a href="http://en.wikipedia.org/wiki/Accidental_complexity">accidental complexity</a> as Perl.</p>
+<h4 id="communication-with-other-services">Communication With Other Services</h4>
+<p>Now that we have a service we can aggregate data from other services, or otherwise communicate with them. For example, memcached, message queues, and so on. However, as good as this sounds it does mean that the ‘service’ itself starts to grow and have more dependencies, or the code becomes more complicated to do with missing services.</p>
+<h3 id="disadvantages">Disadvantages</h3>
+<h4 id="more-to-run">More to Run</h4>
+<p>If a client wants to use our API they now have to run a PostgreSQL server for their queries to run against, but they also have to run this service somewhere as well. And as alluded to earlier, if the service also requires <em>other</em> services, then they might need those as well.</p>
+<h4 id="potential-overhead">Potential Overhead</h4>
+<p>Depending on the transport layer for the service, there is more overhead. For example, most people will probably want REST+JSON, which means you have the overhead of a HTTP server, and the overhead of serializing and then deserializing. With a lot of roundtrips, this can be expensive. PostgreSQL doesn’t really suffer from this as much as it’s a binary protocol with persistent connections.</p>
+<hr />
+<h2 id="mini-conclusion">Mini Conclusion</h2>
+<p>My personal feeling for this is that moving things to PostgreSQL is going to be enough, though I do like the added type checking that we get. However, I’m not sure that justifies the increased costs in deployment, the context switching, and a development environment that’s likely new to a lot of people.</p>
+<p>With that said, Perl is becoming a maintainence nightmare. We’re at least tightening some parts with my drive for more tests and faster tests, but it’s becoming hard to trust the code that we all write. Though I’m sure I won’t be popular with my choice of language :)</p>
+<p>Being practical we have 2 full time developers, and a whole stack of bugs and more as we go forward. We need something that is going to allow us to get results progressively, rather than some gold perfect system 4 years later. And my NES work is somewhat blocked by this, so we need to figure it out fairly soon!</p>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2012-07-12-musicbrainz-database-abstraction-choices.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

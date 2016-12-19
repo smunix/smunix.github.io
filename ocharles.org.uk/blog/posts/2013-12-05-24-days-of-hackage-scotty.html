@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2013-12-05-24-days-of-hackage-scotty.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>24 Days of Hackage: scotty</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>24 Days of Hackage: scotty</h1>
+<p>A fairly new movement in the web programming scene is to build web sites using so called <em>micro frameworks</em>. Way back in 2005, <a href="http://rubyonrails.org/">Ruby on Rails</a> changed the web programming landscape by bringing to the masses the idea of building web applications out of re-usable components. However, by today’s standards, Ruby on Rails stands as a somewhat heavy-weight solution. Idiomatically, it’s strongly <a href="http://en.wikipedia.org/wiki/Model–view–controller">MVC</a>, but sometimes you just don’t need that. The micro frameworks movement is much more about a small DSL that is designed specifically for routing web requests, and doing a bit of logic depending on what URL the user requests. Python has <a href="http://flask.pocoo.org/">Flask</a> and <a href="http://bottlepy.org/docs/dev/">Bottle</a>, Ruby has <a href="http://www.sinatrarb.com/">Sinatra</a> and <a href="http://camping.io/">Camping</a>, Perl has <a href="http://www.perldancer.org/">Dancer</a>, and of course we have a solution in Haskell too: <a href="http://hackage.haskell.org/package/scotty"><code>scotty</code></a>.</p>
+<p><a href="2012-12-19-24-days-of-hackage-snap.html">Last year</a> we took a brief look at the <a href="http://snapframework.com/">Snap framework</a>, which still remains my framework of choice when it comes to building web applications. But much like I alluded to earlier with Ruby, Snap can also feel a tad heavyweight - especially when you just want to throw up an application under a URL for prototyping purposes. This is exactly where <code>scotty</code> shines.</p>
+<p><code>scotty</code> is a DSL that works with a combination of two monads - the <code>ScottyM</code> monad and the <code>ActionM</code> monad. Your entire application sits in the <code>ScottyM</code> monad, while requests are processed by <code>ActionM</code> actions. We introduce <code>ActionM</code> actions by providing a <em>route</em> to them.</p>
+<p>For example, we have just been comissioned by Christmas &amp; Christmas Ltd. to build their new social Christmas app, chrstms.ly. All we need to put online for now is a landing page that lets people enter their email address in order to record their interest, and to let them know when we launch. The first thing we can do is define our routes:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">chrstmsly ::</span> <span class="dt">ScottyM</span> ()
+chrstmsly <span class="fu">=</span> <span class="kw">do</span>
+  get <span class="st">&quot;/&quot;</span> showLandingPage
+  post <span class="st">&quot;/register&quot;</span> register</code></pre></div>
+<p><code>get</code> and <code>post</code> both take a route as their first parameter, and an <code>ActionM</code> action to run if the route is matched. Naturally, <code>get</code> only matches if the HTTP request method is <code>GET</code>, and <code>post</code> only matches <code>POST</code> requests. Easy! Now we need to actually implement the actions. For the <code>showLandingPage</code> action we’ll just serve out a HTML file our designers provided us:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">showLandingPage ::</span> <span class="dt">ActionM</span> ()
+showLandingPage <span class="fu">=</span> <span class="kw">do</span>
+  setHeader <span class="st">&quot;Content-Type&quot;</span> <span class="st">&quot;text/html&quot;</span>
+  file <span class="st">&quot;landing.html&quot;</span></code></pre></div>
+<p>For the registration we need to do a bit more. I’ll assume that we’ve been given a <code>registerInterest :: String -&gt; IO (Maybe String)</code> function by someone else in the team. The designers have told us that full page requests are so 90s, and now they are using AngularJS and want to do registration with full AJAX to keep the UI slick. We just need to be able to take a POST request with an email address as a query parameter, and return a JSON document to signal whether or not the request was handled correctly. Here’s what this might look like:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">register ::</span> <span class="dt">ActionM</span> ()
+register <span class="fu">=</span> <span class="kw">do</span>
+  emailAddress <span class="ot">&lt;-</span> param <span class="st">&quot;email&quot;</span>
+  registered <span class="ot">&lt;-</span> liftIO (registerInterest emailAddress)
+  <span class="kw">case</span> registered <span class="kw">of</span>
+    <span class="dt">Just</span> errorMessage <span class="ot">-&gt;</span> <span class="kw">do</span>
+      json <span class="fu">$</span> object [ <span class="st">&quot;error&quot;</span> <span class="fu">.=</span> errorMessage ]
+      status internalServerError500
+
+    <span class="dt">Nothing</span> <span class="ot">-&gt;</span> <span class="kw">do</span>
+      json <span class="fu">$</span> object [ <span class="st">&quot;ok&quot;</span> <span class="fu">.=</span> (<span class="st">&quot;ok&quot;</span><span class="ot"> ::</span> <span class="dt">String</span>) ]</code></pre></div>
+<p>We use <code>param</code> to pull out the <code>email</code> parameter from the submission, and then try and call the <code>registerInterest</code> routine. <code>registerInterest</code> is an <code>IO</code> action, so we have to use <code>liftIO</code> to embed it into our <code>ActionM</code> action. This returns <code>Just errorMessage</code> if it fails - in which case we relay the error to the browser as a JSON object, and indicate the failure by setting the response status code to 500. If it was successful, we indicate that everything was OK with an “ok” JSON object. The browser will also see a 200 response code, as that is the default from <code>scotty</code>.</p>
+<p>But wait a minute - we’re being a little bit too trusting here. Web programming 101 says that we should never trust requests coming into the system, and that’s no different here. For example, what happens if we <code>POST</code> to <code>/register</code> without an email address? In that case, we’ll fail to pull out the parameter and we’ll throw an exception! We can do better than that.</p>
+<p><code>scotty</code> comes with a simple exception handling system. With it, we can have multiple actions for the same URL, and we can fall-through to the next action when exceptions are thrown. To do so, we change our <code>chrstmsly</code> application to the following:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">chrstmsly ::</span> <span class="dt">ScottyM</span> ()
+chrstmsly <span class="fu">=</span> <span class="kw">do</span>
+  get <span class="st">&quot;/&quot;</span> showLandingPage
+  post <span class="st">&quot;/register&quot;</span> register
+  post <span class="st">&quot;/register&quot;</span> registrationFailure</code></pre></div>
+<p>Next, we write the <code>registrationFailure</code> action:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">registrationFailure ::</span> <span class="dt">ActionM</span> ()
+registrationFailure <span class="fu">=</span> <span class="kw">do</span>
+  json <span class="fu">$</span> object [ <span class="st">&quot;error&quot;</span> <span class="fu">.=</span> (<span class="st">&quot;Invalid request&quot;</span><span class="ot"> ::</span> <span class="dt">String</span>) ]
+  status badRequest400</code></pre></div>
+<p>Finally, we add a bit more exception handling to the <code>register</code> action. The current behavior is to throw an exception if the <code>email</code> parameter isn’t in the request, but we’d rather fall through to <code>registrationFailure</code>. We can use <code>rescue</code> to do this:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">register ::</span> <span class="dt">ActionM</span> ()
+register <span class="fu">=</span> <span class="kw">do</span>
+  emailAddress <span class="ot">&lt;-</span> param <span class="st">&quot;email&quot;</span> <span class="ot">`rescue`</span> (const next)
+  registered <span class="ot">&lt;-</span> liftIO (registerInterest emailAddress)
+  <span class="kw">case</span> registered <span class="kw">of</span>
+    <span class="dt">Just</span> errorMessage <span class="ot">-&gt;</span> <span class="kw">do</span>
+      json <span class="fu">$</span> object [ <span class="st">&quot;error&quot;</span> <span class="fu">.=</span> errorMessage ]
+      status internalServerError500
+
+    <span class="dt">Nothing</span> <span class="ot">-&gt;</span> <span class="kw">do</span>
+      json <span class="fu">$</span> object [ <span class="st">&quot;ok&quot;</span> <span class="fu">.=</span> (<span class="st">&quot;ok&quot;</span><span class="ot"> ::</span> <span class="dt">String</span>) ]</code></pre></div>
+<p><code>rescue</code> is given the contents of the exception, but in this case we don’t care and simply request the next action. Now, when we can’t pull out the <code>email</code> parameter, we will instead fall through to <code>registrationFailure</code> and provide a much more understandable response.</p>
+<p>The last piece of the puzzle is to serve the application. <code>scotty</code> uses the WAI interface, so any WAI-compatible server can be used to serve the application. It also comes with support for launching the application using <a href="http://hackage.haskell.org/package/warp"><code>warp</code></a> with the <code>scotty</code> action:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> scotty <span class="dv">9176</span> chrstmsly</code></pre></div>
+<p>If we run this and head over to http://localhost:9176, we get presented with our application. We can poke around with <code>curl</code> to see what happens:</p>
+<pre><code>ollie@io ~&gt; curl 'http://localhost:9176/'
+&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+  &lt;head&gt;
+    &lt;title&gt;Coming soon...&lt;/title&gt;
+  &lt;/head&gt;
+  &lt;body&gt;...&lt;/body&gt;
+&lt;/html&gt;
+
+ollie@io ~&gt; curl -XPOST 'http://0:9176/register?email=a@b.com'
+{&quot;ok&quot;:&quot;ok&quot;}⏎
+
+ollie@io ~&gt; curl -XPOST 'http://0:9176/register?email=foo'
+{&quot;error&quot;:&quot;I broke :(&quot;}⏎</code></pre>
+<p>This post is my first experience with using <code>scotty</code>, but I’m really excited about it. The real value I see is that <code>scotty</code> is really simple, and this is fantastic for people who are new to Haskell. There are only a few things that you have to understand - how to do routing, and how to write actions. After that, it’s bread-and-butter Haskell. While <code>scotty</code> doesn’t come with a huge amount included, it is extendable with WAI middleware, of which there is <a href="http://hackage.haskell.org/packages/search?terms=wai">a lot of</a>. Furthermore, by keeping it simple, <code>scotty</code>-built applications don’t look particularly alien when you put them next to a Python project, for example. Thus I think <code>scotty</code> is probably going to become one of my go-to suggestions to give to people when they graduate from LYAH and want to try building something a little more practical.</p>
+<p>If you like the look of <code>scotty</code>, <a href="http://adit.io/">Aditya Bhargava</a> has written a <a href="http://adit.io/posts/2013-04-15-making-a-website-with-haskell.html">much more in-depth tutorial</a> - go check it out! The code for today’s blog post can be found <a href="https://github.com/ocharles/blog/blob/master/code/2013-12-05-scotty.hs">here</a>.</p>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2013-12-05-24-days-of-hackage-scotty.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

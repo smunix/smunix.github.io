@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2013-12-02-24-days-of-hackage-linear.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>24 Days of Hackage: linear</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>24 Days of Hackage: linear</h1>
+<p>Anyone who wants to do game programming at some point ends up writing (parts of) their own linear algebra library - only to realize how painful hard it is to actually get it right. This point doesn’t just crop up in game programming either - linear algebra is useful for all sorts of tasks, including the rise of <a href="http://stackoverflow.com/questions/5943611/linear-algebra-application-in-machine-learning">machine learning</a>. While linear algebra libraries seem to be a perfect example of a type hierarchy, it quickly becomes clear that getting a good abstraction is very difficult. Thankfully, you don’t have to worry about that - because Edward Kmett has already done it for you.</p>
+<p>A quick disclaimer: for the first part of this post, we’ll be exploring the library itself, and I’ll assume you know some of the basic parts of linear algebra. Familiarity with vectors, matrices, and so on will help. Towards the end of the post we’ll do some practical stuff with this - so some readers may wish to <a href="#Using_linear">skip to the end</a>.</p>
+<p><a href="http://hackage.haskell.org/package/linear"><code>linear</code></a> is a set of “types and combinators for linear algebra on free vector spaces.” Well, it wouldn’t be Edward’s library if it didn’t have “co-” or “free” in the description would it? Lets take a look at some of the modules we’ve got available to us:</p>
+<ul>
+<li><p><code>Linear.Affine</code> gives us access to affine spaces - which are loosely described as vector spaces that have “forgotten” their origin. For the rest of us, this just gives us a type class to find the difference between two vectors, and also a convenient <code>Point</code> new type so that we can be clear that we are working with points in a space, rather than vectors.</p></li>
+<li><p><code>Linear.Matrix</code> allows us to define m×n matrices, and calculate matrix sums, products, and so on. Specifically, <code>Linear.Matrix</code> works at a very general level to work on matrices of any size, but also leverages the type system to guarantee that only well-formed matrix products can be calculated.</p></li>
+<li><p><code>Linear.Metric</code> provides functions to compute metrics on algebraic structures. I won’t go into what is meant by “metric”, though <a href="http://jeremykun.com/">Jeremy Kun</a> has written <a href="http://jeremykun.com/2011/12/19/metrics-on-words/">about these before</a>. Here you will find dot products, norms and normalization routines.</p></li>
+<li><p><code>Linear.Quaternion</code> covers the basic construction and manipulation of <a href="http://mathworld.wolfram.com/Quaternion.html"><em>quaternions</em></a>, which are often used to define rotations, at least in the use of linear algebra for 3D geometry.</p></li>
+<li><p><code>Linear.Vector</code> contains the type classes for working with vectors. Specifically we have <code>Additive</code>, which gives us access to vector difference, sums and linear interpolation between vectors. On top of this, we have left/right scalar products, basis vectors, and a few other bits and pieces.</p></li>
+<li><p>If <code>Linear.Vector</code> defines the abstract machinery to work with vector, the <code>Linear.V</code> family of modules gives us concrete instantiations of vectors themselves. Specifically <code>Linear.V0</code> to <code>V4</code> give us 0 to 4 dimensional vectors, while <code>Linear.V</code> lets us define vectors of any dimension using singleton types to carry a witness of the vector’s dimension.</p></li>
+</ul>
+<p>Already, <code>linear</code> appears to be a formidable library for anyone needing to work with linear algebra, but for me a big part of the joy of working with <code>linear</code> is how far reaching it is. While <code>linear</code> comes with a collection of hand-crafted types, the library also has the ability to work with a lot of types defined outside <code>linear</code>. For example, <code>IntMap</code> can model vectors, so it’s perfectly valid to compute the <code>norm</code> of an <code>IntMap</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="fu">&gt;</span> norm (IntMap.fromList <span class="fu">$</span> map (id <span class="fu">&amp;&amp;&amp;</span> fromIntegral) [<span class="dv">0</span><span class="fu">..</span><span class="dv">10</span>])
+<span class="fl">19.621416870348583</span></code></pre></div>
+<p>Or the dot product of two <code>IntMap</code>s:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="fu">&gt;</span> dot (IntMap.fromList [(<span class="dv">0</span>, <span class="dv">5</span>), (<span class="dv">1</span>, <span class="dv">0</span>)])
+      (IntMap.fromList [(<span class="dv">0</span>, <span class="dv">1</span>), (<span class="dv">1</span>, <span class="dv">1</span>)])
+<span class="dv">5</span></code></pre></div>
+<p>This is very powerful when we move away from the 3 or 4 dimensional vectors found in game programming, and need to use linear algebra to solve problems in machine learning.</p>
+<p>Of more interest (at least to me) is the ability of <code>linear</code> to interact with the world outside of Haskell - such as using <code>linear</code>’s types in OpenGL programs. OpenGL is a low level API for programming graphics cards and rendering 3D graphics, and being low-level OpenGL mostly works in terms of bits and bytes. Fortunately we have a type class for transforming Haskell values to bits and bytes in Haskell - the <code>Storable</code> type class. <code>linear</code>’s vector and matrix types are indeed instances of <code>Storable</code>, so we can easily communicate with OpenGL. Sounds like a great place to look at some code!</p>
+<h2 id="programming-opengl-with-linear"><a name="Using_linear"></a>Programming OpenGL with <code>linear</code></h2>
+<p>We’ll build a tiny little OpenGL program to spin and translate an OpenGL triangle, à la demo scene - albeit a very boring demo scene!. To do this, we’re going to need to calculate a few different things:</p>
+<ul>
+<li><p>We will need a perspective projection matrix to have the illusion of depth. Creating a perspective projection matrix is fairly formulaic in terms of the value in each row-column entry of the matrix. We’ll use the <code>vector</code> library to generate this.</p></li>
+<li><p>We will also need a matrix defining the affine transformation to apply to our triangle. Specifically, this transformation is going to be the composition of two smaller transformations - a translation and a rotation.</p></li>
+</ul>
+<p>Let’s begin with these smaller matrices:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">triangleRotation ::</span> (<span class="dt">Epsilon</span> a, <span class="dt">Floating</span> a) <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">M44</span> a
+triangleRotation t <span class="fu">=</span>
+  m33_to_m44 <span class="fu">$</span>
+    fromQuaternion <span class="fu">$</span>
+      axisAngle (<span class="dt">V3</span> <span class="dv">0</span> <span class="dv">1</span> <span class="dv">0</span>) (t <span class="fu">*</span> <span class="dv">2</span>)
+
+<span class="ot">triangleTranslation ::</span> <span class="dt">Floating</span> a <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">M44</span> a
+triangleTranslation t <span class="fu">=</span>
+  eye4 <span class="fu">&amp;</span> translation <span class="fu">.~</span> <span class="dt">V3</span> (sin t <span class="fu">*</span> <span class="dv">2</span>) <span class="dv">0</span> (<span class="fu">-</span><span class="dv">5</span>)</code></pre></div>
+<p>Both our transformations are varying over time, so they take <code>t</code> as a parameter. For our rotation we use a quaternion around the yaw axis. This quaternion is then converted to a matrix - specifically a 3×3 matrix, which we then convert to a 4×4 matrix. The translation matrix is defined by taking a 4×4 identity matrix, and then using the <code>translation</code> lens to set the translation component of this transformation to be -5 units along the z-axis (away from the virtual camera), and <code>sin t * 2</code> units along the x-axis.</p>
+<p>Finally, we compose these matrices to get our final transformation:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">triangleTransformation ::</span> (<span class="dt">Epsilon</span> a, <span class="dt">Floating</span> a) <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">M44</span> a
+triangleTransformation <span class="fu">=</span>
+  liftA2 (<span class="fu">!*!</span>) triangleTranslation triangleRotation</code></pre></div>
+<p>(I’m using the <code>(Double -&gt; a)</code> applicative functor to compose these transformations, mostly for fun/unnecessary code golf).</p>
+<p>Now we have a 4×4 transformation matrix, but unfortunately the rows and columns are in the wrong order for OpenGL (at least by default). We need to transpose our matrix - but there doesn’t seem to be a transposition function in <code>linear</code>! And that’s correct, and by design - because transposition generalizes to far more than just matrices. What we’re looking for is a function of the type:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">transpose ::</span> outer (inner a) <span class="ot">-&gt;</span> inner (outer a)</code></pre></div>
+<p>It turns out there is a whole class of functors that have this behavior - the class of <em>distributive functors</em>. These are captured in the <a href="http://hackage.haskell.org/package/distributive"><code>distributive</code></a> library. Thus to communicate our matrix with OpenGL, we <code>distribute</code> the matrix first, and then we use the <code>Storable</code> instance to turn our matrix into bits and bytes:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">with (distribute <span class="fu">$</span> triangleTransformation t) <span class="fu">$</span> \ptr <span class="ot">-&gt;</span>
+  GL.glUniformMatrix4fv loc <span class="dv">1</span> <span class="dv">0</span> (castPtr (<span class="ot">ptr ::</span> <span class="dt">Ptr</span> (<span class="dt">M44</span> <span class="dt">CFloat</span>)))</code></pre></div>
+<p>We need to give Haskell a hint to the underlying type of the matrix to take a pointer to - in this case we use the OpenGL <code>CFloat</code> type. The end result looks like this:</p>
+<div style="text-align: center; margin: 1em 0">
+<iframe width="420" height="315" src="http://www.youtube.com/embed/119xvvQ13LU" frameborder="0" allowfullscreen>
+</iframe>
+</div>
+<p>You can find the code I used to generate this over in the <code>code/</code> folder in this blog’s <a href="https://github.com/ocharles/blog/tree/master/code">Github repository</a>. It requires the currently unreleased <a href="http://github.com/lemmih/hsSDL2">SDL 2</a> bindings I’m collaborating on, so it may be a bit tricky to build - sorry!</p>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2013-12-02-24-days-of-hackage-linear.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

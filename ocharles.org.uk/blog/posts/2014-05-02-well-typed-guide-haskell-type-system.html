@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2014-05-02-well-typed-guide-haskell-type-system.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>Well Typed's "The Haskell Type System" Course</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>Well Typed's "The Haskell Type System" Course</h1>
+<p>Last Friday, I attended <a href="http://well-typed.com/">Well Typed</a>’s training course on <a href="https://skillsmatter.com/courses/504-well-typed-s-guide-to-the-haskell-type-system">the various extensions available in Haskell</a> - specifically, those available in GHC. I had a terrific time, and as I feel Well Typed’s courses go somewhat un-noticed, it deserves a write up. Despite having a fairly wide knowledge of type level magic, I always felt my knowledge was a little… ad hoc. I can confidently say that I no longer feel that is the case.</p>
+<p>First though, what was this course about? As you no doubt know, Haskell is well known for being a very type safe language. However, if we limit ourselves to “vanilla” Haskell, we can quickly run into problems. Andres began with a motivating example: a basic quiz application, where we have a list of <code>Question</code>s and a corresponding list of <code>Answer</code>s. We can model these in Haskell as <code>[Question]</code> and <code>[Answer]</code> - but there’s very little that the type system is doing to aid us build programs manipulating this data. For example, scoring the questions and answers should be a case of zipping the two lists together - but if the two lists aren’t the same length, then we certainly won’t calculate the right score!</p>
+<p>Andres is fantastic at breaking complicated topics apart into small pieces. If you haven’t seen his talk <a href="https://skillsmatter.com/skillscasts/4430-monads-for-free">explaining free monads</a> from last year’s Haskell eXchange, I highly recommend it. The Well Typed course progressed in a very similar way. From the original problem statement, we first tried to write length-indexed lists using <code>newtype</code>s with phantom types, but noticed that this isn’t a particularly useful abstraction. We quickly moved to GADTs and rephrased our data as <code>Vec n Question</code> and <code>Vec n Answer</code>, which already let’s us write a much sounder form of <code>zipWith</code> for scoring. This material alone is well worth learning, as GADTs are a good solution for a wide range of problems (Andres nicely explained that GADTs are a good way to model relations between types).</p>
+<p>However, we can go further with this data type. One problem we noticed was that this type wasn’t restrictive enough - GHC will quite happily accept types like of <code>Vec Bool Char</code>, which is completely meaningless! Even though we can’t construct any terms of this type, it would be good if we were prevented from making such mistakes as soon as possible. Using the recent data type promotion functionality, we addressed this problem, and considered <code>Vec :: Nat -&gt; * -&gt; *</code> a good solution for our application so far.</p>
+<p>We then extended the application to support multiple types of questions and answers (true/false vs. quantity questions), and reached the limit of <code>Vec</code>. We generalised a step further to a type of heterogeneous list called <code>Env</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Env</span><span class="ot"> ::</span> [k] <span class="ot">-&gt;</span> (k <span class="ot">-&gt;</span> <span class="fu">*</span>) <span class="ot">-&gt;</span> <span class="fu">*</span> <span class="kw">where</span>
+  <span class="dt">Nil</span><span class="ot">  ::</span> <span class="dt">Env</span> <span class="ch">'[] f</span>
+<span class="ot">  (:*) ::</span> f a <span class="ot">-&gt;</span> <span class="dt">Env</span> as f <span class="ot">-&gt;</span> <span class="dt">Env</span> (a <span class="ch">': as) f</span></code></pre></div>
+<p>We moved machinery from <code>Vec</code> to <code>Env</code> to extend our application, still maintaining a huge amount of type safety. However, the more general type introduced problems, and we diverged out to understand how type class derivation works, and observed the need for higher-rank polymorphism to write <code>zipWith</code> for this data type.</p>
+<p>After a short break, we explored operations on <code>Env</code> in further detail, comparing against the following “weakly typed Haskell” code<a href="#fn1" class="footnoteRef" id="fnref1"><sup>1</sup></a>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">task ::</span> [<span class="dt">Question</span>] <span class="ot">-&gt;</span> [<span class="dt">Answer</span>] <span class="ot">-&gt;</span> (<span class="dt">Text</span> <span class="ot">-&gt;</span> <span class="dt">Bool</span>) <span class="ot">-&gt;</span> <span class="dt">Maybe</span> <span class="dt">String</span>
+task qs as p <span class="fu">=</span> <span class="kw">do</span>
+  i <span class="ot">&lt;-</span> findIndex p qs
+  <span class="kw">let</span> a <span class="fu">=</span> as <span class="fu">!!</span> i
+  return (show a)</code></pre></div>
+<p>This code is clearly very dangerous - <code>!!</code> can fail at runtime if the we have the wrong index, how do we move this over to <code>Env</code>? We’d like to keep the shape of the program the same, so how would we write a type safe <code>!!</code> function? Here we began to understand how functions that return <code>Int</code> and <code>Bool</code> are throwing information away, and that we need to somehow preserve information when we work with richer types. Rather than pointing into a list with <code>Int</code>, we built a <code>Ptr</code> object that gives us a type safe way to point into <code>Env</code>, and then we compared this against the standard implementation of Peano numbers to build more intuition.</p>
+<p>All of this is great, but it’s not very practical - we often have data that lives outside our lovely type-safe sandbox. For example, we’d probably want to store the questions in a database, and receive answers from website form submissions. Here we learnt how we can move from a weakly typed setting to stronger types through decision procedures, and how our “check” functions actually witness more type information in the process. We saw a need for existential types and how these can give us one way of encoding type information that we don’t know statically.</p>
+<p>With a movement towards proofs, we saw how we can use <code>:~:</code> and the new <code>Data.Type.Equality</code> module to introduce new information into the type system - specifically constructing proofs on natural numbers to implement a type safe <code>reverse :: Vec n a -&gt; Vec n a</code> function. This is a technique I was somewhat aware of and had briefly seen in Agda, but had certainly never seen done in Haskell. I must say, I’m quite impressed with how natural it is with the new <code>Data.Type.Equality</code> module!</p>
+<p>Finally, we wrapped the day up with a look at type families to perform type level addition of natural numbers, and saw how associated types can be used with type classes.</p>
+<p>There’s a lot of material I’ve left out, such as singleton types and various caveats on the extensions we were using; it’s remarkable just how much was squeezed into a day’s studying. As I said before, Andres has a very systematic and reasoned approach to teaching, which lets the student see the small incremental steps while also being able to check progress against a bigger picture.</p>
+<p>Well Typed offer a wide range of courses - not just courses on the plethora of extensions to GHC. If you’re studying Haskell and want to truly solidify your knowledge, I can definitely recommend Well Typed’s work. Thanks again, Andres!</p>
+<div class="footnotes">
+<hr />
+<ol>
+<li id="fn1"><p>Of course, we’d normally write this with <code>zipWith</code>, so it’s not particularly idiomatic Haskell. However, code like this does crop up, and this was an easy example for educational purposes.<a href="#fnref1">↩</a></p></li>
+</ol>
+</div>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2014-05-02-well-typed-guide-haskell-type-system.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

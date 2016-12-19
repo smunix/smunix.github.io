@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2012-12-15-24-days-of-hackage-haskelldb.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>24 Days of Hackage: haskelldb</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>24 Days of Hackage: haskelldb</h1>
+<p>I conjecture that the majority of bugs that programmers encounter occur at the boundaries between 2 different systems. In Haskell, we do everything we can to encode our assumptions of behaviour via the type system, and perform strict validation when bringing outside information into our cosy type-safe bubble. However, this doesn’t help if you’ve requested the wrong data in the first place - all you can do is throw a runtime exception.</p>
+<p>For me, this is a frequent problem with my choice of database access - <code>postgresql-simple</code>. Too often I have queried for <code>foo, bar</code> in <code>some_table</code>, but elsewhere assumed I was querying for <code>bar, foo</code> - the order doesn’t agree. In today’s post, we will look at <a href="http://hackage.haskell.org/package/haskelldb"><code>haskelldb</code></a>, which is a high level abstract interface to databases.</p>
+<p>Fundamentally, <code>haskelldb</code> takes an encoding of your database, and then uses this information to construct SQL for you, and deals with mapping data too and from the format the database. Kicking off today’s example, again using the Helping Santa project from earlier posts, we begin by defining our database interface. First of all, we need to define the columns:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">PresentName</span> <span class="fu">=</span> <span class="dt">PresentName</span>
+
+<span class="kw">instance</span> <span class="dt">FieldTag</span> <span class="dt">PresentName</span> <span class="kw">where</span>
+  fieldName <span class="fu">=</span> const <span class="st">&quot;name&quot;</span>
+
+<span class="ot">presentName ::</span> <span class="dt">Attr</span> <span class="dt">PresentName</span> <span class="dt">String</span>
+presentName <span class="fu">=</span> mkAttr <span class="dt">PresentName</span>
+
+
+<span class="kw">data</span> <span class="dt">ChildName</span> <span class="fu">=</span> <span class="dt">ChildName</span>
+
+<span class="kw">instance</span> <span class="dt">FieldTag</span> <span class="dt">ChildName</span> <span class="kw">where</span>
+  fieldName <span class="fu">=</span> const <span class="st">&quot;name&quot;</span>
+
+<span class="ot">childName ::</span> <span class="dt">Attr</span> <span class="dt">ChildName</span> <span class="dt">String</span>
+childName <span class="fu">=</span> mkAttr <span class="dt">ChildName</span>
+
+
+<span class="kw">data</span> <span class="dt">ChildLocationLat</span> <span class="fu">=</span> <span class="dt">ChildLocationLat</span>
+
+<span class="kw">instance</span> <span class="dt">FieldTag</span> <span class="dt">ChildLocationLat</span> <span class="kw">where</span>
+  fieldName <span class="fu">=</span> const <span class="st">&quot;loc_lat&quot;</span>
+
+<span class="ot">childLocLat ::</span> <span class="dt">Attr</span> <span class="dt">ChildLocationLat</span> <span class="dt">Double</span>
+childLocLat <span class="fu">=</span> mkAttr <span class="dt">ChildLocationLat</span>
+
+
+<span class="kw">data</span> <span class="dt">ChildLocationLong</span> <span class="fu">=</span> <span class="dt">ChildLocationLong</span>
+
+<span class="kw">instance</span> <span class="dt">FieldTag</span> <span class="dt">ChildLocationLong</span> <span class="kw">where</span>
+  fieldName <span class="fu">=</span> const <span class="st">&quot;loc_long&quot;</span>
+
+<span class="ot">childLocLong ::</span> <span class="dt">Attr</span> <span class="dt">ChildLocationLong</span> <span class="dt">Double</span>
+childLocLong <span class="fu">=</span> mkAttr <span class="dt">ChildLocationLong</span></code></pre></div>
+<p>For each column we introduce a unique type, we introduce an <code>Attr</code> for it (with its underlying <code>Expr</code> type), and also add <code>FieldTag</code> instances to map to and from the database column name. Now that we are armed with these column definitions, we can define our tables:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">child ::</span> <span class="dt">Table</span> (<span class="dt">RecCons</span> <span class="dt">ChildName</span> (<span class="dt">Expr</span> <span class="dt">String</span>)
+               (<span class="dt">RecCons</span> <span class="dt">ChildLocationLat</span> (<span class="dt">Expr</span> <span class="dt">Double</span>)
+               (<span class="dt">RecCons</span> <span class="dt">ChildLocationLong</span> (<span class="dt">Expr</span> <span class="dt">Double</span>)
+                <span class="dt">RecNil</span>)))
+child <span class="fu">=</span> baseTable <span class="st">&quot;child&quot;</span>
+          <span class="fu">$</span> hdbMakeEntry <span class="dt">ChildName</span>
+          <span class="fu">#</span> hdbMakeEntry <span class="dt">ChildLocationLat</span>
+          <span class="fu">#</span> hdbMakeEntry <span class="dt">ChildLocationLong</span>
+
+<span class="ot">present ::</span> <span class="dt">Table</span> (<span class="dt">RecCons</span> <span class="dt">PresentName</span> (<span class="dt">Expr</span> <span class="dt">String</span>)
+                 (<span class="dt">RecCons</span> <span class="dt">ChildName</span> (<span class="dt">Expr</span> <span class="dt">String</span>)
+                  <span class="dt">RecNil</span>))
+present <span class="fu">=</span> baseTable <span class="st">&quot;present&quot;</span> <span class="fu">$</span> hdbMakeEntry <span class="dt">PresentName</span>
+                              <span class="fu">#</span> hdbMakeEntry <span class="dt">ChildName</span></code></pre></div>
+<p>We use <code>baseTable</code> to define the “base” tables in the database - the tables that actually have data in, and use <code>hdbMakeEntry</code> to add columns to each table.</p>
+<p>It’s quite a bit of up front typing I’ll admit, but you could automate this typing with a custom step in your build process (easy with Shake!), or use Template Haskell. I’ve opted to write it all by hand as I find this helps further develop my understanding, as I only have to understand one thing at a time.</p>
+<p>Now that we’ve represented the schema in code, let’s have a look at leveraging this to write some queries.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">allPresents ::</span> <span class="dt">Query</span> (<span class="dt">Rel</span> (<span class="dt">RecCons</span> <span class="dt">PresentName</span> (<span class="dt">Expr</span> <span class="dt">String</span>)
+                           <span class="dt">RecNil</span>))
+allPresents <span class="fu">=</span> <span class="kw">do</span>
+  allPresents <span class="ot">&lt;-</span> table present
+  project <span class="fu">$</span> presentName <span class="fu">&lt;&lt;</span> allPresents <span class="fu">!</span> presentName
+
+<span class="ot">presentsFor ::</span> <span class="dt">String</span>
+            <span class="ot">-&gt;</span> <span class="dt">Query</span> (<span class="dt">Rel</span> (<span class="dt">RecCons</span> <span class="dt">PresentName</span> (<span class="dt">Expr</span> <span class="dt">String</span>)
+                           <span class="dt">RecNil</span>))
+presentsFor name <span class="fu">=</span> <span class="kw">do</span>
+  children <span class="ot">&lt;-</span> table child
+  presents <span class="ot">&lt;-</span> table present
+  restrict <span class="fu">$</span> children <span class="fu">!</span> childName <span class="fu">.==.</span> presents <span class="fu">!</span> childName
+  restrict <span class="fu">$</span> children <span class="fu">!</span> childName <span class="fu">.==.</span> constant name
+  project <span class="fu">$</span> presentName <span class="fu">&lt;&lt;</span> presents <span class="fu">!</span> presentName</code></pre></div>
+<p>If you’ve only written SQL before this might look a little alien - <code>haskelldb</code> provides an API that is very close to relational algebra. In the first example we’ve taken the output of the entire <code>present</code> table and returned all rows. In the second example we’ve selected from two tables - a Cartesian join - and filtered this join on a predicate to find just the rows about a specific child (the child’s name is given by input).</p>
+<p>The beauty of this interface is that <code>haskelldb</code> is free to rewrite your query in a more optimal form. You can have a look at the generated SQL by using <code>ppSql</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="fu">&gt;</span> ppSql (presentsFor <span class="st">&quot;Little Bobby Tables&quot;</span>)
+<span class="dt">SELECT</span> name2 as name
+<span class="dt">FROM</span> (<span class="dt">SELECT</span> name as name2,
+             name as name2
+      <span class="dt">FROM</span> present as <span class="dt">T1</span>) as <span class="dt">T1</span>,
+     (<span class="dt">SELECT</span> name as name1
+      <span class="dt">FROM</span> child as <span class="dt">T1</span>) as <span class="dt">T2</span>
+<span class="dt">WHERE</span> name1 <span class="fu">=</span> <span class="ch">'Little Bobby Tables'</span> <span class="dt">AND</span> name1 <span class="fu">=</span> name2</code></pre></div>
+<p>Coupled with PostgreSQL’s stunning query planer, the end result is query with the same speed as one I’d write by hand!</p>
+<p><code>haskelldb</code> gives us a extremely expressive API for querying databases, and doesn’t sacrifice performance to do so. This allows you to consume and compose the API in a way that best suits the needs of your application. If you frequently select from the result of a join you can simply store part of this query separately, and compose it later.</p>
+<p>One downside of <code>haskelldb</code> is that documentation can be a little bit terse, and the API is quite large, so it can be hard to get going sometimes. I highly recommend Chris Done’s <a href="http://chrisdone.com/tags/haskelldb">series of blog posts on haskelldb</a> if you’re interested in learning more.</p>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2012-12-15-24-days-of-hackage-haskelldb.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2012-12-08-24-days-of-hackage.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>24 Days of Hackage: QuickCheck</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>24 Days of Hackage: QuickCheck</h1>
+<p>As I mentioned in the article on <a href="2012-12-04-errors.html">errors</a>, the Haskell programmer takes error handling and edge cases very seriously. While we try and constrain our types as much as possible, there is always a trade off between exact types and pragmatism, not to mention that there are some invariants that are very difficult to encode in the Haskell type system. As such, without rigorous testing, there is still a risk of exceptions or unexpected behaviors at runtime.</p>
+<p>The solution is, of course - testing! And if we really want to be confident in our application, we need to be certain we have tested it under all possible inputs. Again, there is a trade off to be made - you could logically reason about your program, proving things by induction and so on, but this is a demanding task, and one that goes beyond a lot of programmers abilities. The solution most people are used to, is to manually generate some test data that exercises different aspects of a system, and hope it’s good enough. While you can do that in Haskell, there’s also a third option.</p>
+<p><a href="http://hackage.haskell.org/package/QuickCheck">QuickCheck</a> is a library for doing <em>random</em> testing. This means that rather than have the programmer write test data, <code>QuickCheck</code> will generate random data for you. It sounds naive, doesn’t it? It’s a simple solution, but an incredibly powerful one - in fact many people swear by it.</p>
+<p>Let’s dig in with an example!</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">absAverage ::</span> [<span class="dt">Double</span>] <span class="ot">-&gt;</span> <span class="dt">Double</span>
+absAverage ds <span class="fu">=</span> sum ds <span class="fu">/</span> fromIntegral (length ds)</code></pre></div>
+<p>My intention with this function was to take the average of the absolute value of all values in a list. So, lets write a property to make sure this is correct:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">quickCheck1 ::</span> <span class="dt">IO</span> ()
+quickCheck1 <span class="fu">=</span> quickCheck <span class="fu">$</span> \x <span class="ot">-&gt;</span> absAverage x <span class="fu">&gt;=</span> <span class="dv">0</span>
+
+<span class="fu">&gt;</span> quickCheck1
+<span class="fu">***</span> <span class="dt">Failed</span><span class="fu">!</span> <span class="dt">Falsifiable</span> (after <span class="dv">1</span> test)<span class="fu">:</span>
+[]</code></pre></div>
+<p>Here I’ve asserted the property that “for all lists of integers, <code>x</code>, <code>absAverage x</code> is positive.” But <code>QuickCheck</code> made light work of that property and quickly proved us wrong! <code>QuickCheck</code> generated some test data for us - in this case the empty list - and our property didn’t hold - because our function doesn’t make sense for empty lists. We can weaken the property a bit to only consider non-empty lists:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">quickCheck2 ::</span> <span class="dt">IO</span> ()
+quickCheck2 <span class="fu">=</span> quickCheck <span class="fu">$</span> \x <span class="ot">-&gt;</span> length x <span class="fu">&gt;</span> <span class="dv">1</span> <span class="fu">==&gt;</span> absAverage x <span class="fu">&gt;=</span> <span class="dv">0</span>
+
+<span class="fu">&gt;</span> quickCheck2
+<span class="fu">***</span> <span class="dt">Failed</span><span class="fu">!</span> <span class="dt">Falsifiable</span> (after <span class="dv">2</span> tests and <span class="dv">3</span> shrinks)<span class="fu">:</span>
+[<span class="fu">-</span><span class="fl">2.0</span>,<span class="fl">1.0</span>]</code></pre></div>
+<p>Huh, a failure again… Oh! I forgot to actually take the <code>abs</code> value of each element of <code>ds</code> in my original function, lets get that fixed…</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">absAverage ::</span> [<span class="dt">Double</span>] <span class="ot">-&gt;</span> <span class="dt">Double</span>
+absAverage ds <span class="fu">=</span> sum (map abs ds) <span class="fu">/</span> fromIntegral (length ds)
+
+<span class="fu">&gt;</span> quickCheck2
+<span class="fu">+++</span> <span class="dt">OK</span>, passed <span class="dv">100</span> tests</code></pre></div>
+<p>Alright!</p>
+<p>QuickCheck can do a <em>lot</em> more than this, but in the spirit of these articles I’m only trying to scratch the surface - it’s up to you to do the extra reading. Thankfuly, there’s a lot of great material already published. Check out the <a href="http://www.haskell.org/haskellwiki/Introduction_to_QuickCheck">introduction to QuickCheck</a> on the <a href="http://www.haskell.org/haskellwiki">Haskell wiki</a>, or the excellent chapter on Haskell testing in <a href="../../../book.realworldhaskell.org/read/testing-and-quality-assurance.html">Real World Haskell</a>.</p>
+<p>It’s worth noting that <code>QuickCheck</code> is not the only library of this ilk; the <a href="http://hackage.haskell.org/package/smallcheck"><code>smallcheck</code></a> operates under a similar principle, however <code>smallcheck</code> tries to build random data of various ‘depth’, based on the assumption that “If a program fails to meet its specification in some cases, it almost always fails in some simple case.”</p>
+<p>Now that you have <code>QuickCheck</code> you don’t even have to think about generating data for your tests, and you can concentrate on the essential properties. In other words - no excuses!</p>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2012-12-08-24-days-of-hackage.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2010-04-03-sql-is-data-not-a-string.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>SQL: It's Data, Not a String</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>SQL: It's Data, Not a String</h1>
+<p>Recently I’ve been becoming more and more frustrated with how we handle database interactions at work. We’ve just written a new version of our data object API and while they are considerably better than what we had before, they are still both limited and have too much boiler plate for my liking. As such, I spent some of my free time researching a better solution. So far, I’ve settled on <a href="http://search.cpan.org/~drolsky/Fey/">Fey</a> and have been extremely happy with the results.</p>
+<p>One of the key differences between our old system and Fey is how SQL is represented. Previously, SQL was just written as a string, using a few helpers functions and the odd measure of string interpolation. To be able to compose queries, there were methods that returned just the set of columns, just the tables and joins – it worked, to a degree. Fey takes a different approach – instead of working with SQL strings, you work with SQL as data. And this abstraction turns out to be extremely powerful.</p>
+<p>Here’s a real world example of why this matters so much. Our schema has “entity tables” and “name tables.” Many entities can have the same name, and good database design tells us we shouldn’t repeat ourselves, so we have “name tables” too. That is, each entity has one (or more) names. But not every entity has this, some do have the name just as a string, only the so called “core entities” have name tables.</p>
+<p>But these name tables are are a technical detail, not something to be exposed by the API. That, is if I do <code>Artist-&gt;get_by_id</code>, I shouldn’t see this relationship at all. It turns out with roles and a bit of method modification, we can introduce this transparently. Here’s how I’ve started using Fey query objects:</p>
+<div class="sourceCode"><pre class="sourceCode perl"><code class="sourceCode perl"><span class="kw">package</span> Entity;
+has <span class="kw">'</span><span class="st">table</span><span class="kw">'</span> =&gt; ( is =&gt; <span class="kw">'</span><span class="st">ro</span><span class="kw">'</span>, required =&gt; <span class="dv">1</span>, init_arg =&gt; <span class="fu">undef</span> );
+has <span class="kw">'</span><span class="st">select</span><span class="kw">'</span> =&gt; ( lazy_build =&gt; <span class="dv">1</span>, is =&gt; <span class="kw">'</span><span class="st">ro</span><span class="kw">'</span> );
+method _build_select {
+    <span class="kw">return</span> <span class="fu">Fey::SQL</span>-&gt;new_select-&gt;<span class="fu">select</span>(<span class="dt">$self</span>-&gt;<span class="dt">table</span>)-&gt;from(<span class="dt">$self</span>-&gt;<span class="dt">table</span>);
+}</code></pre></div>
+<p>Entity is an abstract base class – it can’t be instantiated because it requires the table accessor. So, our core entity just extends it:</p>
+<div class="sourceCode"><pre class="sourceCode perl"><code class="sourceCode perl"><span class="kw">package</span> CoreEntity;
+extends <span class="kw">'</span><span class="st">Entity</span><span class="kw">'</span>;
+has <span class="kw">'</span><span class="st">+table</span><span class="kw">'</span> =&gt; ( <span class="kw">default</span> =&gt; <span class="kw">sub </span>{ <span class="dt">$schema</span>-&gt;<span class="dt">table</span>(<span class="kw">'</span><span class="st">core_entity</span><span class="kw">'</span>) } );</code></pre></div>
+<p>Just like this, we will bring in the name foreign key, but we actually want to bring in the actual name – the relationship should be transparent. We could modify core entity to do this, but that’s not particularly elegant. A better approach is to have a Name role:</p>
+<div class="sourceCode"><pre class="sourceCode perl"><code class="sourceCode perl"><span class="kw">package</span> Name;
+<span class="fu">use</span> <span class="fu">Moose::Role</span>;
+around _build_select =&gt; <span class="kw">sub </span>{
+    <span class="kw">my</span> <span class="dt">$orig</span> = <span class="fu">shift</span>;
+    <span class="kw">my</span> (<span class="dt">$self</span>) = <span class="dt">@_</span>;
+    <span class="dt">$self</span>-&gt;<span class="dt">$orig</span>-&gt;<span class="dt">from</span>(<span class="dt">$self</span>-&gt;<span class="dt">table</span>, <span class="dt">$schema</span>-&gt;<span class="dt">table</span>(<span class="kw">'</span><span class="st">name</span><span class="kw">'</span>));
+};</code></pre></div>
+<p>Now, our core entity role only needs to consume the name role, and any selects done (using select) will automatically bring in that relationship. Even better, you can now throw this select object around to other classes and let them do even more with it. This is proving to be an extremely powerful way to write code that just dwim, with a minimum amount of boilerplate.</p>
+<p>The example above is simplified, the actual implementation of these classes does a bit more by doing a little bit of database metadata poking – determining foreign keys and working out the join tables for you. But it’s built on the same principles of above. I think this reinforces one of my guiding points of programming – never use strings unless you are passing them over a boundary between your program. No XML strings, no HTML strings, no SQL strings, no strings to represent data (MooseX::Types instead of the standard Moose type constraints)… the more places you can apply this, the more you can transform your code with code.</p>
+<p>Maybe I’ve been reading too much Lisp.</p>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2010-04-03-sql-is-data-not-a-string.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2014-02-25-dependent-types-and-plhaskell.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>Interpreting Haskell Inside PostgreSQL With Singleton Types</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>Interpreting Haskell Inside PostgreSQL With Singleton Types</h1>
+<p>I am currently in the early stages of a new project, <a href="http://github.com/ocharles/plhaskell"><code>plhaskell</code></a>. <code>plhaskell</code> is a <a href="http://www.postgresql.org/docs/current/static/sql-createlanguage.html">language handler</a> for PostgreSQL that will allow you to write PostgreSQL functions in Haskell. The project has already taught me a lot, but recently I’ve had a somewhat mind bending encounter with what is almost dependently typed programming in Haskell - and I’ve just got to share it with you.</p>
+<p>Here’s the problem. At runtime, we have a string containing Haskell code, metadata about the function call which includes the function signature, and a list of argument values. Is it possible to interpret this string as a Haskell function and call it with the provided arguments?</p>
+<p>Let’s start by interpreting the string. The <code>hint</code> library provides a high-level interface to GHC’s API, which allows us to interpret strings as values of a given Haskell type. The most useful function for us is:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">interpret ::</span> <span class="dt">Typeable</span> a <span class="ot">=&gt;</span> <span class="dt">String</span> <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> m a</code></pre></div>
+<p>Given a <code>String</code> containing Haskell code and an expected type, <code>interpret</code> will attempt to construct a value of that type by interpreting the given string. We can run the interpreter using <code>runInterpreter</code>. For example:</p>
+<pre><code>&gt; runInterpreter $ setImports [&quot;Prelude&quot;] &gt;&gt; interpret &quot;True&quot; (as :: Bool)
+Right True
+
+&gt; runInterpreter $ setImports [&quot;Prelude&quot;] &gt;&gt; interpret &quot;True&quot; (as :: Int)
+Left (WontCompile [GhcError {errMsg = &quot;
+Couldn't match expected type `GHC.Types.Int'
+            with actual type `GHC.Types.Bool'&quot;}])</code></pre>
+<p>We’re making good progress, but now we hit a problem. Notice that we are deciding the type that <code>interpret</code> should return statically, at compile time. The problem statement above indicates that the type information isn’t known at compile time, we only learn about that at runtime. At first this seems impossible - after all, Haskell is all about static types!</p>
+<p>The dependent types crowd are laughing at this point. Surely we just want to write a function with this type:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">interpret ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> (sig <span class="fu">:</span> <span class="dt">Signature</span>) <span class="ot">-&gt;</span> (<span class="dt">FunctionType</span> sig)</code></pre></div>
+<p>Alas, we can’t write this in Haskell. Or can we?</p>
+<h2 id="a-type-of-types">A Type of Types</h2>
+<p>A good first step is to clear up what we mean by “types”. PostgreSQL has an open universe of types, as types can be defined at runtime. However, we’ll keep things a little simpler by considering a closed universe of the following types:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">PgType</span> <span class="fu">=</span> <span class="dt">PgInt</span> <span class="fu">|</span> <span class="dt">PgString</span></code></pre></div>
+<p>Combining GHC’s new(ish) abilities to promote data types along with type families, we can form a mapping from PostgreSQL types to Haskell types:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> family <span class="dt">InterpretType</span> (<span class="ot">t ::</span> <span class="dt">PgType</span>)<span class="ot"> ::</span> <span class="fu">*</span>
+<span class="kw">type</span> <span class="kw">instance</span> <span class="dt">InterpretType</span> <span class="ch">'PgInt = Int</span>
+<span class="kw">type</span> <span class="kw">instance</span> <span class="dt">InterpretType</span> <span class="ch">'PgString = String</span></code></pre></div>
+<p>The type family takes types of kind <code>PgType</code> to types of kind <code>*</code> - the kind of types of Haskell values. It’s important to remember that this is all at the type level - we transform the <em>type</em> <code>PgInt</code> to the <em>type</em> <code>Int</code>. Working at the type level is not enough to solve the overarching problem, because runtime information is at the value level. In order to link types and values, we can use <em>singleton types</em>.</p>
+<p>Intermediate Haskell programmers should be familiar with phantom types - type variables whose sole purpose is to carry type information. Singleton types work in a similar way - we add a type parameter to carry information up from values to their types. For <code>PgType</code>, there is a corresponding singleton type:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">SPgType</span><span class="ot"> ::</span> <span class="dt">PgType</span> <span class="ot">-&gt;</span> <span class="fu">*</span> <span class="kw">where</span>
+  <span class="dt">SPgInt</span><span class="ot"> ::</span> <span class="dt">SPgType</span> <span class="ch">'PgInt</span>
+  <span class="dt">SPgString</span><span class="ot"> ::</span> <span class="dt">SPgType</span> <span class="ch">'PgString</span></code></pre></div>
+<p>By using a GADT, we can now learn more information about our types by pattern matching. For example, we can write a function who’s return type depends on the value of the first parameter:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">exampleValues ::</span> <span class="dt">SPgType</span> t <span class="ot">-&gt;</span> <span class="dt">InterpretType</span> t
+exampleValues <span class="dt">SPgInt</span> <span class="fu">=</span> <span class="dv">42</span>
+exampleValues <span class="dt">SPgString</span> <span class="fu">=</span> <span class="st">&quot;Forty two&quot;</span></code></pre></div>
+<p>At first glance this looks like nonsense, but you should take time to convince yourself that it makes sense. If you give <code>exampleValues</code> a <code>SPgInt</code>, then by pattern matching on that we learn that the <code>t</code> in the type signature is actually a <code>'PgInt</code>. The type family <code>InterpretType</code> maps <code>PgInt</code> to <code>Int</code>, thus 42 is a perfectly valid return type. Similar reasoning shows that <code>&quot;Forty two&quot;</code> is equally valid, provided we have evidence that <code>t ~ 'PgString</code> (this is notation to indicate type equality).</p>
+<p>It may help to play around with this in GHCI:</p>
+<pre><code>&gt; :t exampleValues SPgString
+exampleValues SPgString :: InterpretType 'PgString
+
+&gt; :t exampleValues SPgInt
+exampleValues SPgInt :: InterpretType 'PgInt
+
+&gt; :kind! InterpretType 'PgInt
+InterpretType 'PgInt :: *
+= Int
+</code></pre>
+<h2 id="from-types-to-function-arrows">From Types to Function Arrows</h2>
+<p>So far, we have only considered working with single types. However, a function contains multiple types - one for each argument and another for the return type. We need to introduce a data type to capture this. We make the observation that any function has <em>at least one</em> type, so we introduce a variant of non-empty lists:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">PgFunction</span>
+  <span class="fu">=</span> <span class="dt">PgReturn</span> <span class="dt">PgType</span>
+  <span class="fu">|</span> <span class="dt">PgArrow</span> <span class="dt">PgType</span> <span class="dt">PgFunction</span></code></pre></div>
+<p>This data type is also amenable to promotion to the type level, so we can map entire <code>PgFunction</code>s to their corresponding Haskell function type:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> family <span class="dt">InterpretFunction</span> (<span class="ot">t ::</span> <span class="dt">PgFunction</span>)<span class="ot"> ::</span> <span class="fu">*</span>
+<span class="kw">type</span> <span class="kw">instance</span> <span class="dt">InterpretFunction</span> (<span class="ch">'PgReturn t) = InterpretType t</span>
+<span class="kw">type</span> <span class="kw">instance</span> <span class="dt">InterpretFunction</span> (<span class="ch">'PgArrow t ts) = InterpretType t -&gt; InterpretFunction ts</span></code></pre></div>
+<p>This type family is essentially folding <code>PgFunction</code> down to a function type - we replace <code>PgArrow</code> with <code>-&gt;</code>, and all <code>PgType</code>s with their interpretation.</p>
+<p>Not only can we do promotion to the type level, we can play a similar trick with singleton types:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">SPgFunction</span><span class="ot"> ::</span> <span class="dt">PgFunction</span> <span class="ot">-&gt;</span> <span class="fu">*</span> <span class="kw">where</span>
+  <span class="dt">SPgReturn</span><span class="ot"> ::</span> <span class="dt">SPgType</span> t <span class="ot">-&gt;</span> <span class="dt">SPgFunction</span> (<span class="ch">'PgReturn t)</span>
+  <span class="dt">SPgArrow</span><span class="ot"> ::</span> <span class="dt">SPgType</span> t <span class="ot">-&gt;</span> <span class="dt">SPgFunction</span> ts <span class="ot">-&gt;</span> <span class="dt">SPgFunction</span> (<span class="ch">'PgArrow t ts)</span></code></pre></div>
+<p>This singleton type has singleton constructors that make use of the singleton types for <code>PgType</code>. To try and get a better handle on what this gives us, here’s a similar set of examples, but this time for functions:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">exampleFunctions ::</span> <span class="dt">SPgFunction</span> t <span class="ot">-&gt;</span> <span class="dt">InterpretFunction</span> t
+exampleFunctions (<span class="dt">SPgReturn</span> <span class="dt">SPgInt</span>) <span class="fu">=</span> <span class="dv">42</span>
+exampleFunctions (<span class="dt">SPgArrow</span> <span class="dt">SPgString</span> (<span class="dt">SPgReturn</span> <span class="dt">SPgInt</span>)) <span class="fu">=</span> length</code></pre></div>
+<pre><code>&gt; exampleFunctions (SPgReturn SPgInt)
+42
+
+&gt; exampleFunctions (SPgArrow SPgString (SPgReturn SPgInt)) &quot;I &lt;3 Types&quot;
+10</code></pre>
+<h2 id="the-singletons-library">The <code>singletons</code> Library</h2>
+<p>Hopefully you now have a rudimentary understanding of singleton types. Writing out singleton types by hand is both tedious and error prone, especially when the translation is purely mechanical. <a href="http://typesandkinds.wordpress.com/">Richard Eisenberg</a> is the author of the <a href="http://hackage.haskell.org/package/singletons"><code>singletons</code></a> library, which contains Template Haskell to do this for us. We’ll now switch to the following source code:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="fu">$</span>(singletons [d<span class="fu">|</span>
+  <span class="kw">data</span> <span class="dt">PgType</span> <span class="fu">=</span> <span class="dt">PgInt</span> <span class="fu">|</span> <span class="dt">PgString</span>
+
+  <span class="kw">data</span> <span class="dt">PgFunction</span> <span class="fu">=</span> <span class="dt">PgReturn</span> <span class="dt">PgType</span> <span class="fu">|</span> <span class="dt">PgArrow</span> <span class="dt">PgType</span> <span class="dt">PgFunction</span>
+  <span class="fu">|</span>])
+
+<span class="co">-- These are exactly as before</span>
+<span class="kw">type</span> family <span class="dt">InterpretType</span> (<span class="ot">t ::</span> <span class="dt">PgType</span>)<span class="ot"> ::</span> <span class="fu">*</span>
+<span class="kw">type</span> family <span class="dt">InterpretFunction</span> (<span class="ot">t ::</span> <span class="dt">PgFunction</span>)<span class="ot"> ::</span> <span class="fu">*</span></code></pre></div>
+<h2 id="call-yourself-typeable-prove-it">Call Yourself Typeable? Prove it!</h2>
+<p>We’re a good part of the way towards our goal now. To recap, we have defined a type of PostgreSQL types, and we can use these types to represent function signatures. Singleton types let us work at both the value and the type level, and type families let us turn these PostgreSQL types into their corresponding Haskell types.</p>
+<p>Let’s recap the type of <code>interpret</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">interpret ::</span> <span class="dt">Typeable</span> a <span class="ot">=&gt;</span> <span class="dt">String</span> <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> m a</code></pre></div>
+<p>It would appear we have all the machinery we need now to construct that type <code>a</code>. Given a <code>SPgFunction</code> we can use <code>InterpretFunction</code> to decide the return type, and we can use the magic <code>undefined</code> value to provide a value. (Really we should be using <code>Proxy</code>, but we have to work with what <code>hint</code> wants):</p>
+<pre><code>funType :: SPgFunction t -&gt; InterpretFunction t
+funType (SPgReturn _) = undefined
+funType (SPgArrow _ ts) = \_ -&gt; funType ts</code></pre>
+<p>If we have <code>SPgReturn</code> then we use <code>undefined</code> as our value. Otherwise, we need to form a function, which we can do by simply ignoring the argument and recursing with <code>funType</code>.</p>
+<p>So far we’ve been working with singleton types, but we won’t be constructing these directly at runtime - rather we’ll be constructing <code>PgFunction</code> values. It’s easy to get a singleton out of this though, by using the <code>withSomeSing</code> combinator in the singletons library.</p>
+<p>Brimming with excitement, we hack out a bit of code to try this all out!</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">firstAttempt ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">PgFunction</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
+firstAttempt code sig <span class="fu">=</span> withSomeSing sig <span class="fu">$</span> \s <span class="ot">-&gt;</span>
+  runInterpreter <span class="fu">$</span> <span class="kw">do</span>
+    setImports [(<span class="st">&quot;Prelude&quot;</span>)]
+    interpret code (funType s)
+
+  putStrLn <span class="st">&quot;It didn't crash!&quot;</span></code></pre></div>
+<pre><code>    No instance for (Typeable (InterpretFunction a))
+      arising from a use of `interpret'
+    Possible fix:
+      add an instance declaration for (Typeable (InterpretFunction a))
+    In a stmt of a 'do' block: interpret code (funType s)</code></pre>
+<p>Unfortunately, <code>hint</code> is requiring that there is a <code>Typeable</code> instance for <code>a</code>, but there is no evidence that our interpretation of PostgreSQL types as a Haskell function will by <code>Typeable</code>. Of course, <em>we know</em> it is - it’s made up from <code>String</code>, <code>Int</code> and <code>(-&gt;)</code>, all of which are <code>Typeable</code>. How do we prove to GHC that we really do have a <code>Typeable</code> instance?</p>
+<p>Edward Kmett <a href="http://comonad.com/reader/2011/what-constraints-entail-part-1/">blogged about a useful trick</a> in 2011 (more information on this at <a href="http://joyoftypes.blogspot.co.uk/2012/02/haskell-supports-first-class-instances.html">the Joy of Types</a>) which is exactly what we need. If we define the following data type…</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Dict</span> a <span class="kw">where</span>
+  <span class="dt">Dict</span><span class="ot"> ::</span> a <span class="ot">=&gt;</span> <span class="dt">Dict</span> a</code></pre></div>
+<p>Then we get <em>first class</em> type instances! By having first class type instances, we can pass them around as values. Furthermore, pattern matching on them teaches us about our types - specifically teaching us that certain type class instances are present.</p>
+<p>To get our feet wet, we can show that all interpretations of single PostgreSQL types are <code>Typeable</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">pgTypeTypeable ::</span> <span class="dt">SPgType</span> t <span class="ot">-&gt;</span> <span class="dt">Dict</span> (<span class="dt">Typeable</span> (<span class="dt">InterpretType</span> t))
+pgTypeTypeable <span class="dt">SPgInt</span> <span class="fu">=</span> <span class="dt">Dict</span>
+pgTypeTypeable <span class="dt">SPgString</span> <span class="fu">=</span> <span class="dt">Dict</span></code></pre></div>
+<p>Admittedly, it’s a rather queer function. However, we can make use of this as a lemma to build an inductive proof that all interpretations of PostgreSQL <em>functions</em> are <code>Typeable</code>. Our base case is that a function of no arguments is <code>Typeable</code>. Our inductive hypothesis is that a function of <em>n</em> arguments <code>Typeable</code>, and we can use this to show that a function of <em>n+1</em> arguments is also <code>Typeable</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">pgFunTypeTypeable ::</span> <span class="dt">SPgFunction</span> t <span class="ot">-&gt;</span> <span class="dt">Dict</span> (<span class="dt">Typeable</span> (<span class="dt">InterpretFunction</span> t))
+pgFunTypeTypeable (<span class="dt">SPgReturn</span> t) <span class="fu">=</span> pgTypeTypeable t
+pgFunTypeTypeable (<span class="dt">SPgArrow</span> t ts) <span class="fu">=</span>
+  <span class="kw">case</span> pgTypeTypeable t <span class="kw">of</span>
+    <span class="dt">Dict</span> <span class="ot">-&gt;</span>
+      <span class="kw">case</span> pgFunTypeTypeable ts <span class="kw">of</span>
+        <span class="dt">Dict</span> <span class="ot">-&gt;</span> <span class="dt">Dict</span></code></pre></div>
+<p>I found <code>pgTypeTypeable</code> mind-bending, but this is mind-bending in an extra dimension. However! It does actually do the job, as we’re now ready to finally reach our goal, and the following function type checks:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">goal ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">PgFunType</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
+goal code signature <span class="fu">=</span> withSomeSing signature <span class="fu">$</span> \s <span class="ot">-&gt;</span>
+  <span class="kw">case</span> pgFunTypeTypeable s <span class="kw">of</span> <span class="dt">Dict</span> <span class="ot">-&gt;</span>
+    f <span class="ot">&lt;-</span> runInterpreter <span class="fu">$</span> <span class="kw">do</span>
+        setImports [(<span class="st">&quot;Prelude&quot;</span>)]
+        interpret code (funType s)
+
+    <span class="kw">case</span> f <span class="kw">of</span>
+      <span class="dt">Left</span> error <span class="ot">-&gt;</span>
+        print error
+
+      <span class="dt">Right</span> f' <span class="ot">-&gt;</span>
+        <span class="co">-- Apply arguments to f'</span>
+        return ()</code></pre></div>
+<p>It’s not a particularly <em>useful</em> goal, because it doesn’t actually call <code>f</code>. To do so, we need a supply of arguments. The topic for this post was to demonstrate how to create the function type, so we’ll just cheat here and use <code>Data.Dynamic</code>. (In <code>plhaskell</code>, we recurse through the <code>SPgFunction</code> and peek into pointers that PostgreSQL provides). See the <a href="https://github.com/ocharles/blog/blob/master/code/2014-02-25-dtypes-2.hs">full code listing</a> for source code to the below REPL session:</p>
+<pre><code>&gt; final &quot;42&quot; (PgReturn PgInt) []
+42
+
+&gt; final &quot;(+)&quot; (PgArrow PgInt (PgArrow PgInt (PgReturn PgInt)))
+&gt;   [ toDyn (1 :: Int), toDyn (2 :: Int) ]
+3
+
+&gt; final &quot;\&quot;Hello\&quot;&quot; (PgArrow PgInt (PgReturn PgInt)) []
+WontCompile [GhcError {errMsg = &quot;Couldn't match expected type `GHC.Types.Int -&gt; GHC.Types.Int'
+                                             with actual type `[GHC.Types.Char]'&quot;}]</code></pre>
+<p>Voilà.</p>
+<h2 id="conclusion-acknowledgements">Conclusion &amp; Acknowledgements</h2>
+<p>Dependent types are fantastic, but you don’t have to switch languages to benefit from them. When combined with the <code>singletons</code> library, GHC 7.6 can do a significant amount of work that only seems possible in Agda or Idris. With all of that said, it’s not without pain points. Other languages that are intentionally dependently typed don’t need singletons, and a lot of this will feel a lot more natural.</p>
+<p>I want to send a massive thank you out to Richard Eisenberg - once for his work on the <code>singletons</code> library and associated research, but also for providing a last bit of hand-holding and teaching me the trick with <code>Dict</code> to get <code>Typeable</code> working.</p>
+<p>To close with, we can dispel one more myth:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">ocharles<span class="fu">&gt;</span> <span class="fu">@</span>faq <span class="dt">Can</span> <span class="dt">I</span> use <span class="dt">Haskell</span> with fake dependent types to interpret code with <span class="kw">type</span>
+information at runtime<span class="fu">?</span>
+lambdabot<span class="fu">&gt;</span> <span class="dt">The</span> answer is<span class="fu">:</span> <span class="dt">Yes</span><span class="fu">!</span> <span class="dt">Haskell</span> can <span class="kw">do</span> that<span class="fu">.</span></code></pre></div>
+<p>I love this language.</p>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2014-02-25-dependent-types-and-plhaskell.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

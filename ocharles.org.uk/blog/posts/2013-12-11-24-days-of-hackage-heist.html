@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2013-12-11-24-days-of-hackage-heist.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>24 Days of Hackage: heist</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>24 Days of Hackage: heist</h1>
+<p><a href="2012-12-19-24-days-of-hackage-snap.html">Last year</a> we looked at the <a href="http://snapframework.org/">Snap web framework</a>, focusing specifically on Snap itself - how to do routing, how to assemble snaplets, and so on - while overlooking the arguably more important details about how to generate the HTML in responses. The Snap team are also responsible for a templating engine that can do this HTML generation, and this library is called <a href="http://hackage.haskell.org/package/heist"><code>heist</code></a>.</p>
+<p><code>heist</code> is a template engine that presents a usage pattern that is likely familiar to most web developers. Templates are written in separate files outside the Haskell source code, and then we render these templates using a specific context, which defines how to “fill in the blanks”, so to speak. <code>heist</code> breaks away from the crowd in the finer details of how it achieves this.</p>
+<p><code>heist</code> templates themselves are simply HTML documents; they don’t have a single root element (they can have many), but other than that they are valid HTML5. On top of HTML templates <code>heist</code> has three main abstractions: <code>&lt;bind&gt;</code>, <code>&lt;apply&gt;</code> and splices.</p>
+<p><code>&lt;bind&gt;</code> is very straight forward to understand - it just acts like a <code>let</code> binding in Haskell. However, instead of introducing a new identifier as we would expect in Haskell, <code>&lt;bind&gt;</code> introduces a new HTML <em>element</em>. For example, we can bind some text to an element:</p>
+<div class="sourceCode"><pre class="sourceCode xml"><code class="sourceCode xml"><span class="kw">&lt;bind</span><span class="ot"> tag=</span><span class="st">&quot;kiddo&quot;</span><span class="kw">&gt;</span>Billy<span class="kw">&lt;/bind&gt;</span>
+
+Merry Christmas, <span class="kw">&lt;kiddo/&gt;</span>!
+<span class="co">&lt;!-- Merry Christmas, Billy! --&gt;</span></code></pre></div>
+<p>Or we could bind a more complex HTML tree:</p>
+<div class="sourceCode"><pre class="sourceCode xml"><code class="sourceCode xml"><span class="kw">&lt;bind</span><span class="ot"> tag=</span><span class="st">&quot;kiddo&quot;</span><span class="kw">&gt;&lt;em&gt;</span>Billy<span class="kw">&lt;/em&gt;&lt;/bind&gt;</span>
+
+Merry Christmas, <span class="kw">&lt;kiddo</span> <span class="kw">/&gt;</span>!
+<span class="co">&lt;!-- Merry Christmas, &lt;em&gt;Billy&lt;/em&gt;! --&gt;</span></code></pre></div>
+<p>A binding can also be used in element attributes, like so:</p>
+<div class="sourceCode"><pre class="sourceCode xml"><code class="sourceCode xml"><span class="kw">&lt;bind</span><span class="ot"> tag=</span><span class="st">&quot;kiddo&quot;</span><span class="kw">&gt;</span>Dorothy<span class="kw">&lt;/bind&gt;</span>
+
+That's a <span class="kw">&lt;a</span><span class="ot"> href=</span><span class="st">&quot;/list/${kiddo}&quot;</span><span class="kw">&gt;</span>big wish list<span class="kw">&lt;/a&gt;</span>, <span class="kw">&lt;kiddo</span> <span class="kw">/&gt;</span>!
+<span class="co">&lt;!-- That's a &lt;a href=&quot;/list/Dorothy&quot;&gt;big wish list&lt;/a&gt;, Dorothy! --&gt;</span></code></pre></div>
+<p>Already, we’re seeing the ability to create abstractions in our templates, and we have the added bonus that we didn’t have to learn a new syntax - we got to reuse our knowledge of HTML, and only had to learn a few new semantics.</p>
+<p>The next part of <code>heist</code> is the <code>&lt;apply&gt;</code> tag, which can be used to insert the contents of one template into another template. Furthermore, this wrapper template can refer to bindings that the caller defines. For example, Santa might have a standard letter template, which can be sent to any <code>&lt;kiddo /&gt;</code>:</p>
+<div class="sourceCode"><pre class="sourceCode xml"><code class="sourceCode xml"><span class="co">&lt;!-- letter.tpl --&gt;</span>
+Dear <span class="kw">&lt;kiddo</span> <span class="kw">/&gt;</span>,
+
+<span class="kw">&lt;apply-content</span> <span class="kw">/&gt;</span>
+
+Yours,
+Santa
+
+---
+The following letter was sent on behalf of Santa. The contents of this letter
+represent potential thoughts of Santa and must be interpreted as fiction. Santa
+is a entity of Christmas <span class="er">&amp;</span> Christmas Ltd (c) 2013.</code></pre></div>
+<p>Now we can write letters that use this letter as a template:</p>
+<div class="sourceCode"><pre class="sourceCode xml"><code class="sourceCode xml"><span class="co">&lt;!-- billy.tpl --&gt;</span>
+<span class="kw">&lt;bind</span><span class="ot"> tag=</span><span class="st">&quot;wanted&quot;</span><span class="kw">&gt;</span>Playstation 4<span class="kw">&lt;/bind&gt;</span>
+<span class="kw">&lt;bind</span><span class="ot"> tag=</span><span class="st">&quot;got&quot;</span><span class="kw">&gt;</span>Monopoly board game<span class="kw">&lt;/bind&gt;</span>
+
+<span class="kw">&lt;apply</span><span class="ot"> template=</span><span class="st">&quot;letter&quot;</span><span class="kw">&gt;</span>
+  <span class="kw">&lt;bind</span><span class="ot"> tag=</span><span class="st">&quot;kiddo&quot;</span><span class="kw">&gt;</span>Billy<span class="kw">&lt;/bind&gt;</span>
+  I regret to inform you the &quot;<span class="kw">&lt;wanted</span> <span class="kw">/&gt;</span>&quot; you have requested is currently
+  unavailable. I have substituted this with &quot;<span class="kw">&lt;got</span> <span class="kw">/&gt;</span>&quot;. I hope this does not
+  disappoint you.
+<span class="kw">&lt;/apply&gt;</span></code></pre></div>
+<p>The special <code>&lt;apply-content&gt;</code> tag in the letter template is bound with the contents of the call to <code>&lt;apply&gt;</code>. As you can see, we can also introduce bindings inside <code>&lt;apply&gt;</code> - the <code>kiddo</code> binding - which propagate down into the template we are including.</p>
+<p>While we’ve introduced some abstraction, at Christmas &amp; Christmas Ltd. we’d really like to go further, and automate the whole process of sending letters according to our database. We already have some Haskell code to interface with the database, so what we’d like to do is fill in those bindings from code. Before we get to there, lets have a look at how we call a template from Haskell:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">billy ::</span> <span class="dt">IO</span> ()
+billy <span class="fu">=</span> eitherT (putStrLn <span class="fu">.</span> unlines) return <span class="fu">$</span> <span class="kw">do</span>
+  heist <span class="ot">&lt;-</span> initHeist mempty
+    { hcTemplateLocations <span class="fu">=</span> [ loadTemplates <span class="st">&quot;templates&quot;</span> ]
+    , hcInterpretedSplices <span class="fu">=</span> defaultInterpretedSplices
+    } 
+
+  <span class="dt">Just</span> (output, _) <span class="ot">&lt;-</span> renderTemplate heist <span class="st">&quot;billy&quot;</span> 
+
+  liftIO <span class="fu">.</span> BS.putStrLn <span class="fu">.</span> toByteString <span class="fu">$</span> output</code></pre></div>
+<p>First of all we define Heist’s configuration, by starting with the default configuration (available by <code>mempty</code>) and augmenting this configuration to load some templates from the disk. Next, we initialize <code>heist</code> with this configuration using <code>initHeist</code>. Finally, we use <code>renderTemplate</code> to perform the actual rendering. <code>renderTemplate</code> looks up a template by name in the list of templates that were loaded when we called <code>initHeist</code>, and also takes our <code>heist</code> configuration.</p>
+<p>If we run this with <code>templates/billy.tpl</code> existing as defined above you’ll see:</p>
+<pre><code>Dear Billy,
+
+  I regret to inform you the &quot;Playstation 4&quot; you have requested is currently
+  unavailable. I have substituted this with &quot;Monopoly board game&quot;. I hope this
+  does not disappoint you.
+
+Yours,
+Santa
+
+---
+The following letter was sent on behalf of Santa. The contents of this letter
+represent potential thoughts of Santa and must be interpreted as fiction. Santa
+is a entity of Christmas &amp; Christmas Ltd (c) 2013.
+</code></pre>
+<p>The final concept that we need to understand is that of splices. Splices are a powerful part of Heist, and in general allow us to bind arbitrary Haskell code to elements - a lot like the <code>&lt;bind&gt;</code> logic we saw earlier. To get started, we’ll look at binding Haskell values as text. Assume we have a <code>getNames :: IO [Text]</code> action. Now we can produce a letter to every name:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">names ::</span> <span class="dt">IO</span> ()
+names <span class="fu">=</span> eitherT (putStrLn <span class="fu">.</span> unlines) return <span class="fu">$</span> <span class="kw">do</span>
+  heist <span class="ot">&lt;-</span> initHeist mempty
+    { hcTemplateLocations <span class="fu">=</span> [ loadTemplates <span class="st">&quot;templates&quot;</span> ]
+    , hcInterpretedSplices <span class="fu">=</span> defaultInterpretedSplices
+    }
+
+  names <span class="ot">&lt;-</span> liftIO getNames
+
+  forM_ names <span class="fu">$</span> \name <span class="ot">-&gt;</span> <span class="kw">do</span>
+    <span class="dt">Just</span> (output, _) <span class="ot">&lt;-</span> renderTemplate
+      (bindSplice <span class="st">&quot;kiddo&quot;</span> (textSplice name) heist)
+      <span class="st">&quot;merry-christmas&quot;</span>
+
+    liftIO <span class="fu">.</span> BS.putStrLn <span class="fu">.</span> toByteString <span class="fu">$</span> output</code></pre></div>
+<p>Here we called the <code>getNames</code> action, and then enumerated all of the names it returned and printed a letter to each name. We bound text to splices by using <code>textSplice</code> to create a splice that contains the lucky child’s name, and then gave this splice a name.</p>
+<p>However, you’re not limited to binding pure values to splices, you can also bind monadic actions, or even implement more complex control flow.</p>
+<p>As another example, Santa might want a daily list of all children who we’ve sent greetings to. That is, Santa would like to see a list of all the names that <code>getNames</code> returns. We could perform this IO action and combine all the names into a single string, but this isn’t very flexible and it’s certainly not very reusable. An alternative is to introduce a <code>&lt;names&gt;</code> element that runs its content <em>for each</em> name in the list. This is exactly the type of stuff we can do with custom splices. Here’s how it looks:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">namesSplice <span class="fu">=</span>
+  liftIO getNames <span class="fu">&gt;&gt;=</span>
+    mapSplices (\name <span class="ot">-&gt;</span> runChildrenWithText (<span class="st">&quot;name&quot;</span> <span class="fu">##</span>  name))</code></pre></div>
+<p>We use <code>liftIO getNames</code> again to get the list of names, but then we use <code>mapSplices</code> to run sub-bindings <em>for each</em> element in the list. In this case, for each element <code>getNames</code> returns, we bind the <code>&lt;name&gt;</code> element appropriately. We have to wire this into the rendering of our template, which is just another call to <code>bindSplice</code> as we’ve seen before:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">  <span class="dt">Just</span> (output, _) <span class="ot">&lt;-</span> renderTemplate
+    (bindSplice <span class="st">&quot;names&quot;</span> namesSplice heist)
+    <span class="st">&quot;summary&quot;</span>
+
+  liftIO <span class="fu">.</span> BS.putStrLn <span class="fu">.</span> toByteString <span class="fu">$</span> output</code></pre></div>
+<p>If we run this against the following template:</p>
+<div class="sourceCode"><pre class="sourceCode xml"><code class="sourceCode xml"><span class="kw">&lt;apply</span><span class="ot"> template=</span><span class="st">&quot;letter&quot;</span><span class="kw">&gt;</span>
+  <span class="kw">&lt;bind</span><span class="ot"> tag=</span><span class="st">&quot;kiddo&quot;</span><span class="kw">&gt;</span>Santa<span class="kw">&lt;/bind&gt;</span>
+
+  The following children were greeted:  
+
+  <span class="kw">&lt;names&gt;</span>
+    * <span class="kw">&lt;name</span> <span class="kw">/&gt;</span>
+  <span class="kw">&lt;/names&gt;</span>
+<span class="kw">&lt;/apply&gt;</span></code></pre></div>
+<p>Then we get the following summary output, just as we’d expect:</p>
+<pre><code>Dear Santa,
+
+  The following children were greeted:
+  
+    * Tom
+  
+    * Dick
+  
+    * Harry
+
+Yours,
+Santa
+
+---
+The following letter was sent on behalf of Santa. The contents of this letter
+represent potential thoughts of Santa and must be interpreted as fiction. Santa
+is a entity of Christmas &amp; Christmas Ltd (c) 2013.</code></pre>
+<h2 id="conclusion">Conclusion</h2>
+<p><code>heist</code> is a really powerful templating system that is a great fit for teams with have separate developers, who can’t be assumed to know Haskell. <code>heist</code> also doesn’t compromise on functionality - we’ve barely scratched the surface of what’s possible with splices, including recursion and more involved flow control. What I really like about <code>heist</code> though, is the templating language doesn’t try and pretend to be a programming language. Instead, it’s up to you to define what is essential to go into a template, and have your templates reflect the structure of that data. I think this goes a long way to avoiding the mess that other templating languages can result in.</p>
+<p><a href="http://softwaresimply.blogspot.co.uk/">Doug Beardsley</a> has let me know about some blog posts that will help point people in the right direction, if you want to learn more about Heist:</p>
+<ul>
+<li><p><a href="http://hackage.haskell.org/package/digestive-functors-heist-0.8.3.0"><code>digestive-functors-heist</code></a> uses heist to build highly dynamic forms.</p></li>
+<li><p><a href="http://softwaresimply.blogspot.com/search/label/heist">Doug’s posts on Heist</a></p></li>
+<li><p>Soostone’s <a href="http://devblog.soostone.com/posts/2013-04-18-charade.html">Charade</a> project shows a good example of idiomatic Heist, and also demonstrates <a href="http://devblog.soostone.com/posts/2013-06-17-snap-template-reloading.html">dynamic reloading</a> in Snap.</p></li>
+</ul>
+<p>User’s should also note that a fairly <a href="http://snapframework.com/blog/2012/12/9/heist-0.10-released">recent addition</a> to Heist is the new “compiled templates” functionality. These give a <em>3000x performance</em> increase over interpreted templates (which is what we’ve been using so far). It’s well worth checking out if you want to do more serious work with heist - check out the <a href="http://snapframework.com/docs/tutorials/compiled-splices">official documentation</a> on this topic for more information.</p>
+<p>Also, I want to say a big thank you to Doug for helping me go through today’s post with a fine comb and get these examples to be much closer to idiomatic <code>heist</code> - thanks!</p>
+<p>The code for today’s post is available <a href="http://github.com/ocharles/blog">on Github</a> as always, so have a play!</p>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2013-12-11-24-days-of-hackage-heist.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

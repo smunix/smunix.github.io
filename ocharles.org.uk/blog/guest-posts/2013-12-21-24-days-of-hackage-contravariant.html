@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/guest-posts/2013-12-21-24-days-of-hackage-contravariant.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>24 Days of Hackage: contravariant</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>24 Days of Hackage: contravariant</h1>
+<p>Today and tomorrow we take a brief excursion to the boundary of <a href="https://en.wikipedia.org/wiki/Abstract_nonsense">abstract nonsense</a> with a pair of guest posts from <a href="http://web.jaguarpaw.co.uk/~tom/blog/">Tom Ellis</a>. Tom, over to you!</p>
+<hr />
+<p>In today and tommorow’s posts I’m going to introduce the <code>Contravariant</code> and <code>Profunctor</code> type classes, which are found in the <a href="http://hackage.haskell.org/package/contravariant"><code>contravariant</code></a> and <a href="http://hackage.haskell.org/package/profunctors"><code>profunctors</code></a> packages, respectively. They are closely related to the familiar <code>Functor</code> type class, so let’s refresh our understanding by first reviewing its definition:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Functor</span> f <span class="kw">where</span>
+<span class="ot">  fmap ::</span> (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> f a <span class="ot">-&gt;</span> f b</code></pre></div>
+<p>We will use the intuition that a <code>Functor</code> is a sort of “producer of output” that can have its type adapted. If <code>f</code> is a functor, then <code>f a</code> represents a “producer” of type <code>a</code>. Using a normal Haskell function of type <code>a -&gt; b</code> we can adapt the output to the type <code>b</code> by using <code>fmap</code>. Here are three examples of the “producer of output” intuition for a <code>Functor</code>:</p>
+<ol style="list-style-type: decimal">
+<li><p><code>Maybe a</code> represents an output of type <code>a</code> which may be either present (<code>Just a</code>) or absent (<code>Nothing</code>). Using <code>fmap f :: Maybe a -&gt; Maybe b</code> we can adapt that potentially absent <code>a</code> into a potentially absent <code>b</code>.</p></li>
+<li><p><code>[a]</code> represents a sequence of output values of type <code>a</code>, and with the <code>Functor</code> instance for <code>[]</code> we can adapt them to a sequence of output values of type <code>b</code>.</p></li>
+<li><p>A value of type <code>r -&gt; a</code> is a function taking an input of type <code>r</code> and giving an output of type <code>a</code>. The <code>Functor</code> instance for <code>(-&gt;) r</code> - which is the type of functions taking <code>r</code> as input - allows us to convert this output to type <code>b</code>, by composition:</p></li>
+</ol>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Functor</span> ((<span class="ot">-&gt;</span>) r) <span class="kw">where</span>
+  fmap f g <span class="fu">=</span> f <span class="fu">.</span> g</code></pre></div>
+<p>Incidentally, this is also the underlying <code>Functor</code> instance of the reader monad.</p>
+<p>While <code>fmap</code> allowed us to change the result type of the function, notice how we are unable to change the input type. The <code>Functor</code> type class does not allow to change the <em>input</em>, and that’s where <code>Contravariant</code> comes in. The intuition behind a <code>Contravariant</code> is that it reflects a sort of “consumer of input” that can have its type adapted. For a contravariant functor <code>f</code>, <code>f a</code> represents some sort of input of type <code>a</code>. As with <code>fmap</code>, we can use <code>contramap</code> with a function of type <code>a -&gt; b</code> to change, we can adapt the input to the type <code>b</code>.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Contravariant</span> f <span class="kw">where</span>
+<span class="ot">  contramap ::</span> (b <span class="ot">-&gt;</span> a) <span class="ot">-&gt;</span> f a <span class="ot">-&gt;</span> f b</code></pre></div>
+<p>The function arrow is the prototypical example of something contravariant, although because of the ordering of the type parameters, we have to give it a <code>newtype</code>, which is commonly called <code>Op</code> (for <code>Op</code>posite):</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">newtype</span> <span class="dt">Op</span> z a <span class="fu">=</span> <span class="dt">Op</span> (a <span class="ot">-&gt;</span> z)
+
+<span class="kw">instance</span> <span class="dt">Contravariant</span> (<span class="dt">Op</span> z) <span class="kw">where</span>
+  contramap h (<span class="dt">Op</span> g) <span class="fu">=</span> <span class="dt">Op</span> (g <span class="fu">.</span> h)</code></pre></div>
+<p>For example, we can use <code>contramap</code> to map over the input of a function that calculates the length of a list, to calculate the length of a <code>Set</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">lengther ::</span> <span class="dt">Op</span> <span class="dt">Int</span> [a]
+lengther <span class="fu">=</span> <span class="dt">Op</span> Prelude.length
+
+<span class="ot">setLengther ::</span> <span class="dt">Op</span> <span class="dt">Int</span> (<span class="dt">Set</span> a)
+setLengther <span class="fu">=</span> contramap Set.toList lengther</code></pre></div>
+<p>In Haskell, we like to be able to reason about our code, so most type classes come with corresponding <em>laws</em>. The laws that the instance is required to satisfy are dual to the <code>Functor</code> laws. First, let’s recall what the <code>Functor</code> laws are:</p>
+<ul>
+<li><code>fmap id = id</code></li>
+<li><code>fmap (f . g) = fmap f . fmap g</code></li>
+</ul>
+<p>The idea of “dual” laws here means that the order of the <code>f</code> and <code>g</code> switches over, whereas in the functor law they keep their relative ordering. Therefore, the laws for contravariant functors are:</p>
+<ul>
+<li><code>contramap id = id</code></li>
+<li><code>contramap (f . g) = contramap g . contramap f</code></li>
+</ul>
+<p>A more interesting example of a contravariant functor is an actor that receives messages of type <code>a</code>, performs some action and then listens for further messages of type <code>a</code>, repeating this process indefinitely. (You’ll find a similar definition to this in the <a href="http://hackage.haskell.org/package/simple-actors"><code>simple-actors</code></a> package).</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Behavior</span> a <span class="fu">=</span> <span class="dt">Behavior</span> (a <span class="ot">-&gt;</span> <span class="dt">IO</span> (<span class="dt">Behavior</span> a))
+
+<span class="kw">instance</span> <span class="dt">Contravariant</span> <span class="dt">Behavior</span> <span class="kw">where</span>
+  contramap f (<span class="dt">Behavior</span> r) <span class="fu">=</span> <span class="dt">Behavior</span> (\a <span class="ot">-&gt;</span> fmap (contramap f) (r (f a)))
+
+<span class="ot">runBehavior ::</span> <span class="dt">Behavior</span> a <span class="ot">-&gt;</span> [a] <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
+runBehavior _            []     <span class="fu">=</span> return ()
+runBehavior (<span class="dt">Behavior</span> f) (a<span class="fu">:</span>as) <span class="fu">=</span> <span class="kw">do</span>
+  newBehavior <span class="ot">&lt;-</span> f a
+  runBehavior newBehavior as</code></pre></div>
+<p>We can make a <code>Behavior</code> that just prints the strings it receives:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">printer ::</span> <span class="dt">Behavior</span> <span class="dt">String</span>
+printer <span class="fu">=</span> <span class="dt">Behavior</span> (\s <span class="ot">-&gt;</span> putStrLn s <span class="fu">&gt;&gt;</span> return printer)
+
+<span class="ot">messages ::</span> [<span class="dt">String</span>]
+messages <span class="fu">=</span> [ <span class="st">&quot;Hello&quot;</span>, <span class="st">&quot;world&quot;</span>, <span class="st">&quot;Haskell&quot;</span>, <span class="st">&quot;is&quot;</span>, <span class="st">&quot;great&quot;</span> ]
+
+testPrinter <span class="fu">=</span> runBehavior printer messages</code></pre></div>
+<p>We run our <code>printer</code> with <code>testPrinter :: IO ()</code>, which gives the following output:</p>
+<pre><code>&gt; testPrinter
+Hello
+world
+Haskell
+is
+great</code></pre>
+<p>Using <code>contramap</code> we can adapt it to a <code>Behaviour</code> which shouts:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">shoutyPrinter ::</span> <span class="dt">Behavior</span> <span class="dt">String</span>
+shoutyPrinter <span class="fu">=</span> contramap (\s <span class="ot">-&gt;</span> (map toUpper s <span class="fu">++</span> <span class="st">&quot;!&quot;</span>)) printer
+
+testShoutyPrinter <span class="fu">=</span> runBehavior shoutyPrinter messages</code></pre></div>
+<p>Who’s output is now a bit louder:</p>
+<pre><code>&gt; testShoutyPrinter
+HELLO!
+WORLD!
+HASKELL!
+IS!
+GREAT!</code></pre>
+<p>A more complicated example would be a “mailbox” that listens for messages and prints out the messages it has received so far. These mailboxes will have a limit on the amount of messages they can hold, and if attempt to push messages into a full mailbox, then the message is dropped. We can model this as another <code>Behaviour</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">makeMailbox ::</span> [(<span class="dt">String</span>, <span class="dt">String</span>)] <span class="ot">-&gt;</span> <span class="dt">Behavior</span> (<span class="dt">String</span>, <span class="dt">String</span>)
+makeMailbox messages <span class="fu">=</span> <span class="dt">Behavior</span> <span class="fu">$</span> \message <span class="ot">-&gt;</span>
+  <span class="kw">if</span> length messages <span class="fu">&lt;</span> <span class="dv">3</span>
+  <span class="kw">then</span> <span class="kw">let</span> newMessages <span class="fu">=</span> messages <span class="fu">++</span> [message]
+       <span class="kw">in</span> <span class="kw">do</span> putStrLn <span class="st">&quot;I contain messages:&quot;</span>
+             mapM_ printMessage newMessages
+             return (makeMailbox newMessages)
+  <span class="kw">else</span> <span class="kw">do</span> putStrLn <span class="st">&quot;I am full.&quot;</span>
+          putStrLn <span class="st">&quot;I contain messages:&quot;</span>
+          mapM_ printMessage messages
+          return (makeMailbox messages)
+ <span class="kw">where</span>
+  printMessage (from, message) <span class="fu">=</span>
+    putStrLn (<span class="st">&quot;From &quot;</span> <span class="fu">++</span> from <span class="fu">++</span> <span class="st">&quot;: &quot;</span> <span class="fu">++</span> message)
+
+<span class="ot">mailbox ::</span> <span class="dt">Behavior</span> (<span class="dt">String</span>, <span class="dt">String</span>)
+mailbox <span class="fu">=</span> makeMailbox []</code></pre></div>
+<p>Now we test the mailbox. There are some messages we don’t want to receive, but luckily the mailbox gets full before they arrive!</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">testMailbox <span class="fu">=</span> runBehavior mailbox messages
+  <span class="kw">where</span> messages <span class="fu">=</span> [ (<span class="st">&quot;ocharles&quot;</span>, <span class="st">&quot;hackage is great&quot;</span>)
+                   , (<span class="st">&quot;edwardk&quot;</span>, <span class="st">&quot;I love Simon Peyton Jones&quot;</span>)
+                   , (<span class="st">&quot;spj&quot;</span>, <span class="st">&quot;We all love lazy evaluation&quot;</span>)
+                   , (<span class="st">&quot;Your spouse&quot;</span>, <span class="st">&quot;Make me a cup of tea&quot;</span>)
+                   , (<span class="st">&quot;Your employer&quot;</span>, <span class="st">&quot;You must program in Scala&quot;</span>) ]</code></pre></div>
+<p>If we run this, we’ll see that the first 3 messages are delivered, but after that the messages are dropped:</p>
+<pre><code>&gt; testMailbox
+I contain messages:
+From ocharles: hackage is great
+I contain messages:
+From ocharles: hackage is great
+From edwardk: I love Simon Peyton Jones
+I contain messages:
+From ocharles: hackage is great
+From edwardk: I love Simon Peyton Jones
+From spj: We all love lazy evaluation
+I am full.
+I contain messages:
+From ocharles: hackage is great
+From edwardk: I love Simon Peyton Jones
+From spj: We all love lazy evaluation
+I am full.
+I contain messages:
+From ocharles: hackage is great
+From edwardk: I love Simon Peyton Jones
+From spj: We all love lazy evaluation</code></pre>
+<p>A mailbox expects to receive a message consisting of a tuple of <code>(String, String)</code> containing the “sender name” and “message body”. As long as we can provide a function <code>a -&gt; (String, String)</code> we can use <code>contramap</code> to make a <code>Behavior a</code> from our mailbox. Here’s an example of using the mailbox as a logger. A log entry is either success carrying an integer, or a failure message. We can turn this into a message for a mailbox with a simple <code>logMsg</code> function:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">logMsg ::</span> <span class="dt">Either</span> <span class="dt">String</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> (<span class="dt">String</span>, <span class="dt">String</span>)
+logMsg (<span class="dt">Right</span> x) <span class="fu">=</span> (<span class="st">&quot;Logger daemon&quot;</span>, <span class="st">&quot;Everything is OK: &quot;</span> <span class="fu">++</span> show x)
+logMsg (<span class="dt">Left</span> s) <span class="fu">=</span> (<span class="st">&quot;Logger daemon&quot;</span>, <span class="st">&quot;FAILURE: &quot;</span> <span class="fu">++</span> s)</code></pre></div>
+<p>Now we can <code>contramap</code> our previous mailbox into a mailbox that accepts log entries as input:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">loggerMailbox ::</span> <span class="dt">Behavior</span> (<span class="dt">Either</span> <span class="dt">String</span> <span class="dt">Int</span>)
+loggerMailbox <span class="fu">=</span> contramap logMsg mailbox
+
+testLogger <span class="fu">=</span> runBehavior loggerMailbox messages
+  <span class="kw">where</span> messages <span class="fu">=</span> [ <span class="dt">Right</span> <span class="dv">24</span>
+                   , <span class="dt">Left</span> <span class="st">&quot;Oops, there was an error&quot;</span>
+                   , <span class="dt">Right</span> <span class="dv">1</span>
+                   , <span class="dt">Right</span> <span class="dv">2</span> ]</code></pre></div>
+<p>A final run of this <code>testLogger</code> shows:</p>
+<pre><code>&gt; testLogger
+I contain messages:
+From Logger daemon: Everything is OK: 24
+I contain messages:
+From Logger daemon: Everything is OK: 24
+From Logger daemon: FAILURE: Oops, there was an error
+I contain messages:
+From Logger daemon: Everything is OK: 24
+From Logger daemon: FAILURE: Oops, there was an error
+From Logger daemon: Everything is OK: 1
+I am full.
+I contain messages:
+From Logger daemon: Everything is OK: 24
+From Logger daemon: FAILURE: Oops, there was an error
+From Logger daemon: Everything is OK: 1</code></pre>
+<p>There are not many instances of <code>Contravariant</code> on Hackage, although there are surely many contravariant type parameters, and perhaps this type class could be used more widely.</p>
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/guest-posts/2013-12-21-24-days-of-hackage-contravariant.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>

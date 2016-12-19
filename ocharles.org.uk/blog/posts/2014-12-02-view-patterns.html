@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from ocharles.org.uk/blog/posts/2014-12-02-view-patterns.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>24 Days of GHC Extensions: View Patterns</title>
+    <!-- <link rel="stylesheet" type="text/css" href="/css/reset.css" /> -->
+    <!-- <link rel="stylesheet" type="text/css" href="/css/typography.css" /> -->
+    <link rel="stylesheet" type="text/css" href="../css/syntax-highlighting.css" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="../posts.rss">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
+    <style>
+    /*! Typebase.less v0.1.0 | MIT License */
+    /* Setup */
+    html {
+      /* Change default typefaces here */
+      font-size: 125%;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Roboto Slab', serif;
+      font-weight: 300;
+    }
+    /* Copy & Lists */
+    p, pre {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+    ul,
+    ol {
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    ul li,
+    ol li {
+      line-height: 1.5rem;
+    }
+    ul ul,
+    ol ul,
+    ul ol,
+    ol ol {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    blockquote {
+      line-height: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    /* Headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      /* Change heading typefaces here */
+      font-weight: 100;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+      line-height: 1.5rem;
+    }
+    h1 {
+      font-size: 3.242rem;
+      line-height: 4.5rem;
+      margin-top: 3rem;
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 2.828rem;
+      line-height: 3rem;
+      margin-top: 3rem;
+    }
+    h3 {
+      font-size: 1.414rem;
+    }
+    h4 {
+      font-size: 0.707rem;
+    }
+    h5 {
+      font-size: 0.4713333333333333rem;
+    }
+    h6 {
+      font-size: 0.3535rem;
+    }
+    /* Tables */
+    table {
+      margin-top: 1.5rem;
+      border-spacing: 0px;
+      border-collapse: collapse;
+    }
+    table td,
+    table th {
+      padding: 0;
+      line-height: 33px;
+    }
+    /* Leading paragraph text */
+    .lead {
+      font-size: 1.414rem;
+    }
+    /* Hug the block above you */
+    .hug {
+      margin-top: 0;
+    }
+
+    html {
+      background: #eae3cb;
+    }
+    body {
+      background-color: #fcf4dc;
+      width: 40em;
+      margin: 0 auto 2em;
+      padding: 2em 3em;
+      border: 1px solid #d9d2ba;
+      border-top: none;
+      color: #111;
+    }
+    h1 {
+      border-bottom: 1px solid #555;
+      /*text-align: center;
+      padding-bottom: 10px;*/
+    }
+    /* h2,h3 { margin-top: 2em } */
+    ul#icons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      list-style-type: none;
+      text-align: right;
+    }
+    ul#icons img { width: 16px; vertical-align: middle; }
+    ul#icons a { color: transparent; font-style: italic; font-size: small; }
+    ul#icons li:hover a { color: #aaa; text-decoration: none !important}
+    #TOC { display: none; }
+    pre {
+      border-bottom: 1px dotted #d9d2ba;
+      border-top: 1px dotted #d9d2ba;
+    }
+     a {
+         text-decoration: none;
+     }
+    </style>
+  </head>
+  <body>
+    <h1>24 Days of GHC Extensions: View Patterns</h1>
+<p>I’d like to start this series by focussing on what I call <em>binding extensions</em>. These are extensions that are used in conjuction with forming bindings - such as top-level function definitions, <code>where</code> clauses, and <code>let</code> bindings. Today, we’ll begin by looking at a simple yet powerful extension - <em>view patterns</em>.</p>
+<p><a href="https://downloads.haskell.org/~ghc/latest/docs/html/users_guide/syntax-extns.html#view-patterns">View patterns</a> extend our ability to pattern match on variables by also allowing us to pattern match on the result of function application. To take a simple example, lets work with a <code>Map</code> from Haskell packages on Hackage, to the amount of downloads. To start with, we’ll look at extracting the amount of downloads for the <code>lens</code> library. Ordinarily, we might write something like:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">lensDownloadsOld ::</span> <span class="dt">Map</span> <span class="dt">HaskellPackage</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span>
+lensDownloadsOld packages <span class="fu">=</span>
+  <span class="kw">case</span> M.lookup <span class="st">&quot;lens&quot;</span> packages <span class="kw">of</span>
+    <span class="dt">Just</span> n <span class="ot">-&gt;</span> n
+    <span class="dt">Nothing</span> <span class="ot">-&gt;</span> <span class="dv">0</span></code></pre></div>
+<p>Notice that the first thing this function does is to immediately pattern match on a function call. Arguably, this obscures the definition of the <code>lensDownloads</code> function which we expect to have <em>two</em> equations defining it - one when the package has a download count, and another for when the package hasn’t been download (for example, when collecting a new batch of statistics). Using view patterns, we can move this lookup from the right-hand side to the left hand side:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">lensDownloads ::</span> <span class="dt">Map</span> <span class="dt">HaskellPackage</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span>
+lensDownloads (M.lookup <span class="st">&quot;lens&quot;</span> <span class="ot">-&gt;</span> <span class="dt">Just</span> n) <span class="fu">=</span> n
+lensDownloads _                           <span class="fu">=</span> <span class="dv">0</span></code></pre></div>
+<p>Now our lookup function is defined by the two equations we would expect. View patterns allows us to “view” the download statistics as a different data type - in this case we view the map as the sum type <code>Maybe Int</code>, by focussing on the value for the key <code>lens</code>.</p>
+<p>As we can see, a view pattern is defined by two parts - the view itself, which is a partially applied function; and the pattern match to perform on the result of that function application. In this case, we are given a <code>Map HaskellPackage Int</code>, and our view is <code>M.lookup &quot;lens&quot; :: Map HaskellPackage Int -&gt; Maybe Int</code>. We pattern match on this <code>Maybe Int</code> for the <code>Just</code> case, and this allows us to bind the download count to the variable <code>n</code>. Notice also that if the pattern match against <code>Just</code> fails, we fall through to the next pattern of <code>lensDownloads</code>. GHC will carefully check patterns for exhaustivity, so we’re still forced to consider all possibilites.</p>
+<p>Finally, it would be tedious to have to write a function like this for <em>every</em> package - so we would like to abstract the package name out. With view patterns, our view function is able to depend on variables to the left of the view pattern. Thus we are able to write a general download-lookup function as</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">downloadsFor ::</span> <span class="dt">HaskellPackage</span> <span class="ot">-&gt;</span> <span class="dt">Map</span> <span class="dt">HaskellPackage</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span>
+downloadsFor pkg (M.lookup pkg <span class="ot">-&gt;</span> <span class="dt">Just</span> downloads) <span class="fu">=</span> downloads
+downloadsFor _   _                                <span class="fu">=</span> <span class="dv">0</span></code></pre></div>
+<h2 id="view-patterns-as-a-tool-for-abstraction">View Patterns as a Tool for Abstraction</h2>
+<p>The functions we’ve seen so far haven’t really benefit from view patterns. The case analysis in the original example isn’t particularly cumbersome, and <code>downloadsFor</code> doesn’t necessarily benefit from the use of view patterns. However, a key benefit to view patterns is that they allow us to view a data type as a definition that is easy to pattern match on, while using a very different data type for the underlying representation.</p>
+<p>Take for example, the <a href="http://apfelmus.nfshost.com/articles/monoid-fingertree.html">finger tree</a> - a general purpose data structure suitable for a wide variety of applications, one of which is as a <a href="http://hackage.haskell.org/package/containers-0.5.5.1/docs/Data-Sequence.html">sequence</a>. In Haskell, the <code>Prelude</code> gives us a basic list data type, defined essentially as:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">List</span> a <span class="fu">=</span> <span class="dt">Nil</span> <span class="fu">|</span> <span class="dt">Cons</span> a (<span class="dt">List</span> a)</code></pre></div>
+<p>However, this data structure has terrible performance for just about anything - it’s just a linked list. Viewing the last element of the list here is <em>O(n)</em> - quite a cost! <code>Seq</code> can be used as a drop in replacement to lists here, but looking up the last element is <em>O(1)</em> - much better! To give such high performance, <code>Seq</code> uses a finger tree, which is a data type which has much better performance characteristics than linked lists. To do so, <code>Seq</code> uses a more complex data definition - a definition that is completely abstract to us, forcing us to use functions to inspect it.</p>
+<p>The use of functions moves us away from perhaps more idiomatic Haskell programming, where would like to define our functions in terms of various equations. By using view patterns, we regain much of this style of programming.</p>
+<p>As an example, let’s consider analysing a time series. Our time series is simple, and we’ll store a list of data points. To operate on this time series, we’d like to be able to view the last data point in the series - if such a value exists. Intuitively, we know there are two possibilities: the time series is empty, in which case we return <code>Nothing</code>; or the time series is non-empty, in which case we return <code>Just</code> the last value:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">last<span class="ot"> ::</span> <span class="dt">Seq</span> a <span class="ot">-&gt;</span> <span class="dt">Maybe</span> a
+last <span class="fu">??</span> <span class="fu">=</span> <span class="dt">Nothing</span>
+last <span class="fu">??</span> <span class="fu">=</span> <span class="dt">Just</span> _</code></pre></div>
+<p>While we can’t pattern match directly on a <code>Seq</code>, we can <em>view</em> it as a list from the right by using <a href="http://hackage.haskell.org/package/containers-0.5.5.1/docs/Data-Sequence.html#v:viewr"><code>viewr</code></a>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">ViewR</span> a <span class="fu">=</span> <span class="dt">EmptyR</span> <span class="fu">|</span> (<span class="dt">Seq</span> a) <span class="fu">:&gt;</span> a
+
+<span class="ot">viewr ::</span> <span class="dt">Seq</span> a <span class="ot">-&gt;</span> <span class="dt">ViewR</span> a</code></pre></div>
+<p>Notice that <code>ViewR</code> is similar to a linked list as before, but we have the ability to look at any <code>Seq</code> as a list from the right. Either the sequence is empty, or it’s a smaller sequence with a single element appended. This inductive structure fits perfectly for our purposes:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">last<span class="ot"> ::</span> <span class="dt">Seq</span> a <span class="ot">-&gt;</span> <span class="dt">Maybe</span> a
+last (viewr <span class="ot">-&gt;</span> xs <span class="fu">:&gt;</span> x) <span class="fu">=</span> <span class="dt">Just</span> x
+last (viewr <span class="ot">-&gt;</span> <span class="dt">EmptyR</span>) <span class="fu">=</span> <span class="dt">Nothing</span></code></pre></div>
+<p>This type of separation is very powerful, and you’ll find it used in many of the high-performance data structures on Hackage.</p>
+<p>However, one qualm with this approach is that it brings new syntax - a syntax that it took the author a while to get comfortable with. With new syntax there is always a balance between the overhead of the syntax (which adds something of a context switch), and the productivity gains the extension begets. What would be <em>really</em> nice would be similar functionality of this extension, without the need for new syntax. Thankfully, GHC can do just that. How, you ask? Well, you’ll just have to wait and see…</p>
+<hr />
+<p><em>This post is part of <a href="../pages/2014-12-01-24-days-of-ghc-extensions.html">24 Days of GHC Extensions</a> - for more posts like this, check out the <a href="../pages/2014-12-01-24-days-of-ghc-extensions.html">calendar</a></em>.</p>
+<hr />
+<p style="font-style: italic">You can contact me via email
+at <a href="mailto:ollie@ocharles.org.uk">ollie@ocharles.org.uk</a> or tweet to
+me <a href="http://twitter.com/acid2">@acid2</a>. I share almost all of my work
+at <a href="http://github.com/ocharles">GitHub</a>.
+  This <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" rel="dct:type">post</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.</p><p>I accept Bitcoin donations: <a href="bitcoin:14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn"><code>14SsYeM3dmcUxj3cLz7JBQnhNdhg7dUiJn</code></a>. Alternatively, please consider leaving a tip on <script id="fbxofs4">(function(i){var f,s=document.getElementById(i);f=document.createElement('iframe');f.src='//api.flattr.com/button/view/?uid=ocharles&button=compact&url='+encodeURIComponent(document.URL);f.title='Flattr';f.height=20;f.width=110;f.style.borderWidth=0;s.parentNode.insertBefore(f,s);})('fbxofs4');</script>
+</p>
+<hr />
+
+    <ul id="icons">
+      <li>
+        <a href="https://coderwall.com/ocharles">
+          <img alt="Endorse ocharles on Coderwall" src="http://api.coderwall.com/ocharles/endorsecount.png" style="width: auto" /></a></li>
+      <li>
+        <a href="http://twitter.com/acid2">Twitter
+          <img src="../img/twitter.ico" /></a></li>
+      <li>
+        <a href="https://alpha.app.net/ocharles">App.net
+          <img src="../img/adn.ico" /></a></li>
+      <li>
+        <a href="http://github.com/ocharles">GitHub
+          <img src="../img/github.ico" /></a></li>
+      <li>
+        <a href="http://musicbrainz.org/user/acid2">MusicBrainz
+          <img src="../img/musicbrainz.ico" /></a></li>
+      <li>
+        <a href="http://last.fm/user/acid2">Last.fm
+          <img src="../img/lastfm.ico" /></a></li>
+      <li>
+        <a href="http://www.goodreads.com/user/show/8961303-oliver-charles">
+          GoodReads <img src="../img/goodreads.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/bifurcations">
+          SoundCloud (experimental) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="http://www.soundcloud.com/cycles">
+          SoundCloud (older work) <img src="../img/soundcloud.ico" /></a></li>
+      <li>
+        <a href="../posts.rss">RSS (posts)
+          <img src="../img/rss.svg" /></a></li>
+    </ul>
+  </body>
+
+<!-- Mirrored from ocharles.org.uk/blog/posts/2014-12-02-view-patterns.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 05:53:21 GMT -->
+</html>
