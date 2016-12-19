@@ -1,0 +1,645 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<!-- Mirrored from www.scs.stanford.edu/11au-cs240h/notes/generic.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:55:13 GMT -->
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta http-equiv="Content-Style-Type" content="text/css" />
+  <meta name="generator" content="pandoc" />
+  <title></title>
+  <style type="text/css">
+table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode {
+  margin: 0; padding: 0; vertical-align: baseline; border: none; }
+table.sourceCode { width: 100%; }
+td.lineNumbers { text-align: right; padding-right: 4px; padding-left: 4px; color: #aaaaaa; border-right: 1px solid #aaaaaa; }
+td.sourceCode { padding-left: 5px; }
+code > span.kw { color: #007020; font-weight: bold; }
+code > span.dt { color: #902000; }
+code > span.dv { color: #40a070; }
+code > span.bn { color: #40a070; }
+code > span.fl { color: #40a070; }
+code > span.ch { color: #4070a0; }
+code > span.st { color: #4070a0; }
+code > span.co { color: #60a0b0; font-style: italic; }
+code > span.ot { color: #007020; }
+code > span.al { color: #ff0000; font-weight: bold; }
+code > span.fu { color: #06287e; }
+code > span.er { color: #ff0000; font-weight: bold; }
+  </style>
+</head>
+<body>
+<h1 id="coverting-tuples-to-lists">Coverting tuples to lists</h1>
+<ul>
+<li><p>Let's say you wanted to convert pairs to lists of <code>Strings</code></p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">pairToStringList ::</span> (<span class="kw">Show</span> a, <span class="kw">Show</span> b) <span class="ot">=&gt;</span> (a, b) <span class="ot">-&gt;</span> [<span class="dt">String</span>]
+pairToStringList (a, b) <span class="fu">=</span> [<span class="fu">show</span> a, <span class="fu">show</span> b]</code></pre>
+<pre><code>*Main&gt; pairToStringList (True, Just 3)
+[&quot;True&quot;,&quot;Just 3&quot;]</code></pre></li>
+<li><p>Now say you want to convert a pair of <code>Enum</code>s to a list of <code>Int</code>s</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">pairToIntList ::</span> (<span class="kw">Enum</span> a, <span class="kw">Enum</span> b) <span class="ot">=&gt;</span> (a, b) <span class="ot">-&gt;</span> [<span class="dt">Int</span>]
+pairToIntList (a, b) <span class="fu">=</span> [<span class="fu">fromEnum</span> a, <span class="fu">fromEnum</span> b]</code></pre></li>
+<li><p>Can we generalize this function? Would like to say:</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">pairToList conv (a, b) <span class="fu">=</span> [conv a, conv b]
+pairToList <span class="fu">show</span> (<span class="kw">True</span>, <span class="kw">Just</span> <span class="dv">3</span>)   <span class="co">-- error</span></code></pre>
+<ul>
+<li><p>Unfortunately, can't pass <em>methods</em> as arguments, only <em>functions</em></p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">pairToList ::</span> (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> (a, a) <span class="ot">-&gt;</span> [b]</code></pre></li>
+</ul></li>
+</ul>
+<h1 id="polymorphism-with-fundeps">Polymorphism with fundeps</h1>
+<ul>
+<li><p>Let's represent ad hoc polymorphic methods with a <em>class</em></p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">{-# LANGUAGE MultiParamTypeClasses #-}</span>
+<span class="ot">{-# LANGUAGE FunctionalDependencies #-}</span>
+<span class="ot">{-# LANGUAGE FlexibleInstances #-}</span>
+
+<span class="kw">class</span> <span class="dt">Function</span> f a b <span class="fu">|</span> f a <span class="ot">-&gt;</span> b <span class="kw">where</span>
+<span class="ot">    funcall ::</span> f <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> b
+<span class="kw">instance</span> <span class="dt">Function</span> (a <span class="ot">-&gt;</span> b) a b <span class="kw">where</span>
+    funcall <span class="fu">=</span> <span class="fu">id</span>
+
+<span class="ot">pairToList ::</span> (<span class="dt">Function</span> f a c, <span class="dt">Function</span> f b c) <span class="ot">=&gt;</span>
+              f <span class="ot">-&gt;</span> (a, b) <span class="ot">-&gt;</span> [c]
+pairToList f (a, b) <span class="fu">=</span> [funcall f a, funcall f b]</code></pre></li>
+<li><p>Use placeholder singleton types to represent particular methods</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">ShowF</span> <span class="fu">=</span> <span class="dt">ShowF</span>
+<span class="kw">instance</span> (<span class="kw">Show</span> a) <span class="ot">=&gt;</span> <span class="dt">Function</span> <span class="dt">ShowF</span> a [<span class="dt">Char</span>] <span class="kw">where</span>
+    funcall _ <span class="fu">=</span> <span class="fu">show</span>
+
+<span class="kw">data</span> <span class="dt">FromEnumF</span> <span class="fu">=</span> <span class="dt">FromEnumF</span>
+<span class="kw">instance</span> (<span class="kw">Enum</span> a) <span class="ot">=&gt;</span> <span class="dt">Function</span> <span class="dt">FromEnumF</span> a <span class="dt">Int</span> <span class="kw">where</span>
+    funcall _ <span class="fu">=</span> <span class="fu">fromEnum</span></code></pre></li>
+</ul>
+<h1 id="function-in-action"><code>Function</code> in action</h1>
+<ul>
+<li><p>Now singleton types act like method arguments:</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="fu">*</span><span class="dt">Main</span><span class="fu">&gt;</span> pairToList <span class="dt">ShowF</span> (<span class="kw">True</span>, <span class="dv">3</span>)
+[<span class="st">&quot;True&quot;</span>,<span class="st">&quot;3&quot;</span>]
+<span class="fu">*</span><span class="dt">Main</span><span class="fu">&gt;</span> pairToList <span class="dt">FromEnumF</span> (<span class="kw">False</span>, <span class="dv">7</span>)
+[<span class="dv">0</span>,<span class="dv">7</span>]</code></pre></li>
+<li>Now, what if you wanted <code>tupleToList</code> for arbitrary <span class="math"><em>n</em></span>-tuples?
+<ul>
+<li>Can auto-generate instances for a generic tuple fold, e.g.:</li>
+</ul>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">TupleFoldr</span> f z t r <span class="fu">|</span> f z t <span class="ot">-&gt;</span> r <span class="kw">where</span>
+<span class="ot">    tupleFoldr ::</span> f <span class="ot">-&gt;</span> z <span class="ot">-&gt;</span> t <span class="ot">-&gt;</span> r</code></pre>
+<ul>
+<li>Works okay for small tuples, craps out around 10-tuple without larger <code>-fcontext-stack</code> argument</li>
+</ul></li>
+<li>Unfortunately, I'm temporarily out of compile-time tricks
+<ul>
+<li>An alternative is to use run-time type information (RTTI)</li>
+<li>RTTI easier to reason about, but adds runtime overhead and errors</li>
+<li>We will come back to static tricks at end of lecture</li>
+</ul></li>
+</ul>
+<h1 id="derivedatatypeable-extension"><a href="http://www.haskell.org/ghc/docs/latest/html/users_guide/deriving.html#deriving-typeable"><code>DeriveDataTypeable</code></a> extension</h1>
+<ul>
+<li>Haskell allows six classes to be automatically derived
+<ul>
+<li><code>Show</code>, <code>Read</code>, <code>Eq</code>, <code>Ord</code>, <code>Bounded</code>, <code>Enum</code></li>
+</ul></li>
+<li><p><a href="http://www.haskell.org/ghc/docs/latest/html/users_guide/deriving.html#deriving-typeable"><code>DeriveDataTypeable</code></a> extension adds two more: <code>Typeable</code>, <code>Data</code></p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">MyType</span> <span class="fu">=</span> <span class="dt">Con1</span> <span class="dt">Int</span> <span class="fu">|</span> <span class="dt">Con2</span> <span class="dt">String</span> <span class="kw">deriving</span> (<span class="dt">Typeable</span>, <span class="dt">Data</span>)</code></pre>
+<ul>
+<li>These types encode run-time type information in various ways</li>
+<li>Require that inner types (<code>Int</code>, <code>String</code> above) also have instances</li>
+<li>Okay to use parameterized types, though</li>
+</ul>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">MyTyCon</span> a <span class="fu">=</span> <span class="dt">MyTyCon</span> a <span class="kw">deriving</span> (<span class="dt">Typeable</span>, <span class="dt">Data</span>)</code></pre>
+<ul>
+<li>Most standard library types have <code>Typeable</code> and <code>Data</code> instances</li>
+</ul></li>
+<li>Provide programming approach known as &quot;scrap your boilerplate&quot;
+<ul>
+<li>GHC's support described by two papers: <a href="http://research.microsoft.com/en-us/um/people/simonpj/papers/hmap/hmap.ps">[Boilerplate1]</a>, <a href="http://research.microsoft.com/en-us/um/people/simonpj/papers/hmap/gmap2.ps">[Boilerplate2]</a></li>
+</ul></li>
+</ul>
+<h1 id="the-typeable-class">The <a href="http://hackage.haskell.org/packages/archive/base/latest/doc/html/Data-Typeable.html#t:Typeable"><code>Typeable</code></a> class</h1>
+<ul>
+<li><p><code>import Data.Typeable</code> to get <code>Typeable</code> class:</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Typeable</span> a <span class="kw">where</span>
+<span class="ot">    typeOf ::</span> a <span class="ot">-&gt;</span> <span class="dt">TypeRep</span> <span class="co">-- Note: never evaluates argument</span>
+
+<span class="kw">data</span> <span class="dt">TypeRep</span> <span class="co">-- Opaque, but instance of Eq, Ord, Show, Typeable</span></code></pre></li>
+<li><p>This allows us to compare types for equality</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">rtTypeEq ::</span> (<span class="dt">Typeable</span> a, <span class="dt">Typeable</span> b) <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> <span class="dt">Bool</span>
+rtTypeEq a b <span class="fu">=</span> typeOf a <span class="fu">==</span> typeOf b</code></pre>
+<pre><code>*Main&gt; rtTypeEq True False
+True
+*Main&gt; rtTypeEq True 5
+False</code></pre></li>
+<li>Big Whoop!
+<ul>
+<li>Couldn't we already do this at compile time with <code>OverlappingInstances</code>?</li>
+<li>Doing it dynamically is less exciting, but different</li>
+<li>And allows one very important function...</li>
+</ul></li>
+</ul>
+<h1 id="type-casting">Type Casting</h1>
+<ul>
+<li><p>GHC has a function <a href="http://hackage.haskell.org/packages/archive/base/latest/doc/html/Unsafe-Coerce.html#v:unsafeCoerce"><code>unsafeCoerce</code></a></p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">unsafeCoerce ::</span> a <span class="ot">-&gt;</span> b</code></pre>
+<ul>
+<li>And note: it doesn't just return <span class="math">⊥</span></li>
+<li>If the name doesn't scare you, the type signature should</li>
+</ul></li>
+<li><p>Let's use <code>Typeable</code> to make a safe <code>cast</code> function</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">cast ::</span> (<span class="dt">Typeable</span> a, <span class="dt">Typeable</span> b) <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">Maybe</span> b
+cast a <span class="fu">=</span> fix <span class="fu">$</span> \ <span class="fu">~</span>(<span class="kw">Just</span> b) <span class="ot">-&gt;</span> <span class="kw">if</span> typeOf a <span class="fu">==</span> typeOf b
+                              <span class="kw">then</span> <span class="kw">Just</span> <span class="fu">$</span> unsafeCoerce a
+                              <span class="kw">else</span> <span class="kw">Nothing</span></code></pre>
+<pre><code>*Main&gt; cast &quot;hello&quot; :: Maybe String
+Just &quot;hello&quot;
+*Main&gt; cast &quot;hello&quot; :: Maybe Int
+Nothing</code></pre>
+<ul>
+<li>Safe if <code>typeOf</code> on two different types always returns different <code>TypeRep</code>s</li>
+<li>Guaranteed by <code>deriving (Typeable)</code>; SafeHaskell disallows manual instances</li>
+</ul></li>
+</ul>
+<h1 id="generalized-casting">Generalized casting</h1>
+<ul>
+<li><p>To cast monadic computations, etc., use generalized cast, <code>gcast</code>:</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">import</span> <span class="dt">Data.Maybe</span> (fromJust)
+
+<span class="ot">gcast ::</span> (<span class="dt">Typeable</span> a, <span class="dt">Typeable</span> b) <span class="ot">=&gt;</span> c a <span class="ot">-&gt;</span> <span class="dt">Maybe</span> (c b)
+gcast ca <span class="fu">=</span> mcr
+  <span class="kw">where</span> mcr <span class="fu">=</span> <span class="kw">if</span> typeOf (unc ca) <span class="fu">==</span> typeOf (unc <span class="fu">$</span> fromJust mcr)
+              <span class="kw">then</span> <span class="kw">Just</span> <span class="fu">$</span> unsafeCoerce ca
+              <span class="kw">else</span> <span class="kw">Nothing</span>
+<span class="ot">        unc ::</span> c x <span class="ot">-&gt;</span> x
+        unc <span class="fu">=</span> <span class="fu">undefined</span></code></pre>
+<pre><code>*Main&gt; fromJust $ gcast (readFile &quot;/etc/issue&quot;) :: IO String
+&quot;\nArch Linux \\r  (\\n) (\\l)\n\n&quot;
+*Main&gt; fromJust $ gcast (readFile &quot;/etc/issue&quot;) :: IO Int
+*** Exception: Maybe.fromJust: Nothing</code></pre></li>
+<li>Note undefined function <code>unc</code> in definition of <code>gcast</code>
+<ul>
+<li>Common idiom--poses no problem because <code>typeOf</code> is not strict</li>
+<li>Recall context <code>Typeable b =&gt;</code> is like a hidden argument; often use undefined functions with type signatures to unpack types and get dictionaries</li>
+</ul></li>
+</ul>
+<h1 id="using-typeable-mkt-boilerplate1">Using <code>Typeable</code>: <code>mkT</code> <a href="http://research.microsoft.com/en-us/um/people/simonpj/papers/hmap/hmap.ps">[Boilerplate1]</a></h1>
+<ul>
+<li><p>Write a function that behaves like <code>id</code> except on one type</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">mkT ::</span> (<span class="dt">Typeable</span> a, <span class="dt">Typeable</span> b) <span class="ot">=&gt;</span> (b <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a
+mkT f <span class="fu">=</span> <span class="kw">case</span> cast f <span class="kw">of</span>
+          <span class="kw">Just</span> g <span class="ot">-&gt;</span> g
+          <span class="kw">Nothing</span> <span class="ot">-&gt;</span> <span class="fu">id</span></code></pre>
+<ul>
+<li><code>mkT</code> stands for &quot;make transformation&quot;</li>
+</ul></li>
+<li><p>Example:</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">newtype</span> <span class="dt">Salary</span> <span class="fu">=</span> <span class="dt">Salary</span> <span class="dt">Double</span> <span class="kw">deriving</span> (<span class="kw">Show</span>, <span class="dt">Data</span>, <span class="dt">Typeable</span>)
+
+<span class="ot">raiseSalary ::</span> (<span class="dt">Typeable</span> a) <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> a
+raiseSalary <span class="fu">=</span> mkT <span class="fu">$</span> \(<span class="dt">Salary</span> s) <span class="ot">-&gt;</span> <span class="dt">Salary</span> (s <span class="fu">*</span> <span class="fl">1.04</span>)</code></pre>
+<pre><code>*Main&gt; raiseSalary ()
+()
+*Main&gt; raiseSalary 7
+7
+*Main&gt; raiseSalary (Salary 7)
+Salary 7.28</code></pre></li>
+</ul>
+<h1 id="using-typeable-mkq-boilerplate1">Using <code>Typeable</code>: <code>mkQ</code> <a href="http://research.microsoft.com/en-us/um/people/simonpj/papers/hmap/hmap.ps">[Boilerplate1]</a></h1>
+<ul>
+<li><p>Function that computes over one type or returns default val:</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">mkQ ::</span> (<span class="dt">Typeable</span> a, <span class="dt">Typeable</span> b) <span class="ot">=&gt;</span> r <span class="ot">-&gt;</span> (b <span class="ot">-&gt;</span> r) <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> r
+mkQ defaultVal fn a <span class="fu">=</span> <span class="kw">case</span> cast a <span class="kw">of</span>
+                        <span class="kw">Just</span> b <span class="ot">-&gt;</span> fn b
+                        <span class="kw">Nothing</span> <span class="ot">-&gt;</span> defaultVal</code></pre>
+<ul>
+<li><code>mkQ</code> stands for &quot;make query&quot;</li>
+</ul></li>
+<li><p>Example</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">salaryVal ::</span> <span class="dt">Typeable</span> a <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">Double</span>
+salaryVal <span class="fu">=</span> mkQ <span class="dv">0</span> <span class="fu">$</span> \(<span class="dt">Salary</span> s) <span class="ot">-&gt;</span> s</code></pre>
+<pre><code>*Main&gt; salaryVal ()
+0.0
+*Main&gt; salaryVal 7
+0.0
+*Main&gt; salaryVal (Salary 7)
+7.0</code></pre></li>
+</ul>
+<h1 id="functions-on-multiple-types-extq">Functions on multiple types: <code>extQ</code></h1>
+<ul>
+<li><code>mkQ</code> only works for one type
+<ul>
+<li>Let's extend <code>mkQ</code>'s output to work on another type <a href="http://research.microsoft.com/en-us/um/people/simonpj/papers/hmap/hmap.ps">[Boilerplate1]</a></li>
+</ul>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">extQ ::</span> (<span class="dt">Typeable</span> a, <span class="dt">Typeable</span> b) <span class="ot">=&gt;</span>
+        (a <span class="ot">-&gt;</span> r) <span class="ot">-&gt;</span> (b <span class="ot">-&gt;</span> r) <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> r
+extQ q f a <span class="fu">=</span> <span class="kw">case</span> cast a <span class="kw">of</span>
+               <span class="kw">Just</span> b <span class="ot">-&gt;</span> f b
+               <span class="kw">Nothing</span> <span class="ot">-&gt;</span> q a</code></pre></li>
+<li><p>Now can cascade multiple one-type query functions</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">myShow ::</span> <span class="dt">Typeable</span> a <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">Maybe</span> <span class="dt">String</span>
+myShow <span class="fu">=</span> mkQ <span class="kw">Nothing</span> (<span class="kw">Just</span> <span class="fu">.</span><span class="ot"> show ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Maybe</span> <span class="dt">String</span>)
+         <span class="ot">`extQ`</span> (<span class="kw">Just</span> <span class="fu">.</span><span class="ot"> show ::</span> <span class="dt">Bool</span> <span class="ot">-&gt;</span> <span class="dt">Maybe</span> <span class="dt">String</span>)
+         <span class="ot">`extQ`</span> (<span class="kw">Just</span> <span class="fu">.</span><span class="ot"> show ::</span> <span class="dt">Integer</span> <span class="ot">-&gt;</span> <span class="dt">Maybe</span> <span class="dt">String</span>)
+         <span class="ot">`extQ`</span> (<span class="kw">Just</span> <span class="fu">.</span><span class="ot"> show ::</span> <span class="dt">Double</span> <span class="ot">-&gt;</span> <span class="dt">Maybe</span> <span class="dt">String</span>)</code></pre>
+<ul>
+<li>Kind of tedious, but could approximate goal of <code>tupleToList</code> at beginning of lecture if tuples contain limited number of types</li>
+</ul></li>
+</ul>
+<h1 id="existentialquantification-extension"><a href="http://www.haskell.org/ghc/docs/latest/html/users_guide/data-type-extensions.html#existential-quantification"><code>ExistentialQuantification</code></a> extension</h1>
+<ul>
+<li><p>Lets you introduce type variables on right side of <code>data</code> declaration</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">{-# LANGUAGE ExistentialQuantification #-}</span>
+<span class="kw">data</span> <span class="dt">Step</span> s a <span class="fu">=</span> <span class="dt">Done</span> <span class="fu">|</span> <span class="dt">Skip</span> <span class="fu">!</span>s <span class="fu">|</span> <span class="dt">Yield</span> <span class="fu">!</span>a <span class="fu">!</span>s
+<span class="kw">data</span> <span class="dt">Stream</span> a <span class="fu">=</span> forall s<span class="fu">.</span> <span class="dt">Stream</span> (s <span class="ot">-&gt;</span> <span class="dt">Step</span> s a) <span class="fu">!</span>s                </code></pre>
+<ul>
+<li>Given a value of type <code>Stream a</code>, there exists a type <code>s</code> such that...<br> But syntax uses <code>forall</code>, not <code>exists</code>, to avoid introducing new keyword</li>
+<li>Very safe extension (<code>Control.Exception</code> relies on it)</li>
+</ul></li>
+<li><p>Don't confuse with <a href="http://www.haskell.org/ghc/docs/latest/html/users_guide/other-type-extensions.html#universal-quantification"><code>Rank2Types</code></a>, where <code>forall</code> means for all types <code>s</code>:</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Stream</span> a <span class="fu">=</span> <span class="dt">Stream</span> (forall s<span class="fu">.</span> s <span class="ot">-&gt;</span> <span class="dt">Step</span> s a)</code></pre></li>
+<li><p>Contexts on existential variables like hidden dictionary fields</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Showable</span> <span class="fu">=</span> forall a<span class="fu">.</span> (<span class="kw">Show</span> a) <span class="ot">=&gt;</span> <span class="dt">Showable</span> a
+<span class="kw">instance</span> <span class="kw">Show</span> <span class="dt">Showable</span> <span class="kw">where</span>
+    <span class="fu">show</span> (<span class="dt">Showable</span> a) <span class="fu">=</span> <span class="st">&quot;Showable &quot;</span> <span class="fu">++</span> <span class="fu">show</span> a</code></pre>
+<ul>
+<li>A <code>Showable</code> value has both a value of type <code>a</code>, and a dictionary for <code>Show</code></li>
+</ul></li>
+</ul>
+<h1 id="example-dynamic-type">Example: Dynamic type</h1>
+<ul>
+<li><p><a href="http://hackage.haskell.org/packages/archive/base/latest/doc/html/Data-Dynamic.html"><code>Data.Dynamic</code></a> has type <code>Dynamic</code>, which can hold anything <code>Typeable</code></p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Dynamic</span>  <span class="co">-- opaque type</span>
+<span class="ot">toDyn ::</span> <span class="dt">Typeable</span> a <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">Dynamic</span>
+<span class="ot">fromDynamic ::</span> <span class="dt">Typeable</span> a <span class="ot">=&gt;</span> <span class="dt">Dynamic</span> <span class="ot">-&gt;</span> <span class="dt">Maybe</span> a</code></pre></li>
+<li>Actual implementation slightly gross
+<ul>
+<li>Uses <code>unsafeCoerce</code> to coerce everything to a placeholder <code>Obj</code> type</li>
+</ul></li>
+<li><p>But easy to implement safely with <code>ExistentialQuantification</code>:</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Dynamic</span> <span class="fu">=</span> forall a<span class="fu">.</span> <span class="dt">Typeable</span> a <span class="ot">=&gt;</span> <span class="dt">Dynamic</span> a
+
+<span class="ot">toDyn ::</span> <span class="dt">Typeable</span> a <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">Dynamic</span>
+toDyn <span class="fu">=</span> <span class="dt">Dynamic</span>
+
+<span class="ot">fromDynamic ::</span> <span class="dt">Typeable</span> a <span class="ot">=&gt;</span> <span class="dt">Dynamic</span> <span class="ot">-&gt;</span> <span class="dt">Maybe</span> a
+fromDynamic (<span class="dt">Dynamic</span> a) <span class="fu">=</span> cast a</code></pre></li>
+</ul>
+<h1 id="example-extensible-exceptions-marlow">Example: Extensible exceptions <a href="http://community.haskell.org/~simonmar/papers/ext-exceptions.pdf">[Marlow]</a></h1>
+<ul>
+<li><p>GHC runtime implements primitive, unsafe exceptions</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">raise<span class="fu">#</span><span class="ot"> ::</span> a <span class="ot">-&gt;</span> b
+catch<span class="fu">#</span><span class="ot"> ::</span> <span class="dt">IO</span> a <span class="ot">-&gt;</span> (b <span class="ot">-&gt;</span> <span class="dt">IO</span> a) <span class="ot">-&gt;</span> <span class="dt">IO</span> a  <span class="co">-- slight simplification</span></code></pre>
+<ul>
+<li>Must ensure that, as used, <code>b</code> is always same type, otherwise get unsafe coercion</li>
+</ul></li>
+<li>In reality, want many exception types, organized into a hierarchy</li>
+<li><a href="http://hackage.haskell.org/packages/archive/base/latest/doc/html/Control-Exception.html"><code>Control.Exception</code></a> implements safe, hierarchical exceptions
+<ul>
+<li><code>raise#</code> and <code>catch#</code> only ever called with one type: <code>SomeException</code></li>
+</ul>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> (<span class="dt">Typeable</span> e, <span class="kw">Show</span> e) <span class="ot">=&gt;</span> <span class="dt">Exception</span> e <span class="kw">where</span>
+<span class="ot">    toException ::</span> e <span class="ot">-&gt;</span> <span class="dt">SomeException</span>
+    toException <span class="fu">=</span> <span class="dt">SomeException</span>                 <span class="co">-- default impl</span>
+<span class="ot">    fromException ::</span> <span class="dt">SomeException</span> <span class="ot">-&gt;</span> <span class="dt">Maybe</span> e
+    fromException (<span class="dt">SomeException</span> e) <span class="fu">=</span> cast e    <span class="co">-- default impl</span>
+
+<span class="kw">data</span> <span class="dt">SomeException</span> <span class="fu">=</span> forall e<span class="fu">.</span> <span class="dt">Exception</span> e <span class="ot">=&gt;</span> <span class="dt">SomeException</span> e
+    <span class="kw">deriving</span> <span class="dt">Typeable</span>  <span class="co">-- note use of ExistentialQuantification</span>
+<span class="kw">instance</span> <span class="kw">Show</span> <span class="dt">SomeException</span> <span class="kw">where</span>
+    <span class="fu">show</span> (<span class="dt">SomeException</span> e) <span class="fu">=</span> <span class="fu">show</span> e</code></pre></li>
+</ul>
+<h1 id="throwing-and-catching-exceptions">Throwing and catching exceptions</h1>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> (<span class="dt">Typeable</span> e, <span class="kw">Show</span> e) <span class="ot">=&gt;</span> <span class="dt">Exception</span> e <span class="kw">where</span>
+<span class="ot">    toException ::</span> e <span class="ot">-&gt;</span> <span class="dt">SomeException</span>
+<span class="ot">    fromException ::</span> <span class="dt">SomeException</span> <span class="ot">-&gt;</span> <span class="dt">Maybe</span> e</code></pre>
+<ul>
+<li><p>To throw an exception, first convert it to type <code>SomeException</code></p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">throw ::</span> <span class="dt">Exception</span> e <span class="ot">=&gt;</span> e <span class="ot">-&gt;</span> a
+throw e <span class="fu">=</span> raise<span class="fu">#</span> (toException e)</code></pre></li>
+<li><p>To catch an exception, must ensure it matches desired type</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- Define catchX because catch#&#39;s real type more complicated</span>
+<span class="ot">catchX ::</span> <span class="dt">IO</span> a <span class="ot">-&gt;</span> (b <span class="ot">-&gt;</span> <span class="dt">IO</span> a) <span class="ot">-&gt;</span> <span class="dt">IO</span> a
+catchX (<span class="dt">IO</span> a) handler <span class="fu">=</span> <span class="dt">IO</span> <span class="fu">$</span> catch<span class="fu">#</span> a (unIO <span class="fu">.</span> handler)
+
+<span class="fu">catch</span><span class="ot"> ::</span> (<span class="dt">Exception</span> e) <span class="ot">=&gt;</span> <span class="dt">IO</span> a <span class="ot">-&gt;</span> (e <span class="ot">-&gt;</span> <span class="dt">IO</span> a) <span class="ot">-&gt;</span> <span class="dt">IO</span> a
+<span class="fu">catch</span> action handler <span class="fu">=</span> catchX action handler&#39;
+    <span class="kw">where</span> handler&#39; se <span class="fu">|</span> <span class="kw">Just</span> e <span class="ot">&lt;-</span> fromException se <span class="fu">=</span> handler e
+                      <span class="fu">|</span> <span class="fu">otherwise</span>                  <span class="fu">=</span> throwIO se</code></pre>
+<ul>
+<li>Note calling <code>handler e</code> makes <code>fromException se</code> uses <code>e</code>'s <code>Exception</code> dictionary, because <code>Just e</code> is <code>fromException</code>'s return value</li>
+</ul></li>
+</ul>
+<h1 id="making-hierarchical-exceptions">Making hierarchical exceptions</h1>
+<ul>
+<li><p>Easy to add your own top-level exception type</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">MyException</span> <span class="fu">=</span> <span class="dt">MyException</span> <span class="kw">deriving</span> (<span class="kw">Show</span>, <span class="dt">Typeable</span>)
+<span class="kw">instance</span> <span class="dt">Exception</span> <span class="dt">MyException</span> <span class="co">-- use default methods</span></code></pre></li>
+<li><p>But you can also create a hierarchy of exception types</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">AppError</span> <span class="fu">=</span> forall e<span class="fu">.</span> <span class="dt">Exception</span> e <span class="ot">=&gt;</span> <span class="dt">AppError</span> e
+                <span class="kw">deriving</span> (<span class="dt">Typeable</span>)
+<span class="kw">instance</span> <span class="kw">Show</span> <span class="dt">AppError</span> <span class="kw">where</span> <span class="fu">show</span> (<span class="dt">AppError</span> e) <span class="fu">=</span> <span class="fu">show</span> e
+<span class="kw">instance</span> <span class="dt">Exception</span> <span class="dt">AppError</span>
+
+<span class="kw">data</span> <span class="dt">Error1</span> <span class="fu">=</span> <span class="dt">Error1</span> <span class="kw">deriving</span> (<span class="kw">Show</span>, <span class="dt">Typeable</span>)
+<span class="kw">instance</span> <span class="dt">Exception</span> <span class="dt">Error1</span> <span class="kw">where</span>
+    toException <span class="fu">=</span> toException <span class="fu">.</span> <span class="dt">AppError</span>
+    fromException se <span class="fu">=</span> <span class="kw">do</span>  <span class="co">-- using Maybe as a Monad here</span>
+      <span class="dt">AppError</span> e <span class="ot">&lt;-</span> fromException se
+      cast e
+
+<span class="co">-- Now can do the same for Error2, and catch both as AppError</span></code></pre>
+<ul>
+<li>Let's you catch just <code>Error1</code>, or any <code>AppError</code></li>
+</ul></li>
+</ul>
+<h1 id="the-data-class">The <a href="http://hackage.haskell.org/packages/archive/base/latest/doc/html/Data-Data.html#t:Data"><code>Data</code></a> class</h1>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Typeable</span> a <span class="ot">=&gt;</span> <span class="dt">Data</span> a <span class="kw">where</span> <span class="fu">...</span></code></pre>
+<ul>
+<li>In addition to <code>Typeable</code>, can also derive <code>Data</code>
+<ul>
+<li>Allows generic traversal and construction of data structures</li>
+<li>We will build it up one method at a time, using the following example</li>
+</ul>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">import</span> <span class="dt">Data.Data</span>
+
+<span class="kw">data</span> <span class="dt">T</span> a b <span class="fu">=</span> <span class="dt">C1</span> a b <span class="fu">|</span> <span class="dt">C2</span> <span class="kw">deriving</span> (<span class="dt">Typeable</span>, <span class="dt">Data</span>)</code></pre></li>
+<li><p><code>deriving Data</code> will cause this <code>gfoldl</code> method to be defined</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">gfoldl k z (<span class="dt">C1</span> a b) <span class="fu">=</span> z <span class="dt">C1</span> <span class="ot">`k`</span> a <span class="ot">`k`</span> b
+gfoldl k z <span class="dt">C2</span>       <span class="fu">=</span> z <span class="dt">C2</span></code></pre>
+<ul>
+<li>This allows us to implement functions working over all sized tuples</li>
+</ul></li>
+<li>Two limitations:
+<ol style="list-style-type: decimal">
+<li>Once you introduce types, things get uglier [cosmetic]</li>
+<li>The only dictionaries available are <code>Data</code> and <code>Typeable</code> [fundamental]</li>
+</ol></li>
+</ul>
+<h1 id="gfoldl-traversals"><code>gfoldl</code> traversals</h1>
+<ul>
+<li><p>The actual type of <code>gfoldl</code>:</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- Recall:  gfoldl k z (C1 a b) = ((z C1) `k` a) `k` b</span>
+
+<span class="ot">gfoldl  ::</span> (forall d b<span class="fu">.</span> <span class="dt">Data</span> d <span class="ot">=&gt;</span> c (d <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> d <span class="ot">-&gt;</span> c b)  <span class="co">-- k</span>
+        <span class="ot">-&gt;</span> (forall g<span class="fu">.</span> g <span class="ot">-&gt;</span> c g)                            <span class="co">-- z</span>
+        <span class="ot">-&gt;</span> a
+        <span class="ot">-&gt;</span> c a</code></pre></li>
+<li>If you ignore the <code>c</code> parameter, looks like re-applying constructor
+<ul>
+<li>E.g., call <code>gfoldl ($) id x</code>, where <code>b</code> type of partially applied constructor</li>
+<li>Can wrap <code>Identity</code> monad (applicative functor) around values to ignore <code>c</code></li>
+</ul>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">raiseSalaries ::</span> (<span class="dt">Data</span> x) <span class="ot">=&gt;</span> x <span class="ot">-&gt;</span> x
+raiseSalaries x <span class="fu">=</span> runIdentity <span class="fu">$</span> gfoldl step <span class="fu">return</span> (raiseSalary x)
+    <span class="kw">where</span> step cdb d <span class="fu">=</span> cdb <span class="fu">&lt;*&gt;</span> (pure <span class="fu">$</span> raiseSalaries d)</code></pre>
+<ul>
+<li>Function only bumps salaries, leaves other data fields alone</li>
+</ul>
+<pre><code>*Main&gt; raiseSalaries $ Just (1, Salary 4, True, (Salary 7, ()))
+Just (1,Salary 4.16,True,(Salary 7.28,()))</code></pre></li>
+</ul>
+<h1 id="gfoldl-queries"><code>gfoldl</code> queries</h1>
+<ul>
+<li><p>Can use a different type <code>c</code> to ignore constructor/arg types</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">newtype</span> <span class="dt">Q</span> r a <span class="fu">=</span> <span class="dt">Q</span> {<span class="ot"> unQ ::</span> r }
+
+<span class="ot">qappend ::</span> (<span class="dt">Monoid</span> r) <span class="ot">=&gt;</span> <span class="dt">Q</span> r a <span class="ot">-&gt;</span> <span class="dt">Q</span> r b <span class="ot">-&gt;</span> <span class="dt">Q</span> r c
+qappend (<span class="dt">Q</span> r1) (<span class="dt">Q</span> r2) <span class="fu">=</span> <span class="dt">Q</span> <span class="fu">$</span> mappend r1 r2</code></pre>
+<ul>
+<li>Notice we completely ignore second type argument (<code>a</code>)</li>
+</ul></li>
+<li><p>Now say we want to sum all salaries in a structure</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">sumSalaries ::</span> (<span class="dt">Data</span> x) <span class="ot">=&gt;</span> x <span class="ot">-&gt;</span> <span class="dt">Double</span>
+sumSalaries x <span class="fu">=</span> getSum <span class="fu">$</span> unQ <span class="fu">$</span> gfoldl step (\_ <span class="ot">-&gt;</span> toQ x) x
+    <span class="kw">where</span> step tot d <span class="fu">=</span> tot <span class="ot">`qappend`</span> (<span class="dt">Q</span> <span class="fu">$</span> <span class="dt">Sum</span> <span class="fu">$</span> sumSalaries d)
+          toQ <span class="fu">=</span> mkQ (<span class="dt">Q</span> <span class="fu">$</span> <span class="dt">Sum</span> <span class="dv">0</span>) <span class="fu">$</span> \(<span class="dt">Salary</span> s) <span class="ot">-&gt;</span> <span class="dt">Q</span> <span class="fu">$</span> <span class="dt">Sum</span> s</code></pre>
+<pre><code>*Main&gt; sumSalaries (Salary 7, Salary 9, True, Just (Salary 4))
+20.0</code></pre></li>
+</ul>
+<h1 id="unfolding-boilerplate2">Unfolding <a href="http://research.microsoft.com/en-us/um/people/simonpj/papers/hmap/gmap2.ps">[Boilerplate2]</a></h1>
+<ul>
+<li>We've seen how to traverse, modify, and reduce data structures
+<ul>
+<li>Could, for instance, use <code>gfoldl</code> to serialize a data structure</li>
+<li>What about unserializing a data structure?</li>
+</ul></li>
+<li><p><code>Data</code> contains two more useful methods</p>
+<ul>
+<li>Again, assume example type</li>
+</ul>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">T</span> a b <span class="fu">=</span> <span class="dt">C1</span> a b <span class="fu">|</span> <span class="dt">C2</span> <span class="kw">deriving</span> (<span class="dt">Typeable</span>, <span class="dt">Data</span>)</code></pre>
+<ul>
+<li>And <code>Data</code> will contain the following methods for <code>T</code>:</li>
+</ul>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">toConstr (<span class="dt">C1</span> _ _) <span class="fu">=</span> <span class="fu">...</span>     <span class="co">-- encodes constructor number</span>
+toConstr <span class="dt">C2</span>       <span class="fu">=</span> <span class="fu">...</span>
+
+gunfold k z c <span class="fu">=</span> <span class="kw">case</span> constrIndex c <span class="kw">of</span>
+                    <span class="dv">1</span> <span class="ot">-&gt;</span> k (k (z <span class="dt">C1</span>))
+                    <span class="dv">2</span> <span class="ot">-&gt;</span> z <span class="dt">C2</span></code></pre>
+<ul>
+<li>This is the dual of <code>gfoldl</code>--instead of supplying the values to <code>k</code>, now <code>k</code> has a chance to feed values to the constructor</li>
+</ul></li>
+</ul>
+<h1 id="type-of-gunfold">Type of <code>gunfold</code></h1>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> (<span class="dt">Typeable</span> a) <span class="ot">=&gt;</span> <span class="dt">Data</span> a <span class="kw">where</span>
+<span class="ot">    dataTypeOf ::</span> a <span class="ot">-&gt;</span> <span class="dt">DataType</span> <span class="co">-- non-strict, return has [Constr]</span>
+<span class="ot">    toConstr ::</span> a <span class="ot">-&gt;</span> <span class="dt">Constr</span>
+<span class="ot">    gunfold ::</span> (forall b r<span class="fu">.</span> <span class="dt">Data</span> b <span class="ot">=&gt;</span> c (b <span class="ot">-&gt;</span> r) <span class="ot">-&gt;</span> c r)
+            <span class="ot">-&gt;</span> (forall r<span class="fu">.</span> r <span class="ot">-&gt;</span> c r)
+            <span class="ot">-&gt;</span> <span class="dt">Constr</span>
+            <span class="ot">-&gt;</span> c a
+
+<span class="ot">dataTypeConstrs ::</span> <span class="dt">DataType</span> <span class="ot">-&gt;</span> [<span class="dt">Constr</span>]
+<span class="ot">indexConstr ::</span> <span class="dt">DataType</span> <span class="ot">-&gt;</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Constr</span>
+<span class="ot">maxConstrIndex ::</span> <span class="dt">DataType</span> <span class="ot">-&gt;</span> <span class="dt">Int</span></code></pre>
+<ul>
+<li>Now you can use <code>cast</code> to produce values to feed into constructor</li>
+<li>Can use to implement generic read/unmarshal functions
+<ul>
+<li>See examples in <a href="http://research.microsoft.com/en-us/um/people/simonpj/papers/hmap/gmap2.ps">[Boilerplate2]</a> paper</li>
+</ul></li>
+</ul>
+<h1 id="the-generic-deriving-package">The <a href="http://hackage.haskell.org/package/generic-deriving"><code>generic-deriving</code></a> package</h1>
+<ul>
+<li>All this boilerplate stuff happens at runtime
+<ul>
+<li>Slows your program down, doesn't catch errors at compile time</li>
+</ul></li>
+<li><p>Another approach is to do it all statically <a href="http://dreixel.net/research/pdf/gdmh.pdf">[Magalhães]</a></p>
+<ul>
+<li>Define a single <code>Generic</code> class that converts any datatype to a <code>Rep</code> that can be computed over generically:</li>
+</ul>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">{-# LANGUAGE TypeFamilies #-}</span>
+
+<span class="kw">class</span> <span class="dt">Generic</span> a <span class="kw">where</span>
+  <span class="kw">type</span> <span class="dt">Rep</span><span class="ot"> a ::</span> <span class="fu">*</span> <span class="ot">-&gt;</span> <span class="fu">*</span>
+<span class="ot">  from ::</span> a <span class="ot">-&gt;</span> <span class="dt">Rep</span> a x
+<span class="ot">  to ::</span> <span class="dt">Rep</span> a x <span class="ot">-&gt;</span> a</code></pre>
+<ul>
+<li><p><code>type Rep</code> is an extension called <code>TypeFamilies</code>. Can read above as:</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Generic</span> a rep <span class="fu">|</span> a <span class="ot">-&gt;</span> rep <span class="kw">where</span>
+<span class="ot">from ::</span> a <span class="ot">-&gt;</span> rep x
+<span class="ot">to ::</span> rep x <span class="ot">-&gt;</span> a</code></pre></li>
+</ul></li>
+<li><p>But what is a generic representation?</p></li>
+</ul>
+<h1 id="generic-deriving-classes"><code>generic-deriving</code> classes</h1>
+<ul>
+<li><p>Need to be able to deconstruct/query <code>Rep</code>; let's use classes for that</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">{-# LANGUAGE TypeFamilies, KindSignatures #-}</span>
+
+<span class="kw">class</span> <span class="dt">Datatype</span> d <span class="kw">where</span>
+<span class="ot">  datatypeName ::</span> t d (<span class="ot">f ::</span> <span class="fu">*</span> <span class="ot">-&gt;</span> <span class="fu">*</span>) a <span class="ot">-&gt;</span> <span class="dt">String</span>
+<span class="ot">  moduleName   ::</span> t d (<span class="ot">f ::</span> <span class="fu">*</span> <span class="ot">-&gt;</span> <span class="fu">*</span>) a <span class="ot">-&gt;</span> <span class="dt">String</span>
+<span class="kw">class</span> <span class="dt">Selector</span> s <span class="kw">where</span>
+<span class="ot">  selName ::</span> t s (<span class="ot">f ::</span> <span class="fu">*</span> <span class="ot">-&gt;</span> <span class="fu">*</span>) a <span class="ot">-&gt;</span> <span class="dt">String</span>
+<span class="kw">class</span> <span class="dt">Constructor</span> c <span class="kw">where</span>
+<span class="ot">  conName ::</span> t c (<span class="ot">f ::</span> <span class="fu">*</span> <span class="ot">-&gt;</span> <span class="fu">*</span>) a <span class="ot">-&gt;</span> <span class="dt">String</span></code></pre>
+<ul>
+<li>For example:</li>
+</ul>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">{-# LANGUAGE TemplateHaskell #-}</span>
+<span class="kw">import</span> <span class="dt">Generics.Deriving</span>
+<span class="kw">import</span> <span class="dt">Generics.Deriving.TH</span>
+
+<span class="kw">data</span> <span class="dt">T</span> a b <span class="fu">=</span> <span class="dt">C1</span> a b <span class="fu">|</span> <span class="dt">C2</span> <span class="kw">deriving</span> (<span class="kw">Show</span>)
+deriveAll <span class="ch">&#39;&#39;</span><span class="dt">T</span> <span class="co">-- creates a Generic instance for T</span></code></pre>
+<pre><code>*Main&gt; datatypeName $ from (C1 () ())
+&quot;T&quot;</code></pre></li>
+</ul>
+<h1 id="generic-deriving-types"><code>generic-deriving</code> types</h1>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- Nullary constructor (e.g., C2 in data T = ... | C2)</span>
+<span class="kw">data</span> <span class="dt">U1</span> p <span class="fu">=</span> <span class="dt">U1</span>
+
+<span class="co">-- Constructor with multiple arguments</span>
+<span class="kw">data</span> (<span class="fu">:*:</span>) f g p <span class="fu">=</span> f p <span class="fu">:*:</span> g p
+<span class="kw">infixr</span> <span class="dv">6</span> <span class="fu">:*:</span>
+
+<span class="co">-- Type with multiple constructors</span>
+<span class="kw">data</span> (<span class="fu">:+:</span>) f g p <span class="fu">=</span> <span class="dt">L1</span> {<span class="ot"> unL1 ::</span> f p } <span class="fu">|</span> <span class="dt">R1</span> {<span class="ot"> unR1 ::</span> g p }
+<span class="kw">infixr</span> <span class="dv">5</span> <span class="fu">:+:</span>
+
+<span class="kw">newtype</span> <span class="dt">K1</span> i c p <span class="fu">=</span> <span class="dt">K1</span> {<span class="ot"> unK1 ::</span> c }
+<span class="kw">type</span> <span class="dt">Rec0</span> <span class="fu">=</span> <span class="dt">K1</span> <span class="dt">R</span>
+
+<span class="kw">newtype</span> <span class="dt">M1</span> i c f p <span class="fu">=</span> <span class="dt">M1</span> {<span class="ot"> unM1 ::</span> f p }
+<span class="kw">data</span> <span class="dt">D</span>; <span class="kw">type</span> <span class="dt">D1</span> <span class="fu">=</span> <span class="dt">M1</span> <span class="dt">D</span> <span class="co">-- c instance of Datatype, f is C1 or :+:</span>
+<span class="kw">data</span> <span class="dt">C</span>; <span class="kw">type</span> <span class="dt">C1</span> <span class="fu">=</span> <span class="dt">M1</span> <span class="dt">C</span> <span class="co">-- c instance of Constructor, f is S1 or :*:</span>
+<span class="kw">data</span> <span class="dt">S</span>; <span class="kw">type</span> <span class="dt">S1</span> <span class="fu">=</span> <span class="dt">M1</span> <span class="dt">S</span> <span class="co">-- c instance of Selector, f is Rec0 or U1</span></code></pre>
+<ul>
+<li>Ignore parameter <code>p</code> (reserved to support type parameters of kind ∗ → ∗)</li>
+<li><code>M1</code> exists so a single traversal method can skip over <code>D1</code>, <code>C1</code>, and <code>S1</code></li>
+<li>Could say <code>newtype Rec0 c p = K1 c</code>, but some instances use <code>K1 P</code></li>
+</ul>
+<h1 id="example-deriveall-output">Example <code>deriveAll</code> output</h1>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">T</span> a b <span class="fu">=</span> <span class="dt">C1</span> a b <span class="fu">|</span> <span class="dt">C2</span> <span class="kw">deriving</span> (<span class="kw">Show</span>)
+
+<span class="co">-- deriveAll &#39;&#39;T spit out:</span>
+<span class="kw">data</span> <span class="dt">T_</span>
+<span class="kw">instance</span> <span class="dt">Datatype</span> <span class="dt">T_</span> <span class="kw">where</span>
+    datatypeName _ <span class="fu">=</span> <span class="st">&quot;T&quot;</span>
+    moduleName _ <span class="fu">=</span> <span class="st">&quot;Main&quot;</span>
+
+<span class="kw">data</span> <span class="dt">T_C1_</span>
+<span class="kw">data</span> <span class="dt">T_C2_</span>
+<span class="kw">instance</span> <span class="dt">Constructor</span> <span class="dt">T_C1_</span> <span class="kw">where</span> conName _ <span class="fu">=</span> <span class="st">&quot;C1&quot;</span>
+<span class="kw">instance</span> <span class="dt">Constructor</span> <span class="dt">T_C2_</span> <span class="kw">where</span> conName _ <span class="fu">=</span> <span class="st">&quot;C2&quot;</span>
+
+<span class="kw">type</span> <span class="dt">Rep0T_</span> a_0 b_1 <span class="fu">=</span> <span class="dt">D1</span> <span class="dt">T_</span>
+  (<span class="dt">C1</span> <span class="dt">T_C1_</span> (<span class="dt">S1</span> <span class="dt">NoSelector</span> (<span class="dt">Rec0</span> a_0) <span class="fu">:*:</span> <span class="dt">S1</span> <span class="dt">NoSelector</span> (<span class="dt">Rec0</span> b_1))
+   <span class="fu">:+:</span> (<span class="dt">C1</span> <span class="dt">T_C2_</span> (<span class="dt">S1</span> <span class="dt">NoSelector</span> <span class="dt">U1</span>)))
+
+<span class="kw">instance</span> <span class="dt">Generic</span> (<span class="dt">T</span> a_0 b_1) <span class="kw">where</span>
+    <span class="kw">type</span> <span class="dt">Rep</span> (<span class="dt">T</span> a_0 b_1) <span class="fu">=</span> <span class="dt">Rep0T_</span> a_0 b_1
+    from (<span class="dt">C1</span> f0 f1) <span class="fu">=</span> <span class="dt">M1</span> (<span class="dt">L1</span> (<span class="dt">M1</span> (<span class="dt">M1</span> (<span class="dt">K1</span> f0) <span class="fu">:*:</span> <span class="dt">M1</span> (<span class="dt">K1</span> f1))))
+    from (<span class="dt">C2</span>)       <span class="fu">=</span> <span class="dt">M1</span> (<span class="dt">R1</span> (<span class="dt">M1</span> (<span class="dt">M1</span> <span class="dt">U1</span>)))
+    to (<span class="dt">M1</span> (<span class="dt">L1</span> (<span class="dt">M1</span> (<span class="dt">M1</span> (<span class="dt">K1</span> f0) <span class="fu">:*:</span> <span class="dt">M1</span> (<span class="dt">K1</span> f1))))) <span class="fu">=</span> <span class="dt">C1</span> f0 f1
+    to (<span class="dt">M1</span> (<span class="dt">R1</span> (<span class="dt">M1</span> (<span class="dt">M1</span> (<span class="dt">U1</span>)))))                   <span class="fu">=</span> <span class="dt">C2</span></code></pre>
+<h1 id="how-can-we-use-this">How can we use this?</h1>
+<ul>
+<li><p>Say we are defining our own <code>Show</code>-like class</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">MyShow</span> a <span class="kw">where</span><span class="ot"> myShow ::</span> a <span class="ot">-&gt;</span> <span class="dt">String</span>
+<span class="kw">instance</span> <span class="dt">MyShow</span> [<span class="dt">Char</span>] <span class="kw">where</span> myShow <span class="fu">=</span> <span class="fu">show</span>
+<span class="kw">instance</span> <span class="dt">MyShow</span> <span class="dt">Int</span> <span class="kw">where</span> myShow <span class="fu">=</span> <span class="fu">show</span></code></pre></li>
+<li>Want it to work with all user-defined data types
+<ul>
+<li>Let's define a class <code>Show1</code> to deal with annoying <code>p</code> parameters</li>
+</ul>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">{-# LANGUAGE FlexibleInstances, UndecidableInstances,</span>
+<span class="co">  OverlappingInstances, TypeSynonymInstances, TypeOperators,</span>
+<span class="co">  TypeFamilies, TemplateHaskell, FlexibleContexts #-}</span>
+
+<span class="kw">class</span> <span class="dt">MyShow1</span> f <span class="kw">where</span><span class="ot"> myShow1 ::</span> f p <span class="ot">-&gt;</span> <span class="dt">String</span></code></pre>
+<ul>
+<li>And let's define generic traversal methods</li>
+</ul>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> (<span class="dt">MyShow1</span> f) <span class="ot">=&gt;</span> <span class="dt">MyShow1</span> (<span class="dt">M1</span> i c f) <span class="kw">where</span>  <span class="co">-- for D1, S1</span>
+    myShow1 m1 <span class="fu">=</span> myShow1 (unM1 m1)
+<span class="kw">instance</span> (<span class="dt">MyShow1</span> f, <span class="dt">MyShow1</span> g) <span class="ot">=&gt;</span> <span class="dt">MyShow1</span> (f <span class="fu">:+:</span> g) <span class="kw">where</span>
+    myShow1 (<span class="dt">L1</span> a) <span class="fu">=</span> myShow1 a
+    myShow1 (<span class="dt">R1</span> a) <span class="fu">=</span> myShow1 a</code></pre></li>
+</ul>
+<h1 id="non-generic-instances-of-myshow1">Non-generic instances of <code>MyShow1</code></h1>
+<ul>
+<li><p>When we hit a constructor, want to print the name</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> (<span class="dt">Constructor</span> c, <span class="dt">MyShow1</span> f) <span class="ot">=&gt;</span> <span class="dt">MyShow1</span> (<span class="dt">C1</span> c f) <span class="kw">where</span>
+    myShow1 m1 <span class="fu">=</span> conName m1 <span class="fu">++</span> myShow1 (unM1 m1)</code></pre>
+<ul>
+<li>We're using OverlappingInstances, since already have <code>M1</code> instance</li>
+</ul></li>
+<li><p>When we have no constructor args, don't show anything</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">MyShow1</span> <span class="dt">U1</span> <span class="kw">where</span> myShow1 _ <span class="fu">=</span> <span class="st">&quot;&quot;</span></code></pre></li>
+<li><p>When we have multiple constructor args, show them all</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> (<span class="dt">MyShow1</span> f, <span class="dt">MyShow1</span> g) <span class="ot">=&gt;</span> <span class="dt">MyShow1</span> (f <span class="fu">:*:</span> g) <span class="kw">where</span>
+    myShow1 (fp <span class="fu">:*:</span> gp) <span class="fu">=</span> myShow1 fp <span class="fu">++</span> myShow1 gp</code></pre></li>
+<li><p>When you hit the actual value, show it</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> (<span class="dt">MyShow</span> c) <span class="ot">=&gt;</span> <span class="dt">MyShow1</span> (<span class="dt">K1</span> i c) <span class="kw">where</span>
+    myShow1 k1 <span class="fu">=</span> <span class="ch">&#39; &#39;</span> <span class="fu">:</span> myShow (unK1 k1)</code></pre>
+<ul>
+<li>Now we're calling <code>myShow</code>, which we haven't yet defined for many types</li>
+</ul></li>
+</ul>
+<h1 id="implementing-a-generic-myshow">Implementing a generic <code>MyShow</code></h1>
+<ul>
+<li><p>Now can define generic <code>MyShow</code> in terms of <code>MyShow1</code></p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> (<span class="dt">Generic</span> a, <span class="dt">MyShow1</span> (<span class="dt">Rep</span> a)) <span class="ot">=&gt;</span> <span class="dt">MyShow</span> a <span class="kw">where</span>
+    myShow a <span class="fu">=</span> myShow1 <span class="fu">$</span> from a</code></pre></li>
+<li>Can we avoid <code>OverlappingInstances</code>?
+<ul>
+<li>Could have defined separate <code>D1</code>, <code>S1</code> instances of <code>Show1</code> (easy)</li>
+<li>Could have avoided completely generic instance<br> Recommended use is just to define a <em>function</em> <code>myShowDefault</code>, then</li>
+</ul>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">myShowDefault ::</span> (<span class="dt">Generic</span> a, <span class="dt">MyShow1</span> (<span class="dt">Rep</span> a)) <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">String</span>
+myShowDefault a <span class="fu">=</span> myShow1 <span class="fu">$</span> from a
+
+<span class="kw">instance</span> <span class="dt">MyShow</span> <span class="dt">T1</span> <span class="kw">where</span> myShow <span class="fu">=</span> myShowDefault
+<span class="kw">instance</span> <span class="dt">MyShow</span> <span class="dt">T2</span> <span class="kw">where</span> myShow <span class="fu">=</span> myShowDefault
+<span class="kw">instance</span> <span class="dt">MyShow</span> <span class="dt">T3</span> <span class="kw">where</span> myShow <span class="fu">=</span> myShowDefault
+<span class="fu">...</span></code></pre>
+<ul>
+<li>There's still the problem of different behavior for <code>[Char]</code> vs. <code>[a]</code>...<br> I don't see how to fix this one, but might be possible</li>
+</ul></li>
+</ul>
+<h1 id="ghc-support-for-generic-deriving">GHC support for generic deriving</h1>
+<ul>
+<li>GHC 7.2 supports Generic deriving through two new language extensions</li>
+<li><a href="http://www.haskell.org/haskellwiki/Generics"><code>DeriveGenerics</code></a> extension
+<ul>
+<li>Just add <code>deriving (Generic)</code> to the end of declarations</li>
+</ul></li>
+<li><a href="http://www.haskell.org/ghc/docs/latest/html/users_guide/type-class-extensions.html#class-default-signatures"><code>DefaultSignatures</code></a> extension
+<ul>
+<li>Allows default methods that don't work for all instances</li>
+</ul>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">MyShow</span> a <span class="kw">where</span>
+<span class="ot">    myShow ::</span> a <span class="ot">-&gt;</span> <span class="dt">String</span>
+    default<span class="ot"> myShow ::</span> (<span class="dt">Generic</span> a, <span class="dt">MyShow1</span> (<span class="dt">Rep</span> a)) <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">String</span>
+    myShow <span class="fu">=</span> myShowDefault</code></pre>
+<ul>
+<li>Makes it easier to declare instances</li>
+</ul>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">MyShow</span> <span class="dt">T</span>    <span class="co">-- no need for a where clause</span></code></pre></li>
+</ul>
+</body>
+
+<!-- Mirrored from www.scs.stanford.edu/11au-cs240h/notes/generic.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:55:13 GMT -->
+</html>

@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+  
+<!-- Mirrored from dev.stephendiehl.com/fun/005_evaluation.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:55:43 GMT -->
+<head>
+    <meta charset="utf-8">
+    <title>Write You a Haskell ( Stephen Diehl )</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <link href="http://fonts.googleapis.com/css?family=Inconsolata" rel="stylesheet">
+    <style type="text/css">
+      
+    </style>
+    <link href="css/bootstrap-responsive.min.css" rel="stylesheet">
+    <link href="css/colors.css" rel="stylesheet">
+    <link rel="alternate" type="application/atom+xml" title="Write You a Haskell" href="rss/atom.xml" />
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','http://www.google-analytics.com/analytics.js','ga');
+
+      ga('create', 'UA-49839533-1', 'stephendiehl.com');
+      ga('send', 'pageview');
+
+    </script>
+
+          <style type="text/css">
+    table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode {
+      margin: 0; padding: 0; vertical-align: baseline; border: none; }
+    table.sourceCode { width: 100%; line-height: 100%; }
+    td.lineNumbers { text-align: right; padding-right: 4px; padding-left: 4px; color: #aaaaaa; border-right: 1px solid #aaaaaa; }
+    td.sourceCode { padding-left: 5px; }
+    code > span.kw { color: #007020; font-weight: bold; }
+    code > span.dt { color: #902000; }
+    code > span.dv { color: #40a070; }
+    code > span.bn { color: #40a070; }
+    code > span.fl { color: #40a070; }
+    code > span.ch { color: #4070a0; }
+    code > span.st { color: #4070a0; }
+    code > span.co { color: #60a0b0; font-style: italic; }
+    code > span.ot { color: #007020; }
+    code > span.al { color: #ff0000; font-weight: bold; }
+    code > span.fu { color: #06287e; }
+    code > span.er { color: #ff0000; font-weight: bold; }
+      </style>
+            <link rel="stylesheet" href="css/style.css" type="text/css" />
+                  <script src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML" type="text/javascript"></script>
+              </head>
+
+  <body>
+
+    <div>
+
+        <div class="row">
+
+          <div class="span3 side toc">
+              <ul>
+              <li><a href="index-2.html">Index</a></li>
+              <li><a href="https://github.com/sdiehl/write-you-a-haskell">Github</a></li>
+              <li><a href="rss/atom.xml">RSS</a></li>
+              <li><a href="WYAH.pdf">PDF</a></li>
+              </ul>
+              <ul>
+              <li><a href="#evaluation">Evaluation</a><ul>
+              <li><a href="#evaluation-models">Evaluation Models</a></li>
+              <li><a href="#call-by-value">Call-by-value</a></li>
+              <li><a href="#call-by-name">Call-by-name</a></li>
+              <li><a href="#call-by-need">Call-by-need</a></li>
+              <li><a href="#higher-order-abstract-syntax-hoas">Higher Order Abstract Syntax (HOAS)</a></li>
+              <li><a href="#parametric-higher-order-abstract-syntax-phoas">Parametric Higher Order Abstract Syntax (PHOAS)</a></li>
+              <li><a href="#embedding-io">Embedding IO</a></li>
+              <li><a href="#full-source">Full Source</a></li>
+              </ul></li>
+              </ul>
+          </div>
+
+          <div class="span9 body">
+<!--<h1>Implementing a Functional Language in Haskell</h1>--!>
+<div style="display:none">
+<p><span class="math">\[\newcommand{\andalso}{\quad\quad}
+\newcommand{\infabbrev}[2]{\infax{#1 \quad\eqdef\quad #2}}
+\newcommand{\infrule}[2]{\displaystyle \dfrac{#1}{#2}}
+\newcommand{\ar}{\rightarrow}
+\newcommand{\Int}{\mathtt{Int}}
+\newcommand{\Bool}{\mathtt{Bool}}
+\newcommand{\becomes}{\Downarrow}
+\newcommand{\trule}[1]{(\textbf{#1})}
+\newcommand{\FV}[1]{\mathtt{fv}(#1)}
+\newcommand{\FTV}[1]{\mathtt{ftv}(#1)}
+\newcommand{\BV}[1]{\mathtt{bv}(#1)}
+\newcommand{\compiles}[1]{\text{C}\llbracket{#1}\rrbracket}
+\newcommand{\exec}[1]{\text{E}\llbracket{#1}\rrbracket}
+\renewcommand{\t}[1]{\mathtt{#1}}
+\newcommand{\ite}[3]{\text{if }#1\text{ then }#2\text{ else }#3}
+\]</span></p>
+</div>
+<div class="pagetitle">
+<div class="figure">
+<img src="img/titles/evaluation.png" />
+
+</div>
+</div>
+<blockquote>
+<p><em>Well-typed programs cannot &quot;go wrong&quot;.</em></p>
+<p><cite>— Robin Milner</cite></p>
+</blockquote>
+<p class="halfbreak">
+</p>
+<h1 id="evaluation">Evaluation</h1>
+<p>While the lambda calculus is exceedingly simple, there is a great deal of variety in ways to evaluate and implement the reduction of lambda expressions. The different models for evaluation are <em>evaluation stratgies</em>.</p>
+<p>There is a bifurcation between two points in the design space: <em>strict</em> and <em>non-strict</em> evaluation. An evaluation strategy is strict if the arguments to a lambda expression are necessarily evaluated before a lambda is reduced. A language in which the arguments are not necessarily evaluated before a lambda is reduced is non-strict.</p>
+<p>Alternatively expressed, diverging terms are represented up to equivalence by the <em>bottom</em> value, written as <span class="math">\(\bot\)</span>. A function <span class="math">\(f\)</span> is non-strict if:</p>
+<p><span class="math">\[
+f \bot \neq \bot
+\]</span></p>
+<h2 id="evaluation-models">Evaluation Models</h2>
+<p>There are many different models, and various hybrids thereof. We will consider three dominant models:</p>
+<ul>
+<li>Call-by-value: arguments are evaluated before a function is entered</li>
+<li>Call-by-name: arguments are passed unevaluated</li>
+<li>Call-by-need: arguments are passed unevaluated but an expression is only evaluated once and shared upon subsequent references</li>
+</ul>
+<p>Given an expression <span class="math">\(f x\)</span> the reduction in different evaluation models proceeds differently:</p>
+<p><em>Call-by-value</em>:</p>
+<ol style="list-style-type: decimal">
+<li>Evaluate <span class="math">\(x\)</span> to <span class="math">\(v\)</span></li>
+<li>Evaluate <span class="math">\(f\)</span> to <span class="math">\(\lambda y. e\)</span></li>
+<li>Evaluate <span class="math">\([y/v]e\)</span></li>
+</ol>
+<p><em>Call-by-name</em>:</p>
+<ol style="list-style-type: decimal">
+<li>Evaluate <span class="math">\(f\)</span> to <span class="math">\(\lambda y. e\)</span></li>
+<li>Evaluate <span class="math">\([y/x]e\)</span></li>
+</ol>
+<p><em>Call-by-need</em>:</p>
+<ol style="list-style-type: decimal">
+<li>Allocate a thunk <span class="math">\(v\)</span> for <span class="math">\(x\)</span></li>
+<li>Evaluate <span class="math">\(f\)</span> to <span class="math">\(\lambda y. e\)</span></li>
+<li>Evaluate <span class="math">\([y/v]e\)</span></li>
+</ol>
+<p>Terms that have a normal form in one model, may or may not have a normal form in another. In call-by-need and call-by-name evaluation diverging terms are not necessarily evaluated before entry, so some terms that have a normal form in these models may diverge under call-by-value.</p>
+<h2 id="call-by-value">Call-by-value</h2>
+<p>Call by value is an extremely common evaluation model. Many programming languages both imperative and functional use this evaluation strategy. The essence of call-by-value is that there are two categories of expressions: <em>terms</em> and <em>values</em>. Values are lambda expressions and other terms which are in normal form and cannot be reduced further. All arguments to a function will be reduced to normal form <em>before</em> they are bound inside the lambda and reduction only proceeds once the arguments are reduced.</p>
+<p>For a simple arithmetic expression, the reduction proceeds as follows. Notice how the subexpression <code>(2 + 2)</code> is evaluated to normal form before being bound.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">(\x<span class="fu">.</span> \y<span class="fu">.</span> y x) (<span class="dv">2</span> <span class="fu">+</span> <span class="dv">2</span>) (\x<span class="fu">.</span> x <span class="fu">+</span> <span class="dv">1</span>)
+<span class="ot">=&gt;</span> (\x<span class="fu">.</span> \y<span class="fu">.</span> y x) <span class="dv">4</span> (\x<span class="fu">.</span> x <span class="fu">+</span> <span class="dv">1</span>)
+<span class="ot">=&gt;</span> (\y<span class="fu">.</span> y <span class="dv">4</span>) (\x<span class="fu">.</span> x <span class="fu">+</span> <span class="dv">1</span>)
+<span class="ot">=&gt;</span> (\x<span class="fu">.</span> x <span class="fu">+</span> <span class="dv">1</span>) <span class="dv">4</span>
+<span class="ot">=&gt;</span> <span class="dv">4</span> <span class="fu">+</span> <span class="dv">1</span>
+<span class="ot">=&gt;</span> <span class="dv">5</span></code></pre>
+<p>Naturally there are two evaluation rules for applications.</p>
+<p><span class="math">\[
+\begin{array}{cl}
+ \displaystyle \frac{e_1 \to e_1&#39;}{e_1 e_2 \to e_1&#39; e_2} &amp; \trule{E-App1} \\ \\
+ \displaystyle \frac{e_2 \to e_2&#39;}{v_1 e_2 \to v_1 e_2&#39;} &amp; \trule{E-App2} \\ \\
+ \displaystyle {(\lambda x . e) v \to [x / v] e } &amp; \trule{E-AppLam} \\ \\
+\end{array}
+\]</span></p>
+<p>For a simple little lambda calculus the call-by-value interpreter is quite simple. Part of the runtime evaluation of lambda calculus involves the creation of <em>closures</em>, environments which hold the local variables in scope. In our little language there are two possible values which reduction may converge on, <strong>VInt</strong> and <strong>VClosure</strong>.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Expr</span>
+  <span class="fu">=</span> <span class="dt">Var</span> <span class="dt">Int</span>
+  <span class="fu">|</span> <span class="dt">Lam</span> <span class="dt">Expr</span>
+  <span class="fu">|</span> <span class="dt">App</span> <span class="dt">Expr</span> <span class="dt">Expr</span>
+  <span class="fu">|</span> <span class="dt">Lit</span> <span class="dt">Int</span>
+  <span class="fu">|</span> <span class="dt">Prim</span> <span class="dt">PrimOp</span> <span class="dt">Expr</span> <span class="dt">Expr</span>
+  <span class="kw">deriving</span> <span class="dt">Show</span>
+
+<span class="kw">data</span> <span class="dt">PrimOp</span> <span class="fu">=</span> <span class="dt">Add</span> <span class="fu">|</span> <span class="dt">Mul</span>
+  <span class="kw">deriving</span> <span class="dt">Show</span>
+
+<span class="kw">data</span> <span class="dt">Value</span>
+  <span class="fu">=</span> <span class="dt">VInt</span> <span class="dt">Int</span>
+  <span class="fu">|</span> <span class="dt">VClosure</span> <span class="dt">Expr</span> <span class="dt">Env</span>
+  <span class="kw">deriving</span> <span class="dt">Show</span>
+
+<span class="kw">type</span> <span class="dt">Env</span> <span class="fu">=</span> [<span class="dt">Value</span>]
+
+<span class="ot">emptyEnv ::</span> <span class="dt">Env</span>
+emptyEnv <span class="fu">=</span> []</code></pre>
+<p>The evaluator function simply maps the local scope and a term to the final value. Whenever a variable is referred to it is looked up in the environment. Whenever a lambda is entered it extends the environment with the local scope of the closure.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">eval ::</span> <span class="dt">Env</span> <span class="ot">-&gt;</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">Value</span>
+eval env term <span class="fu">=</span> <span class="kw">case</span> term <span class="kw">of</span>
+  <span class="dt">Var</span> n <span class="ot">-&gt;</span> env <span class="fu">!!</span> n
+  <span class="dt">Lam</span> a <span class="ot">-&gt;</span> <span class="dt">VClosure</span> a env
+  <span class="dt">App</span> a b <span class="ot">-&gt;</span>
+    <span class="kw">let</span> <span class="dt">VClosure</span> c env&#39; <span class="fu">=</span> eval env a <span class="kw">in</span>
+    <span class="kw">let</span> v <span class="fu">=</span> eval env b <span class="kw">in</span>
+    eval (v <span class="fu">:</span> env&#39;) c
+
+  <span class="dt">Lit</span> n <span class="ot">-&gt;</span> <span class="dt">VInt</span> n
+  <span class="dt">Prim</span> p a b <span class="ot">-&gt;</span> (evalPrim p) (eval env a) (eval env b)
+
+<span class="ot">evalPrim ::</span> <span class="dt">PrimOp</span> <span class="ot">-&gt;</span> <span class="dt">Value</span> <span class="ot">-&gt;</span> <span class="dt">Value</span> <span class="ot">-&gt;</span> <span class="dt">Value</span>
+evalPrim <span class="dt">Add</span> (<span class="dt">VInt</span> a) (<span class="dt">VInt</span> b) <span class="fu">=</span> <span class="dt">VInt</span> (a <span class="fu">+</span> b)
+evalPrim <span class="dt">Mul</span> (<span class="dt">VInt</span> a) (<span class="dt">VInt</span> b) <span class="fu">=</span> <span class="dt">VInt</span> (a <span class="fu">*</span> b)</code></pre>
+<h2 id="call-by-name">Call-by-name</h2>
+<p>In call-by-name evaluation, the arguments to lambda expressions are substituted as is, evaluation simply proceeds from left to right substituting the outermost lambda or reducing a value. If a substituted expression is not used it is never evaluated.</p>
+<p><span class="math">\[
+\begin{array}{cl}
+ \displaystyle \frac{e_1 \to e_1&#39;}{e_1 e_2 \to e_1&#39; e_2} &amp; \trule{E-App} \\ \\
+ \displaystyle {(\lambda x . e_1) e_2 \to [x / e_2] e_1 } &amp; \trule{E-AppLam} \\ \\
+\end{array}
+\]</span></p>
+<p>For example, the same expression we looked at for call-by-value has the same normal form but arrives at it by a different sequence of reductions:</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">(\x<span class="fu">.</span> \y<span class="fu">.</span> y x) (<span class="dv">2</span> <span class="fu">+</span> <span class="dv">2</span>) (\x<span class="fu">.</span> x <span class="fu">+</span> <span class="dv">1</span>)
+<span class="ot">=&gt;</span> (\y<span class="fu">.</span> y (<span class="dv">2</span> <span class="fu">+</span> <span class="dv">2</span>)) (\x<span class="fu">.</span> x <span class="fu">+</span> <span class="dv">1</span>)
+<span class="ot">=&gt;</span> (\x<span class="fu">.</span> x <span class="fu">+</span> <span class="dv">1</span>) (<span class="dv">2</span> <span class="fu">+</span> <span class="dv">2</span>)
+<span class="ot">=&gt;</span> (<span class="dv">2</span> <span class="fu">+</span> <span class="dv">2</span>) <span class="fu">+</span> <span class="dv">1</span>
+<span class="ot">=&gt;</span> <span class="dv">4</span> <span class="fu">+</span> <span class="dv">1</span>
+<span class="ot">=&gt;</span> <span class="dv">5</span></code></pre>
+<p>Call-by-name is non-strict, although very few languages use this model.</p>
+<h2 id="call-by-need">Call-by-need</h2>
+<p><em>Call-by-need</em> is a special type of non-strict evaluation in which unevaluated expressions are represented by suspensions or <em>thunks</em> which are passed into a function unevaluated and only evaluated when needed or <em>forced</em>. When the thunk is forced the representation of the thunk is <em>updated</em> with the computed value and is not recomputed upon further reference.</p>
+<p>The thunks for unevaluated lambda expressions are allocated when evaluated, and the resulting computed value is placed in the same reference so that subsequent computations share the result. If the argument is never needed it is never computed, which results in a trade-off between space and time.</p>
+<!--
+Evaluation for call-by-need never has worse asymptotic time complexity than
+call-by-value, but can result in worse space complexity.
+-->
+<p>Since the evaluation of subexpression does not follow any pre-defined order, any impure functions with side-effects will be evaluated in an unspecified order. As a result call-by-need can only effectively be implemented in a purely functional setting.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">Thunk</span> <span class="fu">=</span> () <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">Value</span>
+
+<span class="kw">data</span> <span class="dt">Value</span>
+  <span class="fu">=</span> <span class="dt">VBool</span> <span class="dt">Bool</span>
+  <span class="fu">|</span> <span class="dt">VInt</span> <span class="dt">Integer</span>
+  <span class="fu">|</span> <span class="dt">VClosure</span> (<span class="dt">Thunk</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">Value</span>)</code></pre>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">update ::</span> <span class="dt">IORef</span> <span class="dt">Thunk</span> <span class="ot">-&gt;</span> <span class="dt">Value</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
+update ref v <span class="fu">=</span> <span class="kw">do</span>
+  writeIORef ref (\() <span class="ot">-&gt;</span> return v)
+  return ()</code></pre>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">force ::</span> <span class="dt">IORef</span> <span class="dt">Thunk</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">Value</span>
+force ref <span class="fu">=</span> <span class="kw">do</span>
+  th <span class="ot">&lt;-</span> readIORef ref
+  v <span class="ot">&lt;-</span> th ()
+  update ref v
+  return v</code></pre>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">mkThunk ::</span> <span class="dt">Env</span> <span class="ot">-&gt;</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> (<span class="dt">Thunk</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">Value</span>)
+mkThunk env x body <span class="fu">=</span> \a <span class="ot">-&gt;</span> <span class="kw">do</span>
+  a&#39; <span class="ot">&lt;-</span> newIORef a
+  eval ((x, a&#39;) <span class="fu">:</span> env) body</code></pre>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">eval ::</span> <span class="dt">Env</span> <span class="ot">-&gt;</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">Value</span>
+eval env ex <span class="fu">=</span> <span class="kw">case</span> ex <span class="kw">of</span>
+  <span class="dt">EVar</span> n <span class="ot">-&gt;</span> <span class="kw">do</span>
+    th <span class="ot">&lt;-</span> lookupEnv env n
+    v <span class="ot">&lt;-</span> force th
+    return v
+
+  <span class="dt">ELam</span> x e <span class="ot">-&gt;</span> return <span class="fu">$</span> <span class="dt">VClosure</span> (mkThunk env x e)
+
+  <span class="dt">EApp</span> a b <span class="ot">-&gt;</span> <span class="kw">do</span>
+    <span class="dt">VClosure</span> c <span class="ot">&lt;-</span> eval env a
+    c (\() <span class="ot">-&gt;</span> eval env b)
+
+  <span class="dt">EBool</span> b <span class="ot">-&gt;</span> return <span class="fu">$</span> <span class="dt">VBool</span> b
+  <span class="dt">EInt</span> n  <span class="ot">-&gt;</span> return <span class="fu">$</span> <span class="dt">VInt</span> n
+  <span class="dt">EFix</span> e  <span class="ot">-&gt;</span> eval env (<span class="dt">EApp</span> e (<span class="dt">EFix</span> e))</code></pre>
+<p>For example, in this model the following program will not diverge since the omega combinator passed into the constant function is not used and therefore the argument is not evaluated.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">omega <span class="fu">=</span> (\x <span class="ot">-&gt;</span> x x) (\x <span class="ot">-&gt;</span> x x)
+test1 <span class="fu">=</span> (\y <span class="ot">-&gt;</span> <span class="dv">42</span>) omega</code></pre>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">omega ::</span> <span class="dt">Expr</span>
+omega <span class="fu">=</span> <span class="dt">EApp</span> (<span class="dt">ELam</span> <span class="st">&quot;x&quot;</span> (<span class="dt">EApp</span> (<span class="dt">EVar</span> <span class="st">&quot;x&quot;</span>) (<span class="dt">EVar</span> <span class="st">&quot;x&quot;</span>)))
+             (<span class="dt">ELam</span> <span class="st">&quot;x&quot;</span> (<span class="dt">EApp</span> (<span class="dt">EVar</span> <span class="st">&quot;x&quot;</span>) (<span class="dt">EVar</span> <span class="st">&quot;x&quot;</span>)))
+
+<span class="ot">test1 ::</span> <span class="dt">IO</span> <span class="dt">Value</span>
+test1 <span class="fu">=</span> eval [] <span class="fu">$</span> <span class="dt">EApp</span> (<span class="dt">ELam</span> <span class="st">&quot;y&quot;</span> (<span class="dt">EInt</span> <span class="dv">42</span>)) omega</code></pre>
+<h2 id="higher-order-abstract-syntax-hoas">Higher Order Abstract Syntax (HOAS)</h2>
+<p>GHC Haskell being a rich language has a variety of extensions that, among other things, allow us to map lambda expressions in our defined language directly onto lambda expressions in Haskell. In this case we will use a GADT to embed a Haskell expression inside our expression type.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">{-# LANGUAGE GADTs #-}</span>
+
+<span class="kw">data</span> <span class="dt">Expr</span> a <span class="kw">where</span>
+  <span class="dt">Lift</span><span class="ot"> ::</span> a                       <span class="ot">-&gt;</span> <span class="dt">Expr</span> a
+  <span class="dt">Tup</span><span class="ot">  ::</span> <span class="dt">Expr</span> a <span class="ot">-&gt;</span> <span class="dt">Expr</span> b        <span class="ot">-&gt;</span> <span class="dt">Expr</span> (a, b)
+  <span class="dt">Lam</span><span class="ot">  ::</span> (<span class="dt">Expr</span> a <span class="ot">-&gt;</span> <span class="dt">Expr</span> b)      <span class="ot">-&gt;</span> <span class="dt">Expr</span> (a <span class="ot">-&gt;</span> b)
+  <span class="dt">App</span><span class="ot">  ::</span> <span class="dt">Expr</span> (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> <span class="dt">Expr</span> a <span class="ot">-&gt;</span> <span class="dt">Expr</span> b
+  <span class="dt">Fix</span><span class="ot">  ::</span> <span class="dt">Expr</span> (a <span class="ot">-&gt;</span> a)           <span class="ot">-&gt;</span> <span class="dt">Expr</span> a</code></pre>
+<p>The most notable feature of this encoding is that there is no distinct constructor for variables. Instead they are simply values in the host language. Some example expressions:</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">id<span class="ot"> ::</span> <span class="dt">Expr</span> (a <span class="ot">-&gt;</span> a)
+id <span class="fu">=</span> <span class="dt">Lam</span> (\x <span class="ot">-&gt;</span> x)
+
+<span class="ot">tr ::</span> <span class="dt">Expr</span> (a <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> a)
+tr <span class="fu">=</span> <span class="dt">Lam</span> (\x <span class="ot">-&gt;</span> (<span class="dt">Lam</span> (\y <span class="ot">-&gt;</span> x)))
+
+<span class="ot">fl ::</span> <span class="dt">Expr</span> (a <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> b)
+fl <span class="fu">=</span> <span class="dt">Lam</span> (\x <span class="ot">-&gt;</span> (<span class="dt">Lam</span> (\y <span class="ot">-&gt;</span> y)))</code></pre>
+<p>Our evaluator then simply uses Haskell for evaluation.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">eval ::</span> <span class="dt">Expr</span> a <span class="ot">-&gt;</span> a
+eval (<span class="dt">Lift</span> v)    <span class="fu">=</span> v
+eval (<span class="dt">Tup</span> e1 e2) <span class="fu">=</span> (eval e1, eval e2)
+eval (<span class="dt">Lam</span> f)     <span class="fu">=</span> \x <span class="ot">-&gt;</span> eval (f (<span class="dt">Lift</span> x))
+eval (<span class="dt">App</span> e1 e2) <span class="fu">=</span> (eval e1) (eval e2)
+eval (<span class="dt">Fix</span> f)     <span class="fu">=</span> (eval f) (eval (<span class="dt">Fix</span> f))</code></pre>
+<p>Some examples of use:</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">fact ::</span> <span class="dt">Expr</span> (<span class="dt">Integer</span> <span class="ot">-&gt;</span> <span class="dt">Integer</span>)
+fact <span class="fu">=</span>
+  <span class="dt">Fix</span> (
+    <span class="dt">Lam</span> (\f <span class="ot">-&gt;</span>
+      <span class="dt">Lam</span> (\y <span class="ot">-&gt;</span>
+        <span class="dt">Lift</span> (
+          <span class="kw">if</span> eval y <span class="fu">==</span> <span class="dv">0</span>
+          <span class="kw">then</span> <span class="dv">1</span>
+          <span class="kw">else</span> eval y <span class="fu">*</span> (eval f) (eval y <span class="fu">-</span> <span class="dv">1</span>)))))
+
+<span class="ot">test ::</span> <span class="dt">Integer</span>
+test <span class="fu">=</span> eval fact <span class="dv">10</span>
+
+<span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> print test</code></pre>
+<p>Several caveats must be taken when working with HOAS. First of all, it takes more work to transform expressions in this form since in order to work with the expression we would need to reach under the lambda binder of a Haskell function itself. Since all the machinery is wrapped up inside of Haskell's implementation even simple operations like pretty printing and writing transformation passes can be more difficult. This form is a good form for evaluation, but not for transformation.</p>
+<h2 id="parametric-higher-order-abstract-syntax-phoas">Parametric Higher Order Abstract Syntax (PHOAS)</h2>
+<p>A slightly different form of HOAS called PHOAS uses a lambda representation parameterized over the binder type under an existential type.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">{-# LANGUAGE RankNTypes #-}</span>
+
+<span class="kw">data</span> <span class="dt">ExprP</span> a
+  <span class="fu">=</span> <span class="dt">VarP</span> a
+  <span class="fu">|</span> <span class="dt">AppP</span> (<span class="dt">ExprP</span> a) (<span class="dt">ExprP</span> a)
+  <span class="fu">|</span> <span class="dt">LamP</span> (a <span class="ot">-&gt;</span> <span class="dt">ExprP</span> a)
+  <span class="fu">|</span> <span class="dt">LitP</span> <span class="dt">Integer</span>
+
+<span class="kw">newtype</span> <span class="dt">Expr</span> <span class="fu">=</span> <span class="dt">Expr</span> {<span class="ot"> unExpr ::</span> forall a <span class="fu">.</span> <span class="dt">ExprP</span> a }</code></pre>
+<p>The lambda in our language is simply a lambda within Haskell. As an example, the usual SK combinators would be written as follows:</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- i x = x</span>
+<span class="ot">i ::</span> <span class="dt">ExprP</span> a
+i <span class="fu">=</span> <span class="dt">LamP</span> (\a <span class="ot">-&gt;</span> <span class="dt">VarP</span> a)
+
+<span class="co">-- k x y = x</span>
+<span class="ot">k ::</span> <span class="dt">ExprP</span> a
+k <span class="fu">=</span> <span class="dt">LamP</span> (\x <span class="ot">-&gt;</span> <span class="dt">LamP</span> (\y <span class="ot">-&gt;</span> <span class="dt">VarP</span> x))
+
+<span class="co">-- s f g x = f x (g x)</span>
+<span class="ot">s ::</span> <span class="dt">ExprP</span> a
+s <span class="fu">=</span> 
+  <span class="dt">LamP</span> (\f <span class="ot">-&gt;</span> 
+    <span class="dt">LamP</span> (\g <span class="ot">-&gt;</span> 
+      <span class="dt">LamP</span> (\x <span class="ot">-&gt;</span> 
+        <span class="dt">AppP</span> 
+          (<span class="dt">AppP</span> (<span class="dt">VarP</span> f) (<span class="dt">VarP</span> x))
+          (<span class="dt">AppP</span> (<span class="dt">VarP</span> g) (<span class="dt">VarP</span> x))
+        )))</code></pre>
+<p>Evaluation will result in a runtime <code>Value</code> type, just as before with our outer interpreters. We will use several &quot;extractor&quot; functions which use incomplete patterns under the hood. The model itself does not prevent malformed programs from blowing up here, and so it is necessary to guarantee that the program is sound before evaluation. Normally this would be guaranteed at a higher level by a typechecker before even reaching this point.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Value</span>
+  <span class="fu">=</span> <span class="dt">VLit</span> <span class="dt">Integer</span>
+  <span class="fu">|</span> <span class="dt">VFun</span> (<span class="dt">Value</span> <span class="ot">-&gt;</span> <span class="dt">Value</span>)
+
+<span class="ot">fromVFun ::</span> <span class="dt">Value</span> <span class="ot">-&gt;</span> (<span class="dt">Value</span> <span class="ot">-&gt;</span> <span class="dt">Value</span>)
+fromVFun val <span class="fu">=</span> <span class="kw">case</span> val <span class="kw">of</span>
+  <span class="dt">VFun</span> f <span class="ot">-&gt;</span> f
+  _      <span class="ot">-&gt;</span> error <span class="st">&quot;not a function&quot;</span>
+
+<span class="ot">fromVLit ::</span> <span class="dt">Value</span> <span class="ot">-&gt;</span> <span class="dt">Integer</span>
+fromVLit val <span class="fu">=</span> <span class="kw">case</span> val <span class="kw">of</span>
+  <span class="dt">VLit</span> n <span class="ot">-&gt;</span> n
+  _      <span class="ot">-&gt;</span> error <span class="st">&quot;not an integer&quot;</span></code></pre>
+<p>Evaluation simply exploits the fact that nestled up under our existential type is just a Haskell function and so we get all the name capture, closures and binding machinery for free. The evaluation logic for PHOAS model is extremely short.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">eval ::</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">Value</span>
+eval e <span class="fu">=</span> ev (unExpr e) <span class="kw">where</span>
+  ev (<span class="dt">LamP</span> f)      <span class="fu">=</span> <span class="dt">VFun</span>(ev <span class="fu">.</span> f)
+  ev (<span class="dt">VarP</span> v)      <span class="fu">=</span> v
+  ev (<span class="dt">AppP</span> e1 e2)  <span class="fu">=</span> fromVFun (ev e1) (ev e2)
+  ev (<span class="dt">LitP</span> n)      <span class="fu">=</span> <span class="dt">VLit</span> n</code></pre>
+<p>Consider the <code>S K K = I</code> example again and check the result:</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">skk ::</span> <span class="dt">ExprP</span> a
+skk <span class="fu">=</span> <span class="dt">AppP</span> (<span class="dt">AppP</span> s k) k
+
+<span class="ot">example ::</span> <span class="dt">Integer</span>
+example <span class="fu">=</span> fromVLit <span class="fu">$</span> eval <span class="fu">$</span> <span class="dt">Expr</span> (<span class="dt">AppP</span> skk (<span class="dt">LitP</span> <span class="dv">3</span>))</code></pre>
+<p>We will use this evaluation technique extensively in writing interpreters for our larger languages. It is an extremely convenient and useful method for writing interpreters in Haskell.</p>
+<h2 id="embedding-io">Embedding IO</h2>
+<p>As mentioned before, effects are first class values in Haskell.</p>
+<p>In Haskell we don't read from a file directly, but create a value that represents reading from a file. This allows us to very cleanly model an interpreter for our language inside of Haskell by establishing a mapping between the base operations of our language and existing function implementations of the standard operations in Haskell, and using monadic operations to build up a pure effectful computation as a result of interpretation. After evaluation, we finally lift the resulting IO value into Haskell and execute the results. This fits in nicely with the PHOAS model and allows us to efficiently implement a fully-fledged interpreter for our language with remarkably little code, simply by exploiting Haskell's implementation.</p>
+<p>To embed IO actions inside of our interpreter we create a distinct <code>VEffect</code> value that will build up a sequenced IO computation during evaluation. This value will be passed off to Haskell and reified into real world effects.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">ExprP</span> a
+  <span class="fu">=</span> <span class="dt">VarP</span> a
+  <span class="fu">|</span> <span class="dt">GlobalP</span> <span class="dt">Name</span>
+  <span class="fu">|</span> <span class="dt">AppP</span> (<span class="dt">ExprP</span> a) (<span class="dt">ExprP</span> a)
+  <span class="fu">|</span> <span class="dt">LamP</span> (a <span class="ot">-&gt;</span> <span class="dt">ExprP</span> a)
+  <span class="fu">|</span> <span class="dt">LitP</span> <span class="dt">Char</span>
+  <span class="fu">|</span> <span class="dt">EffectP</span> a
+
+<span class="kw">data</span> <span class="dt">Value</span>
+  <span class="fu">=</span> <span class="dt">VChar</span> <span class="dt">Char</span>
+  <span class="fu">|</span> <span class="dt">VFun</span> (<span class="dt">Value</span> <span class="ot">-&gt;</span> <span class="dt">Value</span>)
+  <span class="fu">|</span> <span class="dt">VEffect</span> (<span class="dt">IO</span> <span class="dt">Value</span>)
+  <span class="fu">|</span> <span class="dt">VUnit</span>
+
+<span class="ot">fromVEff ::</span> <span class="dt">Value</span> <span class="ot">-&gt;</span> (<span class="dt">IO</span> <span class="dt">Value</span>)
+fromVEff val <span class="fu">=</span> <span class="kw">case</span> val <span class="kw">of</span>
+  <span class="dt">VEffect</span> f <span class="ot">-&gt;</span> f
+  _         <span class="ot">-&gt;</span> error <span class="st">&quot;not an effect&quot;</span></code></pre>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">eval ::</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">Value</span>
+eval e <span class="fu">=</span> ev (unExpr e) <span class="kw">where</span>
+  ev (<span class="dt">LamP</span> f)      <span class="fu">=</span> <span class="dt">VFun</span>(ev <span class="fu">.</span> f)
+  ev (<span class="dt">AppP</span> e1 e2)  <span class="fu">=</span> fromVFun (ev e1) (ev e2)
+  ev (<span class="dt">LitP</span> n)      <span class="fu">=</span> <span class="dt">VChar</span> n
+  ev (<span class="dt">EffectP</span> v)   <span class="fu">=</span> v
+  ev (<span class="dt">VarP</span> v)      <span class="fu">=</span> v
+  ev (<span class="dt">GlobalP</span> op)  <span class="fu">=</span> prim op
+
+<span class="co">-- Lift an effect from our language into Haskell IO.</span>
+<span class="ot">run ::</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
+run f <span class="fu">=</span> void (fromVEff (eval f))</code></pre>
+<p>The <code>prim</code> function will simply perform a lookup on the set of builtin operations, which we'll define with a bit of syntactic sugar for wrapping up Haskell functions.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">unary ::</span> (<span class="dt">Value</span> <span class="ot">-&gt;</span> <span class="dt">Value</span>) <span class="ot">-&gt;</span> <span class="dt">Value</span>
+unary f <span class="fu">=</span> lam <span class="fu">$</span> \a <span class="ot">-&gt;</span> f a
+
+<span class="ot">binary ::</span> (<span class="dt">Value</span> <span class="ot">-&gt;</span> <span class="dt">Value</span> <span class="ot">-&gt;</span> <span class="dt">Value</span>) <span class="ot">-&gt;</span> <span class="dt">Value</span>
+binary f <span class="fu">=</span> lam <span class="fu">$</span> \a <span class="ot">-&gt;</span>
+           lam <span class="fu">$</span> \b <span class="ot">-&gt;</span> f a b
+
+<span class="ot">prim ::</span> <span class="dt">Name</span> <span class="ot">-&gt;</span> <span class="dt">Value</span>
+prim op <span class="fu">=</span> <span class="kw">case</span> op <span class="kw">of</span>
+ <span class="st">&quot;putChar#&quot;</span> <span class="ot">-&gt;</span> unary <span class="fu">$</span> \x <span class="ot">-&gt;</span>
+    <span class="dt">VEffect</span> <span class="fu">$</span> <span class="kw">do</span>
+      putChar (fromVChar x)
+      return <span class="dt">VUnit</span>
+
+ <span class="st">&quot;getChar#&quot;</span> <span class="ot">-&gt;</span> <span class="dt">VEffect</span> <span class="fu">$</span> <span class="kw">do</span>
+      val <span class="ot">&lt;-</span> getChar
+      return (<span class="dt">VChar</span> val)
+
+ <span class="st">&quot;bindIO#&quot;</span>   <span class="ot">-&gt;</span> binary <span class="fu">$</span> \x y <span class="ot">-&gt;</span> bindIO x y
+ <span class="st">&quot;returnIO#&quot;</span> <span class="ot">-&gt;</span> unary  <span class="fu">$</span> \x   <span class="ot">-&gt;</span> returnIO x
+ <span class="st">&quot;thenIO#&quot;</span>   <span class="ot">-&gt;</span> binary <span class="fu">$</span> \x y <span class="ot">-&gt;</span> thenIO x y</code></pre>
+<p>For example <code>thenIO#</code> sequences effects in our language will simply squash two <code>VEffect</code> objects into one composite effect building up a new <code>VEffect</code> value that is using Haskell's monadic sequencing on the internal <code>IO</code> value.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">bindIO ::</span> <span class="dt">Value</span> <span class="ot">-&gt;</span> <span class="dt">Value</span> <span class="ot">-&gt;</span> <span class="dt">Value</span>
+bindIO (<span class="dt">VEffect</span> f) (<span class="dt">VFun</span> g) <span class="fu">=</span> <span class="dt">VEffect</span> (f <span class="fu">&gt;&gt;=</span> fromVEff <span class="fu">.</span> g)
+
+<span class="ot">thenIO ::</span> <span class="dt">Value</span> <span class="ot">-&gt;</span> <span class="dt">Value</span> <span class="ot">-&gt;</span> <span class="dt">Value</span>
+thenIO (<span class="dt">VEffect</span> f) (<span class="dt">VEffect</span> g) <span class="fu">=</span> <span class="dt">VEffect</span> (f <span class="fu">&gt;&gt;</span> g)
+
+<span class="ot">returnIO ::</span> <span class="dt">Value</span> <span class="ot">-&gt;</span> <span class="dt">Value</span>
+returnIO a <span class="fu">=</span> <span class="dt">VEffect</span> <span class="fu">$</span> return a</code></pre>
+<p>Effectively we're just recreating the same conceptual relationship that Haskell IO has with its runtime, but instead our host language uses Haskell as the runtime!</p>
+<h2 id="full-source">Full Source</h2>
+<p><strong>Evaluation</strong></p>
+<ul>
+<li><a href="https://github.com/sdiehl/write-you-a-haskell/blob/master/chapter6/interp.hs">Call-by-value</a></li>
+<li><a href="https://github.com/sdiehl/write-you-a-haskell/blob/master/chapter6/lazy.hs">Call-by-need</a></li>
+</ul>
+<p><strong>Higher Order Interpreters</strong></p>
+<ul>
+<li><a href="https://github.com/sdiehl/write-you-a-haskell/blob/master/chapter6/hoas.hs">HOAS</a></li>
+<li><a href="https://github.com/sdiehl/write-you-a-haskell/blob/master/chapter6/phoas.hs">PHOAS</a></li>
+<li><a href="https://github.com/sdiehl/write-you-a-haskell/blob/master/chapter6/io.hs">Embedding IO</a></li>
+</ul>
+<p></p>
+          </div>
+        </div>
+
+    </div>
+    <script src="https://code.jquery.com/jquery.js"></script>
+    <script src="js/nav.js"></script>
+  </body>
+
+<!-- Mirrored from dev.stephendiehl.com/fun/005_evaluation.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:55:43 GMT -->
+</html>

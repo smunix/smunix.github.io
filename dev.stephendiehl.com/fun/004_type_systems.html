@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en">
+  
+<!-- Mirrored from dev.stephendiehl.com/fun/004_type_systems.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:55:43 GMT -->
+<head>
+    <meta charset="utf-8">
+    <title>Write You a Haskell ( Stephen Diehl )</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <link href="http://fonts.googleapis.com/css?family=Inconsolata" rel="stylesheet">
+    <style type="text/css">
+      
+    </style>
+    <link href="css/bootstrap-responsive.min.css" rel="stylesheet">
+    <link href="css/colors.css" rel="stylesheet">
+    <link rel="alternate" type="application/atom+xml" title="Write You a Haskell" href="rss/atom.xml" />
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','http://www.google-analytics.com/analytics.js','ga');
+
+      ga('create', 'UA-49839533-1', 'stephendiehl.com');
+      ga('send', 'pageview');
+
+    </script>
+
+          <style type="text/css">
+    div.sourceCode { overflow-x: auto; }
+    table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode {
+      margin: 0; padding: 0; vertical-align: baseline; border: none; }
+    table.sourceCode { width: 100%; line-height: 100%; }
+    td.lineNumbers { text-align: right; padding-right: 4px; padding-left: 4px; color: #aaaaaa; border-right: 1px solid #aaaaaa; }
+    td.sourceCode { padding-left: 5px; }
+    code > span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code > span.dt { color: #902000; } /* DataType */
+    code > span.dv { color: #40a070; } /* DecVal */
+    code > span.bn { color: #40a070; } /* BaseN */
+    code > span.fl { color: #40a070; } /* Float */
+    code > span.ch { color: #4070a0; } /* Char */
+    code > span.st { color: #4070a0; } /* String */
+    code > span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code > span.ot { color: #007020; } /* Other */
+    code > span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code > span.fu { color: #06287e; } /* Function */
+    code > span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code > span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+    code > span.cn { color: #880000; } /* Constant */
+    code > span.sc { color: #4070a0; } /* SpecialChar */
+    code > span.vs { color: #4070a0; } /* VerbatimString */
+    code > span.ss { color: #bb6688; } /* SpecialString */
+    code > span.im { } /* Import */
+    code > span.va { color: #19177c; } /* Variable */
+    code > span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code > span.op { color: #666666; } /* Operator */
+    code > span.bu { } /* BuiltIn */
+    code > span.ex { } /* Extension */
+    code > span.pp { color: #bc7a00; } /* Preprocessor */
+    code > span.at { color: #7d9029; } /* Attribute */
+    code > span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code > span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code > span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+      </style>
+            <link rel="stylesheet" href="css/style.css" type="text/css" />
+                  <script src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML" type="text/javascript"></script>
+              </head>
+
+  <body>
+
+    <div>
+
+        <div class="row">
+
+          <div class="span3 side toc">
+              <ul>
+              <li><a href="index-2.html">Index</a></li>
+              <li><a href="https://github.com/sdiehl/write-you-a-haskell">Github</a></li>
+              <li><a href="rss/atom.xml">RSS</a></li>
+              <li><a href="WYAH.pdf">PDF</a></li>
+              </ul>
+              <ul>
+              <li><a href="#type-systems">Type Systems</a><ul>
+              <li><a href="#rules">Rules</a></li>
+              <li><a href="#type-safety">Type Safety</a></li>
+              <li><a href="#types">Types</a></li>
+              <li><a href="#small-step-semantics">Small-Step Semantics</a></li>
+              <li><a href="#observations">Observations</a></li>
+              <li><a href="#simply-typed-lambda-calculus">Simply Typed Lambda Calculus</a></li>
+              <li><a href="#type-checker">Type Checker</a></li>
+              <li><a href="#evaluation">Evaluation</a></li>
+              <li><a href="#observations-1">Observations</a></li>
+              <li><a href="#notation-reference">Notation Reference</a></li>
+              <li><a href="#full-source">Full Source</a></li>
+              </ul></li>
+              </ul>
+          </div>
+
+          <div class="span9 body">
+<!--<h1>Implementing a Functional Language in Haskell</h1>--!>
+<div style="display:none">
+<p><span class="math display">\[\newcommand{\andalso}{\quad\quad}
+\newcommand{\infabbrev}[2]{\infax{#1 \quad\eqdef\quad #2}}
+\newcommand{\infrule}[2]{\displaystyle \dfrac{#1}{#2}}
+\newcommand{\ar}{\rightarrow}
+\newcommand{\Int}{\mathtt{Int}}
+\newcommand{\Bool}{\mathtt{Bool}}
+\newcommand{\becomes}{\Downarrow}
+\newcommand{\trule}[1]{(\textbf{#1})}
+\newcommand{\FV}[1]{\mathtt{fv}(#1)}
+\newcommand{\FTV}[1]{\mathtt{ftv}(#1)}
+\newcommand{\BV}[1]{\mathtt{bv}(#1)}
+\newcommand{\compiles}[1]{\text{C}\llbracket{#1}\rrbracket}
+\newcommand{\exec}[1]{\text{E}\llbracket{#1}\rrbracket}
+\renewcommand{\t}[1]{\mathtt{#1}}
+\newcommand{\ite}[3]{\text{if }#1\text{ then }#2\text{ else }#3}
+\]</span></p>
+</div>
+<div class="pagetitle">
+<div class="figure">
+<img src="img/titles/type_systems.png" alt="" />
+
+</div>
+</div>
+<p class="halfbreak">
+</p>
+<blockquote>
+<p><em>[A type system is a] tractable syntactic method for proving the absence of certain program behaviors by classifying phrases according to the kinds of values they compute.</em></p>
+<p><cite>— Benjamin Pierce</cite></p>
+</blockquote>
+<p class="halfbreak">
+</p>
+<h1 id="type-systems">Type Systems</h1>
+<p>Type systems are a formal language in which we can describe and restrict the semantics of a programming language. The study of the subject is a rich and open area of research with many degrees of freedom in the design space.</p>
+<p><em>As stated in the introduction, this is a very large topic and we are only going to cover enough of it to get through writing the type checker for our language, not the subject in its full generality.</em> The classic text that everyone reads is <em>Types and Programming Languages</em> or ( TAPL ) and discusses the topic more in depth. In fact we will follow TAPL very closely with a bit of a Haskell flavor.</p>
+<h2 id="rules">Rules</h2>
+<p>In the study of programming language semantics, logical statements are written in a specific logical notation. A property, for our purposes, will be a fact about the type of a term. It is written with the following notation:</p>
+<p><span class="math display">\[
+1 : \t{Nat}
+\]</span></p>
+<p>These facts exist within a preset universe of discourse called a <em>type system</em> with definitions, properties, conventions, and rules of logical deduction about types and terms. Within a given system, we will have several properties about these terms. For example:</p>
+<ul>
+<li><strong>(A1)</strong> 0 is a natural number.</li>
+<li><strong>(A2)</strong> For a natural number <span class="math inline">\(n\)</span>, <span class="math inline">\(\mathtt{succ}(n)\)</span> is a natural number.</li>
+</ul>
+<p>Given several properties about natural numbers, we'll use a notation that will allow us to chain them together to form proofs about arbitrary terms in our system.</p>
+<p><span class="math display">\[
+\begin{array}{cl}
+\infrule{}{0 : \mathtt{Nat}} &amp; \trule{A1} \\ \\
+\infrule{n : \mathtt{Nat}}{\mathtt{succ}(n) : \mathtt{Nat}} &amp; \trule{A2} \\ \\
+\end{array}
+\]</span></p>
+<p>In this notation, the expression above the line is called the <em>antecedent</em>, and expression below the line is called the <em>conclusion</em>. A rule with no antecedent is an <em>axiom</em>.</p>
+<p>The variable <span class="math inline">\(n\)</span> is <em>metavariable</em> standing for any natural number, an instance of a rule is a substitution of values for these metavariables. A <em>derivation</em> is a tree of rules of finite depth. We write <span class="math inline">\(\vdash C\)</span> to indicate that there exists a derivation whose conclusion is <span class="math inline">\(C\)</span>, that <span class="math inline">\(C\)</span> is provable.</p>
+<p>For example <span class="math inline">\(\vdash 2 : \t{Nat}\)</span> by the derivation:</p>
+<p><span class="math display">\[
+\dfrac
+  {
+    \quad
+    \dfrac
+    {
+      \quad
+      \dfrac{}
+      {
+        0 : \t{Nat}
+      }
+      \trule{A1}
+    }
+    {
+      \t{succ}(0) : \t{Nat}
+    }
+    \trule{A2}
+  }
+  {
+    \t{succ}(\t{succ}(0)) : \t{Nat}
+  }
+  \trule{A2}
+\]</span></p>
+<p>Also present in these derivations may be a <em>typing context</em> or <em>typing environment</em> written as <span class="math inline">\(\Gamma\)</span>. The context is a sequence of named variables mapped to properties about the named variable. The comma operator for the context extends <span class="math inline">\(\Gamma\)</span> by adding a new property on the right of the existing set. The empty context is denoted <span class="math inline">\(\varnothing\)</span> and is the terminal element in this chain of properties that carries no information. So contexts are defined by:</p>
+<p><span class="math display">\[
+\begin{aligned}
+\Gamma ::=\ &amp; \varnothing \\
+            &amp; \Gamma,\  x : \tau  \\
+\end{aligned}
+\]</span></p>
+<p>Here is an example for a typing rule for addition using contexts:</p>
+<p><span class="math display">\[
+\frac{\Gamma \vdash e_1 : \t{Nat} \quad \Gamma \vdash e_2 :
+  \t{Nat}}{\Gamma \vdash e_1 + e_2 : \t{Nat}}
+\]</span></p>
+<p>In the case where the property is always implied regardless of the context we will shorten the expression. This is just a lexical convention.</p>
+<p><span class="math display">\[
+{\varnothing \vdash P} \quad \quad := \quad {\vdash P}
+\]</span></p>
+<h2 id="type-safety">Type Safety</h2>
+<p>In the context of modeling the semantics of programming languages using this logical notation, we often refer to two fundamental categories of rules of the semantics.</p>
+<ul>
+<li><strong>Statics</strong> : Semantic descriptions which are derived from the syntax of the language.</li>
+<li><strong>Dynamics</strong> : Semantics descriptions which describe the value evolution resulting from a program.</li>
+</ul>
+<p><em>Type safety</em> is defined to be the equivalence between the statics and the dynamics of the language. This equivalence is modeled by two properties that relate the types and evaluation semantics:</p>
+<ul>
+<li><strong>Progress</strong> : If an expression is well typed then either it is a value, or it can be further evaluated by an available evaluation rule.</li>
+<li><strong>Preservation</strong> : If an expression <span class="math inline">\(e\)</span> has type <span class="math inline">\(\tau\)</span>, and is evaluated to <span class="math inline">\(e&#39;\)</span>, then <span class="math inline">\(e&#39;\)</span> has type <span class="math inline">\(\tau\)</span>.</li>
+</ul>
+<h2 id="types">Types</h2>
+<p>The word &quot;type&quot; is quite often overload in the common programming lexicon. Other languages often refer to runtime tags present in the dynamics of the languages as &quot;types&quot;. Some examples:</p>
+<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash"><span class="co"># Python</span>
+<span class="kw">&gt;&gt;&gt;</span> <span class="kw">type</span>(1)
+<span class="kw">&lt;type</span> <span class="st">&#39;int&#39;</span><span class="kw">&gt;</span>
+
+<span class="co"># Javascript</span>
+<span class="kw">&gt;</span> <span class="kw">typeof</span>(1)
+<span class="st">&#39;number&#39;</span>
+
+<span class="co"># Ruby</span>
+<span class="kw">irb</span>(main):<span class="kw">001</span>:<span class="kw">0&gt;</span> 1.class
+=<span class="kw">&gt;</span> <span class="kw">Fixnum</span>
+
+<span class="co"># Julia</span>
+<span class="kw">julia&gt;</span> typeof(1)
+<span class="kw">Int64</span>
+
+<span class="co"># Clojure</span>
+<span class="ot">user=</span><span class="kw">&gt;</span> <span class="kw">(type</span> 1<span class="kw">)</span>
+<span class="kw">java.lang.Long</span></code></pre></div>
+<p>While this is a perfectly acceptable alternative definition, we are not going to go that route and instead restrict ourselves purely to the discussion of <em>static types</em>, in other words types which are known before runtime. Under this set of definitions many so-called dynamically typed languages often only have a single static type. For instance in Python all static types are subsumed by the <code>PyObject</code> and it is only at runtime that the tag <code>PyTypeObject *ob_type</code> is discriminated on to give rise to the Python notion of &quot;types&quot;. Again, this is not the kind of type we will discuss. The trade-offs that these languages make is that they often have trivial static semantics while the dynamics for the language are often exceedingly complicated. Languages like Haskell and OCaml are the opposite point in this design space.</p>
+<p>Types will usually be written as <span class="math inline">\(\tau\)</span> and can consist of many different constructions to the point where the type language may become as rich as the value level language. For now let's only consider three simple types, two <em>ground types</em> (<span class="math inline">\(\t{Nat}\)</span> and <span class="math inline">\(\t{Bool}\)</span>) and an <em>arrow type</em>.</p>
+<p><span class="math display">\[
+\begin{aligned}
+\tau ::=\ &amp; \t{Bool} \\
+          &amp; \t{Nat} \\
+          &amp; \tau \rightarrow \tau \\
+\end{aligned}
+\]</span></p>
+<p>The arrow type will be the type of function expressions, the left argument being the input type and the output type on the right. The arrow type will by convention associate to the right.</p>
+<p><span class="math display">\[
+\tau_1 \to \tau_2 \to \tau_3 \to \tau_4 \quad = \quad \tau_1 \to (\tau_2 \to (\tau_3 \to \tau_4))
+\]</span></p>
+<p>In all the languages which we will implement the types present during compilation are <em>erased</em>. Although types are possibly present in the evaluation semantics, the runtime cannot dispatch on types of values at runtime. Types by definition only exist at compile-time in the static semantics of the language.</p>
+<h2 id="small-step-semantics">Small-Step Semantics</h2>
+<p>The real quantity we're interested in formally describing is expressions in programming languages. A programming language semantics is described by the <em>operational semantics</em> of the language. The operational semantics can be thought of as a description of an abstract machine which operates over the abstract terms of the programming language in the same way that a virtual machine might operate over instructions.</p>
+<p>We use a framework called <em>small-step semantics</em> where a derivation shows how individual rewrites compose to produce a term, which we can evaluate to a value through a sequence of state changes. This is a framework for modeling aspects of the runtime behavior of the program before running it by describing the space of possible transitions type and terms may take. Ultimately we'd like the term to transition and terminate to a <em>value</em> in our language instead of becoming &quot;stuck&quot; as we encountered before.</p>
+<p>Recall our little calculator language from before when we constructed our first parser:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Expr</span>
+  <span class="fu">=</span> <span class="dt">Tr</span>
+  <span class="fu">|</span> <span class="dt">Fl</span>
+  <span class="fu">|</span> <span class="dt">IsZero</span> <span class="dt">Expr</span>
+  <span class="fu">|</span> <span class="dt">Succ</span> <span class="dt">Expr</span>
+  <span class="fu">|</span> <span class="dt">Pred</span> <span class="dt">Expr</span>
+  <span class="fu">|</span> <span class="dt">If</span> <span class="dt">Expr</span> <span class="dt">Expr</span> <span class="dt">Expr</span>
+  <span class="fu">|</span> <span class="dt">Zero</span></code></pre></div>
+<p>The expression syntax is as follows:</p>
+<p><span class="math display">\[
+\begin{aligned}
+e ::=\ &amp; \t{True} \\
+       &amp; \t{False}  \\
+       &amp; \t{iszero}\ e \\
+       &amp; \t{succ}\ e \\
+       &amp; \t{pred}\ e \\
+       &amp; \ite{e}{e}{e} \\
+       &amp; 0  \\
+\end{aligned}
+\]</span></p>
+<p>The small step evaluation semantics for this little language is uniquely defined by the following 9 rules. They describe each step that an expression may take during evaluation which may or may not terminate and converge on a value.</p>
+<p><span class="math display">\[
+\begin{array}{cl}
+   \displaystyle \frac{e_1 \to e_2}{\t{succ}\ e_1 \to \t{succ}\ e_2} &amp; \trule{E-Succ} \\ \\
+   \displaystyle \frac{e_1 \to e_2}{\t{pred}\ e_1 \to \t{pred}\ e_2} &amp; \trule{E-Pred} \\ \\
+   \displaystyle \t{pred}\ 0 \to 0 &amp; \trule{E-PredZero} \\ \\
+   \displaystyle \t{pred}\ (\t{succ}\ n) \to n &amp; \trule{E-PredSucc} \\ \\
+   \displaystyle \frac{e_1 \to e_2}{\t{iszero}\ e_1 \to \t{iszero}\ e_2} &amp; \trule{E-IsZero} \\ \\
+   \displaystyle \t{iszero}\ 0 \to \t{true} &amp; \trule{E-IsZeroZero} \\ \\
+   \displaystyle \t{iszero}\ (\t{succ}\ n) \to \t{false} &amp; \trule{E-IsZeroSucc} \\ \\
+   \displaystyle \ite{\t{True}}{e_2}{e_3} \rightarrow e_2 &amp; \trule{E-IfTrue} \\ \\
+   \displaystyle \ite{\t{False}}{e_2}{e_3} \rightarrow e_3 &amp; \trule{E-IfFalse} \\ \\
+\end{array}
+\]</span></p>
+<p>The evaluation logic for our interpreter simply reduced an expression by the predefined evaluation rules until either it reached a normal form ( a value ) or got stuck.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">nf ::</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">Expr</span>
+nf t <span class="fu">=</span> fromMaybe t (nf <span class="fu">&lt;$&gt;</span> eval1 t)
+
+<span class="ot">eval ::</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">Maybe</span> <span class="dt">Expr</span>
+eval t <span class="fu">=</span> <span class="kw">case</span> isVal (nf t) <span class="kw">of</span>
+  <span class="dt">True</span>  <span class="ot">-&gt;</span> <span class="dt">Just</span> (nf t)
+  <span class="dt">False</span> <span class="ot">-&gt;</span> <span class="dt">Nothing</span> <span class="co">-- term is &quot;stuck&quot;</span></code></pre></div>
+<p>Values in our language are defined to be literal numbers or booleans.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">isVal ::</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">Bool</span>
+isVal <span class="dt">Tr</span> <span class="fu">=</span> <span class="dt">True</span>
+isVal <span class="dt">Fl</span> <span class="fu">=</span> <span class="dt">True</span>
+isVal t <span class="fu">|</span> isNum t <span class="fu">=</span> <span class="dt">True</span>
+isVal _ <span class="fu">=</span> <span class="dt">False</span></code></pre></div>
+<p>Written in applicative form there is a noticeable correspondence between each of the evaluation rules and our evaluation logic.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- Evaluate a single step.</span>
+<span class="ot">eval1 ::</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">Maybe</span> <span class="dt">Expr</span>
+eval1 expr <span class="fu">=</span> <span class="kw">case</span> expr <span class="kw">of</span>
+  <span class="dt">Succ</span> t                    <span class="ot">-&gt;</span> <span class="dt">Succ</span> <span class="fu">&lt;$&gt;</span> (eval1 t)
+  <span class="dt">Pred</span> <span class="dt">Zero</span>                 <span class="ot">-&gt;</span> <span class="dt">Just</span> <span class="dt">Zero</span>
+  <span class="dt">Pred</span> (<span class="dt">Succ</span> t) <span class="fu">|</span> isNum t   <span class="ot">-&gt;</span> <span class="dt">Just</span> t
+  <span class="dt">Pred</span> t                    <span class="ot">-&gt;</span> <span class="dt">Pred</span> <span class="fu">&lt;$&gt;</span> (eval1 t)
+  <span class="dt">IsZero</span> <span class="dt">Zero</span>               <span class="ot">-&gt;</span> <span class="dt">Just</span> <span class="dt">Tr</span>
+  <span class="dt">IsZero</span> (<span class="dt">Succ</span> t) <span class="fu">|</span> isNum t <span class="ot">-&gt;</span> <span class="dt">Just</span> <span class="dt">Fl</span>
+  <span class="dt">IsZero</span> t                  <span class="ot">-&gt;</span> <span class="dt">IsZero</span> <span class="fu">&lt;$&gt;</span> (eval1 t)
+  <span class="dt">If</span> <span class="dt">Tr</span>  c _                <span class="ot">-&gt;</span> <span class="dt">Just</span> c
+  <span class="dt">If</span> <span class="dt">Fl</span> _ a                 <span class="ot">-&gt;</span> <span class="dt">Just</span> a
+  <span class="dt">If</span> t c a                  <span class="ot">-&gt;</span> (\t&#39; <span class="ot">-&gt;</span> <span class="dt">If</span> t&#39; c a) <span class="fu">&lt;$&gt;</span> eval1 t
+  _                         <span class="ot">-&gt;</span> <span class="dt">Nothing</span></code></pre></div>
+<p>As we noticed before we could construct all sorts of pathological expressions that would become stuck. Looking at the evaluation rules, each of the guarded pattern matches gives us a hint of where things might &quot;go wrong&quot; whenever a boolean is used in the place of a number and vice versa. We'd like to statically enforce this invariant at compile-time instead, and so we'll introduce a small type system to handle the two syntactic categories of terms that exist. In addition to the arrow type, we add the abstract type of natural numbers and the type of booleans:</p>
+<p><span class="math display">\[
+\begin{aligned}
+\tau ::=\ &amp; \t{Bool} \\
+          &amp; \t{Nat} \\
+          &amp; \tau \rightarrow \tau \\
+\end{aligned}
+\]</span></p>
+<p>Which is implemented in Haskell as the following datatype:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Type</span>
+  <span class="fu">=</span> <span class="dt">TBool</span>
+  <span class="fu">|</span> <span class="dt">TNat</span>
+  <span class="fu">|</span> <span class="dt">TArr</span> <span class="dt">Type</span> <span class="dt">Type</span></code></pre></div>
+<p>Now for the typing rules:</p>
+<p><span class="math display">\[
+\begin{array}{cl}
+ \displaystyle \frac{e_1 : \t{Nat}}{\t{succ}\ e_1 : \t{Nat}} &amp; \trule{T-Succ} \\ \\
+ \displaystyle \frac{e_1 : \t{Nat}}{\t{pred}\ e_1 : \t{Nat}} &amp; \trule{T-Pred} \\ \\
+ \displaystyle \frac{e_1 : \t{Nat}}{\t{iszero}\ e_1 : \t{Bool}} &amp; \trule{T-IsZero} \\ \\
+ \displaystyle 0 : \t{Nat} &amp; \trule{T-Zero} \\ \\
+ \displaystyle \t{True} : \t{Bool} &amp; \trule{T-True} \\ \\
+ \displaystyle \t{False} : \t{Bool} &amp; \trule{T-False} \\ \\
+ \displaystyle
+   \frac{e_1 : \t{Bool} \quad e_2 : \tau \quad e_3 : \tau}{\ite{e_1}{e_2}{e_3} :
+     \tau} &amp; \trule{T-If} \\ \\
+\end{array}
+\]</span></p>
+<p>These rules restrict the space of all possible programs. It is more involved to show, but this system has both progress and preservation as well. If a term is now well-typed it will always evaluate to a value and cannot &quot;go wrong&quot; at evaluation.</p>
+<p>To check the well-formedness of an expression we implement a piece of logic known as <em>type checker</em> which determines whether the term has a well-defined type in terms of typing rules, and if so returns it or fails with an exception in the case where it does not.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">Check</span> a <span class="fu">=</span> <span class="dt">Except</span> <span class="dt">TypeError</span> a
+
+<span class="kw">data</span> <span class="dt">TypeError</span>
+  <span class="fu">=</span> <span class="dt">TypeMismatch</span> <span class="dt">Type</span> <span class="dt">Type</span>
+
+<span class="ot">check ::</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">Either</span> <span class="dt">TypeError</span> <span class="dt">Type</span>
+check <span class="fu">=</span> runExcept <span class="fu">.</span> typeof</code></pre></div>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">typeof ::</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">Check</span> <span class="dt">Type</span>
+typeof expr <span class="fu">=</span> <span class="kw">case</span> expr <span class="kw">of</span>
+  <span class="dt">Succ</span> a <span class="ot">-&gt;</span> <span class="kw">do</span>
+    ta <span class="ot">&lt;-</span> typeof a
+    <span class="kw">case</span> ta <span class="kw">of</span>
+      <span class="dt">TNat</span> <span class="ot">-&gt;</span> return <span class="dt">TNat</span>
+      _    <span class="ot">-&gt;</span> throwError <span class="fu">$</span> <span class="dt">TypeMismatch</span> ta <span class="dt">TNat</span>
+
+  <span class="dt">Pred</span> a <span class="ot">-&gt;</span> <span class="kw">do</span>
+    ta <span class="ot">&lt;-</span> typeof a
+    <span class="kw">case</span> ta <span class="kw">of</span>
+      <span class="dt">TNat</span> <span class="ot">-&gt;</span> return <span class="dt">TNat</span>
+      _    <span class="ot">-&gt;</span> throwError <span class="fu">$</span> <span class="dt">TypeMismatch</span> ta <span class="dt">TNat</span>
+
+  <span class="dt">IsZero</span> a <span class="ot">-&gt;</span> <span class="kw">do</span>
+    ta <span class="ot">&lt;-</span> typeof a
+    <span class="kw">case</span> ta <span class="kw">of</span>
+      <span class="dt">TNat</span> <span class="ot">-&gt;</span> return <span class="dt">TBool</span>
+      _    <span class="ot">-&gt;</span> throwError <span class="fu">$</span> <span class="dt">TypeMismatch</span> ta <span class="dt">TNat</span>
+
+  <span class="dt">If</span> a b c <span class="ot">-&gt;</span> <span class="kw">do</span>
+    ta <span class="ot">&lt;-</span> typeof a
+    tb <span class="ot">&lt;-</span> typeof b
+    tc <span class="ot">&lt;-</span> typeof c
+    <span class="kw">if</span> ta <span class="fu">/=</span> <span class="dt">TBool</span>
+    <span class="kw">then</span> throwError <span class="fu">$</span> <span class="dt">TypeMismatch</span> ta <span class="dt">TBool</span>
+    <span class="kw">else</span>
+      <span class="kw">if</span> tb <span class="fu">/=</span> tc
+      <span class="kw">then</span> throwError <span class="fu">$</span> <span class="dt">TypeMismatch</span> ta tb
+      <span class="kw">else</span> return tc
+
+  <span class="dt">Tr</span>   <span class="ot">-&gt;</span> return <span class="dt">TBool</span>
+  <span class="dt">Fl</span>   <span class="ot">-&gt;</span> return <span class="dt">TBool</span>
+  <span class="dt">Zero</span> <span class="ot">-&gt;</span> return <span class="dt">TNat</span></code></pre></div>
+<h2 id="observations">Observations</h2>
+<p>The pathological stuck terms that we encountered previously in our untyped language are now completely inexpressive and are rejected at compile-time.</p>
+<div class="sourceCode"><pre class="sourceCode ocaml"><code class="sourceCode ocaml"><span class="dt">Arith</span>&gt; succ <span class="dv">0</span>
+succ <span class="dv">0</span> : <span class="dt">Nat</span>
+
+<span class="dt">Arith</span>&gt; succ (succ <span class="dv">0</span>)
+succ (succ <span class="dv">0</span>) : <span class="dt">Nat</span>
+
+<span class="dt">Arith</span>&gt; <span class="kw">if</span> <span class="kw">false</span> <span class="kw">then</span> <span class="kw">true</span> <span class="kw">else</span> <span class="kw">false</span>
+<span class="kw">false</span> : <span class="dt">Bool</span>
+
+<span class="dt">Arith</span>&gt; iszero (pred (succ (succ <span class="dv">0</span>)))
+<span class="kw">false</span> : <span class="dt">Bool</span>
+
+<span class="dt">Arith</span>&gt; pred (succ <span class="dv">0</span>)
+<span class="dv">0</span> : <span class="dt">Nat</span>
+
+<span class="dt">Arith</span>&gt; iszero <span class="kw">false</span>
+<span class="dt">Type</span> <span class="dt">Mismatch</span>: <span class="dt">Bool</span> is not <span class="dt">Nat</span>
+
+<span class="dt">Arith</span>&gt; <span class="kw">if</span> <span class="dv">0</span> <span class="kw">then</span> <span class="kw">true</span> <span class="kw">else</span> <span class="kw">false</span>
+<span class="dt">Type</span> <span class="dt">Mismatch</span>: <span class="dt">Nat</span> is not <span class="dt">Bool</span></code></pre></div>
+<p>This is good, we've made a whole class of illegal programs unrepresentable. Lets do more of this!</p>
+<h2 id="simply-typed-lambda-calculus">Simply Typed Lambda Calculus</h2>
+<p>The <em>simply typed lambda calculus</em> ( STLC ) of Church and Curry is an extension of the lambda calculus that annotates each lambda binder with a type term. The STLC is <em>explictly typed</em>, all types are present directly on the binders and to determine the type of any variable in scope we only need to traverse to its enclosing scope.</p>
+<p><span class="math display">\[
+\begin{aligned}
+e :=\ &amp; x \\
+     &amp; e_1\ e_2 \\
+     &amp; \lambda x : \tau . e \\
+\end{aligned}
+\]</span></p>
+<p>The simplest STLC language is these three terms, however we will add numeric and boolean literal terms so that we can write meaningful examples.</p>
+<p><span class="math display">\[
+\begin{aligned}
+e :=\ &amp; x \\
+     &amp; e_1\ e_2 \\
+     &amp; \lambda x : \tau . e \\
+     &amp; n \\
+     &amp; \t{true} \\
+     &amp; \t{false} \\
+     &amp; \ite{e}{e}{e} \\
+\end{aligned}
+\]</span></p>
+<p>We can consider a very simple type system for our language that will consist of <code>Int</code> and <code>Bool</code> types and function types.</p>
+<p><span class="math display">\[
+\begin{aligned}
+\tau :=\ &amp; \t{Int} \\
+         &amp; \t{Bool} \\ 
+         &amp; \tau \rightarrow \tau \\
+\end{aligned}
+\]</span></p>
+<h2 id="type-checker">Type Checker</h2>
+<p>The typing rules are quite simple, and again we get the nice property that there is a one-to-one mapping between each syntax term and a typing rule.</p>
+<ul>
+<li><strong>T-Var</strong> Variables are simply pulled from the context.</li>
+<li><strong>T-Lam</strong> lambdas introduce a typed variable into the environment when inferring the body.</li>
+<li><strong>T-App</strong> Applications of a lambda with type <code>t1 -&gt; t2</code> to a value of type <code>t1</code> yields a value of type <code>t2</code>.</li>
+</ul>
+<p><span class="math display">\[
+\begin{array}{cl}
+ \displaystyle \frac{x:\sigma \in \Gamma}{\Gamma \vdash x:\sigma} &amp; \trule{T-Var} \\ \\
+ \displaystyle \infrule{\Gamma, x : \tau_1 \vdash e : \tau_2}{\Gamma \vdash \lambda x:\tau_1 . e : \tau_1 \rightarrow \tau_2 } &amp; \trule{T-Lam} \\ \\
+ \displaystyle \infrule{\Gamma \vdash e_1 : \tau_1 \rightarrow \tau_2 \andalso \Gamma \vdash e_2 : \tau_1}{\Gamma \vdash e_1 e_2 : \tau_2} &amp; \trule{T-App} \\ \\
+ \displaystyle
+   \frac{\Gamma \vdash c : \t{Bool} \quad \Gamma \vdash e_1 : \tau
+     \quad \Gamma \vdash e_2 : \tau}{\Gamma \vdash \ite{c}{e_1}{e_2} :
+     \tau} &amp; \trule{T-If} \\ \\
+ \displaystyle \Gamma \vdash n : \t{Int} &amp; \trule{T-Int} \\ \\
+ \displaystyle \Gamma \vdash \t{True} : \t{Bool} &amp; \trule{T-True} \\ \\
+ \displaystyle \Gamma \vdash \t{False} : \t{Bool} &amp; \trule{T-False} \\ \\
+\end{array}
+\]</span></p>
+<p>The evaluation rules describe the nature by which values transition between other values and determine the runtime behavior of the program.</p>
+<p><span class="math display">\[
+\begin{array}{cl}
+ \displaystyle \frac{e_1 \to e_1&#39;}{e_1 e_2 \to e_1&#39; e_2} &amp; \trule{E-App1} \\ \\
+ \displaystyle \frac{e_2 \to e_2&#39;}{v_1 e_2 \to v_1 e_2&#39;} &amp; \trule{E-App2} \\ \\
+ \displaystyle {(\lambda x: \tau . e_1) v_2 \to [x / v_2] e_1 } &amp; \trule{E-AppLam} \\ \\
+ \displaystyle \ite{\t{True}}{e_2}{e_3} \rightarrow e_2 &amp; \trule{E-IfTrue} \\ \\
+ \displaystyle \ite{\t{False}}{e_2}{e_3} \rightarrow e_3 &amp; \trule{E-IfFalse} \\ \\
+ \displaystyle \frac{e_1 \to e_1&#39;}{\ite{e_1}{e_2}{e_3} \to \ite{e_1&#39;}{e_2}{e_3}} &amp; \trule{E-If} \\ \\
+\end{array}
+\]</span></p>
+<p>Since we now have the notion of scoped variables for lambda, we will implement a typing environment <code>Env</code> as manifest as <span class="math inline">\(\Gamma\)</span> in our typing rules.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">Env</span> <span class="fu">=</span> [(<span class="dt">Name</span>, <span class="dt">Type</span>)]
+
+<span class="ot">extend ::</span> (<span class="dt">Name</span>, <span class="dt">Type</span>) <span class="ot">-&gt;</span> <span class="dt">Env</span> <span class="ot">-&gt;</span> <span class="dt">Env</span>
+extend xt env <span class="fu">=</span> xt <span class="fu">:</span> env
+
+<span class="ot">inEnv ::</span> (<span class="dt">Name</span>, <span class="dt">Type</span>) <span class="ot">-&gt;</span> <span class="dt">Check</span> a <span class="ot">-&gt;</span> <span class="dt">Check</span> a
+inEnv (x,t) <span class="fu">=</span> local (extend (x,t))
+
+<span class="ot">lookupVar ::</span> <span class="dt">Name</span> <span class="ot">-&gt;</span> <span class="dt">Check</span> <span class="dt">Type</span>
+lookupVar x <span class="fu">=</span> <span class="kw">do</span>
+  env <span class="ot">&lt;-</span> ask
+  <span class="kw">case</span> lookup x env <span class="kw">of</span>
+    <span class="dt">Just</span> e  <span class="ot">-&gt;</span> return e
+    <span class="dt">Nothing</span> <span class="ot">-&gt;</span> throwError <span class="fu">$</span> <span class="dt">NotInScope</span> x</code></pre></div>
+<p>The typechecker will be a <code>ExceptT</code> + <code>Reader</code> monad transformer stack, with the reader holding the typing environment. There are three possible failure modes for our simply typed lambda calculus typechecker:</p>
+<ul>
+<li>The case when we try to unify two unlike types.</li>
+<li>The case when we try to apply a non-function to an argument.</li>
+<li>The case when a variable is referred to that is not in scope.</li>
+</ul>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">TypeError</span>
+  <span class="fu">=</span> <span class="dt">Mismatch</span> <span class="dt">Type</span> <span class="dt">Type</span>
+  <span class="fu">|</span> <span class="dt">NotFunction</span> <span class="dt">Type</span>
+  <span class="fu">|</span> <span class="dt">NotInScope</span> <span class="dt">Name</span>
+
+<span class="kw">type</span> <span class="dt">Check</span> <span class="fu">=</span> <span class="dt">ExceptT</span> <span class="dt">TypeError</span> (<span class="dt">Reader</span> <span class="dt">Env</span>)</code></pre></div>
+<p>There is a direct equivalence between syntax patterns here and the equivalent typing judgement for it. This will not always be the case in general though. The implementation of the type checker is as follows:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">check ::</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">Check</span> <span class="dt">Type</span>
+check expr <span class="fu">=</span> <span class="kw">case</span> expr <span class="kw">of</span>
+
+  <span class="dt">Lit</span> (<span class="dt">LInt</span>{}) <span class="ot">-&gt;</span> return <span class="dt">TInt</span>
+
+  <span class="dt">Lit</span> (<span class="dt">LBool</span>{}) <span class="ot">-&gt;</span> return <span class="dt">TBool</span>
+
+  <span class="dt">Lam</span> x t e <span class="ot">-&gt;</span> <span class="kw">do</span>
+    rhs <span class="ot">&lt;-</span> inEnv (x,t) (check e)
+    return (<span class="dt">TArr</span> t rhs)
+
+  <span class="dt">App</span> e1 e2 <span class="ot">-&gt;</span> <span class="kw">do</span>
+    t1 <span class="ot">&lt;-</span> check e1
+    t2 <span class="ot">&lt;-</span> check e2
+    <span class="kw">case</span> t1 <span class="kw">of</span>
+       (<span class="dt">TArr</span> a b) <span class="fu">|</span> a <span class="fu">==</span> t2 <span class="ot">-&gt;</span> return b
+                  <span class="fu">|</span> otherwise <span class="ot">-&gt;</span> throwError <span class="fu">$</span> <span class="dt">Mismatch</span> t2 a
+       ty <span class="ot">-&gt;</span> throwError <span class="fu">$</span> <span class="dt">NotFunction</span> ty
+
+  <span class="dt">Var</span> x <span class="ot">-&gt;</span> lookupVar x</code></pre></div>
+<h2 id="evaluation">Evaluation</h2>
+<p>Fundamentally the evaluation of the typed lambda calculus is no different than the untyped lambda calculus, nor could it be since the syntactic addition of types is purely a static construction and cannot have any manifestation at runtime by definition. The only difference is that the simply typed lambda calculus admits strictly less programs than the untyped lambda calculus.</p>
+<p>The foundational idea in compilation of static typed languages is that a typed program can be transformed into an untyped program by <em>erasing</em> type information but preserving the evaluation semantics of the typed program. If our program has <em>type safety</em> then it can never &quot;go wrong&quot; at runtime.</p>
+<p>Of course the converse is not true, programs that do not &quot;go wrong&quot; are not necessarily well-typed, although whether we can prove whether a non well-typed program cannot go wrong is an orthogonal issue. The game that we as statically typed language implementors play is fundamentally one of restriction: we take the space of all programs and draw a large line around the universe of discourse of programs that we are willing to consider, since these are the only programs that we can prove properties for.</p>
+<blockquote>
+<p><em>Well-typed programs don't go wrong, but not every program that never goes wrong is well-typed. It's easy to exhibit programs that don't go wrong but are ill-typed in ... any ... decidable type system. Many such programs are useful, which is why dynamically-typed languages like Erlang and Lisp are justly popular.</em></p>
+<p><cite>— Simon Peyton Jones</cite></p>
+</blockquote>
+<!--
+![](img/abysmal_pain.png)
+-->
+<p>Power always comes at a price. Using one system you can do more things. In another you can say more about the things a program can do. The fundamental art in the discipline of language design is balancing the two to find the right power-to-weight ratio.</p>
+<h2 id="observations-1">Observations</h2>
+<p>Some examples to try:</p>
+<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash"><span class="kw">Stlc&gt;</span> (\x : Int . \y : Int . y) <span class="kw">1</span> 2
+<span class="kw">2</span>
+
+<span class="kw">Stlc&gt;</span> (\x : (Int -<span class="kw">&gt;</span> Int)<span class="kw">.</span> <span class="kw">x</span>) <span class="kw">(</span>\<span class="kw">x</span> : Int . 1<span class="kw">)</span> <span class="kw">2</span>
+<span class="kw">1</span>
+
+<span class="kw">Stlc&gt;</span> (\x : Int . x) <span class="kw">False</span>
+<span class="kw">Couldn</span><span class="st">&#39;t match expected type &#39;</span>Int<span class="st">&#39; with actual type: &#39;</span>Bool<span class="st">&#39;</span></code></pre></div>
+<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash"><span class="kw">Stlc&gt;</span> 1 2
+<span class="kw">Tried</span> to apply to non-function type: Int
+
+<span class="kw">Stlc&gt;</span> (\x : Int . (\y : Int . x))
+&lt;&lt;closure<span class="kw">&gt;&gt;</span></code></pre></div>
+<h2 id="notation-reference">Notation Reference</h2>
+<p>The notation introduced here will be used throughout the construction of the Haskell compiler. For reference here is a list of each of the notational conventions we will use. Some of these terms are not yet introduced.</p>
+<p class="halfbreak">
+</p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">Notation</th>
+<th align="left">Convention</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left"><span class="math inline">\(\{ a, b, c \}\)</span></td>
+<td align="left">Set</td>
+</tr>
+<tr class="even">
+<td align="left"><span class="math inline">\(\overline{\alpha}\)</span></td>
+<td align="left">Vector</td>
+</tr>
+<tr class="odd">
+<td align="left"><span class="math inline">\(e : \tau\)</span></td>
+<td align="left">Type judgement</td>
+</tr>
+<tr class="even">
+<td align="left"><span class="math inline">\(P(x)\)</span></td>
+<td align="left">Predicate</td>
+</tr>
+<tr class="odd">
+<td align="left"><span class="math inline">\(P(x) : Q(x)\)</span></td>
+<td align="left">Conditional</td>
+</tr>
+<tr class="even">
+<td align="left"><span class="math inline">\(P \vdash Q\)</span></td>
+<td align="left">Implication</td>
+</tr>
+<tr class="odd">
+<td align="left"><span class="math inline">\(\alpha,\beta\)</span></td>
+<td align="left">Type variables</td>
+</tr>
+<tr class="even">
+<td align="left"><span class="math inline">\(\Gamma\)</span></td>
+<td align="left">Type context</td>
+</tr>
+<tr class="odd">
+<td align="left"><span class="math inline">\(x, y, z\)</span></td>
+<td align="left">Expression variables</td>
+</tr>
+<tr class="even">
+<td align="left"><span class="math inline">\(e\)</span></td>
+<td align="left">Expression metavariable</td>
+</tr>
+<tr class="odd">
+<td align="left"><span class="math inline">\(\tau\)</span></td>
+<td align="left">Type metavariable</td>
+</tr>
+<tr class="even">
+<td align="left"><span class="math inline">\(\kappa\)</span></td>
+<td align="left">Kind metavariable</td>
+</tr>
+<tr class="odd">
+<td align="left"><span class="math inline">\(\sigma\)</span></td>
+<td align="left">Type scheme metavariable</td>
+</tr>
+<tr class="even">
+<td align="left"><span class="math inline">\(C\)</span></td>
+<td align="left">Type constraint</td>
+</tr>
+<tr class="odd">
+<td align="left"><span class="math inline">\(\tau_1 \sim \tau_2\)</span></td>
+<td align="left">Unification constraint</td>
+</tr>
+<tr class="even">
+<td align="left"><span class="math inline">\([\tau / \alpha]\)</span></td>
+<td align="left">Substitution</td>
+</tr>
+<tr class="odd">
+<td align="left"><span class="math inline">\(s\)</span></td>
+<td align="left">Substitution metavariable</td>
+</tr>
+<tr class="even">
+<td align="left"><span class="math inline">\([s] \tau\)</span></td>
+<td align="left">Substitution application</td>
+</tr>
+<tr class="odd">
+<td align="left"><span class="math inline">\(\tau_1 \rightarrow \tau_2\)</span></td>
+<td align="left">Function type</td>
+</tr>
+<tr class="even">
+<td align="left"><span class="math inline">\(C \Rightarrow \tau\)</span></td>
+<td align="left">Qualified type</td>
+</tr>
+<tr class="odd">
+<td align="left"><span class="math inline">\(\tau_1 \times \tau_2\)</span></td>
+<td align="left">Product type</td>
+</tr>
+<tr class="even">
+<td align="left"><span class="math inline">\(\tau_1 + \tau_2\)</span></td>
+<td align="left">Sum type</td>
+</tr>
+<tr class="odd">
+<td align="left"><span class="math inline">\(\bot\)</span></td>
+<td align="left">Bottom type</td>
+</tr>
+<tr class="even">
+<td align="left"><span class="math inline">\(\forall \alpha. \tau\)</span></td>
+<td align="left">Universal quantifier</td>
+</tr>
+<tr class="odd">
+<td align="left"><span class="math inline">\(\exists \alpha. \tau\)</span></td>
+<td align="left">Existential quantifier</td>
+</tr>
+<tr class="even">
+<td align="left"><span class="math inline">\(\mathtt{Nat}, \mathtt{Bool}\)</span></td>
+<td align="left">Ground type</td>
+</tr>
+</tbody>
+</table>
+<p class="halfbreak">
+</p>
+<h2 id="full-source">Full Source</h2>
+<ul>
+<li><a href="https://github.com/sdiehl/write-you-a-haskell/tree/master/chapter5/calc_typed">Typed Arithmetic</a></li>
+<li><a href="https://github.com/sdiehl/write-you-a-haskell/tree/master/chapter5/stlc">Simply Typed Lambda Calculus</a></li>
+</ul>
+<p></p>
+          </div>
+        </div>
+
+    </div>
+    <script src="https://code.jquery.com/jquery.js"></script>
+    <script src="js/nav.js"></script>
+  </body>
+
+<!-- Mirrored from dev.stephendiehl.com/fun/004_type_systems.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:55:43 GMT -->
+</html>

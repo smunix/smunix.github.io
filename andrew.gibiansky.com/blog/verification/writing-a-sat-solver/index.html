@@ -3,7 +3,7 @@
 <!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
 <!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
 
-<!-- Mirrored from andrew.gibiansky.com/blog/verification/writing-a-sat-solver/ by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 03:45:58 GMT -->
+<!-- Mirrored from andrew.gibiansky.com/blog/verification/writing-a-sat-solver/ by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:50:15 GMT -->
 <head>
   <meta charset="utf-8">
   <title>Writing a SAT Solver -  Andrew Gibiansky</title>
@@ -215,7 +215,7 @@ $$\begin{align*}
 (C_m \vee C_e) \wedge (H_m \vee H_e) \wedge (M_m \vee M_e) &\wedge\\
 (C_m \wedge \overline{H_m} \wedge \overline{W_m}) \vee (\overline{C_m} \wedge {H_m} \wedge \overline{W_m}) \vee (\overline{C_m} \wedge \overline{H_m} \wedge {W_m}) &\wedge\\
 (C_e \wedge \overline{H_e} \wedge \overline{W_e}) \vee (\overline{C_e} \wedge {H_e} \wedge \overline{W_e}) \vee (\overline{C_e} \wedge \overline{H_e} \wedge {W_e}) &
-\end{align*}$$<p>To find out whether we can complete our shopping trip, we must find a set of true or false values for all our boolean variables such that the constraints are <strong>satisfied</strong>. This type of problem is known as the <a href="https://en.wikipedia.org/wiki/Boolean_satisfiability_problem">boolean satisfiability problem</a>, often abbreviated to just "SAT". A program that finds solutions to these problems is known as a SAT solver.</p>
+\end{align*}$$<p>To find out whether we can complete our shopping trip, we must find a set of true or false values for all our boolean variables such that the constraints are <strong>satisfied</strong>. This type of problem is known as the <a href="../../../../en.wikipedia.org/wiki/Boolean_satisfiability_problem.html">boolean satisfiability problem</a>, often abbreviated to just "SAT". A program that finds solutions to these problems is known as a SAT solver.</p>
 
 </div>
 </div>
@@ -762,11 +762,11 @@ $$\begin{align*}
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <h2 id="Improving-our-Algorithm">Improving our Algorithm<a class="anchor-link" href="#Improving-our-Algorithm"></a></h2><p>Our simple backtracking algorithm, while it works, can be pretty slow. It's a brute-force solution to the problem: we simply search through all possible assignments of values to variables, and check whether any of them work. At worst, when given an expression with $N$ variables in it, backtracking search has to check $2^N$ different assignments; this happens if every single assignment is initially guessed incorrectly.</p>
-<p>Surprisingly enough, it's possible that asymptotically better algorithms don't exist, as some subsets of SAT (<a href="http://en.wikipedia.org/wiki/Boolean_satisfiability_problem#3-satisfiability">3-SAT</a>) are known to be NP-complete. The formal definition of NP-completeness involves a bit of math and complexity theory. Roughly speaking, NP problems are those that we can check but not necessarily solve in polynomial time, and NP-complete problems are problems that, if we could solve them in polynomial time, we could solve any NP problem in polynomial time. Computer scientists currently do not know if P is equal to NP; that is, whether all NP problems can be solved in polynomial times. Most people believe that that isn't the case, and that NP-complete problems <em>cannot</em> be solved efficiently (in polynomial time). Since 3-SAT is NP-complete, this means that it probably can't be solved in polynomial time, and so quite possibly the exponential asymptotics of backtracking search are the best we can do.</p>
+<p>Surprisingly enough, it's possible that asymptotically better algorithms don't exist, as some subsets of SAT (<a href="../../../../en.wikipedia.org/wiki/Boolean_satisfiability_problem.html#3-satisfiability">3-SAT</a>) are known to be NP-complete. The formal definition of NP-completeness involves a bit of math and complexity theory. Roughly speaking, NP problems are those that we can check but not necessarily solve in polynomial time, and NP-complete problems are problems that, if we could solve them in polynomial time, we could solve any NP problem in polynomial time. Computer scientists currently do not know if P is equal to NP; that is, whether all NP problems can be solved in polynomial times. Most people believe that that isn't the case, and that NP-complete problems <em>cannot</em> be solved efficiently (in polynomial time). Since 3-SAT is NP-complete, this means that it probably can't be solved in polynomial time, and so quite possibly the exponential asymptotics of backtracking search are the best we can do.</p>
 <p>However, even if asymptotically better algorithms cannot exist, that doesn't mean we can't have algorithms that are better in practice. One such algorithm, known as the DPLL Algorithm (named after it's creators, unabbreviated as the Davis–Putnam–Logemann–Loveland algorithm), is effectively a set of heuristics that optimize our simple backtracking search. Although the DPLL algorithm was invented decades ago (in the 60s), many modern SAT solvers still use DPLL as their base, adding many algorithmic tricks, data structures, and low-level optimizations to achieve high performance.</p>
 <h3 id="Conjunctive-Normal-Form-(CNF)">Conjunctive Normal Form (CNF)<a class="anchor-link" href="#Conjunctive-Normal-Form-(CNF)"></a></h3><p>The DPLL algorithm, unlike our backtracking search, requires that the input expressions be of a particular form, known as conjunctive normal form, or CNF. An expression is in CNF if it consists of conjunction of clauses, each of which is a disjunction of literals. In other words, we have a set of clauses; each clause consists of variables and negated variables which are all or-ed together; all the clauses are then and-ed together. For example, the expressions $A \wedge B \wedge (C \vee \overline A)$ and $(A \vee B) \wedge \overline A$ are in conjunctive normal form (CNF), but the expressions $\overline{\overline{A}} \vee B$ and $\overline{A \vee B}$ are not.</p>
 <p>It may seem at first that an algorithm that <em>only</em> works on such a restricted set of expressions is useless. Our backtracking search works on <em>any</em> bolean expression! What's the point of DPLL if it requires something in CNF?</p>
-<p>It turns out that any boolean expression can be <em>converted</em> to CNF fairly efficiently. If we apply <a href="http://en.wikipedia.org/wiki/De_Morgan%27s_laws">De Morgan's laws</a> and distribute "or"s over "ands" repeatedly, we eventually get an expression in CNF. Once we have our expression in CNF, we can feed it to DPLL.</p>
+<p>It turns out that any boolean expression can be <em>converted</em> to CNF fairly efficiently. If we apply <a href="../../../../en.wikipedia.org/wiki/De_Morgan%27s_laws.html">De Morgan's laws</a> and distribute "or"s over "ands" repeatedly, we eventually get an expression in CNF. Once we have our expression in CNF, we can feed it to DPLL.</p>
 <p>De Morgan's laws allow you to distribute negations over conjunctions (ands) and disjunctions (ors):</p>
 <ul>
 <li>$\overline{A \wedge B} = \overline{A} \vee \overline{B}$.</li>
@@ -1492,5 +1492,5 @@ $$A \vee (X \wedge Y) = (A \vee X) \wedge (A \vee Y)$$</p>
   </div>
 </body>
 
-<!-- Mirrored from andrew.gibiansky.com/blog/verification/writing-a-sat-solver/ by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 03:45:58 GMT -->
+<!-- Mirrored from andrew.gibiansky.com/blog/verification/writing-a-sat-solver/ by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:50:15 GMT -->
 </html>

@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+    
+<!-- Mirrored from www.well-typed.com/blog/73/ by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:53:55 GMT -->
+<head>
+        <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+        <title>
+           
+           Well-Typed - The Haskell Consultants: Communication Patterns in Cloud Haskell (Part 3)
+           
+        </title>
+        <link rel="Stylesheet" type="text/css" href="http://www.well-typed.com/css/wt.css" />
+        <link rel="shortcut icon" type="image/x-icon" href="http://www.well-typed.com/favicon.ico" />
+        
+    </head>
+    <body class="normal">
+
+<div class="pagelogo">
+<div class="smalllogo">
+  <a href="http://www.well-typed.com/"><img src="http://www.well-typed.com/img/wtlogo-small.png" width="243" height="70" alt="Well-Typed, The Haskell Consultants" /></a>
+</div>
+</div>
+
+<div class="bar">
+  <div class="smallmenu">
+<ul class="menu">
+  <li class="header"><a href="http://www.well-typed.com/services">Services</a>
+    <ul class="submenu">
+      <li class="subheader"><a href="http://www.well-typed.com/services_applications">Development</a></li>
+      <li class="subheader"><a href="http://www.well-typed.com/services_libraries">Maintenance</a></li>
+      <li class="subheader"><a href="http://www.well-typed.com/services_advice">Advice</a></li>
+      <li class="subheader"><a href="http://www.well-typed.com/services_training">Training</a></li>
+    </ul>
+  </li>
+  <li class="header"><a href="http://www.well-typed.com/about_welltyped">About</a>
+    <ul class="submenu">
+      <li class="subheader"><a href="http://www.well-typed.com/community">Community</a></li>
+      <li class="subheader"><a href="http://www.well-typed.com/who_we_are">Who We Are</a></li>
+      <li class="subheader"><a href="http://www.well-typed.com/contact">Contact</a></li>
+    </ul>
+  </li>
+  <li class="header"><a href="http://www.well-typed.com/press_releases">Press Releases</a></li>
+  <li class="header" id="active"><a href="http://www.well-typed.com/blog">Blog</a></li>
+</ul>
+</div>
+<div style="clear: both;"></div>
+
+
+</div>
+
+<div class="body">
+<div class="text">
+
+  <h1><a href="http://www.well-typed.com/blog/2012/10/communication-patterns-in-cloud-haskell-part-3">Communication Patterns in Cloud Haskell (Part 3)</a></h1>
+
+<p style="text-align: right"><small>Friday, 12 October 2012, by <a href="http://www.well-typed.com/blog/people/edsko">Edsko de Vries</a>.<br />
+  Filed under <a href="http://www.well-typed.com/blog/tags/parallel">parallel</a>, <a href="http://www.well-typed.com/blog/tags/cloud-haskell">cloud-haskell</a>.</small></p>
+
+<h2> Map-Reduce</h2><p>In <a href="http://www.well-typed.com/blog/71">Part 1</a> and <a href="http://www.well-typed.com/blog/72">Part 2</a> of this series we described a number of
+ways in which we might compute the number of prime factors of a set of numbers
+in a distributed manner.  Abstractly, these examples can be described as</p><blockquote><p>a problem <em>(computing the number of prime factors of 100 natural numbers)</em> is split
+into subproblems <em>(factorizing each number)</em>, those subproblems are
+solved by slave nodes, and the partial results are then combined
+<em>(summing the number of factors)</em></p></blockquote><p>This is reminiscent of Google's Map-Reduce algorithm (<a href="http://research.google.com/archive/mapreduce.html">MapReduce: Simplified
+Data Processing on Large Clusters</a>, Dean and
+Ghemawat, OSDI'04), with the &quot;Map&quot; part corresponding to the computation of
+partial results and the &quot;Reduce&quot; part corresponding to combining these results.
+We will explain the basic ideas behind Map-Reduce before giving a distributed
+implementation using work-stealing. </p><h2> Local map-reduce</h2><p>The exposition we give in this section is based on
+<a href="http://userpages.uni-koblenz.de/~laemmel/MapReduce/">Google's MapReduce Programming Model -- Revisited</a> by Ralf Laemmel (SCP 2008).
+The Map-Reduce algorithm transforms key-value maps; in Haskell,
+its type is given by</p><pre>-- The type of Map-Reduce skeletons (provided by the user)
+data MapReduce k1 v1 k2 v2 v3 = MapReduce {
+    mrMap    :: k1 -&gt; v1 -&gt; [(k2, v2)]
+  , mrReduce :: k2 -&gt; [v2] -&gt; v3
+  }
+
+-- The driver (which &quot;executes&quot; a Map-Reduce skeleton)
+localMapReduce :: Ord k2 =&gt; MapReduce k1 v1 k2 v2 v3 -&gt; Map k1 v1 -&gt; Map k2 v3
+</pre><p><img src="http://www.well-typed.com/blog/aux/images/ch-series/mapreduce.jpg" width="800" height="209" alt="Map-Reduce" title="Map-Reduce" /></p><blockquote><p><em>We start with a key-value map (with keys of type <code>k1</code> and values of type
+<code>v1</code>). With the help of the &quot;Map&quot; (<code>mrMap</code>) part of a Map-Reduce skeleton
+each of these key-value pairs is turned into a list of key-value pairs (with
+keys of type <code>k2</code> and values of type <code>v2</code>); note that this this list may (and
+typically does) contain multiple pairs with the same key. The Map-Reduce
+driver then collects all values for each key, and finally reduces this list
+of values (of type <code>v2</code>) to a single value (of type <code>v3</code>) using the &quot;Reduce&quot;
+(<code>mrReduce</code>) part of the skeleton.</em></p><p>(Colour changes in the diagram indicate type changes.)</p></blockquote><blockquote><p><em>Exercise 6</em>: Implement <code>localMapReduce</code>. The types pretty much say what needs
+to be done.</p></blockquote><p>Consider counting the number of words in a set of documents; that is, we want
+to transform a <code>Map FilePath Document</code> to a <code>Map Word Frequency</code>. We can do
+this with the following Map-Reduce skeleton:</p><pre>countWords :: MapReduce FilePath Document Word Frequency Frequency
+countWords = MapReduce {
+    mrMap    = const (map (, 1) . words)
+  , mrReduce = const sum  
+  }
+</pre><h2> Distributed map-reduce</h2><p>We are going to have slave nodes execute the Map part of the algorithm; we will
+use work-stealing to distribute the work amongst the slaves. We are not going
+to distribute the Reduce part of the algorithm, but do that on a single
+machine. For now we will give a <em>monomorphic</em> implementation of the distributed
+Map-Reduce algorithm, tailored specifically for the <code>countWords</code> example from the
+previous section. In the next post we will see how to make the
+implementation polymorphic.</p><p>The implementation follows the Work-Pushing example from <a href="http://www.well-typed.com/blog/71">Part 1</a> very closely. The slave asks for work and executes it, using the <code>mrMap</code> part of the Map-Reduce skeleton:</p><pre>mapperProcess :: (ProcessId, ProcessId, Closure (MapReduce String String String Int Int))
+              -&gt; Process ()
+mapperProcess (master, workQueue, mrClosure) = do
+    us &lt;- getSelfPid
+    mr &lt;- unClosure mrClosure
+    go us mr 
+  where
+    go us mr = do
+      -- Ask the queue for work 
+      send workQueue us
+  
+      -- Wait for a reply; if there is work, do it and repeat; otherwise, exit
+      receiveWait 
+        [ match $ \(key, val) -&gt; send master (mrMap mr key val) &gt;&gt; go us mr
+        , match $ \()         -&gt; return () 
+        ]
+
+remotable ['mapperProcess]
+</pre><p>Note that the slave wants a <em>Closure</em> of a Map-Reduce skeleton; since the
+Map-Reduce skeleton itself contains functions, it is not serializable.</p><p>The master process is </p><pre>distrMapReduce :: Closure (MapReduce String String String Int Int)
+               -&gt; [NodeId]
+               -&gt; Map String String
+               -&gt; Process (Map String Int)
+distrMapReduce mrClosure mappers input = do
+  mr     &lt;- unClosure mrClosure
+  master &lt;- getSelfPid
+
+  workQueue &lt;- spawnLocal $ do
+    -- Return the next bit of work to be done
+    forM_ (Map.toList input) $ \(key, val) -&gt; do 
+      them &lt;- expect
+      send them (key, val)
+
+    -- Once all the work is done tell the mappers to terminate
+    replicateM_ (length mappers) $ do
+      them &lt;- expect
+      send them ()
+
+  -- Start the mappers
+  forM_ mappers $ \nid -&gt; spawn nid ($(mkClosure 'mapperProcess) (master, workQueue, mrClosure)) 
+
+  -- Wait for the partial results
+  partials &lt;- replicateM (Map.size input) expect 
+
+  -- We reduce on this node
+  return (reducePerKey mr . groupByKey . concat $ partials)
+</pre><p>We can now implement &quot;distributed word counting&quot; as</p><pre>countWords_ :: () -&gt; MapReduce FilePath Document Word Frequency Frequency
+countWords_ () = countWords
+
+remotable ['countWords_]
+
+distrCountWords :: [NodeId] -&gt; Map FilePath Document -&gt; Process (Map Word Frequency)
+distrCountWords = distrMapReduce ($(mkClosure 'countWords_) ())
+</pre><h2> Performance</h2><p>If we use <a href="http://www.haskell.org/haskellwiki/ThreadScope">ThreadScope</a> to look
+at how busy the nodes are, we find something like</p><p><img src="http://www.well-typed.com/blog/aux/images/ch-series/wasted-resources.jpg" width="560" height="262" alt="Wasted Resources" title="Wasted Resources" /></p><p>with alternating activity between the master node (which does the reduction,
+top) and the mapper nodes (bottom). This is unsurprising, of course; we have a
+distributed implementation of the Map phase but reduce locally.</p><blockquote><p><em>Exercise 7</em>: Change the implementation so that the reduce step happens in
+parallel too and confirm that the work distribution is now better.</p></blockquote><blockquote><p><em>Note</em>: as hinted at by the ThreadScope plot above, it is possible to use
+ThreadScope to look at distributed applications running in multiple OS
+processes, including on different physical hosts. Doing so is currently a
+somewhat manual process. In addition to the normal step of linking the
+application using the <code>-eventlog</code> flag, and running with the flag
+<code>+RTS -l -RTS</code>, there are a few steps after the program is complete:
+collect the <code>.eventlog</code> files from each node; use the <code>ghc-events merge</code>
+command to merge all the eventlog files into one (which currently has to be
+done in several steps because the merge command only takes pairs of files at
+once) and finally use ThreadScope to view the combined eventlog.</p></blockquote><h2> To be continued</h2><p>In the <a href="http://www.well-typed.com/blog/74">next blog post</a> we will look at how we can make the distributed
+Map-Reduce skeleton polymorphic. We'll also look at k-means as an example
+algorithm that can be implemented using Map-Reduce. In fact for efficiency,
+k-means requires a &quot;multi-shot&quot; Map-Reduce and we'll see how Haskell and
+Cloud Haskell give us the flexibility we need to make this kind of extension.</p>
+
+
+</div>
+<div class="footer">
+            <div class="copyright">
+               <address>Copyright &copy; 2008-2016, Well-Typed LLP.</address>
+            </div>
+</div>
+</div>
+
+    </body>
+
+<!-- Mirrored from www.well-typed.com/blog/73/ by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:53:55 GMT -->
+</html>
+

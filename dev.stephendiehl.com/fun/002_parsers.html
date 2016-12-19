@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+  
+<!-- Mirrored from dev.stephendiehl.com/fun/002_parsers.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:55:43 GMT -->
+<head>
+    <meta charset="utf-8">
+    <title>Write You a Haskell ( Stephen Diehl )</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <link href="http://fonts.googleapis.com/css?family=Inconsolata" rel="stylesheet">
+    <style type="text/css">
+      
+    </style>
+    <link href="css/bootstrap-responsive.min.css" rel="stylesheet">
+    <link href="css/colors.css" rel="stylesheet">
+    <link rel="alternate" type="application/atom+xml" title="Write You a Haskell" href="rss/atom.xml" />
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','http://www.google-analytics.com/analytics.js','ga');
+
+      ga('create', 'UA-49839533-1', 'stephendiehl.com');
+      ga('send', 'pageview');
+
+    </script>
+
+          <style type="text/css">
+    table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode {
+      margin: 0; padding: 0; vertical-align: baseline; border: none; }
+    table.sourceCode { width: 100%; line-height: 100%; }
+    td.lineNumbers { text-align: right; padding-right: 4px; padding-left: 4px; color: #aaaaaa; border-right: 1px solid #aaaaaa; }
+    td.sourceCode { padding-left: 5px; }
+    code > span.kw { color: #007020; font-weight: bold; }
+    code > span.dt { color: #902000; }
+    code > span.dv { color: #40a070; }
+    code > span.bn { color: #40a070; }
+    code > span.fl { color: #40a070; }
+    code > span.ch { color: #4070a0; }
+    code > span.st { color: #4070a0; }
+    code > span.co { color: #60a0b0; font-style: italic; }
+    code > span.ot { color: #007020; }
+    code > span.al { color: #ff0000; font-weight: bold; }
+    code > span.fu { color: #06287e; }
+    code > span.er { color: #ff0000; font-weight: bold; }
+      </style>
+            <link rel="stylesheet" href="css/style.css" type="text/css" />
+                  <script src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML" type="text/javascript"></script>
+              </head>
+
+  <body>
+
+    <div>
+
+        <div class="row">
+
+          <div class="span3 side toc">
+              <ul>
+              <li><a href="index-2.html">Index</a></li>
+              <li><a href="https://github.com/sdiehl/write-you-a-haskell">Github</a></li>
+              <li><a href="rss/atom.xml">RSS</a></li>
+              <li><a href="WYAH.pdf">PDF</a></li>
+              </ul>
+              <ul>
+              <li><a href="#parsing">Parsing</a><ul>
+              <li><a href="#parser-combinators">Parser Combinators</a></li>
+              <li><a href="#nanoparsec">NanoParsec</a></li>
+              <li><a href="#parsec">Parsec</a></li>
+              <li><a href="#evaluation">Evaluation</a></li>
+              <li><a href="#repl">REPL</a></li>
+              <li><a href="#soundness">Soundness</a></li>
+              <li><a href="#full-source">Full Source</a></li>
+              </ul></li>
+              </ul>
+          </div>
+
+          <div class="span9 body">
+<!--<h1>Implementing a Functional Language in Haskell</h1>--!>
+<div style="display:none">
+<p><span class="math">\[\newcommand{\andalso}{\quad\quad}
+\newcommand{\infabbrev}[2]{\infax{#1 \quad\eqdef\quad #2}}
+\newcommand{\infrule}[2]{\displaystyle \dfrac{#1}{#2}}
+\newcommand{\ar}{\rightarrow}
+\newcommand{\Int}{\mathtt{Int}}
+\newcommand{\Bool}{\mathtt{Bool}}
+\newcommand{\becomes}{\Downarrow}
+\newcommand{\trule}[1]{(\textbf{#1})}
+\newcommand{\FV}[1]{\mathtt{fv}(#1)}
+\newcommand{\FTV}[1]{\mathtt{ftv}(#1)}
+\newcommand{\BV}[1]{\mathtt{bv}(#1)}
+\newcommand{\compiles}[1]{\text{C}\llbracket{#1}\rrbracket}
+\newcommand{\exec}[1]{\text{E}\llbracket{#1}\rrbracket}
+\renewcommand{\t}[1]{\mathtt{#1}}
+\newcommand{\ite}[3]{\text{if }#1\text{ then }#2\text{ else }#3}
+\]</span></p>
+</div>
+<div class="pagetitle">
+<div class="figure">
+<img src="img/titles/parsing.png" />
+
+</div>
+</div>
+<!--
+> The tools we use have a profound (and devious!) influence on our thinking habits, and, therefore, on our thinking abilities.
+> <cite>— Edsger Dijkstra</cite>
+-->
+<p class="halfbreak">
+</p>
+<h1 id="parsing">Parsing</h1>
+<h2 id="parser-combinators">Parser Combinators</h2>
+<p>For parsing in Haskell it is quite common to use a family of libraries known as <em>parser combinators</em> which let us compose higher order functions to generate parsers. Parser combinators are a particularly expressive pattern that allows us to quickly prototype language grammars in an small embedded domain language inside of Haskell itself. Most notably we can embed custom Haskell logic inside of the parser.</p>
+<h2 id="nanoparsec">NanoParsec</h2>
+<p>So now let's build our own toy parser combinator library which we'll call <strong>NanoParsec</strong> just to get the feel of how these things are built.</p>
+<pre class="sourceCode haskell" slice="chapter3/parsec.hs" lower="0" upper="7"><code class="sourceCode haskell"><span class="ot">{-# OPTIONS_GHC -fno-warn-unused-do-bind #-}</span>
+
+<span class="kw">module</span> <span class="dt">NanoParsec</span> <span class="kw">where</span>
+
+<span class="kw">import </span><span class="dt">Data.Char</span>
+<span class="kw">import </span><span class="dt">Control.Monad</span>
+<span class="kw">import </span><span class="dt">Control.Applicative</span>
+</code></pre>
+<p>Structurally a parser is a function which takes an input stream of characters and yields a parse tree by applying the parser logic over sections of the character stream (called <em>lexemes</em>) to build up a composite data structure for the AST.</p>
+<pre class="sourceCode haskell" slice="chapter3/parsec.hs" lower="8" upper="8"><code class="sourceCode haskell"><span class="kw">newtype</span> <span class="dt">Parser</span> a <span class="fu">=</span> <span class="dt">Parser</span> {<span class="ot"> parse ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> [(a,<span class="dt">String</span>)] }</code></pre>
+<p>Running the function will result in traversing the stream of characters yielding a value of type <code>a</code> that usually represents the AST for the parsed expression, or failing with a parse error for malformed input, or failing by not consuming the entire stream of input. A more robust implementation would track the position information of failures for error reporting.</p>
+<pre class="sourceCode haskell" slice="chapter3/parsec.hs" lower="10" upper="16"><code class="sourceCode haskell"><span class="ot">runParser ::</span> <span class="dt">Parser</span> a <span class="ot">-&gt;</span> <span class="dt">String</span> <span class="ot">-&gt;</span> a
+runParser m s <span class="fu">=</span>
+  <span class="kw">case</span> parse m s <span class="kw">of</span>
+    [(res, [])] <span class="ot">-&gt;</span> res
+    [(_, rs)]   <span class="ot">-&gt;</span> error <span class="st">&quot;Parser did not consume entire stream.&quot;</span>
+    _           <span class="ot">-&gt;</span> error <span class="st">&quot;Parser error.&quot;</span>
+</code></pre>
+<p>Recall that in Haskell the String type is defined to be a list of <code>Char</code> values, so the following are equivalent forms of the same data.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="st">&quot;1+2*3&quot;</span>
+[<span class="ch">&#39;1&#39;</span>, <span class="ch">&#39;+&#39;</span>, <span class="ch">&#39;2&#39;</span>, <span class="ch">&#39;*&#39;</span>, <span class="ch">&#39;3&#39;</span>]</code></pre>
+<p>We advance the parser by extracting a single character from the parser stream and returning in a tuple containing itself and the rest of the stream. The parser logic will then scrutinize the character and either transform it in some portion of the output or advance the stream and proceed.</p>
+<pre class="sourceCode haskell" slice="chapter3/parsec.hs" lower="17" upper="22"><code class="sourceCode haskell"><span class="ot">item ::</span> <span class="dt">Parser</span> <span class="dt">Char</span>
+item <span class="fu">=</span> <span class="dt">Parser</span> <span class="fu">$</span> \s <span class="ot">-&gt;</span>
+  <span class="kw">case</span> s <span class="kw">of</span>
+   []     <span class="ot">-&gt;</span> []
+   (c<span class="fu">:</span>cs) <span class="ot">-&gt;</span> [(c,cs)]
+</code></pre>
+<p>A bind operation for our parser type will take one parse operation and compose it over the result of second parse function. Since the parser operation yields a list of tuples, composing a second parser function simply maps itself over the resulting list and concat's the resulting nested list of lists into a single flat list in the usual list monad fashion. The unit operation injects a single pure value as the result, without reading from the parse stream.</p>
+<pre class="sourceCode haskell" slice="chapter3/parsec.hs" lower="23" upper="28"><code class="sourceCode haskell"><span class="ot">bind ::</span> <span class="dt">Parser</span> a <span class="ot">-&gt;</span> (a <span class="ot">-&gt;</span> <span class="dt">Parser</span> b) <span class="ot">-&gt;</span> <span class="dt">Parser</span> b
+bind p f <span class="fu">=</span> <span class="dt">Parser</span> <span class="fu">$</span> \s <span class="ot">-&gt;</span> concatMap (\(a, s&#39;) <span class="ot">-&gt;</span> parse (f a) s&#39;) <span class="fu">$</span> parse p s
+
+<span class="ot">unit ::</span> a <span class="ot">-&gt;</span> <span class="dt">Parser</span> a
+unit a <span class="fu">=</span> <span class="dt">Parser</span> (\s <span class="ot">-&gt;</span> [(a,s)])
+</code></pre>
+<p>As the terminology might have indicated this is indeed a Monad (also Functor and Applicative).</p>
+<pre class="sourceCode haskell" slice="chapter3/parsec.hs" lower="29" upper="39"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Functor</span> <span class="dt">Parser</span> <span class="kw">where</span>
+  fmap f (<span class="dt">Parser</span> cs) <span class="fu">=</span> <span class="dt">Parser</span> (\s <span class="ot">-&gt;</span> [(f a, b) <span class="fu">|</span> (a, b) <span class="ot">&lt;-</span> cs s])
+
+<span class="kw">instance</span> <span class="dt">Applicative</span> <span class="dt">Parser</span> <span class="kw">where</span>
+  pure <span class="fu">=</span> return
+  (<span class="dt">Parser</span> cs1) <span class="fu">&lt;*&gt;</span> (<span class="dt">Parser</span> cs2) <span class="fu">=</span> <span class="dt">Parser</span> (\s <span class="ot">-&gt;</span> [(f a, s2) <span class="fu">|</span> (f, s1) <span class="ot">&lt;-</span> cs1 s, (a, s2) <span class="ot">&lt;-</span> cs2 s1])
+
+<span class="kw">instance</span> <span class="dt">Monad</span> <span class="dt">Parser</span> <span class="kw">where</span>
+  return <span class="fu">=</span> unit
+  (<span class="fu">&gt;&gt;=</span>)  <span class="fu">=</span> bind
+</code></pre>
+<p>Of particular importance is that this particular monad has a zero value (<code>failure</code>), namely the function which halts reading the stream and returns the empty stream. Together this forms a monoidal structure with a secondary operation (<code>combine</code>) which applies two parser functions over the same stream and concatenates the result. Together these give rise to both the Alternative and MonadPlus class instances which encode the logic for trying multiple parse functions over the same stream and handling failure and rollover.</p>
+<p>The core operator introduced here is the (<code>&lt;|&gt;</code>) operator for combining two optional paths of parser logic, switching to the second path if the first fails with the zero value.</p>
+<pre class="sourceCode haskell" slice="chapter3/parsec.hs" lower="40" upper="59"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">MonadPlus</span> <span class="dt">Parser</span> <span class="kw">where</span>
+  mzero <span class="fu">=</span> failure
+  mplus <span class="fu">=</span> combine
+
+<span class="kw">instance</span> <span class="dt">Alternative</span> <span class="dt">Parser</span> <span class="kw">where</span>
+  empty <span class="fu">=</span> mzero
+  (<span class="fu">&lt;|&gt;</span>) <span class="fu">=</span> option
+
+<span class="ot">combine ::</span> <span class="dt">Parser</span> a <span class="ot">-&gt;</span> <span class="dt">Parser</span> a <span class="ot">-&gt;</span> <span class="dt">Parser</span> a
+combine p q <span class="fu">=</span> <span class="dt">Parser</span> (\s <span class="ot">-&gt;</span> parse p s <span class="fu">++</span> parse q s)
+
+<span class="ot">failure ::</span> <span class="dt">Parser</span> a
+failure <span class="fu">=</span> <span class="dt">Parser</span> (\cs <span class="ot">-&gt;</span> [])
+
+<span class="ot">option ::</span> <span class="dt">Parser</span> a <span class="ot">-&gt;</span> <span class="dt">Parser</span> a <span class="ot">-&gt;</span> <span class="dt">Parser</span> a
+option  p q <span class="fu">=</span> <span class="dt">Parser</span> <span class="fu">$</span> \s <span class="ot">-&gt;</span>
+  <span class="kw">case</span> parse p s <span class="kw">of</span>
+    []     <span class="ot">-&gt;</span> parse q s
+    res    <span class="ot">-&gt;</span> res
+</code></pre>
+<p>Derived automatically from the Alternative typeclass definition are the <code>many</code> and <code>some</code> functions. Many takes a single function argument and repeatedly applies it until the function fails and then yields the collected results up to that point. The <code>some</code> function behaves similar except that it will fail itself if there is not at least a single match.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- | One or more.</span>
+<span class="ot">some ::</span> f a <span class="ot">-&gt;</span> f [a]
+some v <span class="fu">=</span> some_v
+  <span class="kw">where</span>
+    many_v <span class="fu">=</span> some_v <span class="fu">&lt;|&gt;</span> pure []
+    some_v <span class="fu">=</span> (<span class="fu">:</span>) <span class="fu">&lt;$&gt;</span> v <span class="fu">&lt;*&gt;</span> many_v
+
+<span class="co">-- | Zero or more.</span>
+<span class="ot">many ::</span> f a <span class="ot">-&gt;</span> f [a]
+many v <span class="fu">=</span> many_v
+  <span class="kw">where</span>
+    many_v <span class="fu">=</span> some_v <span class="fu">&lt;|&gt;</span> pure []
+    some_v <span class="fu">=</span> (<span class="fu">:</span>) <span class="fu">&lt;$&gt;</span> v <span class="fu">&lt;*&gt;</span> many_v</code></pre>
+<p>On top of this we can add functionality for checking whether the current character in the stream matches a given predicate ( i.e is it a digit, is it a letter, a specific word, etc).</p>
+<pre class="sourceCode haskell" slice="chapter3/parsec.hs" lower="60" upper="65"><code class="sourceCode haskell"><span class="ot">satisfy ::</span> (<span class="dt">Char</span> <span class="ot">-&gt;</span> <span class="dt">Bool</span>) <span class="ot">-&gt;</span> <span class="dt">Parser</span> <span class="dt">Char</span>
+satisfy p <span class="fu">=</span> item <span class="ot">`bind`</span> \c <span class="ot">-&gt;</span>
+  <span class="kw">if</span> p c
+  <span class="kw">then</span> unit c
+  <span class="kw">else</span> (<span class="dt">Parser</span> (\cs <span class="ot">-&gt;</span> []))
+</code></pre>
+<p>Essentially this 50 lines code encodes the entire core of the parser combinator machinery. All higher order behavior can be written on top of just this logic. Now we can write down several higher level functions which operate over sections of the stream.</p>
+<p><code>chainl1</code> parses one or more occurrences of <code>p</code>, separated by <code>op</code> and returns a value obtained by a recursing until failure on the left hand side of the stream. This can be used to parse left-recursive grammar.</p>
+<pre class="sourceCode haskell" slice="chapter3/parsec.hs" lower="70" upper="82"><code class="sourceCode haskell"><span class="ot">oneOf ::</span> [<span class="dt">Char</span>] <span class="ot">-&gt;</span> <span class="dt">Parser</span> <span class="dt">Char</span>
+oneOf s <span class="fu">=</span> satisfy (flip elem s)
+
+<span class="ot">chainl ::</span> <span class="dt">Parser</span> a <span class="ot">-&gt;</span> <span class="dt">Parser</span> (a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a) <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">Parser</span> a
+chainl p op a <span class="fu">=</span> (p <span class="ot">`chainl1`</span> op) <span class="fu">&lt;|&gt;</span> return a
+
+<span class="ot">chainl1 ::</span> <span class="dt">Parser</span> a <span class="ot">-&gt;</span> <span class="dt">Parser</span> (a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a) <span class="ot">-&gt;</span> <span class="dt">Parser</span> a
+p <span class="ot">`chainl1`</span> op <span class="fu">=</span> <span class="kw">do</span> {a <span class="ot">&lt;-</span> p; rest a}
+  <span class="kw">where</span> rest a <span class="fu">=</span> (<span class="kw">do</span> f <span class="ot">&lt;-</span> op
+                     b <span class="ot">&lt;-</span> p
+                     rest (f a b))
+                 <span class="fu">&lt;|&gt;</span> return a
+</code></pre>
+<p>Using <code>satisfy</code> we can write down several combinators for detecting the presence of specific common patterns of characters ( numbers, parenthesized expressions, whitespace, etc ).</p>
+<pre class="sourceCode haskell" slice="chapter3/parsec.hs" lower="83" upper="117"><code class="sourceCode haskell"><span class="ot">char ::</span> <span class="dt">Char</span> <span class="ot">-&gt;</span> <span class="dt">Parser</span> <span class="dt">Char</span>
+char c <span class="fu">=</span> satisfy (c <span class="fu">==</span>)
+
+<span class="ot">natural ::</span> <span class="dt">Parser</span> <span class="dt">Integer</span>
+natural <span class="fu">=</span> read <span class="fu">&lt;$&gt;</span> some (satisfy isDigit)
+
+<span class="ot">string ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Parser</span> <span class="dt">String</span>
+string [] <span class="fu">=</span> return []
+string (c<span class="fu">:</span>cs) <span class="fu">=</span> <span class="kw">do</span> { char c; string cs; return (c<span class="fu">:</span>cs)}
+
+<span class="ot">token ::</span> <span class="dt">Parser</span> a <span class="ot">-&gt;</span> <span class="dt">Parser</span> a
+token p <span class="fu">=</span> <span class="kw">do</span> { a <span class="ot">&lt;-</span> p; spaces ; return a}
+
+<span class="ot">reserved ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Parser</span> <span class="dt">String</span>
+reserved s <span class="fu">=</span> token (string s)
+
+<span class="ot">spaces ::</span> <span class="dt">Parser</span> <span class="dt">String</span>
+spaces <span class="fu">=</span> many <span class="fu">$</span> oneOf <span class="st">&quot; \n\r&quot;</span>
+
+<span class="ot">digit ::</span> <span class="dt">Parser</span> <span class="dt">Char</span>
+digit <span class="fu">=</span> satisfy isDigit
+
+<span class="ot">number ::</span> <span class="dt">Parser</span> <span class="dt">Int</span>
+number <span class="fu">=</span> <span class="kw">do</span>
+  s <span class="ot">&lt;-</span> string <span class="st">&quot;-&quot;</span> <span class="fu">&lt;|&gt;</span> return []
+  cs <span class="ot">&lt;-</span> some digit
+  return <span class="fu">$</span> read (s <span class="fu">++</span> cs)
+
+<span class="ot">parens ::</span> <span class="dt">Parser</span> a <span class="ot">-&gt;</span> <span class="dt">Parser</span> a
+parens m <span class="fu">=</span> <span class="kw">do</span>
+  reserved <span class="st">&quot;(&quot;</span>
+  n <span class="ot">&lt;-</span> m
+  reserved <span class="st">&quot;)&quot;</span>
+  return n
+</code></pre>
+<p><strong>And that's about it!</strong> In a few hundred lines we have enough of a parser library to write down a simple parser for a calculator grammar. In the formal Backus–Naur Form our grammar would be written as:</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">number <span class="fu">=</span> [ <span class="st">&quot;-&quot;</span> ] digit { digit }<span class="fu">.</span>
+digit  <span class="fu">=</span> <span class="st">&quot;0&quot;</span> <span class="fu">|</span> <span class="st">&quot;1&quot;</span> <span class="fu">|</span> <span class="fu">...</span> <span class="fu">|</span> <span class="st">&quot;8&quot;</span> <span class="fu">|</span> <span class="st">&quot;9&quot;</span><span class="fu">.</span>
+expr   <span class="fu">=</span> term { addop term }<span class="fu">.</span>
+term   <span class="fu">=</span> factor { mulop factor }<span class="fu">.</span>
+factor <span class="fu">=</span> <span class="st">&quot;(&quot;</span> expr <span class="st">&quot;)&quot;</span> <span class="fu">|</span> number<span class="fu">.</span>
+addop  <span class="fu">=</span> <span class="st">&quot;+&quot;</span> <span class="fu">|</span> <span class="st">&quot;-&quot;</span><span class="fu">.</span>
+mulop  <span class="fu">=</span> <span class="st">&quot;*&quot;</span><span class="fu">.</span></code></pre>
+<p>The direct translation to Haskell in terms of our newly constructed parser combinator has the following form:</p>
+<pre class="sourceCode haskell" slice="chapter3/parsec.hs" lower="130" upper="183"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Expr</span>
+  <span class="fu">=</span> <span class="dt">Add</span> <span class="dt">Expr</span> <span class="dt">Expr</span>
+  <span class="fu">|</span> <span class="dt">Mul</span> <span class="dt">Expr</span> <span class="dt">Expr</span>
+  <span class="fu">|</span> <span class="dt">Sub</span> <span class="dt">Expr</span> <span class="dt">Expr</span>
+  <span class="fu">|</span> <span class="dt">Lit</span> <span class="dt">Int</span>
+  <span class="kw">deriving</span> <span class="dt">Show</span>
+
+<span class="ot">eval ::</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">Int</span>
+eval ex <span class="fu">=</span> <span class="kw">case</span> ex <span class="kw">of</span>
+  <span class="dt">Add</span> a b <span class="ot">-&gt;</span> eval a <span class="fu">+</span> eval b
+  <span class="dt">Mul</span> a b <span class="ot">-&gt;</span> eval a <span class="fu">*</span> eval b
+  <span class="dt">Sub</span> a b <span class="ot">-&gt;</span> eval a <span class="fu">-</span> eval b
+  <span class="dt">Lit</span> n   <span class="ot">-&gt;</span> n
+
+<span class="ot">int ::</span> <span class="dt">Parser</span> <span class="dt">Expr</span>
+int <span class="fu">=</span> <span class="kw">do</span>
+  n <span class="ot">&lt;-</span> number
+  return (<span class="dt">Lit</span> n)
+
+<span class="ot">expr ::</span> <span class="dt">Parser</span> <span class="dt">Expr</span>
+expr <span class="fu">=</span> term <span class="ot">`chainl1`</span> addop
+
+<span class="ot">term ::</span> <span class="dt">Parser</span> <span class="dt">Expr</span>
+term <span class="fu">=</span> factor <span class="ot">`chainl1`</span> mulop
+
+<span class="ot">factor ::</span> <span class="dt">Parser</span> <span class="dt">Expr</span>
+factor <span class="fu">=</span>
+      int
+  <span class="fu">&lt;|&gt;</span> parens expr
+
+<span class="ot">infixOp ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> (a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a) <span class="ot">-&gt;</span> <span class="dt">Parser</span> (a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a)
+infixOp x f <span class="fu">=</span> reserved x <span class="fu">&gt;&gt;</span> return f
+
+<span class="ot">addop ::</span> <span class="dt">Parser</span> (<span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">Expr</span>)
+addop <span class="fu">=</span> (infixOp <span class="st">&quot;+&quot;</span> <span class="dt">Add</span>) <span class="fu">&lt;|&gt;</span> (infixOp <span class="st">&quot;-&quot;</span> <span class="dt">Sub</span>)
+
+<span class="ot">mulop ::</span> <span class="dt">Parser</span> (<span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">Expr</span>)
+mulop <span class="fu">=</span> infixOp <span class="st">&quot;*&quot;</span> <span class="dt">Mul</span>
+
+<span class="ot">run ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Expr</span>
+run <span class="fu">=</span> runParser expr
+
+<span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> forever <span class="fu">$</span> <span class="kw">do</span>
+  putStr <span class="st">&quot;&gt; &quot;</span>
+  a <span class="ot">&lt;-</span> getLine
+  print <span class="fu">$</span> eval <span class="fu">$</span> run a</code></pre>
+<p>Now we can try out our little parser.</p>
+<pre class="sourceCode bash"><code class="sourceCode bash">$ <span class="kw">runhaskell</span> parsec.hs
+<span class="kw">&gt;</span> <span class="kw">1+2</span>
+<span class="kw">3</span>
+<span class="kw">&gt;</span> <span class="kw">1+2*3</span>
+<span class="kw">7</span></code></pre>
+<p><strong>Generalizing String</strong></p>
+<p>The limitations of the String type are well-known, but what is particularly nice about this approach is that it adapts to different stream types simply by adding an additional parameter to the Parser type which holds the stream type. In its place a more efficient string data structure (<code>Text</code>, <code>ByteString</code>) can be used.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">newtype</span> <span class="dt">Parser</span> s a <span class="fu">=</span> <span class="dt">Parser</span> {<span class="ot"> parse ::</span> s <span class="ot">-&gt;</span> [(a,s)] }</code></pre>
+<p>For the first couple of simple parsers we will use the String type for simplicity's sake, but later we will generalize our parsers to use the <code>Text</code> type. The combinators and parsing logic will not change, only the lexer and language definition types will change slightly to a generalized form.</p>
+<h2 id="parsec">Parsec</h2>
+<p>Now that we have the feel for parser combinators work, we can graduate to the full Parsec library. We'll effectively ignore the gritty details of parsing and lexing from now on. Although an interesting subject parsing is effectively a solved problem and the details are not terribly important for our purposes.</p>
+<p>The <em>Parsec</em> library defines a set of common combinators much like the operators we defined in our toy library.</p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">Combinator</th>
+<th align="left">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left"><code>char</code></td>
+<td align="left">Match the given character.</td>
+</tr>
+<tr class="even">
+<td align="left"><code>string</code></td>
+<td align="left">Match the given string.</td>
+</tr>
+<tr class="odd">
+<td align="left"><code>&lt;|&gt;</code></td>
+<td align="left">The choice operator tries to parse the first argument before proceeding to the second. Can be chained sequentially to generate a sequence of options.</td>
+</tr>
+<tr class="even">
+<td align="left"><code>many</code></td>
+<td align="left">Consumes an arbitrary number of patterns matching the given pattern and returns them as a list.</td>
+</tr>
+<tr class="odd">
+<td align="left"><code>many1</code></td>
+<td align="left">Like many but requires at least one match.</td>
+</tr>
+<tr class="even">
+<td align="left"><code>sepBy</code></td>
+<td align="left">Match a arbitrary length sequence of patterns, delimited by a given pattern.</td>
+</tr>
+<tr class="odd">
+<td align="left"><code>optional</code></td>
+<td align="left">Optionally parses a given pattern returning its value as a Maybe.</td>
+</tr>
+<tr class="even">
+<td align="left"><code>try</code></td>
+<td align="left">Backtracking operator will let us parse ambiguous matching expressions and restart with a different pattern.</td>
+</tr>
+<tr class="odd">
+<td align="left"><code>parens</code></td>
+<td align="left">Parses the given pattern surrounded by parentheses.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Tokens</strong></p>
+<p>To create a Parsec lexer we must first specify several parameters about how individual characters are handled and converted into tokens. For example some tokens will be handled as comments and simply omitted from the parse stream. Other parameters include indicating what characters are to be handled as keyword identifiers or operators.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">langDef ::</span> <span class="dt">Tok.LanguageDef</span> ()
+langDef <span class="fu">=</span> <span class="dt">Tok.LanguageDef</span>
+  { Tok.commentStart    <span class="fu">=</span> <span class="st">&quot;{-&quot;</span>
+  , Tok.commentEnd      <span class="fu">=</span> <span class="st">&quot;-}&quot;</span>
+  , Tok.commentLine     <span class="fu">=</span> <span class="st">&quot;--&quot;</span>
+  , Tok.nestedComments  <span class="fu">=</span> <span class="dt">True</span>
+  , Tok.identStart      <span class="fu">=</span> letter
+  , Tok.identLetter     <span class="fu">=</span> alphaNum <span class="fu">&lt;|&gt;</span> oneOf <span class="st">&quot;_&#39;&quot;</span>
+  , Tok.opStart         <span class="fu">=</span> oneOf <span class="st">&quot;:!#$%&amp;*+./&lt;=&gt;?@\\^|-~&quot;</span>
+  , Tok.opLetter        <span class="fu">=</span> oneOf <span class="st">&quot;:!#$%&amp;*+./&lt;=&gt;?@\\^|-~&quot;</span>
+  , Tok.reservedNames   <span class="fu">=</span> reservedNames
+  , Tok.reservedOpNames <span class="fu">=</span> reservedOps
+  , Tok.caseSensitive   <span class="fu">=</span> <span class="dt">True</span>
+  }</code></pre>
+<p><strong>Lexer</strong></p>
+<p>Given the token definition we can create the lexer functions.</p>
+<pre class="sourceCode haskell" slice="chapter3/calc/Parser.hs" lower="30" upper="47"><code class="sourceCode haskell"><span class="ot">lexer ::</span> <span class="dt">Tok.TokenParser</span> ()
+lexer <span class="fu">=</span> Tok.makeTokenParser langDef
+
+<span class="ot">parens ::</span> <span class="dt">Parser</span> a <span class="ot">-&gt;</span> <span class="dt">Parser</span> a
+parens <span class="fu">=</span> Tok.parens lexer
+
+<span class="ot">reserved ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Parser</span> ()
+reserved <span class="fu">=</span> Tok.reserved lexer
+
+<span class="ot">semiSep ::</span> <span class="dt">Parser</span> a <span class="ot">-&gt;</span> <span class="dt">Parser</span> [a]
+semiSep <span class="fu">=</span> Tok.semiSep lexer
+
+<span class="ot">reservedOp ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Parser</span> ()
+reservedOp <span class="fu">=</span> Tok.reservedOp lexer
+
+<span class="ot">prefixOp ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> (a <span class="ot">-&gt;</span> a) <span class="ot">-&gt;</span> <span class="dt">Ex.Operator</span> <span class="dt">String</span> () <span class="dt">Identity</span> a
+prefixOp s f <span class="fu">=</span> <span class="dt">Ex.Prefix</span> (reservedOp s <span class="fu">&gt;&gt;</span> return f)
+</code></pre>
+<p><strong>Abstract Syntax Tree</strong></p>
+<p>In a separate module we'll now define the abstract syntax for our language as a datatype.</p>
+<pre class="sourceCode haskell" include="chapter3/calc/Syntax.hs"><code class="sourceCode haskell"><span class="kw">module</span> <span class="dt">Syntax</span> <span class="kw">where</span>
+
+<span class="kw">data</span> <span class="dt">Expr</span>
+  <span class="fu">=</span> <span class="dt">Tr</span>
+  <span class="fu">|</span> <span class="dt">Fl</span>
+  <span class="fu">|</span> <span class="dt">Zero</span>
+  <span class="fu">|</span> <span class="dt">IsZero</span> <span class="dt">Expr</span>
+  <span class="fu">|</span> <span class="dt">Succ</span> <span class="dt">Expr</span>
+  <span class="fu">|</span> <span class="dt">Pred</span> <span class="dt">Expr</span>
+  <span class="fu">|</span> <span class="dt">If</span> <span class="dt">Expr</span> <span class="dt">Expr</span> <span class="dt">Expr</span>
+  <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Show</span>)</code></pre>
+<p><strong>Parser</strong></p>
+<p>Much like before our parser is simply written in monadic blocks, each mapping a set of patterns to a construct in our <code>Expr</code> type. The toplevel entry point to our parser is the <code>expr</code> function which we can parse with by using the Parsec function <code>parse</code>.</p>
+<pre class="sourceCode haskell" slice="chapter3/calc/Parser.hs" lower="46" upper="94"><code class="sourceCode haskell">prefixOp s f <span class="fu">=</span> <span class="dt">Ex.Prefix</span> (reservedOp s <span class="fu">&gt;&gt;</span> return f)
+
+
+<span class="co">-- Prefix operators</span>
+<span class="ot">table ::</span> <span class="dt">Ex.OperatorTable</span> <span class="dt">String</span> () <span class="dt">Identity</span> <span class="dt">Expr</span>
+table <span class="fu">=</span> [
+    [
+      prefixOp <span class="st">&quot;succ&quot;</span> <span class="dt">Succ</span>
+    , prefixOp <span class="st">&quot;pred&quot;</span> <span class="dt">Pred</span>
+    , prefixOp <span class="st">&quot;iszero&quot;</span> <span class="dt">IsZero</span>
+    ]
+  ]
+
+
+<span class="co">-- if/then/else</span>
+<span class="ot">ifthen ::</span> <span class="dt">Parser</span> <span class="dt">Expr</span>
+ifthen <span class="fu">=</span> <span class="kw">do</span>
+  reserved <span class="st">&quot;if&quot;</span>
+  cond <span class="ot">&lt;-</span> expr
+  reservedOp <span class="st">&quot;then&quot;</span>
+  tr <span class="ot">&lt;-</span> expr
+  reserved <span class="st">&quot;else&quot;</span>
+  fl <span class="ot">&lt;-</span> expr
+  return (<span class="dt">If</span> cond tr fl)
+
+<span class="co">-- Constants</span>
+true, false,<span class="ot"> zero ::</span> <span class="dt">Parser</span> <span class="dt">Expr</span>
+true  <span class="fu">=</span> reserved <span class="st">&quot;true&quot;</span>  <span class="fu">&gt;&gt;</span> return <span class="dt">Tr</span>
+false <span class="fu">=</span> reserved <span class="st">&quot;false&quot;</span> <span class="fu">&gt;&gt;</span> return <span class="dt">Fl</span>
+zero  <span class="fu">=</span> reservedOp <span class="st">&quot;0&quot;</span>   <span class="fu">&gt;&gt;</span> return <span class="dt">Zero</span>
+
+<span class="ot">expr ::</span> <span class="dt">Parser</span> <span class="dt">Expr</span>
+expr <span class="fu">=</span> Ex.buildExpressionParser table factor
+
+<span class="ot">factor ::</span> <span class="dt">Parser</span> <span class="dt">Expr</span>
+factor <span class="fu">=</span>
+      true
+  <span class="fu">&lt;|&gt;</span> false
+  <span class="fu">&lt;|&gt;</span> zero
+  <span class="fu">&lt;|&gt;</span> ifthen
+  <span class="fu">&lt;|&gt;</span> parens expr
+
+<span class="ot">contents ::</span> <span class="dt">Parser</span> a <span class="ot">-&gt;</span> <span class="dt">Parser</span> a
+contents p <span class="fu">=</span> <span class="kw">do</span>
+  Tok.whiteSpace lexer
+  r <span class="ot">&lt;-</span> p
+  eof
+  return r
+</code></pre>
+<p>The toplevel function we'll expose from our Parse module is <code>parseExpr</code> which will be called as the entry point in our REPL.</p>
+<pre class="sourceCode haskell" slice="chapter3/calc/Parser.hs" lower="99" upper="100"><code class="sourceCode haskell">parseExpr s <span class="fu">=</span> parse (contents expr) <span class="st">&quot;&lt;stdin&gt;&quot;</span> s</code></pre>
+<h2 id="evaluation">Evaluation</h2>
+<p>Our small language gives rise to two syntactic classes, values and expressions. Values are in <em>normal form</em> and cannot be reduced further. They consist of <code>True</code> and <code>False</code> values and literal numbers.</p>
+<pre class="sourceCode haskell" slice="chapter3/calc/Eval.hs" lower="8" upper="17"><code class="sourceCode haskell">isNum <span class="dt">Zero</span>     <span class="fu">=</span> <span class="dt">True</span>
+isNum (<span class="dt">Succ</span> t) <span class="fu">=</span> isNum t
+isNum _        <span class="fu">=</span> <span class="dt">False</span>
+
+<span class="ot">isVal ::</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">Bool</span>
+isVal <span class="dt">Tr</span> <span class="fu">=</span> <span class="dt">True</span>
+isVal <span class="dt">Fl</span> <span class="fu">=</span> <span class="dt">True</span>
+isVal t <span class="fu">|</span> isNum t <span class="fu">=</span> <span class="dt">True</span>
+isVal _ <span class="fu">=</span> <span class="dt">False</span>
+</code></pre>
+<p>The evaluation of our languages uses the <code>Maybe</code> applicative to accommodate the fact that our reduction may halt at any level with a Nothing if the expression being reduced has reached a normal form or cannot proceed because the reduction simply isn't well-defined. The rules for evaluation are a single step by which an expression takes a single small step from one form to another by a given rule.</p>
+<pre class="sourceCode haskell" slice="chapter3/calc/Eval.hs" lower="19" upper="31"><code class="sourceCode haskell">eval&#39; x <span class="fu">=</span> <span class="kw">case</span> x <span class="kw">of</span>
+  <span class="dt">IsZero</span> <span class="dt">Zero</span>               <span class="ot">-&gt;</span> <span class="dt">Just</span> <span class="dt">Tr</span>
+  <span class="dt">IsZero</span> (<span class="dt">Succ</span> t) <span class="fu">|</span> isNum t <span class="ot">-&gt;</span> <span class="dt">Just</span> <span class="dt">Fl</span>
+  <span class="dt">IsZero</span> t                  <span class="ot">-&gt;</span> <span class="dt">IsZero</span> <span class="fu">&lt;$&gt;</span> (eval&#39; t)
+  <span class="dt">Succ</span> t                    <span class="ot">-&gt;</span> <span class="dt">Succ</span> <span class="fu">&lt;$&gt;</span> (eval&#39; t)
+  <span class="dt">Pred</span> <span class="dt">Zero</span>                 <span class="ot">-&gt;</span> <span class="dt">Just</span> <span class="dt">Zero</span>
+  <span class="dt">Pred</span> (<span class="dt">Succ</span> t) <span class="fu">|</span> isNum t   <span class="ot">-&gt;</span> <span class="dt">Just</span> t
+  <span class="dt">Pred</span> t                    <span class="ot">-&gt;</span> <span class="dt">Pred</span> <span class="fu">&lt;$&gt;</span> (eval&#39; t)
+  <span class="dt">If</span> <span class="dt">Tr</span>  c _                <span class="ot">-&gt;</span> <span class="dt">Just</span> c
+  <span class="dt">If</span> <span class="dt">Fl</span> _ a                 <span class="ot">-&gt;</span> <span class="dt">Just</span> a
+  <span class="dt">If</span> t c a                  <span class="ot">-&gt;</span> (\t&#39; <span class="ot">-&gt;</span> <span class="dt">If</span> t&#39; c a) <span class="fu">&lt;$&gt;</span> eval&#39; t
+  _                         <span class="ot">-&gt;</span> <span class="dt">Nothing</span>
+</code></pre>
+<p>At the toplevel we simply apply <code>eval'</code> repeatedly until either a value is reached or we're left with an expression that has no well-defined way to proceed. The term is &quot;stuck&quot; and the program is in an undefined state.</p>
+<pre class="sourceCode haskell" slice="chapter3/calc/Eval.hs" lower="33" upper="39"><code class="sourceCode haskell">nf x <span class="fu">=</span> fromMaybe x (nf <span class="fu">&lt;$&gt;</span> eval&#39; x)
+
+<span class="ot">eval ::</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">Maybe</span> <span class="dt">Expr</span>
+eval t <span class="fu">=</span> <span class="kw">case</span> nf t <span class="kw">of</span>
+  nft <span class="fu">|</span> isVal nft <span class="ot">-&gt;</span> <span class="dt">Just</span> nft
+      <span class="fu">|</span> otherwise <span class="ot">-&gt;</span> <span class="dt">Nothing</span> <span class="co">-- term is &quot;stuck&quot;</span></code></pre>
+<h2 id="repl">REPL</h2>
+<p>The driver for our simple language simply invokes all of the parser and evaluation logic in a loop feeding the resulting state to the next iteration. We will use the <a href="http://hackage.haskell.org/package/haskeline">haskeline</a> library to give us readline interactions for the small REPL. Behind the scenes haskeline is using readline or another platform-specific system library to manage the terminal input. To start out we just create the simplest loop, which only parses and evaluates expressions and prints them to the screen. We'll build on this pattern in each chapter, eventually ending up with a more full-featured REPL.</p>
+<p>The two functions of note are the operations for the <code>InputT</code> monad transformer.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">runInputT ::</span> <span class="dt">Settings</span> <span class="dt">IO</span> <span class="ot">-&gt;</span> <span class="dt">InputT</span> <span class="dt">IO</span> a <span class="ot">-&gt;</span> <span class="dt">IO</span> a
+<span class="ot">getInputLine ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">InputT</span> <span class="dt">IO</span> (<span class="dt">Maybe</span> <span class="dt">String</span>)</code></pre>
+<p>When the user enters an <code>EOF</code> or sends a <code>SIGQUIT</code> to input, <code>getInputLine</code> will yield <code>Nothing</code> and can handle the exit logic.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">process ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
+process line <span class="fu">=</span> <span class="kw">do</span>
+  <span class="kw">let</span> res <span class="fu">=</span> parseExpr line
+  <span class="kw">case</span> res <span class="kw">of</span>
+    <span class="dt">Left</span> err <span class="ot">-&gt;</span> print err
+    <span class="dt">Right</span> ex <span class="ot">-&gt;</span> print <span class="fu">$</span> runEval ex
+
+<span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> runInputT defaultSettings loop
+  <span class="kw">where</span>
+  loop <span class="fu">=</span> <span class="kw">do</span>
+    minput <span class="ot">&lt;-</span> getInputLine <span class="st">&quot;Repl&gt; &quot;</span>
+    <span class="kw">case</span> minput <span class="kw">of</span>
+      <span class="dt">Nothing</span> <span class="ot">-&gt;</span> outputStrLn <span class="st">&quot;Goodbye.&quot;</span>
+      <span class="dt">Just</span> input <span class="ot">-&gt;</span> (liftIO <span class="fu">$</span> process input) <span class="fu">&gt;&gt;</span> loop</code></pre>
+<h2 id="soundness">Soundness</h2>
+<p>Great, now let's test our little interpreter and indeed we see that it behaves as expected.</p>
+<pre class="sourceCode bash"><code class="sourceCode bash"><span class="kw">Arith&gt;</span> succ 0
+<span class="kw">succ</span> 0
+
+<span class="kw">Arith&gt;</span> succ (succ 0)
+<span class="kw">succ</span> (succ 0)
+
+<span class="kw">Arith&gt;</span> iszero 0
+<span class="kw">true</span>
+
+<span class="kw">Arith&gt;</span> if false then true else false
+<span class="kw">false</span>
+
+<span class="kw">Arith&gt;</span> iszero (pred (succ (succ 0)))
+<span class="kw">false</span>
+
+<span class="kw">Arith&gt;</span> pred (succ 0)
+<span class="kw">0</span>
+
+<span class="kw">Arith&gt;</span> iszero false
+<span class="kw">Cannot</span> evaluate
+
+<span class="kw">Arith&gt;</span> if 0 then true else false
+<span class="kw">Cannot</span> evaluate</code></pre>
+<p>Oh no, our calculator language allows us to evaluate terms which are syntactically valid but semantically meaningless. We'd like to restrict the existence of such terms since when we start compiling our languages later into native CPU instructions these kind errors will correspond to all sorts of nastiness (segfaults, out of bounds errors, etc). How can we make these illegal states unrepresentable to begin with?</p>
+<h2 id="full-source">Full Source</h2>
+<ul>
+<li><a href="https://github.com/sdiehl/write-you-a-haskell/blob/master/chapter3/parsec.hs">NanoParsec</a></li>
+<li><a href="https://github.com/sdiehl/write-you-a-haskell/tree/master/chapter3/calc">Calculator</a></li>
+</ul>
+<p></p>
+          </div>
+        </div>
+
+    </div>
+    <script src="https://code.jquery.com/jquery.js"></script>
+    <script src="js/nav.js"></script>
+  </body>
+
+<!-- Mirrored from dev.stephendiehl.com/fun/002_parsers.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:55:43 GMT -->
+</html>

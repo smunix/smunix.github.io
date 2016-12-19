@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="en">
+  
+<!-- Mirrored from dev.stephendiehl.com/fun/006_hindley_milner.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:55:43 GMT -->
+<head>
+    <meta charset="utf-8">
+    <title>Write You a Haskell ( Stephen Diehl )</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <link href="http://fonts.googleapis.com/css?family=Inconsolata" rel="stylesheet">
+    <style type="text/css">
+      
+    </style>
+    <link href="css/bootstrap-responsive.min.css" rel="stylesheet">
+    <link href="css/colors.css" rel="stylesheet">
+    <link rel="alternate" type="application/atom+xml" title="Write You a Haskell" href="rss/atom.xml" />
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','http://www.google-analytics.com/analytics.js','ga');
+
+      ga('create', 'UA-49839533-1', 'stephendiehl.com');
+      ga('send', 'pageview');
+
+    </script>
+
+          <style type="text/css">
+    table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode {
+      margin: 0; padding: 0; vertical-align: baseline; border: none; }
+    table.sourceCode { width: 100%; line-height: 100%; }
+    td.lineNumbers { text-align: right; padding-right: 4px; padding-left: 4px; color: #aaaaaa; border-right: 1px solid #aaaaaa; }
+    td.sourceCode { padding-left: 5px; }
+    code > span.kw { color: #007020; font-weight: bold; }
+    code > span.dt { color: #902000; }
+    code > span.dv { color: #40a070; }
+    code > span.bn { color: #40a070; }
+    code > span.fl { color: #40a070; }
+    code > span.ch { color: #4070a0; }
+    code > span.st { color: #4070a0; }
+    code > span.co { color: #60a0b0; font-style: italic; }
+    code > span.ot { color: #007020; }
+    code > span.al { color: #ff0000; font-weight: bold; }
+    code > span.fu { color: #06287e; }
+    code > span.er { color: #ff0000; font-weight: bold; }
+      </style>
+            <link rel="stylesheet" href="css/style.css" type="text/css" />
+                  <script src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML" type="text/javascript"></script>
+              </head>
+
+  <body>
+
+    <div>
+
+        <div class="row">
+
+          <div class="span3 side toc">
+              <ul>
+              <li><a href="index-2.html">Index</a></li>
+              <li><a href="https://github.com/sdiehl/write-you-a-haskell">Github</a></li>
+              <li><a href="rss/atom.xml">RSS</a></li>
+              <li><a href="WYAH.pdf">PDF</a></li>
+              </ul>
+              <ul>
+              <li><a href="#hindley-milner-inference">Hindley-Milner Inference</a><ul>
+              <li><a href="#syntax">Syntax</a></li>
+              <li><a href="#polymorphism">Polymorphism</a></li>
+              <li><a href="#types">Types</a></li>
+              <li><a href="#context">Context</a></li>
+              <li><a href="#inference-monad">Inference Monad</a></li>
+              <li><a href="#substitution">Substitution</a></li>
+              <li><a href="#unification">Unification</a></li>
+              <li><a href="#generalization-and-instantiation">Generalization and Instantiation</a></li>
+              <li><a href="#typing-rules">Typing Rules</a></li>
+              <li><a href="#constraint-generation">Constraint Generation</a></li>
+              <li><a href="#typing">Typing</a></li>
+              <li><a href="#constraint-solver">Constraint Solver</a></li>
+              <li><a href="#worked-examples">Worked Examples</a></li>
+              <li><a href="#interpreter">Interpreter</a></li>
+              <li><a href="#interactive-shell">Interactive Shell</a></li>
+              <li><a href="#observations">Observations</a></li>
+              <li><a href="#full-source">Full Source</a></li>
+              </ul></li>
+              </ul>
+          </div>
+
+          <div class="span9 body">
+<!--<h1>Implementing a Functional Language in Haskell</h1>--!>
+<div style="display:none">
+<p><span class="math">\[\newcommand{\andalso}{\quad\quad}
+\newcommand{\infabbrev}[2]{\infax{#1 \quad\eqdef\quad #2}}
+\newcommand{\infrule}[2]{\displaystyle \dfrac{#1}{#2}}
+\newcommand{\ar}{\rightarrow}
+\newcommand{\Int}{\mathtt{Int}}
+\newcommand{\Bool}{\mathtt{Bool}}
+\newcommand{\becomes}{\Downarrow}
+\newcommand{\trule}[1]{(\textbf{#1})}
+\newcommand{\FV}[1]{\mathtt{fv}(#1)}
+\newcommand{\FTV}[1]{\mathtt{ftv}(#1)}
+\newcommand{\BV}[1]{\mathtt{bv}(#1)}
+\newcommand{\compiles}[1]{\text{C}\llbracket{#1}\rrbracket}
+\newcommand{\exec}[1]{\text{E}\llbracket{#1}\rrbracket}
+\renewcommand{\t}[1]{\mathtt{#1}}
+\newcommand{\ite}[3]{\text{if }#1\text{ then }#2\text{ else }#3}
+\]</span></p>
+</div>
+<div class="pagetitle">
+<div class="figure">
+<img src="http://dev.stephendiehl.com/fun/img/titles/hindley_milner.png" />
+
+</div>
+</div>
+<p class="halfbreak">
+</p>
+<blockquote>
+<p><em>There is nothing more practical than a good theory.</em></p>
+<p><cite>— James C. Maxwell</cite></p>
+</blockquote>
+<p class="halfbreak">
+</p>
+<h1 id="hindley-milner-inference">Hindley-Milner Inference</h1>
+<p>The Hindley-Milner type system ( also referred to as Damas-Hindley-Milner or HM ) is a family of type systems that admit the serendipitous property of having a tractable algorithm for determining types from untyped syntax. This is achieved by a process known as <em>unification</em>, whereby the types for a well-structured program give rise to a set of constraints that when solved always have a unique <em>principal type</em>.</p>
+<p>The simplest Hindley Milner type system is defined by a very short set of rules. The first four rules describe the judgements by which we can map each syntactic construct (<code>Lam</code>, <code>App</code>, <code>Var</code>, <code>Let</code>) to their expected types. We'll elaborate on these rules shortly.</p>
+<p><span class="math">\[
+\begin{array}{cl}
+ \displaystyle\frac{x:\sigma \in \Gamma}{\Gamma \vdash x:\sigma} &amp; \trule{T-Var} \\ \\
+ \displaystyle\frac{\Gamma \vdash e_1:\tau_1 \rightarrow \tau_2 \quad\quad \Gamma \vdash e_2 : \tau_1 }{\Gamma \vdash e_1\ e_2 : \tau_2} &amp; \trule{T-App} \\ \\
+ \displaystyle\frac{\Gamma,\;x:\tau_1 \vdash e:\tau_2}{\Gamma \vdash \lambda\ x\ .\ e : \tau_1 \rightarrow \tau_2}&amp; \trule{T-Lam} \\ \\
+ \displaystyle\frac{\Gamma \vdash e_1:\sigma \quad\quad \Gamma,\,x:\sigma \vdash e_2:\tau}{\Gamma \vdash \mathtt{let}\ x = e_1\ \mathtt{in}\ e_2 : \tau} &amp; \trule{T-Let} \\ \\
+ \displaystyle\frac{\Gamma \vdash e: \sigma \quad \overline{\alpha} \notin \mathtt{ftv}(\Gamma)}{\Gamma \vdash e:\forall\ \overline{\alpha}\ .\ \sigma} &amp; \trule{T-Gen}\\ \\
+ \displaystyle\frac{\Gamma \vdash e: \sigma_1 \quad\quad \sigma_1 \sqsubseteq \sigma_2}{\Gamma \vdash e : \sigma_2 } &amp; \trule{T-Inst} \\ \\
+\end{array}
+\]</span></p>
+<p>Milner's observation was that since the typing rules map uniquely onto syntax, we can in effect run the typing rules &quot;backwards&quot; and whenever we don't have a known type for a subexpression, we &quot;guess&quot; by putting a fresh variable in its place, collecting constraints about its usage induced by subsequent typing judgements. This is the essence of <em>type inference</em> in the ML family of languages, that by the generation and solving of a class of unification problems we can reconstruct the types uniquely from the syntax. The algorithm itself is largely just the structured use of a unification solver.</p>
+<p>However full type inference leaves us in a bit a bind, since while the problem of inference is tractable within this simple language and trivial extensions thereof, but nearly any major addition to the language destroys the ability to infer types unaided by annotation or severely complicates the inference algorithm. Nevertheless the Hindley-Milner family represents a very useful, productive &quot;sweet spot&quot; in the design space.</p>
+<h2 id="syntax">Syntax</h2>
+<p>The syntax of our first type inferred language will effectively be an extension of our untyped lambda calculus, with fixpoint operator, booleans, integers, let, and a few basic arithmetic operations.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">Name</span> <span class="fu">=</span> <span class="dt">String</span>
+
+<span class="kw">data</span> <span class="dt">Expr</span>
+  <span class="fu">=</span> <span class="dt">Var</span> <span class="dt">Name</span>
+  <span class="fu">|</span> <span class="dt">App</span> <span class="dt">Expr</span> <span class="dt">Expr</span>
+  <span class="fu">|</span> <span class="dt">Lam</span> <span class="dt">Name</span> <span class="dt">Expr</span>
+  <span class="fu">|</span> <span class="dt">Let</span> <span class="dt">Name</span> <span class="dt">Expr</span> <span class="dt">Expr</span>
+  <span class="fu">|</span> <span class="dt">Lit</span> <span class="dt">Lit</span>
+  <span class="fu">|</span> <span class="dt">If</span> <span class="dt">Expr</span> <span class="dt">Expr</span> <span class="dt">Expr</span>
+  <span class="fu">|</span> <span class="dt">Fix</span> <span class="dt">Expr</span>
+  <span class="fu">|</span> <span class="dt">Op</span> <span class="dt">Binop</span> <span class="dt">Expr</span> <span class="dt">Expr</span>
+  <span class="kw">deriving</span> (<span class="dt">Show</span>, <span class="dt">Eq</span>, <span class="dt">Ord</span>)
+
+<span class="kw">data</span> <span class="dt">Lit</span>
+  <span class="fu">=</span> <span class="dt">LInt</span> <span class="dt">Integer</span>
+  <span class="fu">|</span> <span class="dt">LBool</span> <span class="dt">Bool</span>
+  <span class="kw">deriving</span> (<span class="dt">Show</span>, <span class="dt">Eq</span>, <span class="dt">Ord</span>)
+
+<span class="kw">data</span> <span class="dt">Binop</span> <span class="fu">=</span> <span class="dt">Add</span> <span class="fu">|</span> <span class="dt">Sub</span> <span class="fu">|</span> <span class="dt">Mul</span> <span class="fu">|</span> <span class="dt">Eql</span>
+  <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Ord</span>, <span class="dt">Show</span>)
+
+<span class="kw">data</span> <span class="dt">Program</span> <span class="fu">=</span> <span class="dt">Program</span> [<span class="dt">Decl</span>] <span class="dt">Expr</span> <span class="kw">deriving</span> <span class="dt">Eq</span>
+
+<span class="kw">type</span> <span class="dt">Decl</span> <span class="fu">=</span> (<span class="dt">String</span>, <span class="dt">Expr</span>)</code></pre>
+<p>The parser is trivial, the only addition will be the toplevel let declarations (<code>Decl</code>) which are joined into the global <code>Program</code>. All toplevel declarations must be terminated with a semicolon, although they can span multiple lines and whitespace is ignored. So for instance:</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- SKI combinators</span>
+<span class="kw">let</span> <span class="dt">I</span> x <span class="fu">=</span> x;
+<span class="kw">let</span> <span class="dt">K</span> x y <span class="fu">=</span> x;
+<span class="kw">let</span> <span class="dt">S</span> f g x <span class="fu">=</span> f x (g x);</code></pre>
+<p>As before <code>let rec</code> expressions will expand out in terms of the fixpoint operator and are just syntactic sugar.</p>
+<h2 id="polymorphism">Polymorphism</h2>
+<p>We will add an additional constructs to our language that will admit a new form of <em>polymorphism</em> for our language. Polymorphism is the property of a term to simultaneously admit several distinct types for the same function implementation.</p>
+<p>For instance the polymorphic signature for the identity function maps an input of type <span class="math">\(\alpha\)</span></p>
+<p><span class="math">\[
+\begin{aligned}
+\mathtt{id}\ &amp; ::\ \forall \alpha. \alpha \to \alpha \\
+\mathtt{id}\ &amp; =\ \lambda x : \alpha.\ x
+\end{aligned}
+\]</span></p>
+<p>Now instead of having to duplicate the functionality for every possible type (i.e. implementing idInt, idBool, ...) we our type system admits any instantiation that is subsumed by the polymorphic type signature.</p>
+<p><span class="math">\[
+\begin{aligned}
+&amp; \t{id}_\t{Int} = \t{Int} \to \t{Int} \\
+&amp; \t{id}_\t{Bool} = \t{Bool} \to \t{Bool} \\
+\end{aligned}
+\]</span></p>
+<p>A rather remarkably fact of universal quantification is that many properties about inhabitants of a type are guaranteed by construction, these are the so-called <em>free theorems</em>. For instance any (nonpathological) inhabitant of the type <code>(a, b) -&gt; a</code> must be equivalent to <code>fst</code>.</p>
+<p>A slightly less trivial example is that of the <code>fmap</code> function of type <code>Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b</code>. The second functor law demands that:</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">forall f g<span class="fu">.</span> fmap f <span class="fu">.</span> fmap g <span class="fu">=</span> fmap (f <span class="fu">.</span> g)</code></pre>
+<p>However it is impossible to write down a (nonpathological) function for <code>fmap</code> that has the required type and doesn't have this property. We get the theorem for free!</p>
+<h2 id="types">Types</h2>
+<p>The type language we'll use starts with the simple type system we used for our typed lambda calculus.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">newtype</span> <span class="dt">TVar</span> <span class="fu">=</span> <span class="dt">TV</span> <span class="dt">String</span>
+  <span class="kw">deriving</span> (<span class="dt">Show</span>, <span class="dt">Eq</span>, <span class="dt">Ord</span>)
+
+<span class="kw">data</span> <span class="dt">Type</span>
+  <span class="fu">=</span> <span class="dt">TVar</span> <span class="dt">TVar</span>
+  <span class="fu">|</span> <span class="dt">TCon</span> <span class="dt">String</span>
+  <span class="fu">|</span> <span class="dt">TArr</span> <span class="dt">Type</span> <span class="dt">Type</span>
+  <span class="kw">deriving</span> (<span class="dt">Show</span>, <span class="dt">Eq</span>, <span class="dt">Ord</span>)
+
+typeInt,<span class="ot"> typeBool ::</span> <span class="dt">Type</span>
+typeInt  <span class="fu">=</span> <span class="dt">TCon</span> <span class="st">&quot;Int&quot;</span>
+typeBool <span class="fu">=</span> <span class="dt">TCon</span> <span class="st">&quot;Bool&quot;</span></code></pre>
+<p><em>Type schemes</em> model polymorphic types, they indicate that the type variables bound in quantifier are polymorphic across the enclosed type and can be instantiated with any type consistent with the signature. Intuitively the indicate that the implementation of the function</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Scheme</span> <span class="fu">=</span> <span class="dt">Forall</span> [<span class="dt">TVar</span>] <span class="dt">Type</span></code></pre>
+<p>Type schemes will be written as <span class="math">\(\sigma\)</span> in our typing rules.</p>
+<p><span class="math">\[
+\begin{aligned}
+\sigma ::=\ &amp; \tau \\
+            &amp; \forall \overline \alpha . \tau  \\
+\end{aligned}
+\]</span></p>
+<p>For example the <code>id</code> and the <code>const</code> functions would have the following types:</p>
+<p><span class="math">\[
+\begin{aligned}
+\text{id}    &amp; : \forall a. a \rightarrow a \\
+\text{const} &amp; : \forall a b. a \rightarrow b \rightarrow a
+\end{aligned}
+\]</span></p>
+<p>We've now divided our types into two syntactic categories, the <em>monotypes</em> and the <em>polytypes</em>. In our simple initial languages type schemes will always be the representation of top level signature, even if there are no polymorphic type variables. In implementation terms this means when a monotype is yielded from our Infer monad after inference, we will immediately generalize it at the toplevel <em>closing over</em> all free type variables in a type scheme.</p>
+<h2 id="context">Context</h2>
+<p>The typing context or environment is the central container around which all information during the inference process is stored and queried. In Haskell our implementation will simply be a newtype wrapper around a Map of <code>Var</code> to <code>Scheme</code> types.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">newtype</span> <span class="dt">TypeEnv</span> <span class="fu">=</span> <span class="dt">TypeEnv</span> (<span class="dt">Map.Map</span> <span class="dt">Var</span> <span class="dt">Scheme</span>)</code></pre>
+<p>The two primary operations are <em>extension</em> and <em>restriction</em> which introduce or remove named quantities from the context.</p>
+<p><span class="math">\[
+\Gamma \backslash x = \{ y : \sigma | y : \sigma \in \Gamma, x \ne y \}
+\]</span></p>
+<p><span class="math">\[
+\Gamma, x:\tau = (\Gamma \backslash x) \cup \{ x :\tau \}
+\]</span></p>
+<p>Operations over the context are simply the usual Set operations on the underlying map.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">extend ::</span> <span class="dt">TypeEnv</span> <span class="ot">-&gt;</span> (<span class="dt">Var</span>, <span class="dt">Scheme</span>) <span class="ot">-&gt;</span> <span class="dt">TypeEnv</span>
+extend (<span class="dt">TypeEnv</span> env) (x, s) <span class="fu">=</span> <span class="dt">TypeEnv</span> <span class="fu">$</span> Map.insert x s env</code></pre>
+<h2 id="inference-monad">Inference Monad</h2>
+<p>All our logic for type inference will live inside of the <code>Infer</code> monad. It is a monad transformer stack of <code>ExcpetT</code> + <code>State</code>, allowing various error reporting and statefully holding the fresh name supply.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">Infer</span> a <span class="fu">=</span> <span class="dt">ExceptT</span> <span class="dt">TypeError</span> (<span class="dt">State</span> <span class="dt">Unique</span>) a</code></pre>
+<p>Running the logic in the monad results in either a type error or a resulting type scheme.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">runInfer ::</span> <span class="dt">Infer</span> (<span class="dt">Subst</span>, <span class="dt">Type</span>) <span class="ot">-&gt;</span> <span class="dt">Either</span> <span class="dt">TypeError</span> <span class="dt">Scheme</span>
+runInfer m <span class="fu">=</span> <span class="kw">case</span> evalState (runExceptT m) initUnique <span class="kw">of</span>
+  <span class="dt">Left</span> err  <span class="ot">-&gt;</span> <span class="dt">Left</span> err
+  <span class="dt">Right</span> res <span class="ot">-&gt;</span> <span class="dt">Right</span> <span class="fu">$</span> closeOver res</code></pre>
+<h2 id="substitution">Substitution</h2>
+<p>Two operations that will perform quite a bit are querying the free variables of an expression and applying substitutions over expressions.</p>
+<p><span class="math">\[
+\begin{aligned}
+\FV{x}            &amp;= x \\
+\FV{\lambda x. e} &amp;= \FV{e} - \{ x \} \\
+\FV{e_1 e_2}      &amp;= \FV{e_1} \cup \FV{e_2} \\
+\end{aligned}
+\]</span></p>
+<p>The same pattern applies to type variables at the type level.</p>
+<p><span class="math">\[
+\begin{aligned}
+\FTV{\alpha}                    &amp;= \{ \alpha \} \\
+\FTV{\tau_1 \rightarrow \tau_2} &amp;= \FTV{\tau_1} \cup \FTV{\tau_2} \\
+\FTV{\t{Int}}                   &amp;= \varnothing \\
+\FTV{\t{Bool}}                  &amp;= \varnothing \\
+\FTV{\forall x. t}              &amp;= \FTV{t} - \{ x \} \\
+\end{aligned}
+\]</span></p>
+<p>Substitutions over expressions apply the substitution to local variables, replacing the named subexpression if matched. In the case of name capture a fresh variable is introduced.</p>
+<p><span class="math">\[
+\begin{aligned}
+{[x / e&#39;] x} &amp;= e&#39; \\
+[x / e&#39;] y &amp;= y \quad (y \ne x) \\
+[x / e&#39;] (e_1 e_2) &amp;= ([x / e&#39;] \ e_1) ([x / e&#39;]  e_2) \\
+[x / e&#39;] (\lambda y. e_1) &amp;= \lambda y. [x / e&#39;]e \quad y \ne x, y \notin \FV{e&#39;} \\
+\end{aligned}
+\]</span></p>
+<p>And likewise, substitutions can be applied element wise over the typing environment.</p>
+<p><span class="math">\[
+[t / s] \Gamma = \{ y : [t /s] \sigma \ |\  y : \sigma \in \Gamma \}
+\]</span></p>
+<p>Our implementation of a substitution in Haskell is simply a Map from type variables to types.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">Subst</span> <span class="fu">=</span> <span class="dt">Map.Map</span> <span class="dt">TVar</span> <span class="dt">Type</span></code></pre>
+<p>Composition of substitutions ( <span class="math">\(s_1 \circ s_2\)</span>, <code>s1 `compose` s2</code> ) can be encoded simply as operations over the underlying map. Importantly note that in our implementation we have chosen the substitution to be left-biased, it is up to the implementation of the inference algorithm to ensure that clashes do not occur between substitutions.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">nullSubst ::</span> <span class="dt">Subst</span>
+nullSubst <span class="fu">=</span> Map.empty
+
+<span class="ot">compose ::</span> <span class="dt">Subst</span> <span class="ot">-&gt;</span> <span class="dt">Subst</span> <span class="ot">-&gt;</span> <span class="dt">Subst</span>
+s1 <span class="ot">`compose`</span> s2 <span class="fu">=</span> Map.map (apply s1) s2 <span class="ot">`Map.union`</span> s1</code></pre>
+<p>The implementation in Haskell is via a series of implementations of a <code>Substitutable</code> typeclass which exposes an <code>apply</code> function which applies the substitution given over the structure of the type replacing type variables as specified.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Substitutable</span> a <span class="kw">where</span>
+<span class="ot">  apply ::</span> <span class="dt">Subst</span> <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a
+<span class="ot">  ftv   ::</span> a <span class="ot">-&gt;</span> <span class="dt">Set.Set</span> <span class="dt">TVar</span>
+
+<span class="kw">instance</span> <span class="dt">Substitutable</span> <span class="dt">Type</span> <span class="kw">where</span>
+  apply _ (<span class="dt">TCon</span> a)       <span class="fu">=</span> <span class="dt">TCon</span> a
+  apply s t<span class="fu">@</span>(<span class="dt">TVar</span> a)     <span class="fu">=</span> Map.findWithDefault t a s
+  apply s (t1 <span class="ot">`TArr`</span> t2) <span class="fu">=</span> apply s t1 <span class="ot">`TArr`</span> apply s t2
+
+  ftv <span class="dt">TCon</span>{}         <span class="fu">=</span> Set.empty
+  ftv (<span class="dt">TVar</span> a)       <span class="fu">=</span> Set.singleton a
+  ftv (t1 <span class="ot">`TArr`</span> t2) <span class="fu">=</span> ftv t1 <span class="ot">`Set.union`</span> ftv t2
+
+<span class="kw">instance</span> <span class="dt">Substitutable</span> <span class="dt">Scheme</span> <span class="kw">where</span>
+  apply s (<span class="dt">Forall</span> as t)   <span class="fu">=</span> <span class="dt">Forall</span> as <span class="fu">$</span> apply s&#39; t
+                            <span class="kw">where</span> s&#39; <span class="fu">=</span> foldr Map.delete s as
+  ftv (<span class="dt">Forall</span> as t) <span class="fu">=</span> ftv t <span class="ot">`Set.difference`</span> Set.fromList as
+
+<span class="kw">instance</span> <span class="dt">Substitutable</span> a <span class="ot">=&gt;</span> <span class="dt">Substitutable</span> [a] <span class="kw">where</span>
+  apply <span class="fu">=</span> fmap <span class="fu">.</span> apply
+  ftv   <span class="fu">=</span> foldr (Set.union <span class="fu">.</span> ftv) Set.empty
+
+<span class="kw">instance</span> <span class="dt">Substitutable</span> <span class="dt">TypeEnv</span> <span class="kw">where</span>
+  apply s (<span class="dt">TypeEnv</span> env) <span class="fu">=</span>  <span class="dt">TypeEnv</span> <span class="fu">$</span> Map.map (apply s) env
+  ftv (<span class="dt">TypeEnv</span> env) <span class="fu">=</span> ftv <span class="fu">$</span> Map.elems env</code></pre>
+<p>Throughout both the typing rules and substitutions we will require a fresh supply of names. In this naive version we will simply use an infinite list of strings and slice into n'th element of list per an index that we hold in a State monad. This is a simplest implementation possible, and later we will adapt this name generation technique to be more robust.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">letters ::</span> [<span class="dt">String</span>]
+letters <span class="fu">=</span> [<span class="dv">1</span><span class="fu">..</span>] <span class="fu">&gt;&gt;=</span> flip replicateM [<span class="ch">&#39;a&#39;</span><span class="fu">..</span><span class="ch">&#39;z&#39;</span>]
+
+<span class="ot">fresh ::</span> <span class="dt">Infer</span> <span class="dt">Type</span>
+fresh <span class="fu">=</span> <span class="kw">do</span>
+  s <span class="ot">&lt;-</span> get
+  put s{count <span class="fu">=</span> count s <span class="fu">+</span> <span class="dv">1</span>}
+  return <span class="fu">$</span> <span class="dt">TVar</span> <span class="fu">$</span> <span class="dt">TV</span> (letters <span class="fu">!!</span> count s)</code></pre>
+<p>The creation of fresh variables will be essential for implementing the inference rules. Whenever we encounter the first use of a variable within some expression we will create a fresh type variable.</p>
+<h2 id="unification">Unification</h2>
+<p>Central to the idea of inference is the notion of <em>unification</em>. A unifier for two expressions <span class="math">\(e_1\)</span> and <span class="math">\(e_2\)</span> is a substitution <span class="math">\(s\)</span> such that:</p>
+<p><span class="math">\[
+s := [n_0 / m_0, n_1 / m_1, ..., n_k / m_k] \\
+{[s]} e_1 = [s] e_2
+\]</span></p>
+<p>Two terms are said to be <em>unifiable</em> if there exists a unifying substitution set between them. A substitution set is said to be <em>confluent</em> if the application of substitutions is independent of the order applied, i.e. if we always arrive at the same normal form regardless of the order of substitution chosen.</p>
+<p>We'll adopt the notation</p>
+<p><span class="math">\[
+\tau \sim \tau&#39; : s
+\]</span></p>
+<p>for the fact that two types <span class="math">\(\tau, \tau&#39;\)</span> are unifiable by a substitution <span class="math">\(s\)</span>, such that:</p>
+<p><span class="math">\[
+[s] \tau = [s] \tau&#39;
+\]</span></p>
+<p>Two identical terms are trivially unifiable by the empty unifier.</p>
+<p><span class="math">\[
+c \sim c : [\ ]
+\]</span></p>
+<p>The unification rules for our little HM language are as follows:</p>
+<p><span class="math">\[
+\begin{array}{cl}
+ c \sim c : []           &amp; \quad \trule{Uni-Const} \\ \\
+\alpha \sim \alpha : [] &amp; \quad \trule{Uni-Var} \\ \\
+\infrule{\alpha \notin \FTV{\tau}}{\alpha \sim \tau : [\alpha / \tau]}
+&amp; \quad \trule{Uni-VarLeft} \\ \\
+\infrule{\alpha \notin \FTV{\tau}}{\tau \sim \alpha : [\alpha / \tau]}
+&amp; \quad \trule{Uni-VarRight} \\ \\
+\infrule{
+  \tau_1 \sim \tau_1&#39; : \theta_1 \andalso [\theta_1] \tau_2  \sim [\theta_1] \tau_2&#39; : \theta_2
+}{
+  \tau_1 \tau_2 \sim \tau_1&#39; \tau_2&#39; : \theta_2 \circ \theta_1
+} 
+&amp; \quad \trule{Uni-Con} \\ \\
+\infrule{
+  \tau_1 \sim \tau_1&#39; : \theta_1 \andalso [\theta_1] \tau_2  \sim [\theta_1] \tau_2&#39; : \theta_2
+}{
+  \tau_1 \rightarrow \tau_2 \sim \tau_1&#39; \rightarrow \tau_2&#39; : \theta_2 \circ \theta_1
+} 
+&amp; \quad \trule{Uni-Arrow} \\ \\
+\end{array}
+\]</span></p>
+<p>If we want to unify a type variable <span class="math">\(\alpha\)</span> with a type <span class="math">\(\tau\)</span>, we usually can just substitute the variable with the type: <span class="math">\([\alpha/\tau]\)</span>. However, our rules state a precondition known as the <em>occurs check</em> for that unification: the type variable <span class="math">\(\alpha\)</span> must not occur free in <span class="math">\(\tau\)</span>. If it did, the substitution would not be a unifier.</p>
+<p>Take for example the problem of unifying <span class="math">\(\alpha\)</span> and <span class="math">\(\alpha\rightarrow\beta\)</span>. The substitution <span class="math">\(s=[\alpha/\alpha\rightarrow\beta]\)</span> doesn't unify: we get <span class="math">\[[s]\alpha=\alpha\rightarrow\beta\]</span> and <span class="math">\[[s]\alpha\rightarrow\beta=(\alpha\rightarrow\beta)\rightarrow\beta.\]</span></p>
+<p>Indeed, whatever substitution <span class="math">\(s\)</span> we try, <span class="math">\([s]\alpha\rightarrow\beta\)</span> will always be longer than <span class="math">\([s]\alpha\)</span>, so no unifier exists. The only chance would be to substitute with an infinite type: <span class="math">\([\alpha/(\dots((\alpha\rightarrow\beta)\rightarrow\beta)\rightarrow\dots  \rightarrow\beta)\rightarrow\beta]\)</span> would be a unifier, but our language has no such types.</p>
+<p>If the unification fails because of the occurs check, we say that unification would give an infinite type.</p>
+<p>Note that unifying <span class="math">\(\alpha\rightarrow\beta\)</span> and <span class="math">\(\alpha\)</span> is exactly what we would have to do if we tried to type check the omega combinator <span class="math">\(\lambda x.x x\)</span>, so it is ruled out by the occurs check, as are other pathological terms we discussed when covering the untyped lambda calculus.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">occursCheck ::</span>  <span class="dt">Substitutable</span> a <span class="ot">=&gt;</span> <span class="dt">TVar</span> <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">Bool</span>
+occursCheck a t <span class="fu">=</span> a <span class="ot">`Set.member`</span> ftv t</code></pre>
+<p>The unify function lives in the Infer monad and yields a subsitution:</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">unify ::</span>  <span class="dt">Type</span> <span class="ot">-&gt;</span> <span class="dt">Type</span> <span class="ot">-&gt;</span> <span class="dt">Infer</span> <span class="dt">Subst</span>
+unify (l <span class="ot">`TArr`</span> r) (l&#39; <span class="ot">`TArr`</span> r&#39;)  <span class="fu">=</span> <span class="kw">do</span>
+    s1 <span class="ot">&lt;-</span> unify l l&#39;
+    s2 <span class="ot">&lt;-</span> unify (apply s1 r) (apply s1 r&#39;)
+    return (s2 <span class="ot">`compose`</span> s1)
+
+unify (<span class="dt">TVar</span> a) t <span class="fu">=</span> bind a t
+unify t (<span class="dt">TVar</span> a) <span class="fu">=</span> bind a t
+unify (<span class="dt">TCon</span> a) (<span class="dt">TCon</span> b) <span class="fu">|</span> a <span class="fu">==</span> b <span class="fu">=</span> return nullSubst
+unify t1 t2 <span class="fu">=</span> throwError <span class="fu">$</span> <span class="dt">UnificationFail</span> t1 t2
+
+<span class="ot">bind ::</span>  <span class="dt">TVar</span> <span class="ot">-&gt;</span> <span class="dt">Type</span> <span class="ot">-&gt;</span> <span class="dt">Infer</span> <span class="dt">Subst</span>
+bind a t <span class="fu">|</span> t <span class="fu">==</span> <span class="dt">TVar</span> a     <span class="fu">=</span> return nullSubst
+         <span class="fu">|</span> occursCheck a t <span class="fu">=</span> throwError <span class="fu">$</span> <span class="dt">InfiniteType</span> a t
+         <span class="fu">|</span> otherwise       <span class="fu">=</span> return <span class="fu">$</span> Map.singleton a t</code></pre>
+<h2 id="generalization-and-instantiation">Generalization and Instantiation</h2>
+<p>At the heart of Hindley-Milner is two fundamental operations:</p>
+<ul>
+<li><strong>Generalization</strong>: Converting a <span class="math">\(\tau\)</span> type into a <span class="math">\(\sigma\)</span> type by closing over all free type variables in a type scheme.</li>
+<li><strong>Instantiation</strong>: Converting a <span class="math">\(\sigma\)</span> type into a <span class="math">\(\tau\)</span> type by creating fresh names for each type variable that does not appear in the current typing environment.</li>
+</ul>
+<p><span class="math">\[
+\begin{array}{cl}
+ \displaystyle\frac{\Gamma \vdash e: \sigma \quad \overline{\alpha} \notin \mathtt{ftv}(\Gamma)}{\Gamma \vdash e:\forall\ \overline{\alpha}\ .\ \sigma} &amp; \trule{T-Gen}\\ \\
+ \displaystyle\frac{\Gamma \vdash e: \sigma_1 \quad\quad \sigma_1 \sqsubseteq \sigma_2}{\Gamma \vdash e : \sigma_2 } &amp; \trule{T-Inst} \\ \\
+\end{array}
+\]</span></p>
+<p>The <span class="math">\(\sqsubseteq\)</span> operator in the <span class="math">\(\trule{T-Inst}\)</span> rule indicates that a type is an <em>instantiation</em> of a type scheme.</p>
+<p><span class="math">\[
+\forall \overline \alpha. \tau_2 \sqsubseteq  \tau_1
+\]</span></p>
+<p>A type <span class="math">\(\tau_1\)</span> is a instantiation of a type scheme <span class="math">\(\sigma = \forall \overline \alpha. \tau_2\)</span> if there exists a substitution <span class="math">\([s] \beta = \beta\)</span> for all <span class="math">\(\beta \in \mathtt{ftv}(\sigma)\)</span> so that <span class="math">\(\tau_1 = [s] \tau_2\)</span>. Some examples:</p>
+<p><span class="math">\[
+\begin{aligned}
+  \forall a. a \rightarrow a &amp; \sqsubseteq \t{Int} \rightarrow \t{Int} \\
+  \forall a. a \rightarrow a &amp; \sqsubseteq b \rightarrow b \\
+  \forall a b. a \rightarrow b \rightarrow a &amp; \sqsubseteq \t{Int} \rightarrow \t{Bool} \rightarrow \t{Int}
+\end{aligned}
+\]</span></p>
+<p>These map very intuitively into code that simply manipulates the Haskell <code>Set</code> objects of variables and the fresh name supply:</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">instantiate ::</span>  <span class="dt">Scheme</span> <span class="ot">-&gt;</span> <span class="dt">Infer</span> <span class="dt">Type</span>
+instantiate (<span class="dt">Forall</span> as t) <span class="fu">=</span> <span class="kw">do</span>
+  as&#39; <span class="ot">&lt;-</span> mapM (const fresh) as
+  <span class="kw">let</span> s <span class="fu">=</span> Map.fromList <span class="fu">$</span> zip as as&#39;
+  return <span class="fu">$</span> apply s t
+
+<span class="ot">generalize ::</span> <span class="dt">TypeEnv</span> <span class="ot">-&gt;</span> <span class="dt">Type</span> <span class="ot">-&gt;</span> <span class="dt">Scheme</span>
+generalize env t  <span class="fu">=</span> <span class="dt">Forall</span> as t
+    <span class="kw">where</span> as <span class="fu">=</span> Set.toList <span class="fu">$</span> ftv t <span class="ot">`Set.difference`</span> ftv env</code></pre>
+<p>By convention let-bindings are generalized as much as possible. So for instance in the following definition <code>f</code> is generalized across the body of the binding so that at each invocation of <code>f</code> it is instantiated with fresh type variables.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="dt">Poly</span><span class="fu">&gt;</span> <span class="kw">let</span> f <span class="fu">=</span> (\x <span class="ot">-&gt;</span> x) <span class="kw">in</span> <span class="kw">let</span> g <span class="fu">=</span> (f <span class="dt">True</span>) <span class="kw">in</span> f <span class="dv">3</span>
+<span class="dv">3</span> <span class="fu">:</span> <span class="dt">Int</span></code></pre>
+<p>In this expression, the type of <code>f</code> is generated at the let definition and will be instantiated with two different signatures. At call site of <code>f</code> it will unify with <code>Int</code> and the other unify with <code>Bool</code>.</p>
+<p>By contrast, binding <code>f</code> in a lambda will result in a type error.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="dt">Poly</span><span class="fu">&gt;</span> (\f <span class="ot">-&gt;</span> <span class="kw">let</span> g <span class="fu">=</span> (f <span class="dt">True</span>) <span class="kw">in</span> (f <span class="dv">3</span>)) (\x <span class="ot">-&gt;</span> x)
+<span class="dt">Cannot</span> unify types<span class="fu">:</span> 
+    <span class="dt">Bool</span>
+with 
+    <span class="dt">Int</span></code></pre>
+<p>This is the essence of <em>let generalization</em>.</p>
+<h2 id="typing-rules">Typing Rules</h2>
+<p>And finally with all the typing machinery in place, we can write down the typing rules for our simple little polymorphic lambda calculus.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">infer ::</span> <span class="dt">TypeEnv</span> <span class="ot">-&gt;</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">Infer</span> (<span class="dt">Subst</span>, <span class="dt">Type</span>)</code></pre>
+<p>The <code>infer</code> maps the local typing environment and the active expression to a 2-tuple of the partial unifier solution and the intermediate type. The AST is traversed bottom-up and constraints are solved at each level of recursion by applying partial substitutions from unification across each partially inferred subexpression and the local environment. If an error is encountered the <code>throwError</code> is called in the <code>Infer</code> monad and an error is reported.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">infer ::</span> <span class="dt">TypeEnv</span> <span class="ot">-&gt;</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">Infer</span> (<span class="dt">Subst</span>, <span class="dt">Type</span>)
+infer env ex <span class="fu">=</span> <span class="kw">case</span> ex <span class="kw">of</span>
+
+  <span class="dt">Var</span> x <span class="ot">-&gt;</span> lookupEnv env x
+
+  <span class="dt">Lam</span> x e <span class="ot">-&gt;</span> <span class="kw">do</span>
+    tv <span class="ot">&lt;-</span> fresh
+    <span class="kw">let</span> env&#39; <span class="fu">=</span> env <span class="ot">`extend`</span> (x, <span class="dt">Forall</span> [] tv)
+    (s1, t1) <span class="ot">&lt;-</span> infer env&#39; e
+    return (s1, apply s1 tv <span class="ot">`TArr`</span> t1)
+
+  <span class="dt">App</span> e1 e2 <span class="ot">-&gt;</span> <span class="kw">do</span>
+    tv <span class="ot">&lt;-</span> fresh
+    (s1, t1) <span class="ot">&lt;-</span> infer env e1
+    (s2, t2) <span class="ot">&lt;-</span> infer (apply s1 env) e2
+    s3       <span class="ot">&lt;-</span> unify (apply s2 t1) (<span class="dt">TArr</span> t2 tv)
+    return (s3 <span class="ot">`compose`</span> s2 <span class="ot">`compose`</span> s1, apply s3 tv)
+
+  <span class="dt">Let</span> x e1 e2 <span class="ot">-&gt;</span> <span class="kw">do</span>
+    (s1, t1) <span class="ot">&lt;-</span> infer env e1
+    <span class="kw">let</span> env&#39; <span class="fu">=</span> apply s1 env
+        t&#39;   <span class="fu">=</span> generalize env&#39; t1
+    (s2, t2) <span class="ot">&lt;-</span> infer (env&#39; <span class="ot">`extend`</span> (x, t&#39;)) e2
+    return (s1 <span class="ot">`compose`</span> s2, t2)
+
+  <span class="dt">If</span> cond tr fl <span class="ot">-&gt;</span> <span class="kw">do</span>
+    (s1, t1) <span class="ot">&lt;-</span> infer env cond
+    (s2, t2) <span class="ot">&lt;-</span> infer env tr
+    (s3, t3) <span class="ot">&lt;-</span> infer env fl
+    s4 <span class="ot">&lt;-</span> unify t1 typeBool
+    s5 <span class="ot">&lt;-</span> unify t2 t3
+    return (s5 <span class="ot">`compose`</span> s4 <span class="ot">`compose`</span> s3 <span class="ot">`compose`</span> s2 <span class="ot">`compose`</span> s1, apply s5 t2)
+
+  <span class="dt">Fix</span> e1 <span class="ot">-&gt;</span> <span class="kw">do</span>
+    (s1, t) <span class="ot">&lt;-</span> infer env e1
+    tv <span class="ot">&lt;-</span> fresh
+    s2 <span class="ot">&lt;-</span> unify (<span class="dt">TArr</span> tv tv) t
+    return (s2, apply s1 tv)
+
+  <span class="dt">Op</span> op e1 e2 <span class="ot">-&gt;</span> <span class="kw">do</span>
+    (s1, t1) <span class="ot">&lt;-</span> infer env e1
+    (s2, t2) <span class="ot">&lt;-</span> infer env e2
+    tv <span class="ot">&lt;-</span> fresh
+    s3 <span class="ot">&lt;-</span> unify (<span class="dt">TArr</span> t1 (<span class="dt">TArr</span> t2 tv)) (ops <span class="fu">Map.!</span> op)
+    return (s1 <span class="ot">`compose`</span> s2 <span class="ot">`compose`</span> s3, apply s3 tv)
+
+  <span class="dt">Lit</span> (<span class="dt">LInt</span> _)  <span class="ot">-&gt;</span> return (nullSubst, typeInt)
+  <span class="dt">Lit</span> (<span class="dt">LBool</span> _) <span class="ot">-&gt;</span> return (nullSubst, typeBool)</code></pre>
+<p>Let's walk through each of the rule derivations and look how it translates into code:</p>
+<p><strong>T-Var</strong></p>
+<p>The <code>T-Var</code> rule, simply pull the type of the variable out of the typing context.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">  <span class="dt">Var</span> x <span class="ot">-&gt;</span> lookupEnv env x</code></pre>
+<p>The function <code>lookupVar</code> looks up the local variable reference in typing environment and if found it instantiates a fresh copy.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">lookupEnv ::</span> <span class="dt">TypeEnv</span> <span class="ot">-&gt;</span> <span class="dt">Var</span> <span class="ot">-&gt;</span> <span class="dt">Infer</span> (<span class="dt">Subst</span>, <span class="dt">Type</span>)
+lookupEnv (<span class="dt">TypeEnv</span> env) x <span class="fu">=</span> <span class="kw">do</span>
+  <span class="kw">case</span> Map.lookup x env <span class="kw">of</span>
+    <span class="dt">Nothing</span> <span class="ot">-&gt;</span> throwError <span class="fu">$</span> <span class="dt">UnboundVariable</span> (show x)
+    <span class="dt">Just</span> s  <span class="ot">-&gt;</span> <span class="kw">do</span> t <span class="ot">&lt;-</span> instantiate s
+                  return (nullSubst, t)</code></pre>
+<p><span class="math">\[
+\begin{array}{cl}
+ \displaystyle\frac{x:\sigma \in \Gamma}{\Gamma \vdash x:\sigma} &amp; \trule{T-Var} \\ \\
+\end{array}
+\]</span></p>
+<p><strong>T-Lam</strong></p>
+<p>For lambdas the variable bound by the lambda is locally scoped to the typing environment and then the body of the expression is inferred with this scope. The output type is a fresh type variable and is unified with the resulting inferred type.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">  <span class="dt">Lam</span> x e <span class="ot">-&gt;</span> <span class="kw">do</span>
+    tv <span class="ot">&lt;-</span> fresh
+    <span class="kw">let</span> env&#39; <span class="fu">=</span> env <span class="ot">`extend`</span> (x, <span class="dt">Forall</span> [] tv)
+    (s1, t1) <span class="ot">&lt;-</span> infer env&#39; e
+    return (s1, apply s1 tv <span class="ot">`TArr`</span> t1)</code></pre>
+<p><span class="math">\[
+\begin{array}{cl}
+ \displaystyle\frac{\Gamma,\;x:\tau_1 \vdash e:\tau_2}{\Gamma \vdash \lambda\ x\ .\ e : \tau_1 \rightarrow \tau_2}&amp; \trule{T-Lam} \\ \\
+\end{array}
+\]</span></p>
+<p><strong>T-App</strong></p>
+<p>For applications, the first argument must be a lambda expression or return a lambda expression, so know it must be of form <code>t1 -&gt; t2</code> but the output type is not determined except by the confluence of the two values. We infer both types, apply the constraints from the first argument over the result second inferred type and then unify the two types with the excepted form of the entire application expression.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">  <span class="dt">App</span> e1 e2 <span class="ot">-&gt;</span> <span class="kw">do</span>
+    tv <span class="ot">&lt;-</span> fresh
+    (s1, t1) <span class="ot">&lt;-</span> infer env e1
+    (s2, t2) <span class="ot">&lt;-</span> infer (apply s1 env) e2
+    s3       <span class="ot">&lt;-</span> unify (apply s2 t1) (<span class="dt">TArr</span> t2 tv)
+    return (s3 <span class="ot">`compose`</span> s2 <span class="ot">`compose`</span> s1, apply s3 tv)</code></pre>
+<p><span class="math">\[
+\begin{array}{cl}
+ \displaystyle\frac{\Gamma \vdash e_1:\tau_1 \rightarrow \tau_2 \quad\quad \Gamma \vdash e_2 : \tau_1 }{\Gamma \vdash e_1\ e_2 : \tau_2} &amp; \trule{T-App} \\ \\
+\end{array}
+\]</span></p>
+<p><strong>T-Let</strong></p>
+<p>As mentioned previously, let will be generalized so we will create a local typing environment for the body of the let expression and add the generalized inferred type let bound value to the typing environment of the body.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">  <span class="dt">Let</span> x e1 e2 <span class="ot">-&gt;</span> <span class="kw">do</span>
+    (s1, t1) <span class="ot">&lt;-</span> infer env e1
+    <span class="kw">let</span> env&#39; <span class="fu">=</span> apply s1 env
+        t&#39;   <span class="fu">=</span> generalize env&#39; t1
+    (s2, t2) <span class="ot">&lt;-</span> infer (env&#39; <span class="ot">`extend`</span> (x, t&#39;)) e2
+    return (s1 <span class="ot">`compose`</span> s2, t2)</code></pre>
+<p><span class="math">\[
+\begin{array}{cl}
+ \displaystyle\frac{\Gamma \vdash e_1:\sigma \quad\quad \Gamma,\,x:\sigma \vdash e_2:\tau}{\Gamma \vdash \mathtt{let}\ x = e_1\ \mathtt{in}\ e_2 : \tau} &amp; \trule{T-Let} \\ \\
+\end{array}
+\]</span></p>
+<p><strong>T-BinOp</strong></p>
+<p>There are several builtin operations, we haven't mentioned up to now because the typing rules are trivial. We simply unify with the preset type signature of the operation.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"> <span class="dt">Op</span> op e1 e2 <span class="ot">-&gt;</span> <span class="kw">do</span>
+    (s1, t1) <span class="ot">&lt;-</span> infer env e1
+    (s2, t2) <span class="ot">&lt;-</span> infer env e2
+    tv <span class="ot">&lt;-</span> fresh
+    s3 <span class="ot">&lt;-</span> unify (<span class="dt">TArr</span> t1 (<span class="dt">TArr</span> t2 tv)) (ops <span class="fu">Map.!</span> op)
+    return (s1 <span class="ot">`compose`</span> s2 <span class="ot">`compose`</span> s3, apply s3 tv)</code></pre>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">ops ::</span> <span class="dt">Map.Map</span> <span class="dt">Binop</span> <span class="dt">Type</span>
+ops <span class="fu">=</span> Map.fromList [
+      (<span class="dt">Add</span>, (typeInt <span class="ot">`TArr`</span> (typeInt <span class="ot">`TArr`</span> typeInt)))
+    , (<span class="dt">Mul</span>, (typeInt <span class="ot">`TArr`</span> (typeInt <span class="ot">`TArr`</span> typeInt)))
+    , (<span class="dt">Sub</span>, (typeInt <span class="ot">`TArr`</span> (typeInt <span class="ot">`TArr`</span> typeInt)))
+    , (<span class="dt">Eql</span>, (typeInt <span class="ot">`TArr`</span> (typeInt <span class="ot">`TArr`</span> typeBool)))
+  ]</code></pre>
+<p><span class="math">\[
+\begin{array}{cl}
+(+) &amp;: \t{Int} \rightarrow \t{Int} \rightarrow \t{Int} \\ 
+(\times) &amp;: \t{Int} \rightarrow \t{Int} \rightarrow \t{Int} \\ 
+(-) &amp;: \t{Int} \rightarrow \t{Int} \rightarrow \t{Int} \\ 
+(=) &amp;: \t{Int} \rightarrow \t{Int} \rightarrow \t{Bool} \\
+\end{array}
+\]</span></p>
+<p><strong>Literals</strong></p>
+<p>The type of literal integer and boolean types is trivially their respective types.</p>
+<p><span class="math">\[
+\begin{array}{cl}
+\displaystyle \frac{}{\Gamma \vdash n : \mathtt{Int}}           &amp; \trule{T-Int}  \\ \\
+\displaystyle \frac{}{\Gamma \vdash \t{True} : \mathtt{Bool}}   &amp; \trule{T-True} \\ \\
+\displaystyle \frac{}{\Gamma \vdash \t{False} : \mathtt{Bool}}  &amp; \trule{T-False}
+\end{array}
+\]</span></p>
+<h2 id="constraint-generation">Constraint Generation</h2>
+<p>The previous implementation of Hindley Milner is simple, but has this odd property of intermingling two separate processes: constraint solving and traversal. Let's discuss another implementation of the inference algorithm that does not do this.</p>
+<p>In the <em>constraint generation</em> approach, constraints are generated by bottom-up traversal, added to a ordered container, canonicalized, solved, and then possibly back-substituted over a typed AST. This will be the approach we will use from here out, and while there is an equivalence between the &quot;on-line solver&quot;, using the separate constraint solver becomes easier to manage as our type system gets more complex and we start building out the language.</p>
+<p>Our inference monad now becomes a <code>RWST</code> ( Reader-Writer-State Transformer ) + <code>Except</code> for typing errors. The inference state remains the same, just the fresh name supply.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- | Inference monad</span>
+<span class="kw">type</span> <span class="dt">Infer</span> a <span class="fu">=</span> (<span class="dt">RWST</span>
+                  <span class="dt">Env</span>             <span class="co">-- Typing environment</span>
+                  [<span class="dt">Constraint</span>]    <span class="co">-- Generated constraints</span>
+                  <span class="dt">InferState</span>      <span class="co">-- Inference state</span>
+                  (<span class="dt">Except</span>         <span class="co">-- Inference errors</span>
+                    <span class="dt">TypeError</span>)
+                  a)              <span class="co">-- Result</span>
+
+<span class="co">-- | Inference state</span>
+<span class="kw">data</span> <span class="dt">InferState</span> <span class="fu">=</span> <span class="dt">InferState</span> {<span class="ot"> count ::</span> <span class="dt">Int</span> }</code></pre>
+<p>Instead of unifying type variables at each level of traversal, we will instead just collect the unifiers inside the Writer and emit them with the <code>uni</code> function.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- | Unify two types</span>
+<span class="ot">uni ::</span> <span class="dt">Type</span> <span class="ot">-&gt;</span> <span class="dt">Type</span> <span class="ot">-&gt;</span> <span class="dt">Infer</span> ()
+uni t1 t2 <span class="fu">=</span> tell [(t1, t2)]</code></pre>
+<p>Since the typing environment is stored in the Reader monad, we can use the <code>local</code> to create a locally scoped additions to the typing environment. This is convenient for typing binders.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- | Extend type environment</span>
+<span class="ot">inEnv ::</span> (<span class="dt">Name</span>, <span class="dt">Scheme</span>) <span class="ot">-&gt;</span> <span class="dt">Infer</span> a <span class="ot">-&gt;</span> <span class="dt">Infer</span> a
+inEnv (x, sc) m <span class="fu">=</span> <span class="kw">do</span>
+  <span class="kw">let</span> scope e <span class="fu">=</span> (remove e x) <span class="ot">`extend`</span> (x, sc)
+  local scope m</code></pre>
+<h2 id="typing">Typing</h2>
+<p>The typing rules are identical, except they now can be written down in a much less noisy way that isn't threading so much state. All of the details are taken care of under the hood and encoded in specific combinators manipulating the state of our Infer monad in a way that lets focus on the domain logic.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">infer ::</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">Infer</span> <span class="dt">Type</span>
+infer expr <span class="fu">=</span> <span class="kw">case</span> expr <span class="kw">of</span>
+  <span class="dt">Lit</span> (<span class="dt">LInt</span> _)  <span class="ot">-&gt;</span> return <span class="fu">$</span> typeInt
+  <span class="dt">Lit</span> (<span class="dt">LBool</span> _) <span class="ot">-&gt;</span> return <span class="fu">$</span> typeBool
+
+  <span class="dt">Var</span> x <span class="ot">-&gt;</span> lookupEnv x
+
+  <span class="dt">Lam</span> x e <span class="ot">-&gt;</span> <span class="kw">do</span>
+    tv <span class="ot">&lt;-</span> fresh
+    t <span class="ot">&lt;-</span> inEnv (x, <span class="dt">Forall</span> [] tv) (infer e)
+    return (tv <span class="ot">`TArr`</span> t)
+
+  <span class="dt">App</span> e1 e2 <span class="ot">-&gt;</span> <span class="kw">do</span>
+    t1 <span class="ot">&lt;-</span> infer e1
+    t2 <span class="ot">&lt;-</span> infer e2
+    tv <span class="ot">&lt;-</span> fresh
+    uni t1 (t2 <span class="ot">`TArr`</span> tv)
+    return tv
+
+  <span class="dt">Let</span> x e1 e2 <span class="ot">-&gt;</span> <span class="kw">do</span>
+    env <span class="ot">&lt;-</span> ask
+    t1 <span class="ot">&lt;-</span> infer e1
+    <span class="kw">let</span> sc <span class="fu">=</span> generalize env t1
+    t2 <span class="ot">&lt;-</span> inEnv (x, sc) (infer e2)
+    return t2
+
+  <span class="dt">Fix</span> e1 <span class="ot">-&gt;</span> <span class="kw">do</span>
+    t1 <span class="ot">&lt;-</span> infer e1
+    tv <span class="ot">&lt;-</span> fresh
+    uni (tv <span class="ot">`TArr`</span> tv) t1
+    return tv
+
+  <span class="dt">Op</span> op e1 e2 <span class="ot">-&gt;</span> <span class="kw">do</span>
+    t1 <span class="ot">&lt;-</span> infer e1
+    t2 <span class="ot">&lt;-</span> infer e2
+    tv <span class="ot">&lt;-</span> fresh
+    <span class="kw">let</span> u1 <span class="fu">=</span> t1 <span class="ot">`TArr`</span> (t2 <span class="ot">`TArr`</span> tv)
+        u2 <span class="fu">=</span> ops <span class="fu">Map.!</span> op
+    uni u1 u2
+    return tv
+
+  <span class="dt">If</span> cond tr fl <span class="ot">-&gt;</span> <span class="kw">do</span>
+    t1 <span class="ot">&lt;-</span> infer cond
+    t2 <span class="ot">&lt;-</span> infer tr
+    t3 <span class="ot">&lt;-</span> infer fl
+    uni t1 typeBool
+    uni t2 t3
+    return t2</code></pre>
+<h2 id="constraint-solver">Constraint Solver</h2>
+<p>The Writer layer for the Infer monad contains the generated set of constraints emitted from inference pass. Once inference has completed we are left with a resulting type signature full of meaningless unique fresh variables and a set of constraints that we must solve to refine the type down to its principal type.</p>
+<p>The constraints are pulled out solved by a separate <code>Solve</code> monad which holds the Unifier ( most general unifier ) solution that when applied to generated signature will yield the solution.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">Constraint</span> <span class="fu">=</span> (<span class="dt">Type</span>, <span class="dt">Type</span>)
+
+<span class="kw">type</span> <span class="dt">Unifier</span> <span class="fu">=</span> (<span class="dt">Subst</span>, [<span class="dt">Constraint</span>])
+
+<span class="co">-- | Constraint solver monad</span>
+<span class="kw">type</span> <span class="dt">Solve</span> a <span class="fu">=</span> <span class="dt">StateT</span> <span class="dt">Unifier</span> (<span class="dt">ExceptT</span> <span class="dt">TypeError</span> <span class="dt">Identity</span>) a</code></pre>
+<p>The unification logic is also identical to before, except it is now written independent of inference and stores its partial state inside of the Solve monad's state layer.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">unifies ::</span> <span class="dt">Type</span> <span class="ot">-&gt;</span> <span class="dt">Type</span> <span class="ot">-&gt;</span> <span class="dt">Solve</span> <span class="dt">Unifier</span>
+unifies t1 t2 <span class="fu">|</span> t1 <span class="fu">==</span> t2 <span class="fu">=</span> return emptyUnifer
+unifies (<span class="dt">TVar</span> v) t <span class="fu">=</span> v <span class="ot">`bind`</span> t
+unifies t (<span class="dt">TVar</span> v) <span class="fu">=</span> v <span class="ot">`bind`</span> t
+unifies (<span class="dt">TArr</span> t1 t2) (<span class="dt">TArr</span> t3 t4) <span class="fu">=</span> unifyMany [t1, t2] [t3, t4]
+unifies t1 t2 <span class="fu">=</span> throwError <span class="fu">$</span> <span class="dt">UnificationFail</span> t1 t2
+
+<span class="ot">unifyMany ::</span> [<span class="dt">Type</span>] <span class="ot">-&gt;</span> [<span class="dt">Type</span>] <span class="ot">-&gt;</span> <span class="dt">Solve</span> <span class="dt">Unifier</span>
+unifyMany [] [] <span class="fu">=</span> return emptyUnifer
+unifyMany (t1 <span class="fu">:</span> ts1) (t2 <span class="fu">:</span> ts2) <span class="fu">=</span>
+  <span class="kw">do</span> (su1,cs1) <span class="ot">&lt;-</span> unifies t1 t2
+     (su2,cs2) <span class="ot">&lt;-</span> unifyMany (apply su1 ts1) (apply su1 ts2)
+     return (su2 <span class="ot">`compose`</span> su1, cs1 <span class="fu">++</span> cs2)
+unifyMany t1 t2 <span class="fu">=</span> throwError <span class="fu">$</span> <span class="dt">UnificationMismatch</span> t1 t2</code></pre>
+<p>The solver function simply iterates over the set of constraints, composing them and applying the resulting constraint solution over the intermediate solution eventually converting on the <em>most general unifier</em> which yields the final subsitution which when applied over the inferred type signature, yields the principal type solution for the expression.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- Unification solver</span>
+<span class="ot">solver ::</span> <span class="dt">Solve</span> <span class="dt">Subst</span>
+solver <span class="fu">=</span> <span class="kw">do</span>
+  (su, cs) <span class="ot">&lt;-</span> get
+  <span class="kw">case</span> cs <span class="kw">of</span>
+    [] <span class="ot">-&gt;</span> return su
+    ((t1, t2)<span class="fu">:</span> cs0) <span class="ot">-&gt;</span> <span class="kw">do</span>
+      (su1, cs1)  <span class="ot">&lt;-</span> unifies t1 t2
+      put (su1 <span class="ot">`compose`</span> su, cs1 <span class="fu">++</span> (apply su1 cs0))
+      solver</code></pre>
+<p>This a much more elegant solution than having to intermingle inference and solving in the same pass, and adapts itself well to the generation of a typed Core form which we will discuss in later chapters.</p>
+<h2 id="worked-examples">Worked Examples</h2>
+<p>Let's walk through two examples of how inference works for simple functions.</p>
+<p><strong>Example 1</strong></p>
+<p>Consider:</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">\x y z <span class="ot">-&gt;</span> x <span class="fu">+</span> y <span class="fu">+</span> z</code></pre>
+<p>The generated type from the <code>infer</code> function consists simply of a fresh variable for each of the arguments and the return type.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">a <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> c <span class="ot">-&gt;</span> e</code></pre>
+<p>The constraints induced from <strong>T-BinOp</strong> are emitted as we traverse both of the addition operations.</p>
+<ol style="list-style-type: decimal">
+<li><code>a -&gt; b -&gt; d  ~  Int -&gt; Int -&gt; Int</code></li>
+<li><code>d -&gt; c -&gt; e  ~  Int -&gt; Int -&gt; Int</code></li>
+</ol>
+<p>Here <code>d</code> is the type of the intermediate term <code>x + y</code>. By applying <strong>Uni-Arrow</strong> we can then deduce the following set of substitutions.</p>
+<ol style="list-style-type: decimal">
+<li><code>a ~ Int</code></li>
+<li><code>b ~ Int</code></li>
+<li><code>c ~ Int</code></li>
+<li><code>d ~ Int</code></li>
+<li><code>e ~ Int</code></li>
+</ol>
+<p>Substituting this solution back over the type yields the inferred type:</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span></code></pre>
+<p><strong>Example 2</strong></p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">compose f g x <span class="fu">=</span> f (g x)</code></pre>
+<p>The generated type from the <code>infer</code> function consists again simply of unique fresh variables.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">a <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> c <span class="ot">-&gt;</span> e</code></pre>
+<p>Induced by two cases of the <strong>T-App</strong> rule we get the following constraints:</p>
+<ol style="list-style-type: decimal">
+<li><code>b ~ c -&gt; d</code></li>
+<li><code>a ~ d -&gt; e</code></li>
+</ol>
+<p>Here <code>d</code> is the type of <code>(g x)</code>. The constraints are already in a canonical form, by applying <strong>Uni-VarLeft</strong> twice we get the following set of substitutions:</p>
+<ol style="list-style-type: decimal">
+<li><code>b ~ c -&gt; d</code></li>
+<li><code>a ~ d -&gt; e</code></li>
+</ol>
+<p>So we get this type:</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">compose ::</span> forall c d e<span class="fu">.</span> (d <span class="ot">-&gt;</span> e) <span class="ot">-&gt;</span> (c <span class="ot">-&gt;</span> d) <span class="ot">-&gt;</span> c <span class="ot">-&gt;</span> e</code></pre>
+<p>If desired, we can rename the variables in alphabetical order to get:</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">compose ::</span> forall a b c<span class="fu">.</span> (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> (c <span class="ot">-&gt;</span> a) <span class="ot">-&gt;</span> c <span class="ot">-&gt;</span> b</code></pre>
+<h2 id="interpreter">Interpreter</h2>
+<p>Our evaluator will operate directly on the syntax and evaluate the results in into a <code>Value</code> type.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Value</span>
+  <span class="fu">=</span> <span class="dt">VInt</span> <span class="dt">Integer</span>
+  <span class="fu">|</span> <span class="dt">VBool</span> <span class="dt">Bool</span>
+  <span class="fu">|</span> <span class="dt">VClosure</span> <span class="dt">String</span> <span class="dt">Expr</span> <span class="dt">TermEnv</span></code></pre>
+<p>The interpreter is set up an Identity monad. Later it will become a more complicated monad, but for now its quite simple. The value environment will explicitly threaded around, and whenever a closure is created we simply store a copy of the local environment in the closure.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">TermEnv</span> <span class="fu">=</span> <span class="dt">Map.Map</span> <span class="dt">String</span> <span class="dt">Value</span>
+<span class="kw">type</span> <span class="dt">Interpreter</span> t <span class="fu">=</span> <span class="dt">Identity</span> t</code></pre>
+<p>Our logic for evaluation is an extension of the lambda calculus evaluator implemented in previous chapter. However you might notice quite a few incomplete patterns used throughout evaluation. Fear not though, the evaluation of our program cannot &quot;go wrong&quot;. Each of these patterns represents a state that our type system guarantees will never happen. For example, if our program did have not every variable referenced in scope then it would never reach evaluation to begin with and would be rejected in our type checker. We are morally correct in using incomplete patterns here!</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">eval ::</span> <span class="dt">TermEnv</span> <span class="ot">-&gt;</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">Interpreter</span> <span class="dt">Value</span>
+eval env expr <span class="fu">=</span> <span class="kw">case</span> expr <span class="kw">of</span>
+  <span class="dt">Lit</span> (<span class="dt">LInt</span> k)  <span class="ot">-&gt;</span> return <span class="fu">$</span> <span class="dt">VInt</span> k
+  <span class="dt">Lit</span> (<span class="dt">LBool</span> k) <span class="ot">-&gt;</span> return <span class="fu">$</span> <span class="dt">VBool</span> k
+
+  <span class="dt">Var</span> x <span class="ot">-&gt;</span> <span class="kw">do</span>
+    <span class="kw">let</span> <span class="dt">Just</span> v <span class="fu">=</span> Map.lookup x env
+    return v
+
+  <span class="dt">Op</span> op a b <span class="ot">-&gt;</span> <span class="kw">do</span>
+    <span class="dt">VInt</span> a&#39; <span class="ot">&lt;-</span> eval env a
+    <span class="dt">VInt</span> b&#39; <span class="ot">&lt;-</span> eval env b
+    return <span class="fu">$</span> (binop op) a&#39; b&#39;
+
+  <span class="dt">Lam</span> x body <span class="ot">-&gt;</span> 
+    return (<span class="dt">VClosure</span> x body env)
+
+  <span class="dt">App</span> fun arg <span class="ot">-&gt;</span> <span class="kw">do</span>
+    <span class="dt">VClosure</span> x body clo <span class="ot">&lt;-</span> eval env fun
+    argv <span class="ot">&lt;-</span> eval env arg
+    <span class="kw">let</span> nenv <span class="fu">=</span> Map.insert x argv clo
+    eval nenv body
+
+  <span class="dt">Let</span> x e body <span class="ot">-&gt;</span> <span class="kw">do</span>
+    e&#39; <span class="ot">&lt;-</span> eval env e
+    <span class="kw">let</span> nenv <span class="fu">=</span> Map.insert x e&#39; env
+    eval nenv body
+
+  <span class="dt">If</span> cond tr fl <span class="ot">-&gt;</span> <span class="kw">do</span>
+    <span class="dt">VBool</span> br <span class="ot">&lt;-</span> eval env cond
+    <span class="kw">if</span> br <span class="fu">==</span> <span class="dt">True</span>
+    <span class="kw">then</span> eval env tr
+    <span class="kw">else</span> eval env fl
+
+  <span class="dt">Fix</span> e <span class="ot">-&gt;</span> <span class="kw">do</span>
+    eval env (<span class="dt">App</span> e (<span class="dt">Fix</span> e))
+
+<span class="ot">binop ::</span> <span class="dt">Binop</span> <span class="ot">-&gt;</span> <span class="dt">Integer</span> <span class="ot">-&gt;</span> <span class="dt">Integer</span> <span class="ot">-&gt;</span> <span class="dt">Value</span>
+binop <span class="dt">Add</span> a b <span class="fu">=</span> <span class="dt">VInt</span> <span class="fu">$</span> a <span class="fu">+</span> b
+binop <span class="dt">Mul</span> a b <span class="fu">=</span> <span class="dt">VInt</span> <span class="fu">$</span> a <span class="fu">*</span> b
+binop <span class="dt">Sub</span> a b <span class="fu">=</span> <span class="dt">VInt</span> <span class="fu">$</span> a <span class="fu">-</span> b
+binop <span class="dt">Eql</span> a b <span class="fu">=</span> <span class="dt">VBool</span> <span class="fu">$</span> a <span class="fu">==</span> b</code></pre>
+<h2 id="interactive-shell">Interactive Shell</h2>
+<p>Our language has now grown out the small little shells we were using before, and now we need something much more robust to hold the logic for our interactive interpreter.</p>
+<p>We will structure our REPL as a monad wrapped around IState (the interpreter state) datatype. We will start to use the repline library from here out which gives us platform independent readline, history, and tab completion support.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">IState</span> <span class="fu">=</span> <span class="dt">IState</span>
+  {<span class="ot"> tyctx ::</span> <span class="dt">TypeEnv</span>  <span class="co">-- Type environment</span>
+  ,<span class="ot"> tmctx ::</span> <span class="dt">TermEnv</span>  <span class="co">-- Value environment</span>
+  }
+
+<span class="ot">initState ::</span> <span class="dt">IState</span>
+initState <span class="fu">=</span> <span class="dt">IState</span> emptyTyenv emptyTmenv
+
+<span class="kw">type</span> <span class="dt">Repl</span> a <span class="fu">=</span> <span class="dt">HaskelineT</span> (<span class="dt">StateT</span> <span class="dt">IState</span> <span class="dt">IO</span>) a
+
+<span class="ot">hoistErr ::</span> <span class="dt">Show</span> e <span class="ot">=&gt;</span> <span class="dt">Either</span> e a <span class="ot">-&gt;</span> <span class="dt">Repl</span> a
+hoistErr (<span class="dt">Right</span> val) <span class="fu">=</span> return val
+hoistErr (<span class="dt">Left</span> err) <span class="fu">=</span> <span class="kw">do</span>
+  liftIO <span class="fu">$</span> print err
+  abort</code></pre>
+<p>Our language can be compiled into a standalone binary by GHC:</p>
+<pre class="sourceCode bash"><code class="sourceCode bash">$ <span class="kw">ghc</span> --make Main.hs -o poly
+$ <span class="kw">./poly</span>
+<span class="kw">Poly&gt;</span></code></pre>
+<p>At the top of our program we will look at the command options and allow three variations of commands.</p>
+<pre class="sourceCode bash"><code class="sourceCode bash">$ <span class="kw">poly</span>                <span class="co"># launch shell</span>
+$ <span class="kw">poly</span> input.ml       <span class="co"># launch shell with &#39;input.ml&#39; loaded</span>
+$ <span class="kw">poly</span> test input.ml  <span class="co"># dump test for &#39;input.ml&#39; to stdout</span></code></pre>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> <span class="kw">do</span>
+  args <span class="ot">&lt;-</span> getArgs
+  <span class="kw">case</span> args <span class="kw">of</span>
+    []      <span class="ot">-&gt;</span> shell (return ())
+    [fname] <span class="ot">-&gt;</span> shell (load [fname])
+    [<span class="st">&quot;test&quot;</span>, fname] <span class="ot">-&gt;</span> shell (load [fname] <span class="fu">&gt;&gt;</span> browse [] <span class="fu">&gt;&gt;</span> quit ())
+    _ <span class="ot">-&gt;</span> putStrLn <span class="st">&quot;invalid arguments&quot;</span></code></pre>
+<p>The shell command takes a <code>pre</code> action which is run before the shell starts up. The logic simply evaluates our Repl monad into an IO and runs that from the main function.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">shell ::</span> <span class="dt">Repl</span> a <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
+shell pre
+  <span class="fu">=</span> flip evalStateT initState
+  <span class="fu">$</span> evalRepl <span class="st">&quot;Poly&gt; &quot;</span> cmd options completer pre</code></pre>
+<p>The <code>cmd</code> driver is the main entry point for our program, it is executed every time the user enters a line of input. The first argument is the line of user input.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">cmd ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Repl</span> ()
+cmd source <span class="fu">=</span> exec <span class="dt">True</span> (L.pack source)</code></pre>
+<p>The heart of our language is then the <code>exec</code> function which imports all the compiler passes, runs them sequentially threading the inputs and outputs and eventually yielding a resulting typing environment and the evaluated result of the program. These are monoidally joined into the state of the interpreter and then the loop yields to the next set of inputs.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">exec ::</span> <span class="dt">Bool</span> <span class="ot">-&gt;</span> <span class="dt">L.Text</span> <span class="ot">-&gt;</span> <span class="dt">Repl</span> ()
+exec update source <span class="fu">=</span> <span class="kw">do</span>
+  <span class="co">-- Get the current interpreter state</span>
+  st <span class="ot">&lt;-</span> get
+
+  <span class="co">-- Parser ( returns AST )</span>
+  mod <span class="ot">&lt;-</span> hoistErr <span class="fu">$</span> parseModule <span class="st">&quot;&lt;stdin&gt;&quot;</span> source
+
+  <span class="co">-- Type Inference ( returns Typing Environment )</span>
+  tyctx&#39; <span class="ot">&lt;-</span> hoistErr <span class="fu">$</span> inferTop (tyctx st) mod
+
+  <span class="co">-- Create the new environment</span>
+  <span class="kw">let</span> st&#39; <span class="fu">=</span> st { tmctx <span class="fu">=</span> foldl&#39; evalDef (tmctx st) mod
+               , tyctx <span class="fu">=</span> tyctx&#39; <span class="fu">&lt;&gt;</span> (tyctx st)
+               }
+
+  <span class="co">-- Update the interpreter state</span>
+  when update (put st&#39;)</code></pre>
+<p>Repline also supports adding special casing certain sets of inputs so that they map to builtin commands in the compiler. We will implement three of these.</p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">Command</th>
+<th align="left">Action</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left"><code>:browse</code></td>
+<td align="left">Browse the type signatures for a program</td>
+</tr>
+<tr class="even">
+<td align="left"><code>:load &lt;file&gt;</code></td>
+<td align="left">Load a program from file</td>
+</tr>
+<tr class="odd">
+<td align="left"><code>:type</code></td>
+<td align="left">Show the type of an expression</td>
+</tr>
+<tr class="even">
+<td align="left"><code>:quit</code></td>
+<td align="left">Exit interpreter</td>
+</tr>
+</tbody>
+</table>
+<p>Their implementations are mostly straightforward.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">options ::</span> [(<span class="dt">String</span>, [<span class="dt">String</span>] <span class="ot">-&gt;</span> <span class="dt">Repl</span> ())]
+options <span class="fu">=</span> [
+    (<span class="st">&quot;load&quot;</span>   , load)
+  , (<span class="st">&quot;browse&quot;</span> , browse)
+  , (<span class="st">&quot;quit&quot;</span>   , quit)
+  , (<span class="st">&quot;type&quot;</span>   , Main.typeof)
+  ]
+
+<span class="co">-- :browse command</span>
+<span class="ot">browse ::</span> [<span class="dt">String</span>] <span class="ot">-&gt;</span> <span class="dt">Repl</span> ()
+browse _ <span class="fu">=</span> <span class="kw">do</span>
+  st <span class="ot">&lt;-</span> get
+  liftIO <span class="fu">$</span> mapM_ putStrLn <span class="fu">$</span> ppenv (tyctx st)
+
+<span class="co">-- :load command</span>
+<span class="ot">load ::</span> [<span class="dt">String</span>] <span class="ot">-&gt;</span> <span class="dt">Repl</span> ()
+load args <span class="fu">=</span> <span class="kw">do</span>
+  contents <span class="ot">&lt;-</span> liftIO <span class="fu">$</span> L.readFile (unwords args)
+  exec <span class="dt">True</span> contents
+
+<span class="co">-- :type command</span>
+<span class="ot">typeof ::</span> [<span class="dt">String</span>] <span class="ot">-&gt;</span> <span class="dt">Repl</span> ()
+typeof args <span class="fu">=</span> <span class="kw">do</span>
+  st <span class="ot">&lt;-</span> get
+  <span class="kw">let</span> arg <span class="fu">=</span> unwords args
+  <span class="kw">case</span> Infer.typeof (tyctx st) arg <span class="kw">of</span>
+    <span class="dt">Just</span> val <span class="ot">-&gt;</span> liftIO <span class="fu">$</span> putStrLn <span class="fu">$</span> ppsignature (arg, val)
+    <span class="dt">Nothing</span> <span class="ot">-&gt;</span> exec <span class="dt">False</span> (L.pack arg)
+
+<span class="co">-- :quit command</span>
+<span class="ot">quit ::</span> a <span class="ot">-&gt;</span> <span class="dt">Repl</span> ()
+quit _ <span class="fu">=</span> liftIO <span class="fu">$</span> exitSuccess</code></pre>
+<p>Finally tab completion for our shell will use the interpreter's typing environment keys to complete on the set of locally defined variables. Repline supports prefix based tab completion where the prefix of the current command will be used to determine what to tab complete. In the case where we start with the command <code>:load</code> we will instead tab complete on filenames in the current working directly instead.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">completer ::</span> <span class="dt">CompleterStyle</span> (<span class="dt">StateT</span> <span class="dt">IState</span> <span class="dt">IO</span>)
+completer <span class="fu">=</span> <span class="dt">Prefix</span> (wordCompleter comp) defaultMatcher
+
+<span class="co">-- Prefix tab completer</span>
+<span class="ot">defaultMatcher ::</span> <span class="dt">MonadIO</span> m <span class="ot">=&gt;</span> [(<span class="dt">String</span>, <span class="dt">CompletionFunc</span> m)]
+defaultMatcher <span class="fu">=</span> [
+    (<span class="st">&quot;:load&quot;</span>  , fileCompleter)
+  ]
+
+<span class="co">-- Default tab completer</span>
+<span class="ot">comp ::</span> (<span class="dt">Monad</span> m, <span class="dt">MonadState</span> <span class="dt">IState</span> m) <span class="ot">=&gt;</span> <span class="dt">WordCompleter</span> m
+comp n <span class="fu">=</span> <span class="kw">do</span>
+  <span class="kw">let</span> cmds <span class="fu">=</span> [<span class="st">&quot;:load&quot;</span>, <span class="st">&quot;:browse&quot;</span>, <span class="st">&quot;:quit&quot;</span>, <span class="st">&quot;:type&quot;</span>]
+  <span class="dt">TypeEnv</span> ctx <span class="ot">&lt;-</span> gets tyctx
+  <span class="kw">let</span> defs <span class="fu">=</span> Map.keys ctx
+  return <span class="fu">$</span> filter (isPrefixOf n) (cmds <span class="fu">++</span> defs)</code></pre>
+<h2 id="observations">Observations</h2>
+<p>There we have it, our first little type inferred language! Load the <code>poly</code> interpreter by running <code>ghci Main.hs</code> and the call the <code>main</code> function.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="fu">$</span> ghci Main.hs
+λ<span class="fu">:</span> main
+<span class="dt">Poly</span><span class="fu">&gt;</span> <span class="fu">:</span>load test<span class="fu">.</span>ml
+<span class="dt">Poly</span><span class="fu">&gt;</span> <span class="fu">:</span>browse</code></pre>
+<p>Try out some simple examples by declaring some functions at the toplevel of the program. We can query the types of expressions interactively using the <code>:type</code> command which effectively just runs the expression halfway through the pipeline and halts after typechecking.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="dt">Poly</span><span class="fu">&gt;</span> <span class="kw">let</span> id x <span class="fu">=</span> x
+<span class="dt">Poly</span><span class="fu">&gt;</span> <span class="kw">let</span> const x y <span class="fu">=</span> x
+<span class="dt">Poly</span><span class="fu">&gt;</span> <span class="kw">let</span> twice x <span class="fu">=</span> x <span class="fu">+</span> x
+
+<span class="dt">Poly</span><span class="fu">&gt;</span> <span class="fu">:</span><span class="kw">type</span> id
+id <span class="fu">:</span> forall a<span class="fu">.</span> a <span class="ot">-&gt;</span> a
+
+<span class="dt">Poly</span><span class="fu">&gt;</span> <span class="fu">:</span><span class="kw">type</span> const
+const <span class="fu">:</span> forall a b<span class="fu">.</span> a <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> a
+
+<span class="dt">Poly</span><span class="fu">&gt;</span> <span class="fu">:</span><span class="kw">type</span> twice
+twice <span class="fu">:</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span></code></pre>
+<p>Notice several important facts. Our type checker will now flat our reject programs with scoping errors before interpretation.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="dt">Poly</span><span class="fu">&gt;</span> \x <span class="ot">-&gt;</span> y
+<span class="dt">Not</span> <span class="kw">in</span> scope<span class="fu">:</span> <span class="st">&quot;y&quot;</span></code></pre>
+<p>Also programs that are also not well-typed are now rejected outright as well.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="dt">Poly</span><span class="fu">&gt;</span> <span class="dv">1</span> <span class="fu">+</span> <span class="dt">True</span>
+<span class="dt">Cannot</span> unify types<span class="fu">:</span> 
+    <span class="dt">Bool</span>
+with 
+    <span class="dt">Int</span></code></pre>
+<p>The omega combinator will not pass the occurs check.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="dt">Poly</span><span class="fu">&gt;</span> \x <span class="ot">-&gt;</span> x x
+<span class="dt">Cannot</span> construct the the infinite <span class="kw">type</span><span class="fu">:</span> a <span class="fu">=</span> a <span class="ot">-&gt;</span> b</code></pre>
+<p>The file <code>test.ml</code> provides a variety of tests of the little interpreter. For instance both <code>fact</code> and <code>fib</code> functions uses the fixpoint to compute Fibonacci numbers or factorials.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">let</span> fact <span class="fu">=</span> fix (\fact <span class="ot">-&gt;</span> \n <span class="ot">-&gt;</span> 
+  <span class="kw">if</span> (n <span class="fu">==</span> <span class="dv">0</span>) 
+    <span class="kw">then</span> <span class="dv">1</span> 
+    <span class="kw">else</span> (n <span class="fu">*</span> (fact (n<span class="fu">-</span><span class="dv">1</span>))));
+
+<span class="kw">let</span> rec fib n <span class="fu">=</span> 
+  <span class="kw">if</span> (n <span class="fu">==</span> <span class="dv">0</span>) 
+    <span class="kw">then</span> <span class="dv">0</span>
+    <span class="kw">else</span> <span class="kw">if</span> (n<span class="fu">==</span><span class="dv">1</span>) 
+      <span class="kw">then</span> <span class="dv">1</span>
+      <span class="kw">else</span> ((fib (n<span class="fu">-</span><span class="dv">1</span>)) <span class="fu">+</span> (fib (n<span class="fu">-</span><span class="dv">2</span>)));</code></pre>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="dt">Poly</span><span class="fu">&gt;</span> <span class="fu">:</span><span class="kw">type</span> fact
+fact <span class="fu">:</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span>
+
+<span class="dt">Poly</span><span class="fu">&gt;</span> fact <span class="dv">5</span>
+<span class="dv">120</span>
+
+<span class="dt">Poly</span><span class="fu">&gt;</span> fib <span class="dv">16</span>
+<span class="dv">610</span></code></pre>
+<h2 id="full-source">Full Source</h2>
+<ul>
+<li><a href="https://github.com/sdiehl/write-you-a-haskell/tree/master/chapter7/poly">Poly</a></li>
+<li><a href="https://github.com/sdiehl/write-you-a-haskell/tree/master/chapter7/poly_constraints">Poly - Constraint Generation</a></li>
+</ul>
+<p></p>
+          </div>
+        </div>
+
+    </div>
+    <script src="https://code.jquery.com/jquery.js"></script>
+    <script src="js/nav.js"></script>
+  </body>
+
+<!-- Mirrored from dev.stephendiehl.com/fun/006_hindley_milner.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:55:43 GMT -->
+</html>

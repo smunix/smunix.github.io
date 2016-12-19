@@ -1,0 +1,1120 @@
+<!DOCTYPE html>
+<html lang="en">
+  
+<!-- Mirrored from dev.stephendiehl.com/fun/007_path.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:55:43 GMT -->
+<head>
+    <meta charset="utf-8">
+    <title>Write You a Haskell ( Stephen Diehl )</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <link href="http://fonts.googleapis.com/css?family=Inconsolata" rel="stylesheet">
+    <style type="text/css">
+      
+    </style>
+    <link href="css/bootstrap-responsive.min.css" rel="stylesheet">
+    <link href="css/colors.css" rel="stylesheet">
+    <link rel="alternate" type="application/atom+xml" title="Write You a Haskell" href="rss/atom.xml" />
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','http://www.google-analytics.com/analytics.js','ga');
+
+      ga('create', 'UA-49839533-1', 'stephendiehl.com');
+      ga('send', 'pageview');
+
+    </script>
+
+          <style type="text/css">
+    table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode {
+      margin: 0; padding: 0; vertical-align: baseline; border: none; }
+    table.sourceCode { width: 100%; line-height: 100%; }
+    td.lineNumbers { text-align: right; padding-right: 4px; padding-left: 4px; color: #aaaaaa; border-right: 1px solid #aaaaaa; }
+    td.sourceCode { padding-left: 5px; }
+    code > span.kw { color: #007020; font-weight: bold; }
+    code > span.dt { color: #902000; }
+    code > span.dv { color: #40a070; }
+    code > span.bn { color: #40a070; }
+    code > span.fl { color: #40a070; }
+    code > span.ch { color: #4070a0; }
+    code > span.st { color: #4070a0; }
+    code > span.co { color: #60a0b0; font-style: italic; }
+    code > span.ot { color: #007020; }
+    code > span.al { color: #ff0000; font-weight: bold; }
+    code > span.fu { color: #06287e; }
+    code > span.er { color: #ff0000; font-weight: bold; }
+      </style>
+            <link rel="stylesheet" href="css/style.css" type="text/css" />
+                  <script src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML" type="text/javascript"></script>
+              </head>
+
+  <body>
+
+    <div>
+
+        <div class="row">
+
+          <div class="span3 side toc">
+              <ul>
+              <li><a href="index-2.html">Index</a></li>
+              <li><a href="https://github.com/sdiehl/write-you-a-haskell">Github</a></li>
+              <li><a href="rss/atom.xml">RSS</a></li>
+              <li><a href="WYAH.pdf">PDF</a></li>
+              </ul>
+              <ul>
+              <li><a href="#design-of-protohaskell">Design of ProtoHaskell</a><ul>
+              <li><a href="#haskell-a-rich-language">Haskell: A Rich Language</a></li>
+              <li><a href="#scope">Scope</a></li>
+              <li><a href="#intermediate-forms">Intermediate Forms</a></li>
+              <li><a href="#compiler-monad">Compiler Monad</a></li>
+              </ul></li>
+              <li><a href="#engineering-overview">Engineering Overview</a><ul>
+              <li><a href="#repl">REPL</a></li>
+              <li><a href="#parser">Parser</a></li>
+              <li><a href="#renamer">Renamer</a></li>
+              <li><a href="#datatypes">Datatypes</a></li>
+              <li><a href="#desugaring">Desugaring</a></li>
+              <li><a href="#core">Core</a></li>
+              <li><a href="#type-classes">Type Classes</a></li>
+              <li><a href="#type-checker">Type Checker</a></li>
+              <li><a href="#interpreter">Interpreter</a></li>
+              <li><a href="#error-reporting">Error Reporting</a></li>
+              </ul></li>
+              <li><a href="#frontend">Frontend</a><ul>
+              <li><a href="#data-declarations">Data Declarations</a></li>
+              <li><a href="#function-declarations">Function Declarations</a></li>
+              <li><a href="#fixity-declarations">Fixity Declarations</a></li>
+              <li><a href="#typeclass-declarations">Typeclass Declarations</a></li>
+              <li><a href="#wired-in-types">Wired-in Types</a></li>
+              <li><a href="#traversals">Traversals</a></li>
+              </ul></li>
+              <li><a href="#misc-infrastructure">Misc Infrastructure</a><ul>
+              <li><a href="#repline">Repline</a></li>
+              <li><a href="#command-line-arguments">Command Line Arguments</a></li>
+              <li><a href="#graphscc">GraphSCC</a></li>
+              <li><a href="#optparse-applicative">Optparse Applicative</a></li>
+              <li><a href="#full-source">Full Source</a></li>
+              <li><a href="#resources">Resources</a></li>
+              </ul></li>
+              </ul>
+          </div>
+
+          <div class="span9 body">
+<!--<h1>Implementing a Functional Language in Haskell</h1>--!>
+<div style="display:none">
+<p><span class="math">\[\newcommand{\andalso}{\quad\quad}
+\newcommand{\infabbrev}[2]{\infax{#1 \quad\eqdef\quad #2}}
+\newcommand{\infrule}[2]{\displaystyle \dfrac{#1}{#2}}
+\newcommand{\ar}{\rightarrow}
+\newcommand{\Int}{\mathtt{Int}}
+\newcommand{\Bool}{\mathtt{Bool}}
+\newcommand{\becomes}{\Downarrow}
+\newcommand{\trule}[1]{(\textbf{#1})}
+\newcommand{\FV}[1]{\mathtt{fv}(#1)}
+\newcommand{\FTV}[1]{\mathtt{ftv}(#1)}
+\newcommand{\BV}[1]{\mathtt{bv}(#1)}
+\newcommand{\compiles}[1]{\text{C}\llbracket{#1}\rrbracket}
+\newcommand{\exec}[1]{\text{E}\llbracket{#1}\rrbracket}
+\renewcommand{\t}[1]{\mathtt{#1}}
+\newcommand{\ite}[3]{\text{if }#1\text{ then }#2\text{ else }#3}
+\]</span></p>
+</div>
+<div class="pagetitle">
+<div class="figure">
+<img src="img/titles/protohaskell.png" />
+
+</div>
+</div>
+<!--
+> Functional languages are unnatural to use. [...] The important question is
+> whether functional programming in unnatural the way Haiku is unnatural or the
+> way Karate is unnatural. Haiku is a rigid form poetry in which each poem must
+> have precisely three lines and seventeen syllables. As with poetry, writing a
+> purely functional program often gives one a feeling of great aesthetic pleasure.
+> <cite>— James H. Morris, et al</cite>
+-->
+<p class="halfbreak">
+</p>
+<h1 id="design-of-protohaskell">Design of ProtoHaskell</h1>
+<p>Now that we've completed our simple little ML language, let's discuss the road ahead toward building a more complex language we'll call <em>ProtoHaskell</em> that will eventually become the full <em>Fun</em> language.</p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">Language</th>
+<th align="left">Chapters</th>
+<th align="left">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left"><em>Poly</em></td>
+<td align="left">1 - 8</td>
+<td align="left">Minimal type inferred ML-like language.</td>
+</tr>
+<tr class="even">
+<td align="left"><em>ProtoHaskell</em></td>
+<td align="left">8 - 18</td>
+<td align="left">Interpreted minimal Haskell subset.</td>
+</tr>
+<tr class="odd">
+<td align="left"><em>Fun</em></td>
+<td align="left">18 - 27</td>
+<td align="left">ProtoHaskell with native code generator.</td>
+</tr>
+</tbody>
+</table>
+<p>The defining feature of ProtoHaskell is that it is independent of an evaluation model, so hypothetically one could write either a lazy or a strict backend and use the same frontend.</p>
+<p>Before we launch into writing compiler passes let's look at the overview of where we're going, the scope of what we're going to do, and what needs to be done to get there. <em>We will refer to concepts that are not yet introduced, so keep in mind this is meant to be a high-level overview of the ProtoHaskell compiler pipeline.</em></p>
+<h2 id="haskell-a-rich-language">Haskell: A Rich Language</h2>
+<p>Haskell itself is a beautifully simple language at its core, although the implementation of GHC is arguably anything but simple! The more one digs into the implementation the more it becomes apparent that a lot of care and forethought was given to making the frontend language as expressive as it is. Many of these details require a great detail of engineering work to make them work as seamlessly as they do.</p>
+<p>Consider this simple Haskell example but note how much of an extension this is from our simple little ML interpreter.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">filter<span class="ot"> ::</span> (a <span class="ot">-&gt;</span> <span class="dt">Bool</span>) <span class="ot">-&gt;</span> [a] <span class="ot">-&gt;</span> [a]
+filter pred [] <span class="fu">=</span> []
+filter pred (x<span class="fu">:</span>xs)
+  <span class="fu">|</span> pred x         <span class="fu">=</span> x <span class="fu">:</span> filter pred xs
+  <span class="fu">|</span> otherwise      <span class="fu">=</span>     filter pred xs</code></pre>
+<p>Consider all the things that are going on just in this simple example.</p>
+<ul>
+<li>Lazy evaluation</li>
+<li>Custom datatypes</li>
+<li>Higher order functions</li>
+<li>Parametric polymorphism</li>
+<li>Function definition by pattern matching</li>
+<li>Pattern matching desugaring</li>
+<li>Guards to distinguish sub-cases</li>
+<li>Type signature must subsume inferred type</li>
+<li>List syntactic sugar ( value/pattern syntax )</li>
+</ul>
+<p>Clearly we're going to need a much more sophisticated design, and we'll likely be doing quite a bit more bookkeeping about our program during compilation.</p>
+<h2 id="scope">Scope</h2>
+<p>Considering our project is intended to be a simple toy language, we are not going to implement all of Haskell 2010. Doing so in its entirety would actually be a fairly involved effort. However we will implement a sizable chunk of the functionality, certainly enough to write non-trivial programs and implement most of the standard Prelude.</p>
+<p>Things we will implement:</p>
+<ul>
+<li>Indentation sensitive grammar</li>
+<li>Pattern matching</li>
+<li>Algebraic datatypes</li>
+<li>Where statements</li>
+<li>Recursive functions/datatypes</li>
+<li>Operator sections</li>
+<li>Implicit let-rec</li>
+<li>List and tuple sugar</li>
+<li>Records</li>
+<li>Custom operators</li>
+<li>Do-notation</li>
+<li>Type annotations</li>
+<li>Monadic IO</li>
+<li>Typeclasses</li>
+<li>Arithmetic primops</li>
+<li>Type synonyms</li>
+<li>List comprehensions</li>
+</ul>
+<p>Things we will not implement are:</p>
+<ul>
+<li>Overloaded literals</li>
+<li>GADTs</li>
+<li>Polymorphic recursion</li>
+<li>Any GHC-specific language extensions.</li>
+<li>Newtypes</li>
+<li>Module namespaces</li>
+<li>Operator parameters</li>
+<li>Defaulting rules</li>
+<li>Exceptions</li>
+<li>Parallelism</li>
+<li>Software Transactional Memory</li>
+<li>Foreign Function Interface</li>
+</ul>
+<p>Now if one feels so inclined one could of course implement these features on top of our final language, but they are left as an exercise to the reader!</p>
+<p>This of course begs the question of whether or not our language is &quot;a Haskell&quot;. In the strictest sense, it will not be since it doesn't fully conform to either the <a href="https://www.haskell.org/onlinereport/">Haskell 98</a> or <a href="https://www.haskell.org/onlinereport/haskell2010/">Haskell 2010</a> language specifications. However in terms of the colloquial usage of the term Haskell, there does seem to be some growing feeling that the &quot;Haskell language family&quot; does exist as a definable subset of the functional programming design space, although many people disagree what its defining features are. In this sense we will most certainly be writing a language in the Haskell family.</p>
+<h2 id="intermediate-forms">Intermediate Forms</h2>
+<p>The passes between each of the phases make up the main <em>compilation pipeline</em> .</p>
+<div class="figure">
+<img src="http://dev.stephendiehl.com/fun/img/proto_pass.png" />
+
+</div>
+<p>For <em>ProtoHaskell</em> our pipeline consists of the transitions between four intermediate forms of the program.</p>
+<div class="figure">
+<img src="http://dev.stephendiehl.com/fun/img/protohaskell.png" />
+
+</div>
+<ul>
+<li>The <strong>Source</strong>, the textual representation of the program from a file or user input. This is stored in a <code>Text</code> type.</li>
+<li>The <strong>Frontend</strong> source, the untyped AST generated from the parser.</li>
+<li>The <strong>Core</strong>, the explicitly typed, desugared form of the program generated after type inference.</li>
+<li>The <strong>PHOAS</strong>, the type-erased Core is transformed into Haskell expressions by mapping lambda expressions in our language directly into Haskell lambda expressions and then evaluated using the Haskell runtime.</li>
+</ul>
+<table>
+<thead>
+<tr class="header">
+<th align="left">Pass</th>
+<th align="left">Rep</th>
+<th align="left">Haskell Type</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">Parsing</td>
+<td align="left">Source</td>
+<td align="left"><code>Text.Text</code></td>
+</tr>
+<tr class="even">
+<td align="left">Desugaring</td>
+<td align="left">Frontend</td>
+<td align="left"><code>Frontend.Expr</code></td>
+</tr>
+<tr class="odd">
+<td align="left">Typechecking</td>
+<td align="left">Core</td>
+<td align="left"><code>Core.Expr</code></td>
+</tr>
+<tr class="even">
+<td align="left">Evaluation</td>
+<td align="left">PHOAS</td>
+<td align="left"><code>CoreEval.ExprP</code></td>
+</tr>
+</tbody>
+</table>
+<p>For our later <em>Fun</em> language our pipeline builds on top of the <em>ProtoHaskell</em> but instead of going to an interpreter it will be compiled into native code through the native code generator (on top of LLVM) and compiled into a binary executable or evaluated by a just-in-time (JIT) compiler.</p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">Pass</th>
+<th align="left">Rep</th>
+<th align="left">Haskell Type</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">Parsing</td>
+<td align="left">Source</td>
+<td align="left"><code>Text.Text</code></td>
+</tr>
+<tr class="even">
+<td align="left">Desugaring</td>
+<td align="left">Frontend</td>
+<td align="left"><code>Frontend.Expr</code></td>
+</tr>
+<tr class="odd">
+<td align="left">Typechecking</td>
+<td align="left">Core</td>
+<td align="left"><code>Core.Expr</code></td>
+</tr>
+<tr class="even">
+<td align="left">Transformation</td>
+<td align="left">STG</td>
+<td align="left"><code>STG.Expr</code></td>
+</tr>
+<tr class="odd">
+<td align="left">Transformation</td>
+<td align="left">Imp</td>
+<td align="left"><code>Imp.Expr</code></td>
+</tr>
+<tr class="even">
+<td align="left">Code Generation</td>
+<td align="left">LLVM</td>
+<td align="left"><code>LLVM.General.Module</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="compiler-monad">Compiler Monad</h2>
+<p>The main driver of the compiler will be a <code>ExceptT</code> + <code>State</code> + <code>IO</code> transformer stack . All other passes and transformations in the compiler will hang off of this monad, which encapsulates the main compilation pipeline.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">CompilerMonad</span> <span class="fu">=</span>
+  <span class="dt">ExceptT</span> <span class="dt">Msg</span>
+    (<span class="dt">StateT</span> <span class="dt">CompilerState</span> <span class="dt">IO</span>)</code></pre>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">CompilerState</span> <span class="fu">=</span> <span class="dt">CompilerState</span>
+  { _<span class="ot">fname    ::</span> <span class="dt">Maybe</span> FilePath            <span class="co">-- ^ File path</span>
+  , _<span class="ot">imports  ::</span> [FilePath]                <span class="co">-- ^ Loaded modules</span>
+  , _<span class="ot">src      ::</span> <span class="dt">Maybe</span> <span class="dt">L.Text</span>              <span class="co">-- ^ File source</span>
+  , _<span class="ot">ast      ::</span> <span class="dt">Maybe</span> <span class="dt">Syn.Module</span>          <span class="co">-- ^ Frontend AST</span>
+  , _<span class="ot">tenv     ::</span> <span class="dt">Env.Env</span>                   <span class="co">-- ^ Typing environment</span>
+  , _<span class="ot">kenv     ::</span> <span class="dt">Map.Map</span> <span class="dt">Name</span> <span class="dt">Kind</span>         <span class="co">-- ^ Kind environment</span>
+  , _<span class="ot">cenv     ::</span> <span class="dt">ClassEnv.ClassEnv</span>         <span class="co">-- ^ Typeclass environment</span>
+  , _<span class="ot">cast     ::</span> <span class="dt">Maybe</span> <span class="dt">Core.Module</span>         <span class="co">-- ^ Core AST</span>
+  , _<span class="ot">flags    ::</span> <span class="dt">Flags.Flags</span>               <span class="co">-- ^ Compiler flags</span>
+  , _<span class="ot">venv     ::</span> <span class="dt">CoreEval.ValEnv</span> <span class="dt">Core.Expr</span> <span class="co">-- ^ Core interpreter environment</span>
+  , _<span class="ot">denv     ::</span> <span class="dt">DataEnv.DataEnv</span>           <span class="co">-- ^ Entity dictionary</span>
+  , _<span class="ot">clenv    ::</span> <span class="dt">ClassEnv.ClassHier</span>        <span class="co">-- ^ Typeclass hierarchy</span>
+  } <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Show</span>)</code></pre>
+<p>The compiler itself will have several entry points, <code>expr</code> for interactive evaluation that expects an expression object and joins it into accumulated interactive environment. And <code>modl</code> path that compile whole modules.</p>
+<p>Throughout the next 10 chapters we will incrementally create a series of transformations with the following type signatures.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">parseP   ::</span> FilePath <span class="ot">-&gt;</span> <span class="dt">L.Text</span> <span class="ot">-&gt;</span> <span class="dt">CompilerM</span> <span class="dt">Syn.Module</span>
+<span class="ot">dataP    ::</span> <span class="dt">Syn.Module</span> <span class="ot">-&gt;</span> <span class="dt">CompilerM</span> <span class="dt">Syn.Module</span>
+<span class="ot">groupP   ::</span> <span class="dt">Syn.Module</span> <span class="ot">-&gt;</span> <span class="dt">CompilerM</span> <span class="dt">Syn.Module</span>
+<span class="ot">renameP  ::</span> <span class="dt">Syn.Module</span> <span class="ot">-&gt;</span> <span class="dt">CompilerM</span> <span class="dt">Syn.Module</span>
+<span class="ot">desugarP ::</span> <span class="dt">Syn.Module</span> <span class="ot">-&gt;</span> <span class="dt">CompilerM</span> <span class="dt">Syn.Module</span>
+<span class="ot">inferP   ::</span> <span class="dt">Syn.Module</span> <span class="ot">-&gt;</span> <span class="dt">CompilerM</span> <span class="dt">Core.Module</span>
+<span class="ot">evalP    ::</span> <span class="dt">Core.Module</span> <span class="ot">-&gt;</span> <span class="dt">CompilerM</span> ()</code></pre>
+<p>The code path for <code>modl</code> is then simply the passes composed with the Kleisli composition operator to form the composite pipeline for compiling modules.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">(&gt;=&gt;) ::</span> <span class="dt">Monad</span> m <span class="ot">=&gt;</span> (a <span class="ot">-&gt;</span> m b) <span class="ot">-&gt;</span> (b <span class="ot">-&gt;</span> m c) <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> m c</code></pre>
+<p>And that's basically the entire structure of the compiler. It's just a pipeline of monadic actions for each pass rolled up inside of <code>CompilerM</code>.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">modl ::</span> FilePath <span class="ot">-&gt;</span> <span class="dt">L.Text</span> <span class="ot">-&gt;</span> <span class="dt">CompilerM</span> ()
+modl fname
+    <span class="fu">=</span> parseP fname
+  <span class="fu">&gt;=&gt;</span> dataP
+  <span class="fu">&gt;=&gt;</span> groupP
+  <span class="fu">&gt;=&gt;</span> renameP
+  <span class="fu">&gt;=&gt;</span> desugarP
+  <span class="fu">&gt;=&gt;</span> inferP
+  <span class="fu">&gt;=&gt;</span> evalP</code></pre>
+<h1 id="engineering-overview">Engineering Overview</h1>
+<h2 id="repl">REPL</h2>
+<p>It is important to have an interactive shell to be able to interactively explore the compilation steps and intermediate forms for arbitrary expressions. GHCi does this very well, and nearly every intermediate form is inspectable. We will endeavor to recreate this experience with our toy language.</p>
+<p>If the ProtoHaskell compiler is invoked either in GHCi or as standalone executable, you will see a similar interactive shell.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"> _   _           _       <span class="fu">|</span> <span class="dt">ProtoHaskell</span> <span class="dt">Compiler</span> <span class="fl">0.1</span><span class="fu">.</span><span class="dv">0</span>
+<span class="fu">|</span> <span class="fu">|</span> <span class="fu">|</span> <span class="fu">|</span> __ _ ___<span class="fu">|</span> <span class="fu">|</span> __   <span class="fu">|</span> <span class="dt">Copyright</span> (c) <span class="dv">2013</span><span class="fu">-</span><span class="dv">2015</span> <span class="dt">Stephen</span> <span class="dt">Diehl</span>
+<span class="fu">|</span> <span class="fu">|</span>_<span class="fu">|</span> <span class="fu">|/</span> _<span class="ot">` / __| |/ /   | Released under the MIT License</span>
+<span class="ot">|  _  | (_| \__ \   &lt;    |</span>
+<span class="ot">|_| |_|\__,_|___/_|\_\   | Type :help for help</span>
+
+<span class="ot">Compiling module: prelude.fun</span>
+<span class="ot">&gt; id (1+2)</span>
+<span class="ot">3</span>
+<span class="ot">&gt; :type (&gt;&gt;=)</span>
+<span class="ot">(&gt;&gt;=) :: Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b</span>
+<span class="ot">&gt; :set -ddump-rn</span>
+<span class="ot">&gt; :load test.fun</span></code></pre>
+<p>Command line conventions will follow GHCi's naming conventions. There will be a strong emphasis on building debugging systems on top of our architecture so that when subtle bugs creep up you will have the tools to diagnose the internal state of the type system and detect flaws in the implementation.</p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">Command</th>
+<th align="left">Action</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left"><code>:browse</code></td>
+<td align="left">Browse the type signatures for a program</td>
+</tr>
+<tr class="even">
+<td align="left"><code>:load &lt;file&gt;</code></td>
+<td align="left">Load a program from file</td>
+</tr>
+<tr class="odd">
+<td align="left"><code>:reload</code></td>
+<td align="left">Run the active file</td>
+</tr>
+<tr class="even">
+<td align="left"><code>:edit</code></td>
+<td align="left">Edit the active file in system editor</td>
+</tr>
+<tr class="odd">
+<td align="left"><code>:core</code></td>
+<td align="left">Show the core of an expression or program</td>
+</tr>
+<tr class="even">
+<td align="left"><code>:module</code></td>
+<td align="left">Show active modules imports</td>
+</tr>
+<tr class="odd">
+<td align="left"><code>:source</code></td>
+<td align="left">Show the source code of an expression or program</td>
+</tr>
+<tr class="even">
+<td align="left"><code>:type</code></td>
+<td align="left">Show the type of an expression</td>
+</tr>
+<tr class="odd">
+<td align="left"><code>:kind</code></td>
+<td align="left">Show the kind of an expression</td>
+</tr>
+<tr class="even">
+<td align="left"><code>:set &lt;flag&gt;</code></td>
+<td align="left">Set a flag</td>
+</tr>
+<tr class="odd">
+<td align="left"><code>:unset &lt;flag&gt;</code></td>
+<td align="left">Unset a flag</td>
+</tr>
+<tr class="even">
+<td align="left"><code>:constraints</code></td>
+<td align="left">Dump the typing constraints for an expression</td>
+</tr>
+<tr class="odd">
+<td align="left"><code>:quit</code></td>
+<td align="left">Exit interpreter</td>
+</tr>
+</tbody>
+</table>
+<p>The most notable difference is the very important <code>:core</code> command which will dump out the core representation of any expression given in the interactive shell. Another one is the <code>:constraints</code> command which will interactively walk you through the type checker's reasoning about how it derived the type it did for a given expression.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="fu">&gt;</span> <span class="fu">:</span><span class="kw">type</span> plus
+<span class="ot">plus ::</span> forall a<span class="fu">.</span> <span class="dt">Num</span> a <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a
+
+<span class="fu">&gt;</span> <span class="fu">:</span>core id
+id<span class="ot"> ::</span> forall a<span class="fu">.</span> a <span class="ot">-&gt;</span> a
+id <span class="fu">=</span> \(ds1 <span class="fu">:</span> a) <span class="ot">-&gt;</span> a
+
+<span class="fu">&gt;</span> <span class="fu">:</span>core compose
+<span class="ot">compose ::</span> forall c d e<span class="fu">.</span> (d <span class="ot">-&gt;</span> e) <span class="ot">-&gt;</span> (c <span class="ot">-&gt;</span> d) <span class="ot">-&gt;</span> c <span class="ot">-&gt;</span> e
+compose <span class="fu">=</span> \(ds1 <span class="fu">:</span> d <span class="ot">-&gt;</span> e)
+           (ds2 <span class="fu">:</span> c <span class="ot">-&gt;</span> d)
+           (ds3 <span class="fu">:</span> c) <span class="ot">-&gt;</span>
+            (ds1 (ds2 ds3))</code></pre>
+<p>The flags we use also resemble GHC's and allow dumping out the pretty printed form of each of the intermediate transformation passes.</p>
+<ul>
+<li><code>-ddump-parsed</code></li>
+<li><code>-ddump-desugar</code></li>
+<li><code>-ddump-rn</code></li>
+<li><code>-ddump-infer</code></li>
+<li><code>-ddump-core</code></li>
+<li><code>-ddump-types</code></li>
+<li><code>-ddump-stg</code></li>
+<li><code>-ddump-imp</code></li>
+<li><code>-ddump-c</code></li>
+<li><code>-ddump-llvm</code></li>
+<li><code>-ddump-asm</code></li>
+<li><code>-ddump-to-file</code></li>
+</ul>
+<p>The implementation of the interactive shell will use a custom library called <a href="http://hackage.haskell.org/package/repline">repline</a> , which is a higher-level wrapper on top of <code>haskeline</code> made to be more pleasant when writing interactive shells.</p>
+<h2 id="parser">Parser</h2>
+<p>We will use the normal Parsec parser with a few extensions. We will add indentation sensitive parsing so that block syntax ( where statements, let statements, do-notation ) can be parsed.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> <span class="kw">do</span>
+  putStrLn msg
+  <span class="kw">where</span>
+    msg <span class="fu">=</span> <span class="st">&quot;Hello World&quot;</span></code></pre>
+<p>We will also need to allow the addition of infix operators from user-defined declarations, and allow this information to be used during parsing.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">infixl</span> <span class="dv">6</span> <span class="fu">+</span>
+<span class="kw">infixl</span> <span class="dv">7</span> <span class="fu">*</span>
+
+f <span class="fu">=</span> <span class="dv">1</span> <span class="fu">+</span> <span class="dv">2</span> <span class="fu">*</span> <span class="dv">3</span></code></pre>
+<h2 id="renamer">Renamer</h2>
+<p>After parsing we will traverse the entire AST and rename all user-named variables to machine generated names and eliminate any name-shadowing. For example in the following ambiguous binder will replace the duplicate occurrence of <code>x</code> with a fresh name.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">f x y <span class="fu">=</span> \g x <span class="ot">-&gt;</span> x <span class="fu">+</span> y    <span class="co">-- x in definition of g shadows x in f</span>
+f x y <span class="fu">=</span> \g a0 <span class="ot">-&gt;</span> a0 <span class="fu">+</span> y</code></pre>
+<p>We will also devise a general method of generating fresh names for each pass such that the names generated are uniquely relatable to that pass and cannot conflict with later passes.</p>
+<p>Ensuring that all names are unique in the syntax tree will allow us more safety later on during program transformation, to know that names cannot implicitly capture and the program can be transformed without changing its meaning.</p>
+<h2 id="datatypes">Datatypes</h2>
+<p>User defined data declarations need to be handled and added to the typing context so that their use throughout the program logic can be typechecked. This will also lead us into the construction of a simple kind inference system, and the support of higher-kinded types.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Bool</span> <span class="fu">=</span> <span class="dt">False</span> <span class="fu">|</span> <span class="dt">True</span>
+<span class="kw">data</span> <span class="dt">Maybe</span> a <span class="fu">=</span> <span class="dt">Nothing</span> <span class="fu">|</span> <span class="dt">Just</span> a
+<span class="kw">data</span> <span class="dt">T1</span> f a <span class="fu">=</span> <span class="dt">T1</span> (f a)</code></pre>
+<p>Each constructor definition will also introduce several constructor functions into the Core representation of the module. Record types will also be supported and will expand out into selectors for each of the various fields.</p>
+<h2 id="desugaring">Desugaring</h2>
+<p>Pattern matching is an extremely important part of a modern functional programming language, but the implementation of the pattern desugaring is remarkably subtle. The frontend syntax allows the expression of nested pattern matches and incomplete patterns, both can generate very complex <em>splitting trees</em> of case expressions that need to be expanded out recursively.</p>
+<p><strong>Multiple Equations</strong></p>
+<p>For instance the following toplevel pattern for the <code>xor</code> function is transformed into the following nested set of case statements:</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- Frontend</span>
+xor <span class="dt">False</span> <span class="dt">False</span> <span class="fu">=</span> <span class="dt">False</span>;
+xor <span class="dt">False</span> <span class="dt">True</span> <span class="fu">=</span> <span class="dt">True</span>;
+xor <span class="dt">True</span> <span class="dt">False</span> <span class="fu">=</span> <span class="dt">True</span>;
+xor <span class="dt">True</span> <span class="dt">True</span> <span class="fu">=</span> <span class="dt">False</span>;</code></pre>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- Desugared</span>
+<span class="ot">xor ::</span> <span class="dt">Bool</span> <span class="ot">-&gt;</span> <span class="dt">Bool</span> <span class="ot">-&gt;</span> <span class="dt">Bool</span>
+xor <span class="fu">=</span> \_a _b <span class="ot">-&gt;</span> <span class="kw">case</span> _a <span class="kw">of</span> {
+                  <span class="dt">False</span> <span class="ot">-&gt;</span> <span class="kw">case</span> _b <span class="kw">of</span> {
+                             <span class="dt">False</span> <span class="ot">-&gt;</span> <span class="dt">False</span>;
+                             <span class="dt">True</span> <span class="ot">-&gt;</span> <span class="dt">True</span>
+                           };
+                  <span class="dt">True</span> <span class="ot">-&gt;</span> <span class="kw">case</span> _b <span class="kw">of</span> {
+                            <span class="dt">False</span> <span class="ot">-&gt;</span> <span class="dt">True</span>;
+                            <span class="dt">True</span> <span class="ot">-&gt;</span> <span class="dt">False</span>
+                          }
+                }</code></pre>
+<p><strong>Constructor Patterns</strong></p>
+<p>Toplevel declarations in the frontend language can consist of patterns for on the right-hand-side of the declaration, while in the Core language these are transformed into case statements in the body of the function.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- Frontend</span>
+f (<span class="dt">Left</span>  l) <span class="fu">=</span> a
+f (<span class="dt">Right</span> r) <span class="fu">=</span> b
+
+<span class="co">-- Desugared</span>
+f x <span class="fu">=</span> <span class="kw">case</span> x <span class="kw">of</span>
+    <span class="dt">Left</span>  l <span class="ot">-&gt;</span> a
+    <span class="dt">Right</span> r <span class="ot">-&gt;</span> b</code></pre>
+<p><strong>Nested Patterns</strong></p>
+<p>The frontend language also allows nested constructors in a single pattern, while in the Core language these are expanded out into two case statements which scrutinize only one level of pattern.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- Frontend</span>
+f x <span class="fu">=</span> <span class="kw">case</span> x <span class="kw">of</span>
+  <span class="dt">Just</span> (<span class="dt">Just</span> y) <span class="ot">-&gt;</span> y
+
+<span class="co">-- Desugared</span>
+f x <span class="fu">=</span> <span class="kw">case</span> x <span class="kw">of</span>
+  <span class="dt">Just</span> _a <span class="ot">-&gt;</span> <span class="kw">case</span> _a <span class="kw">of</span>
+    <span class="dt">Just</span> _b <span class="ot">-&gt;</span> _b</code></pre>
+<p>There are many edge cases of pattern matching that we will have to consider. The confluence of all them gives rise to a rather complex set of AST rewrites:</p>
+<ul>
+<li>Multiple arguments</li>
+<li>Overlapping patterns</li>
+<li>Literal patterns</li>
+<li>Nested patterns</li>
+<li>Non-exhaustive equations</li>
+<li>Conditional equations</li>
+<li>Non-linear patterns</li>
+</ul>
+<p>On top of pattern matching we will implement the following more trivial syntactic sugar translations:</p>
+<ul>
+<li>Expand <code>if/then</code> statements into case expressions.</li>
+<li>Expand pattern guards into case expressions.</li>
+<li>Expand out do-notation for monads.</li>
+<li>Expand list syntactic sugar.</li>
+<li>Expand tuple syntactic sugar.</li>
+<li>Expand out operator sections.</li>
+<li>Expand out string literals.</li>
+<li>Expand out numeric literals.</li>
+</ul>
+<p>We will however punt on an important part of the Haskell specification, namely <em>overloaded literals</em>. In Haskell numeric literals are replaced by specific functions from the <code>Num</code> or <code>Fractional</code> typeclasses.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- Frontend</span>
+<span class="dv">42</span><span class="ot"> ::</span> <span class="dt">Num</span> a <span class="ot">=&gt;</span> a
+<span class="fl">3.14</span><span class="ot"> ::</span> <span class="dt">Fractional</span> a <span class="ot">=&gt;</span> a
+
+<span class="co">-- Desugared</span>
+fromInteger (<span class="dv">42</span><span class="ot"> ::</span> <span class="dt">Integer</span>)
+fromRational (<span class="fl">3.14</span><span class="ot"> ::</span> <span class="dt">Rational</span>)</code></pre>
+<p>We will not implement this, as it drastically expands the desugarer scope.</p>
+<p>We will however follow GHC's example in manifesting unboxed types as first class values in the language so literals that appear in the AST are rewritten in terms of the wired-in constructors (<code>Int#</code>, <code>Char#</code>, <code>Addr#</code>, etc).</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="dt">I</span><span class="st"># : Int# -&gt; Int</span>
+<span class="dt">C</span><span class="st"># : Char# -&gt; Char</span></code></pre>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="fu">&gt;</span> <span class="fu">:</span>core <span class="dv">1</span>
+<span class="dt">I</span><span class="st"># 1#</span>
+<span class="fu">&gt;</span> <span class="fu">:</span>core <span class="dv">1</span> <span class="fu">+</span> <span class="dv">2</span>
+plus (<span class="dt">I</span><span class="st"># 1#) (I# 2#)</span>
+<span class="fu">&gt;</span> <span class="fu">:</span>core <span class="st">&quot;snazzleberry&quot;</span>
+unpackCString<span class="st"># &quot;snazzleberry&quot;#</span></code></pre>
+<h2 id="core">Core</h2>
+<p>The Core language is the result of translation of the frontend language into an explicitly typed form. Just like GHC we will use a System-F variant, although unlike GHC we will effectively just be using vanilla System-F without all of the extensions ( coercions, equalities, roles, etc ) that GHC uses to implement more complicated features like GADTs and type families.</p>
+<p>This is one of the most defining feature of GHC Haskell, its compilation into a statically typed intermediate Core language. It is a well-engineers detail of GHC's design that has informed much of how Haskell the language has evolved as a language with a exceedingly large frontend language that all melts away into a very tiny concise set of abstractions. Just like GHC we will extract all our language into a small core, with just a few constructors.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Expr</span>
+  <span class="fu">=</span> <span class="dt">App</span> <span class="dt">Expr</span> <span class="dt">Expr</span>
+  <span class="fu">|</span> <span class="dt">Var</span> <span class="dt">Var</span>
+  <span class="fu">|</span> <span class="dt">Lam</span> <span class="dt">Name</span> <span class="dt">Type</span> <span class="dt">Expr</span>
+  <span class="fu">|</span> <span class="dt">Case</span> <span class="dt">Expr</span> [<span class="dt">Alt</span>]
+  <span class="fu">|</span> <span class="dt">Let</span> <span class="dt">Bind</span> <span class="dt">Expr</span>
+  <span class="fu">|</span> <span class="dt">Lit</span> <span class="dt">Literal</span>
+  <span class="fu">|</span> <span class="dt">Placeholder</span> <span class="dt">Name</span> <span class="dt">Type</span>
+
+<span class="kw">data</span> <span class="dt">Var</span>
+  <span class="fu">=</span> <span class="dt">Id</span> <span class="dt">Name</span> <span class="dt">Type</span>
+  <span class="fu">|</span> <span class="dt">TyVar</span> <span class="dt">Name</span> <span class="dt">Kind</span></code></pre>
+<p>The types and kind types are also equally small.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Type</span>
+  <span class="fu">=</span> <span class="dt">TVar</span> <span class="dt">TVar</span>
+  <span class="fu">|</span> <span class="dt">TCon</span> <span class="dt">TyCon</span>
+  <span class="fu">|</span> <span class="dt">TApp</span> <span class="dt">Type</span> <span class="dt">Type</span>
+  <span class="fu">|</span> <span class="dt">TArr</span> <span class="dt">Type</span> <span class="dt">Type</span>
+  <span class="fu">|</span> <span class="dt">TForall</span> [<span class="dt">Pred</span>] [<span class="dt">TVar</span>] <span class="dt">Type</span>
+
+<span class="kw">data</span> <span class="dt">Kind</span>
+  <span class="fu">=</span> <span class="dt">KStar</span>
+  <span class="fu">|</span> <span class="dt">KArr</span> <span class="dt">Kind</span> <span class="dt">Kind</span>
+  <span class="fu">|</span> <span class="dt">KPrim</span>
+  <span class="fu">|</span> <span class="dt">KVar</span> <span class="dt">Name</span></code></pre>
+<p>Since the Core language is explicitly typed, it is trivial to implement an internal type checker for it. Running the typechecker on the generated core is a good way to catch optimization and desugaring bugs, and determine if the compiler has produced invalid intermediate code.</p>
+<!--
+*Core, It's just a simple functional language!*
+-->
+<h2 id="type-classes">Type Classes</h2>
+<p>Typeclasses are also remarkably subtle to implement. We will implement just single parameter typeclasses and use the usual <em>dictionary passing translation</em> when compiling the frontend to Core. Although the translation and instance search logic is not terribly complicated, it is however very verbose and involves a lot of bookkeeping about the global typeclass hierarchy.</p>
+<p>For example the following simplified <code>Num</code> typeclass generates quite a bit of elaborated definitions in the Core language to generate the dictionary and selector functions for the overloaded <code>plus</code> function.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Num</span> a <span class="kw">where</span>
+<span class="ot">  plus ::</span> a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a
+<span class="ot">  mult ::</span> a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a
+<span class="ot">  sub ::</span> a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a
+
+<span class="kw">instance</span> <span class="dt">Num</span> <span class="dt">Int</span> <span class="kw">where</span>
+  plus <span class="fu">=</span> plusInt
+  mult <span class="fu">=</span> multInt
+  sub  <span class="fu">=</span> subInt
+
+<span class="ot">plusInt ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span>
+plusInt (<span class="dt">I</span><span class="st"># a) (I# b) = I# (plusInt# a b)</span></code></pre>
+<p>This expands into the following set of Core definitions.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">plusInt ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span>
+plusInt <span class="fu">=</span> \(ds1 <span class="fu">:</span> <span class="dt">Int</span>)
+           (ds2 <span class="fu">:</span> <span class="dt">Int</span>) <span class="ot">-&gt;</span>
+            <span class="kw">case</span> ds1 <span class="kw">of</span> {
+              <span class="dt">I</span><span class="st"># ds8 -&gt;</span>
+                <span class="kw">case</span> ds2 <span class="kw">of</span> {
+                  <span class="dt">I</span><span class="st"># ds9 -&gt;</span>
+                    <span class="kw">case</span> (plusInt<span class="st"># ds8 ds9) of {</span>
+                      __<span class="dt">DEFAULT</span> {ds5} <span class="ot">-&gt;</span> (<span class="dt">I</span><span class="st"># ds5)</span>
+                    }
+                }
+            }
+
+<span class="ot">dplus ::</span> forall a<span class="fu">.</span> <span class="dt">DNum</span> a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a
+dplus <span class="fu">=</span> \(tpl <span class="fu">:</span> <span class="dt">DNum</span> a) <span class="ot">-&gt;</span>
+          <span class="kw">case</span> tpl <span class="kw">of</span> {
+            <span class="dt">DNum</span> a b c <span class="ot">-&gt;</span> a
+          }
+
+<span class="ot">plus ::</span> forall e<span class="fu">.</span> <span class="dt">Num</span> e <span class="ot">=&gt;</span> e <span class="ot">-&gt;</span> e <span class="ot">-&gt;</span> e
+plus <span class="fu">=</span> \(<span class="fu">$</span>dNum_a <span class="fu">:</span> <span class="dt">DNum</span> e)
+     (ds1 <span class="fu">:</span> e)
+     (ds2 <span class="fu">:</span> e) <span class="ot">-&gt;</span>
+      (dplus <span class="fu">$</span>dNum_a ds1 ds2)</code></pre>
+<p>Our typeclass infrastructure will be able to support the standard typeclass hierarchy from the Prelude. Our instance search mechanism will be subject to the same restriction rules that GHC enforces.</p>
+<ul>
+<li>Paterson condition</li>
+<li>Coverage condition</li>
+<li>Bounded context stack</li>
+</ul>
+<h2 id="type-checker">Type Checker</h2>
+<p>The type checker is the largest module and probably the most nontrivial part of our compiler. The module consists of roughly 1200 lines of code. Although the logic is not drastically different from the simple little HM typechecker we wrote previously, it simply has to do more bookkeeping and handle more cases.</p>
+<p>The implementation of the typechecker will be split across four modules:</p>
+<ul>
+<li><code>Infer.hs</code> - Main inference driver</li>
+<li><code>Unify.hs</code> - Unification logic</li>
+<li><code>ClassEnv.hs</code> - Typeclass instance resolution</li>
+<li><code>Elaboration.hs</code> - Typeclass elaboration</li>
+</ul>
+<p>The monad itself is a <code>RWST</code> + <code>Except</code> stack, with State holding the internal state of the inference engine and Writer gathering the generated constraint set that is passed off to the solver.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- | Inference monad</span>
+<span class="kw">type</span> <span class="dt">InferM</span> <span class="fu">=</span> <span class="dt">RWST</span>
+   <span class="dt">Env</span>             <span class="co">-- Typing environment</span>
+   [<span class="dt">Constraint</span>]    <span class="co">-- Generated constraints</span>
+   <span class="dt">InferMState</span>     <span class="co">-- Inference state</span>
+     (<span class="dt">Except</span>       <span class="co">-- Inference errors</span>
+       <span class="dt">TypeError</span>)
+
+<span class="co">-- | Inference state</span>
+<span class="kw">data</span> <span class="dt">InferMState</span> <span class="fu">=</span> <span class="dt">InferMState</span>
+  {<span class="ot"> count     ::</span> <span class="dt">Int</span>         <span class="co">-- ^ Name supply</span>
+  ,<span class="ot"> preds     ::</span> [<span class="dt">Pred</span>]      <span class="co">-- ^ Typeclass predicates</span>
+  ,<span class="ot"> skolems   ::</span> <span class="dt">Skolems</span>     <span class="co">-- ^ Skolem scope</span>
+  ,<span class="ot"> overloads ::</span> <span class="dt">ClassEnv</span>    <span class="co">-- ^ Overloaded identifiers</span>
+  ,<span class="ot"> active    ::</span> <span class="dt">Name</span>        <span class="co">-- ^ Active function name</span>
+  ,<span class="ot"> classh    ::</span> <span class="dt">ClassHier</span>   <span class="co">-- ^ Typeclass hierarchy</span>
+  }</code></pre>
+<p>In <em>Fun</em> we will extend the simple type checker with arbitrary rank polymorphism (i.e. <code>RankNTypes</code> in GHC). This is actually required to implement typeclasses in their full generality, although in <em>ProtoHaskell</em> we will cheat a little bit.</p>
+<h2 id="interpreter">Interpreter</h2>
+<p>For ProtoHaskell we will actually directly evaluate the resulting Core expressions in an interpreter. By virtue of us translating the expressions into Haskell expressions we will get lazy evaluation almost for free and will let us run our programs from inside of the interactive shell.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">sieve ::</span> [<span class="dt">Int</span>] <span class="ot">-&gt;</span> [<span class="dt">Int</span>]
+sieve [] <span class="fu">=</span> []
+sieve (p<span class="fu">:</span>ps) <span class="fu">=</span> p <span class="fu">:</span> sieve (filter (nonMultiple p) ps)
+
+<span class="ot">nonMultiple ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Bool</span>
+nonMultiple p n <span class="fu">=</span> ((n<span class="fu">/</span>p)<span class="fu">*</span>p) <span class="fu">/=</span> n
+
+<span class="ot">primes ::</span> [<span class="dt">Int</span>]
+primes <span class="fu">=</span> sieve [<span class="dv">2</span><span class="fu">..</span>]</code></pre>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="dt">ProtoHaskell</span><span class="fu">&gt;</span> take <span class="dv">5</span> (cycle [<span class="dv">1</span>,<span class="dv">2</span>])
+[<span class="dv">1</span>,<span class="dv">2</span>,<span class="dv">1</span>,<span class="dv">2</span>,<span class="dv">1</span>]
+
+<span class="dt">ProtoHaskell</span><span class="fu">&gt;</span> take <span class="dv">5</span> primes
+[<span class="dv">2</span>,<span class="dv">3</span>,<span class="dv">5</span>,<span class="dv">7</span>,<span class="dv">11</span>]</code></pre>
+<h2 id="error-reporting">Error Reporting</h2>
+<p>We will do quite a bit of error reporting for the common failure modes of the type checker, desugar, and rename phases including position information tracking in Fun. However doing this in full is surprisingly involved and would add a significant amount of code to the reference implementation. As such we will not be as thorough as GHC in handling every failure mode by virtue of the scope of our project being a toy language with the primary goal being conciseness and simplicity.</p>
+<h1 id="frontend">Frontend</h1>
+<p>The Frontend language for ProtoHaskell is a fairly large language, consisting of many different types. Let's walk through the different constructions. The frontend syntax is split across several datatypes.</p>
+<ul>
+<li><code>Decls</code> - Declarations syntax</li>
+<li><code>Expr</code> - Expressions syntax</li>
+<li><code>Lit</code> - Literal syntax</li>
+<li><code>Pat</code> - Pattern syntax</li>
+<li><code>Types</code> - Type syntax</li>
+<li><code>Binds</code> - Binders</li>
+</ul>
+<p>At the top is the named <em>Module</em> and all toplevel declarations contained therein. The first revision of the compiler has a very simple module structure, which we will extend later in fun with imports and public interfaces.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Module</span> <span class="fu">=</span> <span class="dt">Module</span> <span class="dt">Name</span> [<span class="dt">Decl</span>]         <span class="co">-- ^ module T where { .. }</span>
+  <span class="kw">deriving</span> (<span class="dt">Eq</span>,<span class="dt">Show</span>)</code></pre>
+<p>Declarations or <code>Decl</code> objects are any construct that can appear at toplevel of a module. These are namely function, datatype, typeclass, and operator definitions.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Decl</span>
+  <span class="fu">=</span> <span class="dt">FunDecl</span> <span class="dt">BindGroup</span>                    <span class="co">-- ^ f x = x + 1</span>
+  <span class="fu">|</span> <span class="dt">TypeDecl</span> <span class="dt">Type</span>                        <span class="co">-- ^ f :: Int -&gt; Int</span>
+  <span class="fu">|</span> <span class="dt">DataDecl</span> <span class="dt">Constr</span> [<span class="dt">Name</span>] [<span class="dt">ConDecl</span>]     <span class="co">-- ^ data T where { ... }</span>
+  <span class="fu">|</span> <span class="dt">ClassDecl</span> [<span class="dt">Pred</span>] <span class="dt">Name</span> [<span class="dt">Name</span>] [<span class="dt">Decl</span>]  <span class="co">-- ^ class (P) =&gt; T where { ... }</span>
+  <span class="fu">|</span> <span class="dt">InstDecl</span> [<span class="dt">Pred</span>] <span class="dt">Name</span> <span class="dt">Type</span> [<span class="dt">Decl</span>]     <span class="co">-- ^ instance (P) =&gt; T where { ... }</span>
+  <span class="fu">|</span> <span class="dt">FixityDecl</span> <span class="dt">FixitySpec</span>                <span class="co">-- ^ infixl 1  {..}</span>
+  <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Show</span>)</code></pre>
+<p>A binding group is a single line of definition for a function declaration. For instance the following function has two binding groups.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">factorial ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span>
+
+<span class="co">-- Group #1</span>
+factorial <span class="dv">0</span> <span class="fu">=</span> <span class="dv">1</span>
+
+<span class="co">-- Group #2</span>
+factorial n <span class="fu">=</span> n <span class="fu">*</span> factorial (n <span class="fu">-</span> <span class="dv">1</span>)</code></pre>
+<p>One of the primary roles of the desugarer is to merge these disjoint binding groups into a single splitting tree of case statements under a single binding group.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">BindGroup</span> <span class="fu">=</span> <span class="dt">BindGroup</span>
+  { _<span class="ot">matchName  ::</span> <span class="dt">Name</span>
+  , _<span class="ot">matchPats  ::</span> [<span class="dt">Match</span>]
+  , _<span class="ot">matchType  ::</span> <span class="dt">Maybe</span> <span class="dt">Type</span>
+  , _<span class="ot">matchWhere ::</span> [[<span class="dt">Decl</span>]]
+  } <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Show</span>)</code></pre>
+<p>The expression or <code>Expr</code> type is the core AST type that we will deal with and transform most frequently. This is effectively a simple untyped lambda calculus with let statements, pattern matching, literals, type annotations, if/these/else statements and do-notation.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">Constr</span> <span class="fu">=</span> <span class="dt">Name</span>
+
+<span class="kw">data</span> <span class="dt">Expr</span>
+  <span class="fu">=</span> <span class="dt">EApp</span>  <span class="dt">Expr</span> <span class="dt">Expr</span>        <span class="co">-- ^ a b</span>
+  <span class="fu">|</span> <span class="dt">EVar</span>  <span class="dt">Name</span>             <span class="co">-- ^ x</span>
+  <span class="fu">|</span> <span class="dt">ELam</span>  <span class="dt">Name</span> <span class="dt">Expr</span>        <span class="co">-- ^ \\x . y</span>
+  <span class="fu">|</span> <span class="dt">ELit</span>  <span class="dt">Literal</span>          <span class="co">-- ^ 1, &#39;a&#39;</span>
+  <span class="fu">|</span> <span class="dt">ELet</span>  <span class="dt">Name</span> <span class="dt">Expr</span> <span class="dt">Expr</span>   <span class="co">-- ^ let x = y in x</span>
+  <span class="fu">|</span> <span class="dt">EIf</span>   <span class="dt">Expr</span> <span class="dt">Expr</span> <span class="dt">Expr</span>   <span class="co">-- ^ if x then tr else fl</span>
+  <span class="fu">|</span> <span class="dt">ECase</span> <span class="dt">Expr</span> [<span class="dt">Match</span>]     <span class="co">-- ^ case x of { p -&gt; e; ... }</span>
+  <span class="fu">|</span> <span class="dt">EAnn</span>  <span class="dt">Expr</span> <span class="dt">Type</span>        <span class="co">-- ^ ( x : Int )</span>
+  <span class="fu">|</span> <span class="dt">EDo</span>  [<span class="dt">Stmt</span>]            <span class="co">-- ^ do { ... }</span>
+  <span class="fu">|</span> <span class="dt">EFail</span>                  <span class="co">-- ^ pattern match fail</span>
+  <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Show</span>)</code></pre>
+<p>Inside of case statements will be a distinct pattern matching syntax, this is used both at the toplevel function declarations and inside of case statements.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Match</span> <span class="fu">=</span> <span class="dt">Match</span>
+  { _<span class="ot">matchPat ::</span> [<span class="dt">Pattern</span>]
+  , _<span class="ot">matchBody ::</span> <span class="dt">Expr</span>
+  , _<span class="ot">matchGuard ::</span> [<span class="dt">Guard</span>]
+  } <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Show</span>)
+
+<span class="kw">data</span> <span class="dt">Pattern</span>
+  <span class="fu">=</span> <span class="dt">PVar</span> <span class="dt">Name</span>              <span class="co">-- ^ x</span>
+  <span class="fu">|</span> <span class="dt">PCon</span> <span class="dt">Constr</span> [<span class="dt">Pattern</span>]  <span class="co">-- ^ C x y</span>
+  <span class="fu">|</span> <span class="dt">PLit</span> <span class="dt">Literal</span>           <span class="co">-- ^ 3</span>
+  <span class="fu">|</span> <span class="dt">PWild</span>                  <span class="co">-- ^ _</span>
+  <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Show</span>)</code></pre>
+<p>The do-notation syntax is written in terms of two constructions, one for monadic binds and the other for monadic statements.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Stmt</span>
+  <span class="fu">=</span> <span class="dt">Generator</span> <span class="dt">Pattern</span> <span class="dt">Expr</span> <span class="co">-- ^ pat &lt;- exp</span>
+  <span class="fu">|</span> <span class="dt">Qualifier</span> <span class="dt">Expr</span>         <span class="co">-- ^ exp</span>
+  <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Show</span>)</code></pre>
+<p>Literals are the atomic wired-in types that the compiler has knowledge of and will desugar into the appropriate builtin datatypes.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Literal</span>
+  <span class="fu">=</span> <span class="dt">LitInt</span> <span class="dt">Int</span>           <span class="co">-- ^ 1</span>
+  <span class="fu">|</span> <span class="dt">LitChar</span> <span class="dt">Char</span>         <span class="co">-- ^ &#39;a&#39;</span>
+  <span class="fu">|</span> <span class="dt">LitString</span> [<span class="dt">Word8</span>]    <span class="co">-- ^ &quot;foo&quot;#</span>
+  <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Ord</span>, <span class="dt">Show</span>)</code></pre>
+<p>For data declarations we have two categories of constructor declarations that can appear in the body, regular constructors and record declarations. We will adopt the Haskell <code>-XGADTSyntax</code> for all data declarations.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- Regular Syntax</span>
+<span class="kw">data</span> <span class="dt">Person</span> <span class="fu">=</span> <span class="dt">Person</span> <span class="dt">String</span> <span class="dt">Int</span>
+
+<span class="co">-- GADTSyntax</span>
+<span class="kw">data</span> <span class="dt">Person</span> <span class="kw">where</span>
+  <span class="dt">Person</span><span class="ot"> ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Person</span>
+
+<span class="co">-- Record Syntax</span>
+<span class="kw">data</span> <span class="dt">Person</span> <span class="kw">where</span>
+  <span class="dt">Person</span><span class="ot"> ::</span> <span class="dt">Person</span> {<span class="ot"> name ::</span> <span class="dt">String</span>,<span class="ot"> age ::</span> <span class="dt">Int</span> }</code></pre>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">ConDecl</span>
+  <span class="fu">=</span> <span class="dt">ConDecl</span> <span class="dt">Constr</span> <span class="dt">Type</span>                <span class="co">-- ^ T :: a -&gt; T a</span>
+  <span class="fu">|</span> <span class="dt">RecDecl</span> <span class="dt">Constr</span> [(<span class="dt">Name</span>, <span class="dt">Type</span>)] <span class="dt">Type</span> <span class="co">-- ^ T :: { label :: a } -&gt; T a</span>
+  <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Show</span>, <span class="dt">Ord</span>)</code></pre>
+<p>Fixity declarations are simply a binding between the operator symbol and the fixity information.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">FixitySpec</span> <span class="fu">=</span> <span class="dt">FixitySpec</span>
+  {<span class="ot"> fixityFix ::</span> <span class="dt">Fixity</span>
+  ,<span class="ot"> fixityName ::</span> <span class="dt">String</span>
+  } <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Show</span>)
+
+<span class="kw">data</span> <span class="dt">Assoc</span> <span class="fu">=</span> <span class="dt">L</span> <span class="fu">|</span> <span class="dt">R</span> <span class="fu">|</span> <span class="dt">N</span>
+  <span class="kw">deriving</span> (<span class="dt">Eq</span>,<span class="dt">Ord</span>,<span class="dt">Show</span>)
+
+<span class="kw">data</span> <span class="dt">Fixity</span>
+  <span class="fu">=</span> <span class="dt">Infix</span> <span class="dt">Assoc</span> <span class="dt">Int</span>
+  <span class="fu">|</span> <span class="dt">Prefix</span> <span class="dt">Int</span>
+  <span class="fu">|</span> <span class="dt">Postfix</span> <span class="dt">Int</span>
+  <span class="kw">deriving</span> (<span class="dt">Eq</span>,<span class="dt">Ord</span>,<span class="dt">Show</span>)</code></pre>
+<h2 id="data-declarations">Data Declarations</h2>
+<p>Data declarations are named blocks of various <em>ConDecl</em> constructors for each of the fields or constructors of a user-defined datatype.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> qname [var] <span class="kw">where</span>
+  [tydecl]</code></pre>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Unit</span> <span class="kw">where</span>
+  <span class="dt">Unit</span><span class="ot"> ::</span> <span class="dt">Unit</span></code></pre>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="dt">DataDecl</span>
+      (<span class="dt">Name</span> <span class="st">&quot;Unit&quot;</span>)
+      []
+      [ <span class="dt">ConDecl</span>
+          (<span class="dt">Name</span> <span class="st">&quot;Unit&quot;</span>) (<span class="dt">Forall</span> [] [] (<span class="dt">TCon</span> <span class="dt">AlgTyCon</span> { tyId <span class="fu">=</span> <span class="dt">Name</span> <span class="st">&quot;Unit&quot;</span> }))
+      ]</code></pre>
+<h2 id="function-declarations">Function Declarations</h2>
+<p>Function declarations create <em>FunDecl</em> with <em>BindGroup</em> for the pattern on the left hand side of the toplevel declaration. The <code>matchPat</code> is simply the sequence of patterns (<code>PVar</code>, <code>PCon</code>, <code>PLit</code>) on the left hand side. If a type annotation is specified it is stored in the <code>matchType</code> field. Likewise, if there is a sequence of where statements these are also attached directly to the declaration, and will later be desugared away into local let statements across the body of the function.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">qname [pat] <span class="fu">=</span> rhs [<span class="kw">where</span> decls]</code></pre>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">const x y <span class="fu">=</span> x</code></pre>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="dt">FunDecl</span>
+  <span class="dt">BindGroup</span>
+    { _matchName <span class="fu">=</span> <span class="dt">Name</span> <span class="st">&quot;const&quot;</span>
+    , _matchPats <span class="fu">=</span>
+        [ <span class="dt">Match</span>
+            { _matchPat <span class="fu">=</span> [ <span class="dt">PVar</span> (<span class="dt">Name</span> <span class="st">&quot;x&quot;</span>) , <span class="dt">PVar</span> (<span class="dt">Name</span> <span class="st">&quot;y&quot;</span>) ]
+            , _matchBody <span class="fu">=</span> <span class="dt">EVar</span> (<span class="dt">Name</span> <span class="st">&quot;x&quot;</span>)
+            }
+        ]
+    , _matchType <span class="fu">=</span> <span class="dt">Nothing</span>
+    , _matchWhere <span class="fu">=</span> [ [] ]
+    }</code></pre>
+<p>Pattern matches across multiple lines are treated as two separate declarations, which will later be grouped on the <code>matchName</code> in the desugaring phase. So for instance the <code>map</code> function has the following representation:</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">map f [] <span class="fu">=</span> []
+map f (x<span class="fu">:</span>xs) <span class="fu">=</span> <span class="dt">Cons</span> (f x) (map f xs)</code></pre>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="dt">FunDecl</span>
+  <span class="dt">BindGroup</span>
+    { _matchName <span class="fu">=</span> <span class="dt">Name</span> <span class="st">&quot;map&quot;</span>
+    , _matchPats <span class="fu">=</span>
+        [ <span class="dt">Match</span>
+            { _matchPat <span class="fu">=</span> [ <span class="dt">PVar</span> (<span class="dt">Name</span> <span class="st">&quot;f&quot;</span>) , <span class="dt">PCon</span> (<span class="dt">Name</span> <span class="st">&quot;Nil&quot;</span>) [] ]
+            , _matchBody <span class="fu">=</span> <span class="dt">EVar</span> (<span class="dt">Name</span> <span class="st">&quot;Nil&quot;</span>)
+            }
+        ]
+    , _matchType <span class="fu">=</span> <span class="dt">Nothing</span>
+    , _matchWhere <span class="fu">=</span> [ [] ]
+    }
+
+<span class="dt">FunDecl</span>
+  <span class="dt">BindGroup</span>
+    { _matchName <span class="fu">=</span> <span class="dt">Name</span> <span class="st">&quot;map&quot;</span>
+    , _matchPats <span class="fu">=</span>
+        [ <span class="dt">Match</span>
+            { _matchPat <span class="fu">=</span>
+                [ <span class="dt">PVar</span> (<span class="dt">Name</span> <span class="st">&quot;f&quot;</span>)
+                , <span class="dt">PCon</span> (<span class="dt">Name</span> <span class="st">&quot;Cons&quot;</span>) [ <span class="dt">PVar</span> (<span class="dt">Name</span> <span class="st">&quot;x&quot;</span>) , <span class="dt">PVar</span> (<span class="dt">Name</span> <span class="st">&quot;xs&quot;</span>) ]
+                ]
+            , _matchBody <span class="fu">=</span>
+                <span class="dt">EApp</span>
+                  (<span class="dt">EApp</span>
+                     (<span class="dt">EVar</span> (<span class="dt">Name</span> <span class="st">&quot;Cons&quot;</span>)) (<span class="dt">EApp</span> (<span class="dt">EVar</span> (<span class="dt">Name</span> <span class="st">&quot;f&quot;</span>)) (<span class="dt">EVar</span> (<span class="dt">Name</span> <span class="st">&quot;x&quot;</span>))))
+                  (<span class="dt">EApp</span>
+                     (<span class="dt">EApp</span> (<span class="dt">EVar</span> (<span class="dt">Name</span> <span class="st">&quot;map&quot;</span>)) (<span class="dt">EVar</span> (<span class="dt">Name</span> <span class="st">&quot;f&quot;</span>))) (<span class="dt">EVar</span> (<span class="dt">Name</span> <span class="st">&quot;xs&quot;</span>)))
+            }
+        ]
+    , _matchType <span class="fu">=</span> <span class="dt">Nothing</span>
+    , _matchWhere <span class="fu">=</span> [ [] ]
+    }</code></pre>
+<h2 id="fixity-declarations">Fixity Declarations</h2>
+<p>Fixity declarations are exceedingly simple, they store the binding precedence of the declaration along with its associativity (Left, Right, Non-Associative) and the infix symbol.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">[<span class="kw">infixl</span><span class="fu">|</span><span class="kw">infixr</span><span class="fu">|</span>infix] [integer] ops;</code></pre>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">infixl</span> <span class="dv">4</span> <span class="fu">+</span>;</code></pre>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="dt">FixityDecl</span>
+  <span class="dt">FixitySpec</span> { fixityFix <span class="fu">=</span> <span class="dt">Infix</span> <span class="dt">L</span> <span class="dv">4</span> , fixityName <span class="fu">=</span> <span class="st">&quot;+&quot;</span> }</code></pre>
+<h2 id="typeclass-declarations">Typeclass Declarations</h2>
+<p>Typeclass declarations consist simply of the list of typeclass constraints, the name of the class, and the type variable ( single parameter only ). The body of the class is simply a sequence of scoped <code>FunDecl</code> declarations with only the <code>matchType</code> field.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> [context] <span class="ot">=&gt;</span> classname [var] <span class="kw">where</span>
+  [body]</code></pre>
+<p>Consider a very simplified <code>Num</code> class.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Num</span> a <span class="kw">where</span>
+<span class="ot">  plus ::</span> a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a</code></pre>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="dt">ClassDecl</span>
+  []
+  (<span class="dt">Name</span> <span class="st">&quot;Num&quot;</span>)
+  [ <span class="dt">Name</span> <span class="st">&quot;a&quot;</span> ]
+  [ <span class="dt">FunDecl</span>
+      <span class="dt">BindGroup</span>
+        { _matchName <span class="fu">=</span> <span class="dt">Name</span> <span class="st">&quot;plus&quot;</span>
+        , _matchPats <span class="fu">=</span> []
+        , _matchType <span class="fu">=</span>
+            <span class="dt">Just</span>
+              (<span class="dt">Forall</span>
+                 []
+                 []
+                 (<span class="dt">TArr</span>
+                    (<span class="dt">TVar</span> <span class="dt">TV</span> { tvName <span class="fu">=</span> <span class="dt">Name</span> <span class="st">&quot;a&quot;</span> })
+                    (<span class="dt">TArr</span>
+                       (<span class="dt">TVar</span> <span class="dt">TV</span> { tvName <span class="fu">=</span> <span class="dt">Name</span> <span class="st">&quot;a&quot;</span> })
+                       (<span class="dt">TVar</span> <span class="dt">TV</span> { tvName <span class="fu">=</span> <span class="dt">Name</span> <span class="st">&quot;a&quot;</span> }))))
+        , _matchWhere <span class="fu">=</span> []
+        }
+  ]</code></pre>
+<p>Typeclass instances follow the same pattern, they are simply the collection of instance constraints, the name of the typeclass, and the <em>head</em> of the type class instance type. The declarations are a sequence of <code>FunDecl</code> objects with the bodies of the functions for each of the overloaded function implementations.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> [context] <span class="ot">=&gt;</span> head <span class="kw">where</span>
+  [body]</code></pre>
+<p>For example:</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Num</span> <span class="dt">Int</span> <span class="kw">where</span>
+  plus <span class="fu">=</span> plusInt</code></pre>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="dt">InstDecl</span>
+  []
+  (<span class="dt">Name</span> <span class="st">&quot;Num&quot;</span>)
+  (<span class="dt">TCon</span> <span class="dt">AlgTyCon</span> { tyId <span class="fu">=</span> <span class="dt">Name</span> <span class="st">&quot;Int&quot;</span> })
+  [ <span class="dt">FunDecl</span>
+      <span class="dt">BindGroup</span>
+        { _matchName <span class="fu">=</span> <span class="dt">Name</span> <span class="st">&quot;plus&quot;</span>
+        , _matchPats <span class="fu">=</span>
+            [ <span class="dt">Match</span> { _matchPat <span class="fu">=</span> [] , _matchBody <span class="fu">=</span> <span class="dt">EVar</span> (<span class="dt">Name</span> <span class="st">&quot;plusInt&quot;</span>) } ]
+        , _matchType <span class="fu">=</span> <span class="dt">Nothing</span>
+        , _matchWhere <span class="fu">=</span> [ [] ]
+        }
+  ]</code></pre>
+<h2 id="wired-in-types">Wired-in Types</h2>
+<p>While the base Haskell is quite small, several portions of the desugaring process require the compiler to be aware about certain types before they are otherwise defined in the Prelude. For instance the type of every guarded pattern in the typechecker is <code>Bool</code>. These are desugared into a case statement that includes the <code>True</code> and <code>False</code> constructors. The Bool type is therefore necessarily baked into the syntax of the language and is inseparable from the implementation.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">sign x
+  <span class="fu">|</span>  x <span class="fu">&gt;</span>  <span class="dv">0</span>  <span class="fu">=</span>  <span class="dv">1</span>
+  <span class="fu">|</span>  x <span class="fu">==</span> <span class="dv">0</span>  <span class="fu">=</span>  <span class="dv">0</span>
+  <span class="fu">|</span>  x <span class="fu">&lt;</span>  <span class="dv">0</span>  <span class="fu">=</span> <span class="fu">-</span><span class="dv">1</span></code></pre>
+<p>These are called the <em>wired-in types</em>, and while they are still defined in our Prelude they will have somewhat special status. The primitive types (of kind <code>#</code>) will be very special and are not user extensible, they map directly to implementation details of the code generation backend or Haskell functions hard-wired into the interpreter.</p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">Syntax</th>
+<th align="left">Name</th>
+<th align="left">Kind</th>
+<th align="left">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left"><code>Int#</code></td>
+<td align="left">Int#</td>
+<td align="left"><code>#</code></td>
+<td align="left">Machine integer</td>
+</tr>
+<tr class="even">
+<td align="left"><code>Char#</code></td>
+<td align="left">Char#</td>
+<td align="left"><code>#</code></td>
+<td align="left">Machine char</td>
+</tr>
+<tr class="odd">
+<td align="left"><code>Double#</code></td>
+<td align="left">Double#</td>
+<td align="left"><code>#</code></td>
+<td align="left">Machine double</td>
+</tr>
+<tr class="even">
+<td align="left"><code>Addr#</code></td>
+<td align="left">Addr#</td>
+<td align="left"><code>#</code></td>
+<td align="left">Heap address</td>
+</tr>
+<tr class="odd">
+<td align="left"><code>Int</code></td>
+<td align="left">Int</td>
+<td align="left"><code>*</code></td>
+<td align="left">Boxed integer</td>
+</tr>
+<tr class="even">
+<td align="left"><code>Char</code></td>
+<td align="left">Char</td>
+<td align="left"><code>*</code></td>
+<td align="left">Boxed char</td>
+</tr>
+<tr class="odd">
+<td align="left"><code>Double</code></td>
+<td align="left">Double</td>
+<td align="left"><code>*</code></td>
+<td align="left">Boxed double</td>
+</tr>
+<tr class="even">
+<td align="left"><code>[]</code></td>
+<td align="left">List</td>
+<td align="left"><code>* -&gt; *</code></td>
+<td align="left">List</td>
+</tr>
+<tr class="odd">
+<td align="left"><code>(,)</code></td>
+<td align="left">Pair</td>
+<td align="left"><code>* -&gt; * -&gt; *</code></td>
+<td align="left">2-Tuple</td>
+</tr>
+<tr class="even">
+<td align="left"><code>()</code></td>
+<td align="left">Unit</td>
+<td align="left"><code>*</code></td>
+<td align="left">Unit type</td>
+</tr>
+<tr class="odd">
+<td align="left"><code>(-&gt;)</code></td>
+<td align="left">Arrow</td>
+<td align="left"><code>* -&gt; * -&gt; *</code></td>
+<td align="left">Arrow type</td>
+</tr>
+<tr class="even">
+<td align="left"><code>Bool</code></td>
+<td align="left">Bool</td>
+<td align="left"><code>*</code></td>
+<td align="left">Boolean</td>
+</tr>
+<tr class="odd">
+<td align="left"><code>IO</code></td>
+<td align="left">IO</td>
+<td align="left"><code>* -&gt; *</code></td>
+<td align="left">IO Monad</td>
+</tr>
+</tbody>
+</table>
+<h2 id="traversals">Traversals</h2>
+<p>Bottom-up traversals and rewrites in a monadic context are so common that we'd like to automate this process so that we don't have to duplicate the same logic across all our code. So we'll write several generic traversal functions.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">descendM ::</span> (<span class="dt">Monad</span> m, <span class="dt">Applicative</span> m) <span class="ot">=&gt;</span> (<span class="dt">Expr</span> <span class="ot">-&gt;</span> m <span class="dt">Expr</span>) <span class="ot">-&gt;</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> m <span class="dt">Expr</span>
+descendM f e <span class="fu">=</span> <span class="kw">case</span> e <span class="kw">of</span>
+  <span class="dt">EApp</span>  a b   <span class="ot">-&gt;</span> <span class="dt">EApp</span> <span class="fu">&lt;$&gt;</span> descendM f a <span class="fu">&lt;*&gt;</span> descendM f b
+  <span class="dt">EVar</span>  a     <span class="ot">-&gt;</span> <span class="dt">EVar</span> <span class="fu">&lt;$&gt;</span> pure a
+  <span class="dt">ELam</span>  a b   <span class="ot">-&gt;</span> <span class="dt">ELam</span> <span class="fu">&lt;$&gt;</span> pure a <span class="fu">&lt;*&gt;</span> descendM f b
+  <span class="dt">ELit</span>  n     <span class="ot">-&gt;</span> <span class="dt">ELit</span> <span class="fu">&lt;$&gt;</span> pure n
+  <span class="dt">ELet</span>  n a b <span class="ot">-&gt;</span> <span class="dt">ELet</span> <span class="fu">&lt;$&gt;</span> pure n <span class="fu">&lt;*&gt;</span> descendM f a <span class="fu">&lt;*&gt;</span> descendM f b
+  <span class="dt">EIf</span> a b c   <span class="ot">-&gt;</span> <span class="dt">EIf</span> <span class="fu">&lt;$&gt;</span> descendM f a <span class="fu">&lt;*&gt;</span> descendM f b <span class="fu">&lt;*&gt;</span> descendM f c
+  <span class="dt">ECase</span> a xs  <span class="ot">-&gt;</span> <span class="dt">ECase</span> <span class="fu">&lt;$&gt;</span> f a <span class="fu">&lt;*&gt;</span> traverse (descendCaseM f) xs
+  <span class="dt">EAnn</span> a t    <span class="ot">-&gt;</span> <span class="dt">EAnn</span> <span class="fu">&lt;$&gt;</span> descendM f a <span class="fu">&lt;*&gt;</span> pure t
+  <span class="dt">EFail</span>       <span class="ot">-&gt;</span> pure <span class="dt">EFail</span>
+
+<span class="ot">descendCaseM ::</span> (<span class="dt">Monad</span> m, <span class="dt">Applicative</span> m) <span class="ot">=&gt;</span> (<span class="dt">Expr</span> <span class="ot">-&gt;</span> m <span class="dt">Expr</span>) <span class="ot">-&gt;</span> <span class="dt">Match</span> <span class="ot">-&gt;</span> m <span class="dt">Match</span>
+descendCaseM f e <span class="fu">=</span> <span class="kw">case</span> e <span class="kw">of</span>
+  <span class="dt">Match</span> ps a <span class="ot">-&gt;</span> <span class="dt">Match</span> <span class="fu">&lt;$&gt;</span> pure ps <span class="fu">&lt;*&gt;</span> descendM f a</code></pre>
+<p>The case where the monad is Identity simply corresponds to a pure expression rewrite.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">descend ::</span> (<span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">Expr</span>) <span class="ot">-&gt;</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">Expr</span>
+descend f ex <span class="fu">=</span> runIdentity (descendM (return <span class="fu">.</span> f) ex)</code></pre>
+<p>For example a transformation for use in this framework of traversals might just use pattern matching to match specific syntactic structure and rewrite it or simply yield the input and traverse to the next element in the bottom-up traversal.</p>
+<p>A pure transformation that rewrites all variables named &quot;a&quot; to &quot;b&quot; might be written concisely as the following higher order function.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">transform ::</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">Expr</span>
+transform <span class="fu">=</span> descend f
+  <span class="kw">where</span>
+    f (<span class="dt">Syn.EVar</span> <span class="st">&quot;a&quot;</span>) <span class="fu">=</span> (<span class="dt">Syn.EVar</span> <span class="st">&quot;b&quot;</span>)
+    f x <span class="fu">=</span> x</code></pre>
+<p>This is good for pure logic, but most often our transformations will have to have access to some sort of state or context during traversal and thus <code>descendM</code> will let us write the same rewrite but in a custom monadic context.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">transform ::</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">RewriteM</span> <span class="dt">Expr</span>
+transform <span class="fu">=</span> descendM f
+  <span class="kw">where</span>
+    f (<span class="dt">Syn.EVar</span> x) <span class="fu">=</span> <span class="kw">do</span>
+      env <span class="ot">&lt;-</span> gets _env
+      return <span class="fu">$</span> <span class="dt">Syn.EVar</span> (lookupVar env x)
+    f x <span class="fu">=</span> x</code></pre>
+<p>These traversals admit very nice composition semantics, and AST transformations can be composed and chained as easily as functions.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">compose
+<span class="ot">  ::</span> (<span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">Expr</span>)
+  <span class="ot">-&gt;</span> (<span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">Expr</span>)
+  <span class="ot">-&gt;</span> (<span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">Expr</span>)
+compose f g <span class="fu">=</span> descend (f <span class="fu">.</span> g)</code></pre>
+<p>Recall that monadic actions can be composed like functions using the Kleisli composition operator.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="dt">Functions</span>          <span class="fu">:</span> a <span class="ot">-&gt;</span> b
+<span class="dt">Monadic</span> operations <span class="fu">:</span> a <span class="ot">-&gt;</span> m b</code></pre>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- Function composition</span>
+<span class="ot">(.) ::</span> (b <span class="ot">-&gt;</span> c) <span class="ot">-&gt;</span> (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> c
+f <span class="fu">.</span> g <span class="fu">=</span> \x <span class="ot">-&gt;</span> g (f x)
+
+<span class="co">-- Monad composition</span>
+<span class="ot">(&lt;=&lt;) ::</span> <span class="dt">Monad</span> m <span class="ot">=&gt;</span> (b <span class="ot">-&gt;</span> m c) <span class="ot">-&gt;</span> (a <span class="ot">-&gt;</span> m b) <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> m c
+f <span class="fu">&lt;=&lt;</span> g ≡ \x <span class="ot">-&gt;</span> g x <span class="fu">&gt;&gt;=</span> f</code></pre>
+<p>We can now write composition <code>descendM</code> functions in terms of Kleisli composition to give us a very general notion of AST rewrite composition.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">composeM
+<span class="ot">  ::</span> (<span class="dt">Applicative</span> m, <span class="dt">Monad</span> m)
+  <span class="ot">=&gt;</span> (<span class="dt">Expr</span> <span class="ot">-&gt;</span> m <span class="dt">Expr</span>)
+  <span class="ot">-&gt;</span> (<span class="dt">Expr</span> <span class="ot">-&gt;</span> m <span class="dt">Expr</span>)
+  <span class="ot">-&gt;</span> (<span class="dt">Expr</span> <span class="ot">-&gt;</span> m <span class="dt">Expr</span>)
+composeM f g <span class="fu">=</span> descendM (f <span class="fu">&lt;=&lt;</span> g)</code></pre>
+<p>So for instance if we have three AST monadic transformations (<code>a</code>, <code>b</code>, <code>c</code>) that we wish to compose into a single pass <code>t</code> we can use <code>composeM</code> to generate the composite transformation.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">a ::</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">RewriteM</span> <span class="dt">Expr</span>
+<span class="ot">b ::</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">RewriteM</span> <span class="dt">Expr</span>
+<span class="ot">c ::</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">RewriteM</span> <span class="dt">Expr</span>
+
+<span class="ot">t ::</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">RewriteM</span> <span class="dt">Expr</span>
+t <span class="fu">=</span>  a <span class="ot">`composeM`</span> b <span class="ot">`composeM`</span> c</code></pre>
+<p>Later we utilize both <code>GHC.Generics</code> and <code>Uniplate</code> to generalize this technique even more.</p>
+<h1 id="misc-infrastructure">Misc Infrastructure</h1>
+<h2 id="repline">Repline</h2>
+<h2 id="command-line-arguments">Command Line Arguments</h2>
+<h2 id="graphscc">GraphSCC</h2>
+<h2 id="optparse-applicative">Optparse Applicative</h2>
+<h2 id="full-source">Full Source</h2>
+<p>The partial source for the Frontend of ProtoHaskell is given. This is a stub of all the data structures and scaffolding we will use to construct the compiler pipeline.</p>
+<ul>
+<li><a href="https://github.com/sdiehl/write-you-a-haskell/tree/master/chapter8/protohaskell">ProtoHaskell Frontend</a></li>
+</ul>
+<p>The modules given are:</p>
+<ul>
+<li><code>Monad.hs</code> - Compiler monad</li>
+<li><code>Flags.hs</code> - Compiler flags</li>
+<li><code>Frontend.hs</code> - Frontend syntax</li>
+<li><code>Name.hs</code> - Syntax names</li>
+<li><code>Compiler.hs</code> - Initial compiler stub</li>
+<li><code>Pretty.hs</code> - Pretty printer</li>
+<li><code>Type.hs</code> - Type syntax</li>
+</ul>
+<h2 id="resources">Resources</h2>
+<p>See:</p>
+<ul>
+<li><a href="https://ghc.haskell.org/trac/ghc/wiki/Commentary">GHC Commentary</a></li>
+<li><a href="http://aosabook.org/en/ghc.html">The Architecture of Open Source Applications: GHC</a></li>
+</ul>
+<p></p>
+          </div>
+        </div>
+
+    </div>
+    <script src="https://code.jquery.com/jquery.js"></script>
+    <script src="js/nav.js"></script>
+  </body>
+
+<!-- Mirrored from dev.stephendiehl.com/fun/007_path.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:55:43 GMT -->
+</html>

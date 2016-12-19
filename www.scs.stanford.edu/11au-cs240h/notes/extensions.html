@@ -1,0 +1,583 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<!-- Mirrored from www.scs.stanford.edu/11au-cs240h/notes/extensions.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:55:13 GMT -->
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta name="generator" content="pandoc" />
+  <title></title>
+  <style type="text/css">
+/*<![CDATA[*/
+table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode, table.sourceCode pre 
+   { margin: 0; padding: 0; border: 0; vertical-align: baseline; border: none; }
+td.lineNumbers { border-right: 1px solid #AAAAAA; text-align: right; color: #AAAAAA; padding-right: 5px; padding-left: 5px; }
+td.sourceCode { padding-left: 5px; }
+code.sourceCode span.kw { color: #007020; font-weight: bold; } 
+code.sourceCode span.dt { color: #902000; }
+code.sourceCode span.dv { color: #40a070; }
+code.sourceCode span.bn { color: #40a070; }
+code.sourceCode span.fl { color: #40a070; }
+code.sourceCode span.ch { color: #4070a0; }
+code.sourceCode span.st { color: #4070a0; }
+code.sourceCode span.co { color: #60a0b0; font-style: italic; }
+code.sourceCode span.ot { color: #007020; }
+code.sourceCode span.al { color: red; font-weight: bold; }
+code.sourceCode span.fu { color: #06287e; }
+code.sourceCode span.re { }
+code.sourceCode span.er { color: red; font-weight: bold; }
+/*]]>*/
+  </style>
+</head>
+<body>
+<h1 id="ghc-language-extensions">GHC Language extensions</h1>
+<ul>
+<li>GHC implements a bunch of different extensions to Haskell
+<ul>
+<li>To enable an extension, compile with <code>-X</code><em>ExtensionName</em></li>
+<li>Or place a <code>{-# LANGUAGE</code> <em>ExtensionName</em> <code>#-}</code> pragma at top of file</li>
+<li>Complete list at <a href="http://www.haskell.org/ghc/docs/latest/html/users_guide/flag-reference.html#id491691">Language options</a> section of GHC's option summary</li>
+</ul></li>
+<li>Some extensions are very safe to use
+<ul>
+<li>E.g., core libraries depend on extension in a deep way</li>
+<li>Extension very superficial, easily de-sugars into Haskell2010</li>
+<li>Extension restricts rather than expands set of permissible programs</li>
+</ul></li>
+<li>Other extensions less widely accepted
+<ul>
+<li>E.g., makes type inference/checking undecidable or non-deterministic</li>
+<li>Undermines type safety</li>
+<li>A work in progress that could never be incorporated into standard</li>
+</ul></li>
+<li>Many extensions in a middle/gray area</li>
+</ul>
+<!--
+# Warm-up: [`ExistentialQuantification`][]
+
+* Lets you introduce type variables on right side of `data`
+  declaration
+
+    ~~~~ {.haskell}
+    {-# LANGUAGE ExistentialQuantification #-}
+    data Step s a = Done | Skip !s | Yield !a !s
+    data Stream a = forall s. Stream (s -> Step s a) !s                
+    ~~~~
+
+    * Given a value of type `Stream a`, there exists a type `s` such
+      that...<br> But syntax uses `forall`, not `exists`, to avoid
+      introducing new keyword
+    * Very safe extension (`Control.Exception` relies on it--more next
+      week)
+    * Not to be confused with [`Rank2Types`], in which `forall` means
+      for all types `s`:
+
+        ~~~~ {.haskell}
+        data Stream a = Stream (forall s. (s -> Step s a, s))  -- incorrect
+        ~~~~
+
+* Recall contexts on functions like hidden *dictionary* arguments
+
+    * Contexts on existential variables like hidden dictionary fields
+
+        ~~~~ {.haskell}
+        data Showable = forall a. (Show a) => Showable a
+        instance Show Showable where
+            show (Showable a) = "Showable " ++ show a
+        ~~~~
+
+    * A `Showable` value has both a value of type `a`, and a
+      dictionary for `Show`
+-->
+
+<h1 id="background-monad-transformers">Background: Monad transformers</h1>
+<ul>
+<li>Type constructors building monads parameterized by other monads
+<ul>
+<li><p>Method <a href="http://hackage.haskell.org/packages/archive/transformers/latest/doc/html/Control-Monad-Trans-Class.html#t:MonadTrans"><code>lift</code></a> executes actions from underlying transformed monad:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">MonadTrans</span> t <span class="kw">where</span><span class="ot"> lift </span><span class="ot">::</span> <span class="kw">Monad</span> m <span class="ot">=&gt;</span> m a <span class="ot">-&gt;</span> t m a</code></pre></li>
+<li><p>Note monads have kind ∗ → ∗, so transformers have kind (∗ → ∗) → ∗ → ∗</p></li>
+</ul></li>
+<li>Example: State transformer monad, <a href="http://hackage.haskell.org/packages/archive/transformers/latest/doc/html/Control-Monad-Trans-State-Lazy.html#v:StateT"><code>StateT</code></a>
+<ul>
+<li>Transformer version of <a href="http://cs240h.scs.stanford.edu/notes/monads-slides.html#(32)"><code>State</code> from old lecture</a>--can combine, e.g., state and <code>IO</code></li>
+</ul>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">newtype</span> <span class="dt">StateT</span> s m a <span class="fu">=</span> <span class="dt">StateT</span> {<span class="ot"> runStateT </span><span class="ot">::</span> s <span class="ot">-&gt;</span> m (a,s) }<br /><br /><span class="kw">instance</span> (<span class="kw">Monad</span> m) <span class="ot">=&gt;</span> <span class="kw">Monad</span> (<span class="dt">StateT</span> s m) <span class="kw">where</span><br />    <span class="fu">return</span> a <span class="fu">=</span> <span class="dt">StateT</span> <span class="fu">$</span> \s <span class="ot">-&gt;</span> <span class="fu">return</span> (a, s)<br />    m <span class="fu">&gt;&gt;=</span> k  <span class="fu">=</span> <span class="dt">StateT</span> <span class="fu">$</span> \s0 <span class="ot">-&gt;</span> <span class="kw">do</span>          <span class="co">-- in monad m</span><br />                 <span class="fu">~</span>(a, s1) <span class="ot">&lt;-</span> runStateT m s0<br />                 runStateT (k a) s1<br /><br /><span class="kw">instance</span> <span class="dt">MonadTrans</span> (<span class="dt">StateT</span> s) <span class="kw">where</span><br />    lift ma <span class="fu">=</span> <span class="dt">StateT</span> <span class="fu">$</span> \s <span class="ot">-&gt;</span> <span class="kw">do</span>            <span class="co">-- in monad m</span><br />                a <span class="ot">&lt;-</span> ma<br />                <span class="fu">return</span> (a, s)</code></pre></li>
+</ul>
+<h1 id="using-statet">Using <code>StateT</code></h1>
+<ul>
+<li><p><a href="http://cs240h.scs.stanford.edu/notes/monads-slides.html#(35)">Like <code>State</code></a>, need actions for getting and setting state</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">get </span><span class="ot">::</span> (<span class="kw">Monad</span> m) <span class="ot">=&gt;</span> <span class="dt">StateT</span> s m s<br />get <span class="fu">=</span> <span class="dt">StateT</span> <span class="fu">$</span> \s <span class="ot">-&gt;</span> <span class="fu">return</span> (s, s)<br /><br /><span class="ot">put </span><span class="ot">::</span> (<span class="kw">Monad</span> m) <span class="ot">=&gt;</span> s <span class="ot">-&gt;</span> <span class="dt">StateT</span> s m ()<br />put s <span class="fu">=</span> <span class="dt">StateT</span> <span class="fu">$</span> \_ <span class="ot">-&gt;</span> <span class="fu">return</span> ((), s)</code></pre></li>
+<li><p>Example: count lines of standard input</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">import</span> <span class="dt">Control.Exception</span><br /><span class="kw">import</span> <span class="dt">Control.Monad.Trans</span><br /><span class="kw">import</span> <span class="dt">Control.Monad.Trans.State</span><br /><br /><span class="ot">countLines </span><span class="ot">::</span> <span class="dt">IO</span> <span class="dt">Int</span><br />countLines <span class="fu">=</span> runStateT go <span class="dv">0</span> <span class="fu">&gt;&gt;=</span> <span class="fu">return</span> <span class="fu">.</span> <span class="fu">fst</span><br />    <span class="kw">where</span> go <span class="fu">=</span> lift (try <span class="fu">getLine</span>) <span class="fu">&gt;&gt;=</span> doline<br />          doline (<span class="kw">Left</span> (<span class="dt">SomeException</span> _)) <span class="fu">=</span> get<br />          doline (<span class="kw">Right</span> _) <span class="fu">=</span> <span class="kw">do</span> n <span class="ot">&lt;-</span> get; put (n <span class="fu">+</span> <span class="dv">1</span>); go</code></pre>
+<ul>
+<li>Note that <code>try getLine</code> is an <code>IO</code> action, execute with <code>lift</code></li>
+<li>Mixed with <code>IO</code> are <code>get</code>, <code>set</code> actions from <code>StateT Int IO</code> monad</li>
+</ul></li>
+</ul>
+<h1 id="review-monadio">Review: <code>MonadIO</code></h1>
+<ul>
+<li><p>Recall the <code>MonadIO</code> class from the <a href="http://cs240h.scs.stanford.edu/notes/iteratee-slides.html#(21)">iteratee lecture</a></p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">class</span> (<span class="kw">Monad</span> m) <span class="ot">=&gt;</span> <span class="dt">MonadIO</span> m <span class="kw">where</span><br /><span class="ot">    liftIO </span><span class="ot">::</span> <span class="dt">IO</span> a <span class="ot">-&gt;</span> m a<br /><br /><span class="kw">instance</span> <span class="dt">MonadIO</span> <span class="dt">IO</span> <span class="kw">where</span><br />    liftIO <span class="fu">=</span> <span class="fu">id</span></code></pre></li>
+<li><p>Let's make <code>liftIO</code> work for <code>StateT</code></p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">instance</span> (<span class="dt">MonadIO</span> m) <span class="ot">=&gt;</span> <span class="dt">MonadIO</span> (<span class="dt">StateT</span> s m) <span class="kw">where</span><br />    liftIO <span class="fu">=</span> lift <span class="fu">.</span> liftIO</code></pre></li>
+<li><p>Now can execute IO actions without regard to which monad you are in</p>
+<pre class="sourceCode"><code class="sourceCode haskell">          go <span class="fu">=</span> liftIO (try <span class="fu">getLine</span>) <span class="fu">&gt;&gt;=</span> doline</code></pre></li>
+<li>All standard Monad transformers implement class <code>MonadIO</code>
+<ul>
+<li><code>ContT</code>, <code>ErrorT</code>, <code>ListT</code>, <code>RWST</code>, <code>ReaderT</code>, <code>StateT</code>, <code>WriterT</code>, ...</li>
+</ul></li>
+</ul>
+<h1 id="background-recursive-bindings">Background: recursive bindings</h1>
+<ul>
+<li><p>Top-level, <code>let</code>, and <code>where</code> bindings are all recursive in Haskell, e.g.:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">oneTwo </span><span class="ot">::</span> (<span class="dt">Int</span>, <span class="dt">Int</span>)<br />oneTwo <span class="fu">=</span> (<span class="fu">fst</span> y, <span class="fu">snd</span> x)<br />    <span class="kw">where</span> x <span class="fu">=</span> (<span class="dv">1</span>, <span class="fu">snd</span> y)    <span class="co">-- mutual recursion</span><br />          y <span class="fu">=</span> (<span class="fu">fst</span> x, <span class="dv">2</span>)<br /><br /><span class="ot">nthFib </span><span class="ot">::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Integer</span><br />nthFib n <span class="fu">=</span> fibList <span class="fu">!!</span> n<br />    <span class="kw">where</span> fibList <span class="fu">=</span> <span class="dv">1</span> <span class="fu">:</span> <span class="dv">1</span> <span class="fu">:</span> <span class="fu">zipWith</span> (<span class="fu">+</span>) fibList (<span class="fu">tail</span> fibList)</code></pre></li>
+<li>Recursion can be implemented using a fixed-point combinator
+<ul>
+<li><p>Function <a href="http://hackage.haskell.org/packages/archive/base/latest/doc/html/Data-Function.html#v:fix"><code>fix</code></a> calls a function with its own result, use to re-implement above:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">fix </span><span class="ot">::</span> (a <span class="ot">-&gt;</span> a) <span class="ot">-&gt;</span> a<br />fix f <span class="fu">=</span> <span class="kw">let</span> x <span class="fu">=</span> f x <span class="kw">in</span> x</code></pre>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">oneTwo' </span><span class="ot">::</span> (<span class="dt">Int</span>, <span class="dt">Int</span>)<br />oneTwo' <span class="fu">=</span> (<span class="fu">fst</span> y, <span class="fu">snd</span> x)<br />    <span class="kw">where</span> (x, y) <span class="fu">=</span> fix <span class="fu">$</span> \ <span class="fu">~</span>(x0, y0) <span class="ot">-&gt;</span> <span class="kw">let</span> x1 <span class="fu">=</span> (<span class="dv">1</span>, <span class="fu">snd</span> y0)<br />                                            y1 <span class="fu">=</span> (<span class="fu">fst</span> x0, <span class="dv">2</span>)<br />                                        <span class="kw">in</span> (x1, y1)<br />nthFib' n <span class="fu">=</span> fibList <span class="fu">!!</span> n<br />    <span class="kw">where</span> fibList <span class="fu">=</span> fix <span class="fu">$</span> \l <span class="ot">-&gt;</span> <span class="dv">1</span> <span class="fu">:</span> <span class="dv">1</span> <span class="fu">:</span> <span class="fu">zipWith</span> (<span class="fu">+</span>) l (<span class="fu">tail</span> l)</code></pre></li>
+</ul></li>
+</ul>
+<h1 id="recursion-and-monadic-bindings">Recursion and monadic bindings</h1>
+<ul>
+<li><p>By contrast, monadic bindings are <em>not</em> recursive</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">do</span> fibList <span class="ot">&lt;-</span> <span class="fu">return</span> <span class="fu">$</span> <span class="dv">1</span> <span class="fu">:</span> <span class="dv">1</span> <span class="fu">:</span> <span class="fu">zipWith</span> (<span class="fu">+</span>) fibList (<span class="fu">tail</span> fibList)<br />   <span class="fu">...</span>     <span class="co">-- error, fibList not in scope  ^^^^^^^       ^^^^^^^</span></code></pre></li>
+<li><p>But monads in the <a href="http://hackage.haskell.org/packages/archive/base/latest/doc/html/Control-Monad-Fix.html#t:MonadFix"><code>MonadFix</code></a> class have a fixed-point combinator</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">class</span> <span class="kw">Monad</span> m <span class="ot">=&gt;</span> <span class="dt">MonadFix</span> m <span class="kw">where</span><br /><span class="ot">    mfix </span><span class="ot">::</span> (a <span class="ot">-&gt;</span> m a) <span class="ot">-&gt;</span> m a</code></pre>
+<ul>
+<li><code>mfix</code> can be used to implement recursive monadic bindings <a href="http://citeseer.ist.psu.edu/viewdoc/download;jsessionid=13851C3A2D4F33918B9D662C20F30762?doi=10.1.1.43.5313&amp;rep=rep1&amp;type=pdf">[Erkök00]</a>, e.g.:</li>
+</ul>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">mfib </span><span class="ot">::</span> (<span class="dt">MonadFix</span> m) <span class="ot">=&gt;</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> m <span class="dt">Integer</span><br />mfib n <span class="fu">=</span> <span class="kw">do</span><br />  fibList <span class="ot">&lt;-</span> mfix <span class="fu">$</span> \l <span class="ot">-&gt;</span> <span class="fu">return</span> <span class="fu">$</span> <span class="dv">1</span> <span class="fu">:</span> <span class="dv">1</span> <span class="fu">:</span> <span class="fu">zipWith</span> (<span class="fu">+</span>) l (<span class="fu">tail</span> l)<br />  <span class="fu">return</span> <span class="fu">$</span> fibList <span class="fu">!!</span> n <span class="co">-- ^^^^^</span></code></pre></li>
+<li>Why? E.g., might want to simulate circuits with monads
+<ul>
+<li>Need recursion if there is a loop in your circuit</li>
+<li>Might want recursion anyway to avoid worrying about order of statements</li>
+</ul></li>
+</ul>
+<h1 id="the-dorec-extension">The <a href="http://www.haskell.org/ghc/docs/latest/html/users_guide/syntax-extns.html#recursive-do-notation"><code>DoRec</code></a> extension</h1>
+<ul>
+<li>New <code>rec</code> keyword introduces recursive bindings in a <code>do</code> block <a href="https://sites.google.com/site/leventerkok/recdo.pdf?attredirects=0">[Erkök02]</a>
+<ul>
+<li>Monad must be an instance of <code>MonadFix</code> (<code>rec</code> desugars to <code>mfix</code> calls)</li>
+</ul>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">oneTwo'' </span><span class="ot">::</span> (<span class="dt">MonadFix</span> m) <span class="ot">=&gt;</span> m (<span class="dt">Int</span>, <span class="dt">Int</span>)<br />oneTwo'' <span class="fu">=</span> <span class="kw">do</span><br />  rec x <span class="ot">&lt;-</span> <span class="fu">return</span> (<span class="dv">1</span>, <span class="fu">snd</span> y)<br />      y <span class="ot">&lt;-</span> <span class="fu">return</span> (<span class="fu">fst</span> x, <span class="dv">2</span>)<br />  <span class="fu">return</span> (<span class="fu">fst</span> y, <span class="fu">snd</span> x)</code></pre>
+<ul>
+<li>Desugars to:</li>
+</ul>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">oneTwo''' </span><span class="ot">::</span> (<span class="dt">MonadFix</span> m) <span class="ot">=&gt;</span> m (<span class="dt">Int</span>, <span class="dt">Int</span>)<br />oneTwo''' <span class="fu">=</span> <span class="kw">do</span><br />  (x, y) <span class="ot">&lt;-</span> mfix <span class="fu">$</span> \ <span class="fu">~</span>(x0, y0) <span class="ot">-&gt;</span> <span class="kw">do</span> x1 <span class="ot">&lt;-</span> <span class="fu">return</span> (<span class="dv">1</span>, <span class="fu">snd</span> y0)<br />                                     y1 <span class="ot">&lt;-</span> <span class="fu">return</span> (<span class="fu">fst</span> x0, <span class="dv">2</span>)<br />                                     <span class="fu">return</span> (x1, y1)<br />  <span class="fu">return</span> (<span class="fu">fst</span> y, <span class="fu">snd</span> x)</code></pre></li>
+<li>Note: In practice <code>DoRec</code> helps structure thinking, not shipped that much
+<ul>
+<li>Can manually desugar rather than require a language extension</li>
+<li>But <code>mfix</code> on its own is quite useful</li>
+</ul></li>
+</ul>
+<h1 id="example-uses-of-mfix-and-rec">Example uses of <code>mfix</code> and <code>rec</code></h1>
+<ul>
+<li><p>Create recursive data structures in one shot</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Link</span> a <span class="fu">=</span> <span class="dt">Link</span> <span class="fu">!</span>a <span class="fu">!</span>(<span class="dt">MVar</span> (<span class="dt">Link</span> a)) <span class="co">-- note ! is okay</span><br /><br /><span class="ot">mkCycle </span><span class="ot">::</span> <span class="dt">IO</span> (<span class="dt">MVar</span> (<span class="dt">Link</span> <span class="dt">Int</span>))<br />mkCycle <span class="fu">=</span> <span class="kw">do</span><br />  rec l1 <span class="ot">&lt;-</span> newMVar <span class="fu">$</span> <span class="dt">Link</span> <span class="dv">1</span> l2        <span class="co">-- but $! would diverge</span><br />      l2 <span class="ot">&lt;-</span> newMVar <span class="fu">$</span> <span class="dt">Link</span> <span class="dv">2</span> l1<br />  <span class="fu">return</span> l1</code></pre></li>
+<li><p>Call non-strict methods of classes (easy access to return-type dictionary)</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">MyClass</span> t <span class="kw">where</span><br /><span class="ot">    myTypeName </span><span class="ot">::</span> t <span class="ot">-&gt;</span> <span class="dt">String</span>        <span class="co">-- non-strict in argument</span><br /><span class="ot">    myDefaultValue </span><span class="ot">::</span> t<br /><span class="kw">instance</span> <span class="dt">MyClass</span> <span class="dt">Int</span> <span class="kw">where</span><br />    myTypeName _ <span class="fu">=</span> <span class="st">&quot;Int&quot;</span><br />    myDefaultValue <span class="fu">=</span> <span class="dv">0</span><br /><br /><span class="ot">getVal </span><span class="ot">::</span> (<span class="dt">MyClass</span> t) <span class="ot">=&gt;</span> <span class="dt">IO</span> t<br />getVal <span class="fu">=</span> mfix <span class="fu">$</span> \t <span class="ot">-&gt;</span> <span class="kw">do</span>      <span class="co">-- doesn't use mfix's full power</span><br />  <span class="fu">putStrLn</span> <span class="fu">$</span> <span class="st">&quot;Caller wants type &quot;</span> <span class="fu">++</span> myTypeName t<br />  <span class="fu">return</span> myDefaultValue</code></pre></li>
+</ul>
+<h1 id="implementing-mfix">Implementing <code>mfix</code></h1>
+<ul>
+<li><p>Warm-up: The <a href="http://hackage.haskell.org/packages/archive/transformers/latest/doc/html/Data-Functor-Identity.html#v:Identity"><code>Identity</code></a> monad</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">newtype</span> <span class="dt">Identity</span> a <span class="fu">=</span> <span class="dt">Identity</span> {<span class="ot"> runIdentity </span><span class="ot">::</span> a }<br /><span class="kw">instance</span> <span class="kw">Monad</span> <span class="dt">Identity</span> <span class="kw">where</span><br />    <span class="fu">return</span> <span class="fu">=</span> <span class="dt">Identity</span><br />    m <span class="fu">&gt;&gt;=</span> k <span class="fu">=</span> k (runIdentity m)</code></pre>
+<ul>
+<li><code>newtype</code> compiles to nothing, so basically same as <code>fix</code>:</li>
+</ul>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">MonadFix</span> <span class="dt">Identity</span> <span class="kw">where</span><br />    mfix f <span class="fu">=</span> <span class="kw">let</span> x <span class="fu">=</span> f (runIdentity x) <span class="kw">in</span> x</code></pre></li>
+<li><p>For <code>IO</code>, <code>mfix = fixIO</code> (recalling <a href="http://cs240h.scs.stanford.edu/notes/laziness-slides.html#(15)"><code>IORef</code> from laziness lecture</a>):</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">fixIO </span><span class="ot">::</span> (a <span class="ot">-&gt;</span> <span class="dt">IO</span> a) <span class="ot">-&gt;</span> <span class="dt">IO</span> a<br />fixIO k <span class="fu">=</span> <span class="kw">do</span><br />    ref <span class="ot">&lt;-</span> newIORef (throw <span class="dt">NonTermination</span>)<br />    ans <span class="ot">&lt;-</span> unsafeInterleaveIO (readIORef ref)<br />    result <span class="ot">&lt;-</span> k ans<br />    writeIORef ref result<br />    <span class="fu">return</span> result</code></pre>
+<ul>
+<li>This is quite similar to what the compiler does for pure <code>fix</code></li>
+</ul></li>
+</ul>
+<h1 id="a-generic-mfix-is-not-possible">A generic <code>mfix</code> is not possible</h1>
+<ul>
+<li><p>What if we tried to define an <code>mfix</code>-like function for all monads?</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">mbroken </span><span class="ot">::</span> (<span class="kw">Monad</span> m) <span class="ot">=&gt;</span> (a <span class="ot">-&gt;</span> m a) <span class="ot">-&gt;</span> m a <span class="co">-- equivalent to mfix?</span><br />mbroken f <span class="fu">=</span> fix (<span class="fu">&gt;&gt;=</span> f)</code></pre>
+<ul>
+<li>This is equivalent to</li>
+</ul>
+<pre class="sourceCode"><code class="sourceCode haskell">mbroken f <span class="fu">=</span> mbroken f <span class="fu">&gt;&gt;=</span> f</code></pre>
+<ul>
+<li>But <code>&gt;&gt;=</code> is strict in its first argument for many monads, so</li>
+</ul>
+<pre><code>*Main&gt; mfix $ const (return 0)
+0
+*Main&gt; mbroken $ const (return 0)
+*** Exception: stack overflow
+</code></pre></li>
+<li>So <code>mfix</code> needs to take fixed point over value, not over monadic action
+<ul>
+<li>How to do this is monad-specific</li>
+<li>Doesn't work for all monads (<code>ContT</code>, <code>ListT</code>)</li>
+</ul></li>
+</ul>
+<h1 id="monadfix-instance-for-statet"><code>MonadFix</code> instance for <code>StateT</code></h1>
+<ul>
+<li><p>What about the <a href="http://hackage.haskell.org/packages/archive/transformers/latest/doc/html/Control-Monad-Trans-State-Lazy.html#t:StateT"><code>StateT</code></a> monad?</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">newtype</span> <span class="dt">StateT</span> s m a <span class="fu">=</span> <span class="dt">StateT</span> {<span class="ot"> runStateT </span><span class="ot">::</span> s <span class="ot">-&gt;</span> m (a,s) }<br /><br /><span class="kw">instance</span> (<span class="kw">Monad</span> m) <span class="ot">=&gt;</span> <span class="kw">Monad</span> (<span class="dt">StateT</span> s m) <span class="kw">where</span><br />    <span class="fu">return</span> a <span class="fu">=</span> <span class="dt">StateT</span> <span class="fu">$</span> \s <span class="ot">-&gt;</span> <span class="fu">return</span> (a, s)<br />    m <span class="fu">&gt;&gt;=</span> k  <span class="fu">=</span> <span class="dt">StateT</span> <span class="fu">$</span> \s0 <span class="ot">-&gt;</span> <span class="kw">do</span>          <span class="co">-- in monad m</span><br />                 <span class="fu">~</span>(a, s1) <span class="ot">&lt;-</span> runStateT m s0<br />                 runStateT (k a) s1</code></pre>
+<ul>
+<li>Possibly easiest to see using <code>rec</code> notation</li>
+</ul>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">MonadFix</span> m <span class="ot">=&gt;</span> <span class="dt">MonadFix</span> (<span class="dt">StateT</span> s m) <span class="kw">where</span><br />    mfix f <span class="fu">=</span> <span class="dt">StateT</span> <span class="fu">$</span> \s0 <span class="ot">-&gt;</span> <span class="kw">do</span>            <span class="co">-- in monad m</span><br />               rec <span class="fu">~</span>(a, s1) <span class="ot">&lt;-</span> runStateT (f a) s0 <span class="co">-- ~ redundant?</span><br />               <span class="fu">return</span> (a, s1)</code></pre>
+<ul>
+<li>But easily implemented with no language extensions</li>
+</ul>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">MonadFix</span> m <span class="ot">=&gt;</span> <span class="dt">MonadFix</span> (<span class="dt">StateT</span> s m) <span class="kw">where</span><br />    mfix f <span class="fu">=</span> <span class="dt">StateT</span> <span class="fu">$</span> \s <span class="ot">-&gt;</span> mfix <span class="fu">$</span> \ <span class="fu">~</span>(a, _) <span class="ot">-&gt;</span> runStateT (f a) s</code></pre></li>
+</ul>
+<h1 id="review-type-classes">Review: Type classes</h1>
+<ul>
+<li><p>A <a href="http://www.haskell.org/onlinereport/haskell2010/haskellch4.html#x10-760004.3.1">Haskell 2010 type class declaration</a> can take the form:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">ClassName</span> var <span class="kw">where</span><br /><span class="ot">    methodName </span><span class="ot">::</span> <span class="dt">Type</span> <span class="co">{- where type references var -}</span></code></pre>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">class</span> (<span class="dt">SuperClass</span> var) <span class="ot">=&gt;</span> <span class="dt">ClassName</span> var <span class="kw">where</span> <span class="fu">...</span><br /><span class="kw">class</span> (<span class="dt">Super1</span> var, <span class="dt">Super2</span> var) <span class="ot">=&gt;</span> <span class="dt">ClassName</span> var <span class="kw">where</span> <span class="fu">...</span><br /><span class="fu">...</span></code></pre>
+<ul>
+<li>Note that <code>var</code> need not have kind ∗</li>
+<li><p>However, the type of each method must mention <code>var</code> and an implicit <code>(Classname var)</code> is added to the context of each method, e.g.:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="dt">Prelude</span><span class="fu">&gt;</span> <span class="fu">:</span>t <span class="fu">return</span><br /><span class="fu">return</span><span class="ot"> </span><span class="ot">::</span> <span class="kw">Monad</span> m <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> m a</code></pre></li>
+</ul></li>
+<li><p>A <a href="http://www.haskell.org/onlinereport/haskell2010/haskellch4.html#x10-770004.3.2">Haskell 2010 instance declaration</a> has the form:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">instance</span> [context <span class="ot">=&gt;</span>] <span class="dt">ClassName</span> (<span class="dt">TypeCon</span> v1 <span class="fu">...</span> vk) <span class="kw">where</span> <span class="fu">...</span></code></pre>
+<ul>
+<li>Note <code>v1</code> ... <code>vk</code> are all variables and all distinct, ruling out, e.g., <code>instance C (a,a)</code> or <code>instance C (Int a)</code> or <code>instance [[a]]</code></li>
+</ul></li>
+</ul>
+<h1 id="multiparamtypeclasses-extension"><a href="http://www.haskell.org/ghc/docs/latest/html/users_guide/type-class-extensions.html#id559142"><code>MultiParamTypeClasses</code></a> extension</h1>
+<ul>
+<li><p>Enables type classes with multiple parameters, E.g.:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">{-# LANGUAGE MultiParamTypeClasses #-}</span><br /><span class="kw">class</span> <span class="dt">Convert</span> a b <span class="kw">where</span><span class="ot"> convert </span><span class="ot">::</span> a <span class="ot">-&gt;</span> b<br /><span class="kw">instance</span> <span class="dt">Convert</span> <span class="dt">Int</span> <span class="dt">Bool</span> <span class="kw">where</span> convert <span class="fu">=</span> (<span class="fu">/=</span> <span class="dv">0</span>)<br /><span class="kw">instance</span> <span class="dt">Convert</span> <span class="dt">Int</span> <span class="dt">Integer</span> <span class="kw">where</span> convert <span class="fu">=</span> <span class="fu">toInteger</span><br /><span class="kw">instance</span> (<span class="dt">Convert</span> a b) <span class="ot">=&gt;</span> <span class="dt">Convert</span> [a] [b] <span class="kw">where</span><br />    convert <span class="fu">=</span> <span class="fu">map</span> convert</code></pre></li>
+<li><p>Extension itself is relatively safe, but encourages other extensions</p>
+<ul>
+<li><p>E.g., each method's type must use every type parameter</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">MyClass</span> a b <span class="kw">where</span><br /><span class="ot">    aDefault </span><span class="ot">::</span> a  <span class="co">-- can never use (without more extensions...)</span></code></pre></li>
+<li><p>All types (argument and return) must be fully determined</p>
+<pre class="sourceCode"><code class="sourceCode haskell">       convert <span class="dv">0</span><span class="ot"> </span><span class="ot">::</span> <span class="dt">Bool</span>   <span class="co">-- error, 0 has type (Num a) =&gt; a</span></code></pre></li>
+<li><p>And the usual instance restrictions still apply</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Convert</span> <span class="dt">Int</span> [<span class="dt">Char</span>] <span class="kw">where</span> convert <span class="fu">=</span> <span class="fu">show</span>  <span class="co">-- error bad param</span></code></pre>
+<ul>
+<li><code>[Char]</code>--i.e., <code>([] Char)</code>--is not a valid instance parameter, would have to be <code>([] a)</code></li>
+</ul></li>
+</ul></li>
+</ul>
+<h1 id="flexibleinstances-extension"><a href="http://www.haskell.org/ghc/docs/latest/html/users_guide/type-class-extensions.html#instance-decls"><code>FlexibleInstances</code></a> extension</h1>
+<ul>
+<li>Allows more specific type paremeters (relatively safe extension)
+<ul>
+<li>E.g., now we can say:</li>
+</ul>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">{-# LANGUAGE FlexibleInstances #-}</span><br /><br /><span class="kw">instance</span> <span class="dt">Convert</span> <span class="dt">Int</span> [<span class="dt">Char</span>] <span class="kw">where</span><br />    convert <span class="fu">=</span> <span class="fu">show</span></code></pre>
+<ul>
+<li>And we can make all types convert to themselves:</li>
+</ul>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Convert</span> a a <span class="kw">where</span> convert a <span class="fu">=</span> a</code></pre>
+<pre><code>*Main&gt; convert () :: ()
+()
+*Main&gt; convert ([1,2,3]::[Int]) :: [Integer]
+[1,2,3]
+*Main&gt; convert ([1,2,3]::[Int]) :: [Int]
+&lt;interactive&gt;:1:1:
+    Overlapping instances for Convert [Int] [Int]
+      instance Convert a a
+      instance Convert a b =&gt; Convert [a] [b]
+</code></pre>
+<ul>
+<li>Oops, two instances apply; GHC doesn't know which to choose</li>
+</ul></li>
+</ul>
+<h1 id="overlappinginstances-extension"><a href="http://www.haskell.org/ghc/docs/latest/html/users_guide/type-class-extensions.html#instance-overlap"><code>OverlappingInstances</code></a> extension</h1>
+<ul>
+<li>This extension is used, but also widely frowned upon
+<ul>
+<li>Only need this extension if overlapping instances actually used</li>
+<li>Enable extension where instances defined, not where used</li>
+<li>Compiler picks the most specific matching instance. <span class="math"><em>I</em><sub>1</sub></span> is more specific than <span class="math"><em>I</em><sub>2</sub></span> when <span class="math"><em>I</em><sub>1</sub></span> can be created by substituting for the variables of <span class="math"><em>I</em><sub>2</sub></span> and not vice versa</li>
+<li><span style="color:red">Contexts (part before <code>=&gt;</code>) not considered when selecting instances</span></li>
+</ul></li>
+<li><p>Need it to do something like built-in <code>Show</code> instances for <code>String</code>, <code>[]</code></p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">MyShow</span> a <span class="kw">where</span><span class="ot"> myShow </span><span class="ot">::</span> a <span class="ot">-&gt;</span> <span class="dt">String</span><br /><span class="kw">instance</span> <span class="dt">MyShow</span> <span class="dt">Char</span> <span class="kw">where</span> myShow <span class="fu">=</span> <span class="fu">show</span><br /><span class="kw">instance</span> <span class="dt">MyShow</span> <span class="dt">Int</span> <span class="kw">where</span> myShow <span class="fu">=</span> <span class="fu">show</span><br /><span class="kw">instance</span> <span class="dt">MyShow</span> [<span class="dt">Char</span>] <span class="kw">where</span> myShow <span class="fu">=</span> <span class="fu">id</span><br /><span class="kw">instance</span> (<span class="dt">MyShow</span> a) <span class="ot">=&gt;</span> <span class="dt">MyShow</span> [a] <span class="kw">where</span><br />    myShow []     <span class="fu">=</span> <span class="st">&quot;[]&quot;</span><br />    myShow (x<span class="fu">:</span>xs) <span class="fu">=</span> <span class="st">&quot;[&quot;</span> <span class="fu">++</span> myShow x <span class="fu">++</span> go xs<br />        <span class="kw">where</span> go (y<span class="fu">:</span>ys) <span class="fu">=</span> <span class="st">&quot;,&quot;</span> <span class="fu">++</span> myShow y <span class="fu">++</span> go ys<br />              go []     <span class="fu">=</span> <span class="st">&quot;]&quot;</span></code></pre></li>
+<li><p>So does enabling <code>OverlappingInstances</code> fix <code>Convert</code>?</p></li>
+</ul>
+<h1 id="most-specific-instances">Most specific instances</h1>
+<ul>
+<li><p>What is the most specific instance?</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">{-# LANGUAGE MultiParamTypeClasses #-}</span><br /><span class="ot">{-# LANGUAGE OverlappingInstances #-}</span><br /><span class="kw">instance</span> <span class="dt">Convert</span> a a <span class="kw">where</span> <span class="fu">...</span><br /><span class="kw">instance</span> (<span class="dt">Convert</span> a b) <span class="ot">=&gt;</span> <span class="dt">Convert</span> [a] [b] <span class="kw">where</span> <span class="fu">...</span></code></pre>
+<pre><code>*Main&gt; convert ([1,2,3]::[Int]) :: [Int]
+&lt;interactive&gt;:1:1:
+    Overlapping instances for Convert [Int] [Int]
+      instance [overlap ok] Convert a a
+      instance [overlap ok] Convert a b =&gt; Convert [a] [b]
+</code></pre>
+<ul>
+<li>Neither instance is most specific!</li>
+<li>We have to add a <em>third</em> instance to break the tie--one that can be created by substituting for variables in either of the other two overlapping instances</li>
+</ul>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Convert</span> [a] [a] <span class="kw">where</span> convert <span class="fu">=</span> <span class="fu">id</span></code></pre>
+<pre><code>*Main&gt; convert ([1,2,3]::[Int]) :: [Int]
+[1,2,3]
+</code></pre></li>
+</ul>
+<h1 id="a-case-against-overlappinginstances">A case against <code>OverlappingInstances</code></h1>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">module</span> <span class="dt">Help</span> <span class="kw">where</span><br />    <span class="kw">class</span> <span class="dt">MyShow</span> a <span class="kw">where</span><br /><span class="ot">      myshow </span><span class="ot">::</span> a <span class="ot">-&gt;</span> <span class="dt">String</span><br />    <span class="kw">instance</span> <span class="dt">MyShow</span> a <span class="ot">=&gt;</span> <span class="dt">MyShow</span> [a] <span class="kw">where</span><br />      myshow xs <span class="fu">=</span> <span class="fu">concatMap</span> myshow xs<br /><br /><span class="ot">    showHelp </span><span class="ot">::</span> <span class="dt">MyShow</span> a <span class="ot">=&gt;</span> [a] <span class="ot">-&gt;</span> <span class="dt">String</span><br />    showHelp xs <span class="fu">=</span> myshow xs     <span class="co">-- doesn't see overlapping instance</span><br /><br /><span class="kw">module</span> <span class="dt">Main</span> <span class="kw">where</span><br />    <span class="kw">import</span> <span class="dt">Help</span><br /><br />    <span class="kw">data</span> <span class="dt">T</span> <span class="fu">=</span> <span class="dt">MkT</span><br />    <span class="kw">instance</span> <span class="dt">MyShow</span> <span class="dt">T</span> <span class="kw">where</span><br />      myshow x <span class="fu">=</span> <span class="st">&quot;Used generic instance&quot;</span><br />    <span class="kw">instance</span> <span class="dt">MyShow</span> [<span class="dt">T</span>] <span class="kw">where</span><br />      myshow xs <span class="fu">=</span> <span class="st">&quot;Used more specific instance&quot;</span><br /><br />    main <span class="fu">=</span> <span class="kw">do</span> { <span class="fu">print</span> (myshow [<span class="dt">MkT</span>]); <span class="fu">print</span> (showHelp [<span class="dt">MkT</span>]) }</code></pre>
+<pre><code>*Main&gt; main
+&quot;Used more specific instance&quot;
+&quot;Used generic instance&quot;
+</code></pre>
+<h1 id="flexiblecontexts-extension"><a href="http://www.haskell.org/ghc/docs/latest/html/users_guide/other-type-extensions.html#flexible-contexts"><code>FlexibleContexts</code></a> extension</h1>
+<ul>
+<li><p><code>MultiParamTypeClasses</code> leads to inexpressible types</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="fu">toInt</span> val <span class="fu">=</span> convert<span class="ot"> val </span><span class="ot">::</span> <span class="dt">Int</span></code></pre>
+<ul>
+<li>What is the type of function <code>toInt</code>? Would like to write:</li>
+</ul>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="fu">toInt</span><span class="ot"> </span><span class="ot">::</span> (<span class="dt">Convert</span> a <span class="dt">Int</span>) <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">Int</span></code></pre>
+<ul>
+<li>But <code>(Convert a Int) =&gt;</code> is an illegal context, as <code>Int</code> not a type variable</li>
+</ul></li>
+<li><code>FlexibleContexts</code> extension makes the above type legal to write
+<ul>
+<li>Is a relatively safe extension to use</li>
+</ul></li>
+<li>Still a couple of restrictions
+<ul>
+<li><p>Each type variable in context must be &quot;reachable&quot; from a type variable in type<br> (Reachable = explicitly used, or in another constraint with a reachable variable.)</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">sym </span><span class="ot">::</span> forall a<span class="fu">.</span> <span class="kw">Eq</span> a <span class="ot">=&gt;</span> <span class="dt">Int</span>   <span class="co">-- illegal</span></code></pre></li>
+<li><p>Every constraint must have a type variable</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">sym </span><span class="ot">::</span> <span class="kw">Eq</span> <span class="dt">Int</span> <span class="ot">=&gt;</span> <span class="dt">Bool</span>          <span class="co">-- illegal</span></code></pre></li>
+</ul></li>
+</ul>
+<h1 id="monad-classes">Monad classes</h1>
+<ul>
+<li>It's neat that <code>liftIO</code> works from so many monads
+<ul>
+<li>Why not do something similar for <code>StateT</code>? Make <code>get</code>/<code>set</code> methods</li>
+</ul>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">{-# LANGUAGE MultiParamTypeClasses #-}</span><br /><span class="ot">{-# LANGUAGE FlexibleInstances #-}</span><br /><span class="co">-- Saw this very briefly in Monad lecture:</span><br /><span class="kw">class</span> (<span class="kw">Monad</span> m) <span class="ot">=&gt;</span> <span class="dt">MonadState</span> s m <span class="kw">where</span><br /><span class="ot">    get </span><span class="ot">::</span> m s<br /><span class="ot">    put </span><span class="ot">::</span> s <span class="ot">-&gt;</span> m ()<br /><span class="kw">instance</span> (<span class="kw">Monad</span> m) <span class="ot">=&gt;</span> <span class="dt">MonadState</span> s (<span class="dt">StateT</span> s m) <span class="kw">where</span><br />    get <span class="fu">=</span> <span class="dt">StateT</span> <span class="fu">$</span> \s <span class="ot">-&gt;</span> <span class="fu">return</span> (s, s)<br />    put s <span class="fu">=</span> <span class="dt">StateT</span> <span class="fu">$</span> \_ <span class="ot">-&gt;</span> <span class="fu">return</span> ((), s)</code></pre></li>
+<li><p>Now for each other <code>MonadTrans</code>, pass requests down</p>
+<ul>
+<li>This is just like <code>liftIO</code>. E.g., for <code>ReaderT</code>:</li>
+</ul>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">instance</span> (<span class="dt">MonadIO</span> m) <span class="ot">=&gt;</span> <span class="dt">MonadIO</span> (<span class="dt">ReaderT</span> r m) <span class="kw">where</span><br />    liftIO <span class="fu">=</span> lift <span class="fu">.</span> liftIO<br /><br /><span class="kw">instance</span> (<span class="dt">MonadState</span> s m) <span class="ot">=&gt;</span> <span class="dt">MonadState</span> s (<span class="dt">ReaderT</span> r m) <span class="kw">where</span><br />    get <span class="fu">=</span> lift get<br />    put <span class="fu">=</span> lift <span class="fu">.</span> put</code></pre></li>
+</ul>
+<h1 id="problem-weve-defeated-type-inference">Problem: we've defeated type inference</h1>
+<ul>
+<li><p>Remember <code>countLines</code>?</p>
+<pre class="sourceCode"><code class="sourceCode haskell">      doline (<span class="kw">Left</span> (<span class="dt">SomeException</span> _)) <span class="fu">=</span> get<br />      doline (<span class="kw">Right</span> _) <span class="fu">=</span> <span class="kw">do</span> n <span class="ot">&lt;-</span> get; put (n <span class="fu">+</span> <span class="dv">1</span>); go</code></pre>
+<ul>
+<li>The compiler knows we are in <code>StateT Int IO</code> monad</li>
+<li>So can infer that the type of <code>get</code> is <code>StateT Int IO s</code></li>
+<li>But need to know <code>s</code> in order to select an instance of <code>MonadState</code>!</li>
+<li><p>For all compiler knows, might be other matching instances, e.g.,</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">MonadState</span> <span class="dt">Double</span> (<span class="dt">StateT</span> <span class="dt">Int</span> <span class="dt">IO</span>) <span class="kw">where</span><br />    <span class="co">-- would be legal, but exists only in compiler's imagination</span></code></pre></li>
+</ul></li>
+<li><p>Since compiler can't infer return type of <code>get</code>, must type it manually:</p>
+<pre class="sourceCode"><code class="sourceCode haskell">      doline (<span class="kw">Left</span> (<span class="dt">SomeException</span> _)) <span class="fu">=</span><span class="ot"> get </span><span class="ot">::</span> <span class="dt">StateT</span> <span class="dt">Int</span> <span class="dt">IO</span> <span class="dt">Int</span><br />      doline (<span class="kw">Right</span> _) <span class="fu">=</span> <span class="kw">do</span> n <span class="ot">&lt;-</span> get; put ((<span class="ot">n </span><span class="ot">::</span> <span class="dt">Int</span>) <span class="fu">+</span> <span class="dv">1</span>); go</code></pre>
+<ul>
+<li>Yuck! Lack of type inference gets old fast!</li>
+</ul></li>
+</ul>
+<h1 id="functionaldependencies-extension"><a href="http://www.haskell.org/ghc/docs/latest/html/users_guide/type-class-extensions.html#functional-dependencies"><code>FunctionalDependencies</code></a> extension</h1>
+<ul>
+<li>Widely used &amp; frowned upon (not as bad as <code>OverlappingInstances</code>)
+<ul>
+<li>Also referred to as &quot;fundeps&quot;</li>
+</ul></li>
+<li><p>Lets a class declare some parameters to be functions of others</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">class</span> (<span class="kw">Monad</span> m) <span class="ot">=&gt;</span> <span class="dt">MonadState</span> s m <span class="fu">|</span> m <span class="ot">-&gt;</span> s <span class="kw">where</span><br /><span class="ot">    get </span><span class="ot">::</span> m s<br /><span class="ot">    put </span><span class="ot">::</span> s <span class="ot">-&gt;</span> m ()</code></pre>
+<ul>
+<li>The best way to think of this is in terms of <em>instance selection</em></li>
+<li>&quot;<code>| m -&gt; s</code>&quot; says can select an instance based on <code>m</code> without considering <code>s</code>, because <strong><code>s</code> is a function of <code>m</code></strong></li>
+<li>Once you've selected the instance, you can use <code>s</code> for type inference</li>
+</ul></li>
+<li>Disallows conflicting instances (even w. <code>OverlappingInstances</code>)</li>
+<li>Also allows arbitrary computation at the type level <a href="http://citeseerx.ist.psu.edu/viewdoc/download;jsessionid=D19C7E3BD1B5C1FC24035542B1494ED9?doi=10.1.1.22.7806&amp;rep=rep1&amp;type=pdf">[Hallgren]</a>
+<ul>
+<li>But language committee wants compilation to be decidable and deterministic</li>
+<li>So need to add some restrictions</li>
+</ul></li>
+</ul>
+<h1 id="sufficient-conditions-of-decidable-instances"><a href="http://www.haskell.org/ghc/docs/latest/html/users_guide/type-class-extensions.html#instance-rules">Sufficient conditions of decidable instances</a></h1>
+<ul>
+<li>Anatomy of an instance: <code>instance</code> [<em>context</em> <code>=&gt;</code>] <em>head</em> [<code>where</code> <em>body</em>]
+<ul>
+<li><em>context</em> consists of zero or more comma-separated <em>assertions</em></li>
+</ul></li>
+</ul>
+<!-- -->
+
+<ol style="list-style-type: decimal">
+<li><p>The Paterson Conditions: for each assertion in the context</p>
+<ol style="list-style-type: lower-alpha">
+<li><p>No type variable has more occurrences in the assertion than in the head</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Class</span> a b <span class="fu">|</span> a <span class="ot">-&gt;</span> b<br /><span class="kw">instance</span> (<span class="dt">Class</span> a a) <span class="ot">=&gt;</span> <span class="dt">Class</span> [a] <span class="dt">Bool</span>  <span class="co">-- bad: 2 * a =&gt; 1 * a</span><br /><span class="kw">instance</span> (<span class="dt">Class</span> a b) <span class="ot">=&gt;</span> <span class="dt">Class</span> [a] <span class="dt">Bool</span>  <span class="co">-- bad: 1 * b =&gt; 0 * b</span></code></pre></li>
+<li><p>The assertion has fewer constructors and variables than the head</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">instance</span> (<span class="dt">Class</span> a <span class="dt">Int</span>) <span class="ot">=&gt;</span> <span class="dt">Class</span> a <span class="dt">Integer</span>   <span class="co">-- bad: 2 =&gt; 2</span></code></pre></li>
+</ol></li>
+<li><p>The Coverage Condition: For each fundep <em>left</em> <code>-&gt;</code> <em>right</em>, the types in <em>right</em> cannot have type variables not mentioned in <em>left</em></p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Class</span> a b <span class="fu">|</span> a <span class="ot">-&gt;</span> b<br /><span class="kw">instance</span> <span class="dt">Class</span> a (<span class="dt">Maybe</span> a)       <span class="co">-- ok: a &quot;covered&quot; by left</span><br /><span class="kw">instance</span> <span class="dt">Class</span> <span class="dt">Int</span> (<span class="dt">Maybe</span> b)     <span class="co">-- bad: b not covered</span><br /><span class="kw">instance</span> <span class="dt">Class</span> a (<span class="dt">Either</span> a b)    <span class="co">-- bad: b not covered</span></code></pre></li>
+</ol>
+<h1 id="undecidable-vs.-exponential----who-cares">Undecidable vs. exponential -- who cares?</h1>
+<ul>
+<li>Editorial: maybe decidability of language is overrated
+<ul>
+<li>Computers aren't Turing machines with infinite tapes, after all</li>
+</ul></li>
+<li><p>This legal, decidable program will crash your Haskell compiler</p>
+<pre class="sourceCode"><code class="sourceCode haskell">crash <span class="fu">=</span> f5 ()<br />    <span class="kw">where</span> f0 x <span class="fu">=</span> (x, x)      <span class="co">-- type size 2^{2^0}</span><br />          f1 x <span class="fu">=</span> f0 (f0 x)   <span class="co">-- type size 2^{2^1}</span><br />          f2 x <span class="fu">=</span> f1 (f1 x)   <span class="co">-- type size 2^{2^2}</span><br />          f3 x <span class="fu">=</span> f2 (f2 x)   <span class="co">-- type size 2^{2^3}</span><br />          f4 x <span class="fu">=</span> f3 (f3 x)   <span class="co">-- type size 2^{2^4}</span><br />          f5 x <span class="fu">=</span> f4 (f4 x)   <span class="co">-- type size 2^{2^5}</span></code></pre></li>
+<li>While plenty of not provably decidable programs happily compile
+<ul>
+<li>The conditions of the last slide are <em>sufficient</em>, not <em>necessary</em></li>
+<li>Might have other ways of knowing your program can compile</li>
+<li>Or maybe figure it out from trial and error?</li>
+</ul></li>
+</ul>
+<h1 id="undecidableinstances-extension"><a href="http://www.haskell.org/ghc/docs/latest/html/users_guide/type-class-extensions.html#undecidable-instances"><code>UndecidableInstances</code></a> extension</h1>
+<ul>
+<li>Lifts the Paterson and Coverage conditions
+<ul>
+<li>Also enables <code>FlexibleContexts</code> when enabled</li>
+</ul></li>
+<li>Instead, imposes a maximum recursion depth
+<ul>
+<li>Default maximum depth is 20</li>
+<li><p>Can increase with <code>-fcontext-stack=</code><em>n</em> option, e.g.:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">{-# OPTIONS_GHC -fcontext-stack=1024 #-}</span><br /><span class="ot">{-# LANGUAGE UndecidableInstances #-}</span></code></pre></li>
+</ul></li>
+<li>A bit reminiscent of C++ templates
+<ul>
+<li>gcc has a <code>-ftemplate-depth=</code> option</li>
+<li>Note C++0x raises minimum depth from 17 to 1024</li>
+<li>Similarly, people have talked of increasing GHC's default context-stack</li>
+</ul></li>
+</ul>
+<h1 id="monadio-revisited"><code>MonadIO</code> revisited</h1>
+<ul>
+<li><p>Recall definition of <code>MonadIO</code></p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">class</span> (<span class="kw">Monad</span> m) <span class="ot">=&gt;</span> <span class="dt">MonadIO</span> m <span class="kw">where</span><br /><span class="ot">    liftIO </span><span class="ot">::</span> <span class="dt">IO</span> a <span class="ot">-&gt;</span> m a<br /><span class="kw">instance</span> <span class="dt">MonadIO</span> <span class="dt">IO</span> <span class="kw">where</span><br />    liftIO <span class="fu">=</span> <span class="fu">id</span></code></pre></li>
+<li><p>Currently must define an instance for every transformer</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">MonadIO</span> (<span class="dt">StateT</span> s) <span class="kw">where</span> liftIO <span class="fu">=</span> lift <span class="fu">.</span> liftIO<br /><span class="kw">instance</span> <span class="dt">MonadIO</span> (<span class="dt">ReaderT</span> t) <span class="kw">where</span> liftIO <span class="fu">=</span> lift <span class="fu">.</span> liftIO<br /><span class="kw">instance</span> <span class="dt">MonadIO</span> (<span class="dt">WriterT</span> w) <span class="kw">where</span> liftIO <span class="fu">=</span> lift <span class="fu">.</span> liftIO<br /><span class="fu">...</span></code></pre></li>
+<li><p>With <code>UndecidableInstances</code>, one instance can cover all transformers!</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">{-# LANGUAGE FlexibleInstances #-}</span><br /><span class="ot">{-# LANGUAGE UndecidableInstances #-}</span><br /><br /><span class="co">-- undecidable: assertion Monad (t m) no smaller than head</span><br /><span class="kw">instance</span> (<span class="dt">MonadTrans</span> t, <span class="dt">MonadIO</span> m, <span class="kw">Monad</span> (t m)) <span class="ot">=&gt;</span><br />    <span class="dt">MonadIO</span> (t m) <span class="kw">where</span> liftIO <span class="fu">=</span> lift <span class="fu">.</span> liftIO</code></pre></li>
+</ul>
+<h1 id="summary-of-extensions">Summary of extensions</h1>
+<ul>
+<li><p>We've seen 6 typeclass-related extensions</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">{-# LANGUAGE MultiParamTypeClasses #-}</span>  <span class="co">-- very conservative</span><br /><span class="ot">{-# LANGUAGE FlexibleInstances #-}</span>      <span class="co">-- conservative</span><br /><span class="ot">{-# LANGUAGE FlexibleContexts #-}</span>       <span class="co">-- conservative</span><br /><span class="ot">{-# LANGUAGE FunctionalDependencies #-}</span> <span class="co">-- frowned upon</span><br /><span class="ot">{-# LANGUAGE UndecidableInstances #-}</span>   <span class="co">-- very frowned upon</span><br /><span class="ot">{-# LANGUAGE OverlappingInstances #-}</span>   <span class="co">-- the most controversial</span></code></pre>
+<ul>
+<li>Not all of these are looked upon kindly by the community</li>
+<li>But if you enable all six, can be very powerful</li>
+</ul></li>
+<li>Remainder of lecture looks at what you can do with all 6 enabled
+<ul>
+<li>Much inspired by <a href="http://homepages.cwi.nl/~ralf/HList/paper.pdf">[Hlist]</a> and <a href="http://homepages.cwi.nl/~ralf/OOHaskell/paper.pdf">[OOHaskell]</a></li>
+</ul></li>
+</ul>
+<h1 id="type-level-natural-numbers">Type-level natural numbers</h1>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Zero</span> <span class="fu">=</span> <span class="dt">Zero</span>      <span class="co">-- Type-level 0</span><br /><span class="kw">data</span> <span class="dt">Succ</span> n <span class="fu">=</span> <span class="dt">Succ</span> n  <span class="co">-- Type-level successor (n + 1)</span><br /><br /><span class="kw">class</span> <span class="dt">NatPlus</span> a b c <span class="fu">|</span> a b <span class="ot">-&gt;</span> c, a c <span class="ot">-&gt;</span> b <span class="kw">where</span><br /><span class="ot">    natPlus </span><span class="ot">::</span> a <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> c<br /><span class="ot">    natMinus </span><span class="ot">::</span> c <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> b<br /><br /><span class="kw">instance</span> <span class="dt">NatPlus</span> <span class="dt">Zero</span> a a <span class="kw">where</span><br />    natPlus _ a <span class="fu">=</span> a<br />    natMinus a _ <span class="fu">=</span> a<br /><br /><span class="co">-- Note failure of coverage condition below</span><br /><span class="kw">instance</span> (<span class="dt">NatPlus</span> a b c) <span class="ot">=&gt;</span> <span class="dt">NatPlus</span> (<span class="dt">Succ</span> a) b (<span class="dt">Succ</span> c) <span class="kw">where</span> <br />    natPlus (<span class="dt">Succ</span> a) b <span class="fu">=</span> (<span class="dt">Succ</span> (natPlus a b))<br />    natMinus (<span class="dt">Succ</span> c) (<span class="dt">Succ</span> a) <span class="fu">=</span> natMinus c a</code></pre>
+<ul>
+<li>Fundeps + Context let us compute recursively on types!
+<ul>
+<li>If context has assertion <code>NatPlus a b c</code>, then from types <code>Succ   a</code> and <code>b</code> we can compute <code>Succ c</code> (computation at type level)</li>
+</ul></li>
+</ul>
+<h1 id="type-level-booleans">Type-level booleans</h1>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">HFalse</span> <span class="fu">=</span> <span class="dt">HFalse</span> <span class="kw">deriving</span> <span class="kw">Show</span><br /><span class="kw">data</span> <span class="dt">HTrue</span> <span class="fu">=</span> <span class="dt">HTrue</span> <span class="kw">deriving</span> <span class="kw">Show</span><br /><br /><span class="kw">class</span> <span class="dt">HNot</span> a b <span class="fu">|</span> a <span class="ot">-&gt;</span> b <span class="kw">where</span><span class="ot"> hnot </span><span class="ot">::</span> a <span class="ot">-&gt;</span> b<br /><span class="kw">instance</span> <span class="dt">HNot</span> <span class="dt">HFalse</span> <span class="dt">HTrue</span> <span class="kw">where</span> hnot _ <span class="fu">=</span> <span class="dt">HTrue</span><br /><span class="kw">instance</span> <span class="dt">HNot</span> <span class="dt">HTrue</span> <span class="dt">HFalse</span> <span class="kw">where</span> hnot _ <span class="fu">=</span> <span class="dt">HFalse</span><br /><br /><span class="kw">class</span> <span class="dt">HEven</span> a b <span class="fu">|</span> a <span class="ot">-&gt;</span> b <span class="kw">where</span><span class="ot"> hEven </span><span class="ot">::</span> a <span class="ot">-&gt;</span> b<br /><span class="kw">instance</span> <span class="dt">HEven</span> <span class="dt">Zero</span> <span class="dt">HTrue</span> <span class="kw">where</span> hEven _ <span class="fu">=</span> <span class="dt">HTrue</span><br /><span class="kw">instance</span> (<span class="dt">HEven</span> n b, <span class="dt">HNot</span> b nb) <span class="ot">=&gt;</span> <span class="dt">HEven</span> (<span class="dt">Succ</span> n) nb <span class="kw">where</span><br />    hEven (<span class="dt">Succ</span> n) <span class="fu">=</span> hnot (hEven n)</code></pre>
+<pre><code>*Main&gt; hEven Zero
+HTrue
+*Main&gt; hEven (Succ Zero)
+HFalse
+*Main&gt; hEven (Succ (Succ Zero))
+HTrue
+*Main&gt; hEven (Succ (Succ (Succ Zero)))
+HFalse
+</code></pre>
+<ul>
+<li>Note how we use assertion <code>HNot b nb</code> to compute negation of <code>b</code></li>
+</ul>
+<h1 id="computing-over-types">Computing over types</h1>
+<ul>
+<li>Haven't used <code>OverlappingInstances</code> yet, let's start...</li>
+<li><p>Can we compute whether two types are equal? First attempt:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">TypeEq</span> a b c <span class="fu">|</span> a b <span class="ot">-&gt;</span> c <span class="kw">where</span><span class="ot"> typeEq </span><span class="ot">::</span> a <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> c<br /><span class="kw">instance</span> <span class="dt">TypeEq</span> a a <span class="dt">HTrue</span> <span class="kw">where</span> typeEq _ _ <span class="fu">=</span> <span class="dt">HTrue</span><br /><span class="kw">instance</span> <span class="dt">TypeEq</span> a b <span class="dt">HFalse</span> <span class="kw">where</span> typeEq _ _ <span class="fu">=</span> <span class="dt">HFalse</span></code></pre>
+<ul>
+<li>Problem: <code>TypeEq a a HTrue</code> not more specific than <code>TypeEq a b   HFalse</code></li>
+<li>... but it is more specific than <code>TypeEq a b c</code></li>
+</ul></li>
+<li>Recall that context is never consulted for instance selection
+<ul>
+<li>Only afterwards to reject failed assertions or infer types from fundeps</li>
+<li>Solution: compute <code>c</code> after instance selection with another fundep</li>
+</ul>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">TypeCast</span> a b <span class="fu">|</span> a <span class="ot">-&gt;</span> b <span class="kw">where</span><span class="ot"> typeCast </span><span class="ot">::</span> a <span class="ot">-&gt;</span> b<br /><span class="kw">instance</span> <span class="dt">TypeCast</span> a a <span class="kw">where</span> typeCast <span class="fu">=</span> <span class="fu">id</span><br /><br /><span class="kw">instance</span> <span class="dt">TypeEq</span> a a <span class="dt">HTrue</span> <span class="kw">where</span> typeEq _ _ <span class="fu">=</span> <span class="dt">HTrue</span> <span class="co">-- as before</span><br /><span class="kw">instance</span> (<span class="dt">TypeCast</span> <span class="dt">HFalse</span> c) <span class="ot">=&gt;</span> <span class="dt">TypeEq</span> a b c <span class="kw">where</span><br />    typeEq _ _ <span class="fu">=</span> typeCast <span class="dt">HFalse</span></code></pre></li>
+</ul>
+<h1 id="the-utility-of-typeeq">The utility of <code>TypeEq</code></h1>
+<ul>
+<li>Editorial: <code>TypeEq</code> is kind of the holy grail of fundeps
+<ul>
+<li>Means you can program recursively at the type level</li>
+<li>If you can implement <code>TypeEq</code>, you can distinguish base and recursive cases</li>
+<li>But relies deeply on <code>OverlappingInstances</code>...</li>
+</ul></li>
+<li><p>Example: Let's do for <code>MonadState</code> what we did for <code>MonadIO</code></p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">instance</span> (<span class="kw">Monad</span> m) <span class="ot">=&gt;</span> <span class="dt">MonadState</span> s (<span class="dt">StateT</span> s m) <span class="kw">where</span><br /><span class="ot">    get </span><span class="ot">::</span> m s<br /><span class="ot">    put </span><span class="ot">::</span> s <span class="ot">-&gt;</span> m ()<br /><br /><span class="kw">instance</span> (<span class="dt">MonadTrans</span> t, <span class="dt">MonadState</span> s m, <span class="kw">Monad</span> (t m)) <span class="ot">=&gt;</span><br />    <span class="dt">MonadState</span> s (t m) <span class="kw">where</span><br />        get <span class="fu">=</span> lift get<br />        put <span class="fu">=</span> lift <span class="fu">.</span> put</code></pre>
+<ul>
+<li><code>MonadIO</code> was easier because type <code>IO</code> can't match parameter <code>(t m)</code></li>
+<li>Unfortunately, <code>StateT s m</code> matches <em>both</em> of above instance heads</li>
+<li>So need <code>OverlappingInstances</code> to select first instance for <code>StateT s m</code></li>
+</ul></li>
+</ul>
+<h1 id="heterogeneous-lists">Heterogeneous lists</h1>
+<ul>
+<li><p>Last extension: <a href="http://www.haskell.org/ghc/docs/latest/html/users_guide/data-type-extensions.html#infix-tycons"><code>TypeOperators</code></a> allows infix types starting with &quot;<code>:</code>&quot;</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">data</span> a <span class="fu">:*:</span> b <span class="fu">=</span> <span class="dt">Foo</span> a b<br /><span class="kw">type</span> a <span class="fu">:+:</span> b <span class="fu">=</span> <span class="dt">Either</span> a b</code></pre></li>
+<li><p>Let's use an infix constructor to define a heterogeneous list</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">HNil</span> <span class="fu">=</span> <span class="dt">HNil</span> <span class="kw">deriving</span> <span class="kw">Show</span><br /><span class="kw">data</span> (<span class="fu">:*:</span>) h t <span class="fu">=</span> h <span class="fu">:*:</span> <span class="fu">!</span>t <span class="kw">deriving</span> <span class="kw">Show</span><br /><span class="kw">infixr</span> <span class="dv">9</span> <span class="fu">:*:</span><br /><br /><span class="co">-- Example:</span><br /><span class="kw">data</span> <span class="dt">A</span> <span class="fu">=</span> <span class="dt">A</span> <span class="kw">deriving</span> <span class="kw">Show</span><br /><span class="kw">data</span> <span class="dt">B</span> <span class="fu">=</span> <span class="dt">B</span> <span class="kw">deriving</span> <span class="kw">Show</span><br /><span class="kw">data</span> <span class="dt">C</span> <span class="fu">=</span> <span class="dt">C</span> <span class="kw">deriving</span> <span class="kw">Show</span><br /><br />foo <span class="fu">=</span> (<span class="dt">A</span>, <span class="st">&quot;Hello&quot;</span>) <span class="fu">:*:</span> (<span class="dt">B</span>, <span class="dv">7</span>) <span class="fu">:*:</span> (<span class="dt">C</span>, <span class="dv">3</span><span class="fu">.</span><span class="dv">0</span>) <span class="fu">:*:</span> <span class="dt">HNil</span></code></pre>
+<pre><code>*Main&gt; foo
+(A,&quot;Hello&quot;) :*: ((B,7) :*: ((C,3.0) :*: HNil))
+*Main&gt; :t foo
+foo :: (A, [Char]) :*: ((B, Integer) :*: ((C, Double) :*: HNil))
+</code></pre></li>
+</ul>
+<h1 id="operations-on-heterogeneous-lists">Operations on heterogeneous lists</h1>
+<ul>
+<li><p>Notice our list consisted of pairs</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">foo </span><span class="ot">::</span> (<span class="dt">A</span>, [<span class="dt">Char</span>]) <span class="fu">:*:</span> (<span class="dt">B</span>, <span class="dt">Integer</span>) <span class="fu">:*:</span> (<span class="dt">C</span>, <span class="dt">Double</span>) <span class="fu">:*:</span> <span class="dt">HNil</span><br />foo <span class="fu">=</span> (<span class="dt">A</span>, <span class="st">&quot;Hello&quot;</span>) <span class="fu">:*:</span> (<span class="dt">B</span>, <span class="dv">7</span>) <span class="fu">:*:</span> (<span class="dt">C</span>, <span class="dv">3</span><span class="fu">.</span><span class="dv">0</span>) <span class="fu">:*:</span> <span class="dt">HNil</span></code></pre>
+<ul>
+<li>View first element as a key or tag, second as a value--How to look up value?</li>
+</ul>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Select</span> k h v <span class="fu">|</span> k h <span class="ot">-&gt;</span> v <span class="kw">where</span><br /><span class="ot">    (.!) </span><span class="ot">::</span> h <span class="ot">-&gt;</span> k <span class="ot">-&gt;</span> v<br /><span class="kw">instance</span> <span class="dt">Select</span> k ((k, v) <span class="fu">:*:</span> t) v <span class="kw">where</span><br />    (<span class="fu">.!</span>) ((_, v) <span class="fu">:*:</span> _) _ <span class="fu">=</span> v<br /><span class="kw">instance</span> (<span class="dt">Select</span> k h v) <span class="ot">=&gt;</span> <span class="dt">Select</span> k (kv' <span class="fu">:*:</span> h) v <span class="kw">where</span><br />    (<span class="fu">.!</span>) (kv' <span class="fu">:*:</span> h) k <span class="fu">=</span> h <span class="fu">.!</span> k</code></pre>
+<pre><code>*Main&gt; foo .! A
+&quot;Hello&quot;
+</code></pre></li>
+<li>Once again, note the importance of <code>OverlappingInstances</code>
+<ul>
+<li>Needed to break recursion when type of lookup tag matches head of list</li>
+</ul></li>
+<li><p>Can use to implement all sorts of other features (concatenation, etc.)</p></li>
+</ul>
+<h1 id="object-oriented-programming">Object-oriented programming</h1>
+<ul>
+<li><p>Heterogeneous can implement object-oriented programming!</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">returnIO </span><span class="ot">::</span> a <span class="ot">-&gt;</span> <span class="dt">IO</span> a<br />returnIO <span class="fu">=</span> <span class="fu">return</span><br /><br /><span class="kw">data</span> <span class="dt">GetVal</span> <span class="fu">=</span> <span class="dt">GetVal</span> <span class="kw">deriving</span> <span class="kw">Show</span><br /><span class="kw">data</span> <span class="dt">SetVal</span> <span class="fu">=</span> <span class="dt">SetVal</span> <span class="kw">deriving</span> <span class="kw">Show</span><br /><span class="kw">data</span> <span class="dt">ClearVal</span> <span class="fu">=</span> <span class="dt">ClearVal</span> <span class="kw">deriving</span> <span class="kw">Show</span><br /><br />mkVal n self <span class="fu">=</span> <span class="kw">do</span><br />  val <span class="ot">&lt;-</span> newIORef (<span class="ot">n </span><span class="ot">::</span> <span class="dt">Int</span>)<br />  returnIO <span class="fu">$</span> (<span class="dt">GetVal</span>, readIORef val)<br />           <span class="fu">:*:</span> (<span class="dt">SetVal</span>, writeIORef val)<br />           <span class="fu">:*:</span> (<span class="dt">ClearVal</span>, self <span class="fu">.!</span> <span class="dt">SetVal</span> <span class="fu">$</span> <span class="dv">0</span>)<br />           <span class="fu">:*:</span> <span class="dt">HNil</span><br /><br />test <span class="fu">=</span> <span class="kw">do</span>               <span class="co">-- prints 7, then 0</span><br />  x <span class="ot">&lt;-</span> mfix <span class="fu">$</span> mkVal <span class="dv">7</span><br />  x <span class="fu">.!</span> <span class="dt">GetVal</span> <span class="fu">&gt;&gt;=</span> <span class="fu">print</span><br />  x <span class="fu">.!</span> <span class="dt">ClearVal</span><br />  x <span class="fu">.!</span> <span class="dt">GetVal</span> <span class="fu">&gt;&gt;=</span> <span class="fu">print</span></code></pre></li>
+<li><p>But why <code>mfix</code>?</p></li>
+</ul>
+<h1 id="tying-the-recursive-knot">&quot;Tying the recursive knot&quot;</h1>
+<ul>
+<li><code>mfix</code> allows you to override methods with inheritance
+<ul>
+<li>Example, create a &quot;const val&quot; that ignores <code>SetVal</code> messages</li>
+</ul>
+<pre class="sourceCode"><code class="sourceCode haskell">mkConstVal n self <span class="fu">=</span> <span class="kw">do</span><br />  super <span class="ot">&lt;-</span> mkVal n self<br />  returnIO <span class="fu">$</span> (<span class="dt">SetVal</span>, <span class="fu">const</span> <span class="fu">$</span> <span class="fu">return</span> ())<br />           <span class="fu">:*:</span> super<br /><br />test2 <span class="fu">=</span> <span class="kw">do</span><br />  x <span class="ot">&lt;-</span> mfix <span class="fu">$</span> mkConstVal <span class="dv">7</span><br />  x <span class="fu">.!</span> <span class="dt">GetVal</span> <span class="fu">&gt;&gt;=</span> <span class="fu">print</span><br />  x <span class="fu">.!</span> <span class="dt">ClearVal</span><br />  x <span class="fu">.!</span> <span class="dt">GetVal</span> <span class="fu">&gt;&gt;=</span> <span class="fu">print</span></code></pre>
+<pre><code>*Main&gt; test
+7
+0
+*Main&gt; test2
+7
+7   
+</code></pre></li>
+<li><code>mkVal</code>'s call to <code>SetVal</code> was properly overridden by <code>mkConstVal</code></li>
+</ul>
+</body>
+
+<!-- Mirrored from www.scs.stanford.edu/11au-cs240h/notes/extensions.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:55:13 GMT -->
+</html>

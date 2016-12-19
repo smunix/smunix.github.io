@@ -1,0 +1,240 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+    
+<!-- Mirrored from www.well-typed.com/blog/71/ by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:53:51 GMT -->
+<head>
+        <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+        <title>
+           
+           Well-Typed - The Haskell Consultants: Communication Patterns in Cloud Haskell (Part 1)
+           
+        </title>
+        <link rel="Stylesheet" type="text/css" href="http://www.well-typed.com/css/wt.css" />
+        <link rel="shortcut icon" type="image/x-icon" href="http://www.well-typed.com/favicon.ico" />
+        
+    </head>
+    <body class="normal">
+
+<div class="pagelogo">
+<div class="smalllogo">
+  <a href="http://www.well-typed.com/"><img src="http://www.well-typed.com/img/wtlogo-small.png" width="243" height="70" alt="Well-Typed, The Haskell Consultants" /></a>
+</div>
+</div>
+
+<div class="bar">
+  <div class="smallmenu">
+<ul class="menu">
+  <li class="header"><a href="http://www.well-typed.com/services">Services</a>
+    <ul class="submenu">
+      <li class="subheader"><a href="http://www.well-typed.com/services_applications">Development</a></li>
+      <li class="subheader"><a href="http://www.well-typed.com/services_libraries">Maintenance</a></li>
+      <li class="subheader"><a href="http://www.well-typed.com/services_advice">Advice</a></li>
+      <li class="subheader"><a href="http://www.well-typed.com/services_training">Training</a></li>
+    </ul>
+  </li>
+  <li class="header"><a href="http://www.well-typed.com/about_welltyped">About</a>
+    <ul class="submenu">
+      <li class="subheader"><a href="http://www.well-typed.com/community">Community</a></li>
+      <li class="subheader"><a href="http://www.well-typed.com/who_we_are">Who We Are</a></li>
+      <li class="subheader"><a href="http://www.well-typed.com/contact">Contact</a></li>
+    </ul>
+  </li>
+  <li class="header"><a href="http://www.well-typed.com/press_releases">Press Releases</a></li>
+  <li class="header" id="active"><a href="http://www.well-typed.com/blog">Blog</a></li>
+</ul>
+</div>
+<div style="clear: both;"></div>
+
+
+</div>
+
+<div class="body">
+<div class="text">
+
+  <h1><a href="http://www.well-typed.com/blog/2012/10/communication-patterns-in-cloud-haskell-part-1">Communication Patterns in Cloud Haskell (Part 1)</a></h1>
+
+<p style="text-align: right"><small>Friday, 05 October 2012, by <a href="http://www.well-typed.com/blog/people/edsko">Edsko de Vries</a>.<br />
+  Filed under <a href="http://www.well-typed.com/blog/tags/parallel">parallel</a>, <a href="http://www.well-typed.com/blog/tags/cloud-haskell">cloud-haskell</a>.</small></p>
+
+<h2> Master-Slave, Work-Stealing and Work-Pushing</h2><p>In this series (<a href="http://www.well-typed.com/blog/72">2</a>,<a href="http://www.well-typed.com/blog/73">3</a>,<a href="http://www.well-typed.com/blog/74">4</a>) of blog posts we will describe a number of basic communication
+patterns in Cloud Haskell. We don't assume much familiarity with Cloud Haskell,
+but it will probably be useful to be familiar with the basics; <a href="http://research.microsoft.com/en-us/um/people/simonpj/papers/parallel/">Towards Haskell
+in the Cloud</a>
+(Epstein, Black and Peyton Jones, Haskell Symposium 2011) is a good starting
+point. We will start simple but we will finish with some more advanced
+techniques. </p><blockquote><p><em>Source</em> The source code for these examples is available:</p><pre>cabal unpack http://well-typed.com/blog/aux/files/cloud-demos.tar.gz
+</pre><p>(The code is also available on <a href="https://github.com/haskell-distributed/distributed-process">github</a>)</p></blockquote><blockquote><p><em>Disclaimer</em> The examples in this blog post and in the
+<code>distributed-process-demos</code> package are written for educational purposes; 
+they are not engineered for optimal performance.</p></blockquote><h2> Master-Slave</h2><p>Master-Slave is one of the simplest communication patterns possible. A single
+master process spawns a bunch of slave processes to do computations on other
+nodes, and then combines the results. </p><p><img src="http://www.well-typed.com/blog/aux/images/ch-series/masterslave.jpg" width="500" height="228" alt="Master-Slave" title="Master-Slave" /></p><blockquote><p><em>A single master node (red) and a bunch of slave nodes (blue). A
+single master process spawns a bunch of slave processes, one for each
+subcomputation. The slave processes post the partial results on the message
+queue of the master node.</em></p></blockquote><p>For example, consider summing the <a href="http://westondan.blogspot.ie/2007/07/simple-prime-factorization-code.html">number of prime
+factors</a>
+of the natural numbers 1 to 100 (why you would want do to that is anyone's
+guess :) We're just keeping CPUs busy). A master process can spawn a child
+process on remote nodes for each of the numbers in the sequence, then collect
+the results and return their sum. The implementation of the slave is very
+simple:</p><pre>slave :: (ProcessId, Integer) -&gt; Process ()
+slave (pid, n) = send pid (numPrimeFactors n)
+</pre><pre>remotable ['slave]
+</pre><p>Recall from <em>Towards Haskell in the Cloud</em> that in order to spawn a process on
+a node we need something of type <code>Closure (Process ())</code>.  In
+<code>distributed-process</code> if <code>f : T1 -&gt; T2</code> then</p><pre>$(mkClosure 'f) :: T1 -&gt; Closure T2
+</pre><p>That is, the first argument the function we pass to <code>mkClosure</code> will act as the
+closure environment for that process; if you want multiple values in the
+closure environment, you must tuple them up. In this case, the closure
+environment will contain the process ID of the master and a natural number that
+the slave process must factorize. </p><p>The master process is a bit longer but not much more complicated:</p><pre>master :: Integer -&gt; [NodeId] -&gt; Process Integer
+master n slaves = do
+  us &lt;- getSelfPid
+
+  -- Spawn slave processes to compute numPrimeFactors 1 .. numPrimeFactors n
+  spawnLocal $ 
+    forM_ (zip [1 .. n] (cycle slaves)) $ \(m, them) -&gt; 
+      spawn them ($(mkClosure 'slave) (us, m))
+</pre><pre>  -- Wait for the result
+  sumIntegers (fromIntegral n)
+</pre><pre>sumIntegers :: Int -&gt; Process Integer
+sumIntegers = go 0
+  where
+    go :: Integer -&gt; Int -&gt; Process Integer
+    go !acc 0 = return acc
+    go !acc n = do 
+      m &lt;- expect
+      go (acc + m) (n - 1)
+</pre><p>We have <em>n</em> bits of work to distribute amongst the slaves, which we do by
+zipping <code>[1 .. n]</code> and <code>cycle slaves</code> to get something like</p><pre>[(1, slave1), (2, slave2), (3, slave3), (4, slave1), (5, slave2), ...
+</pre><p>For each of these bits of work we spawn a separate process on the slave node,
+all of which will run concurrently. This may be too resource intensive (for
+instance, if each computation would be memory hungry).  We will consider a
+solution to that problem in the next section.</p><p>The partial results arrive back at the master node in arbitrary order; this
+does not matter because the result of addition does not depend on the order of
+the arguments. We spawn the slaves in a separate process (using <code>spawnLocal</code>)
+so that the master process can start collecting partial results while it is
+still spawning more slaves.</p><h2> Work-Pushing</h2><p>If we spawn a separate process for each computation then all these computations
+run concurrently, which may be too resource intensive. We can instead spawn a
+<em>single</em> child process on each of the slave nodes, and ask each of those slave
+processes to factorize a bunch of numbers:</p><p><img src="http://www.well-typed.com/blog/aux/images/ch-series/workpushing.jpg" width="500" height="461" alt="Work-Pushing" title="Work-Pushing" /></p><blockquote><p><em>As before, we have a number of slave nodes (blue) and a single master node
+(red), but now we only have a single slave process on each slave node. The
+master process pushes the computations to be done to the message queues of
+the slave processes, which will process them one by one and push the partial
+results back on the message queue of the master process.</em></p></blockquote><p>The slave processes wait repeatedly for an integer <code>n</code> and compute
+<code>numPrimeFactors n</code>.  The closure environment for the slave (the first
+argument) now only contains the process ID of the master, because the slave
+receives the natural number to factorize by message:</p><pre>slave :: ProcessId -&gt; Process ()
+slave them = forever $ do
+  n &lt;- expect
+  send them (numPrimeFactors n)
+
+remotable ['slave]
+</pre><p>The master process starts one of these slave processes on each of the slave
+nodes, distributes the integers <code>[1 ..  100]</code> among them and waits for the
+results.</p><pre>master :: Integer -&gt; [NodeId] -&gt; Process Integer
+master n slaves = do
+  us &lt;- getSelfPid
+
+  -- Start slave processes 
+  slaveProcesses &lt;- forM slaves $ \nid -&gt; spawn nid ($(mkClosure 'slave) us)
+
+  -- Distribute 1 .. n amongst the slave processes 
+  forM_ (zip [1 .. n] (cycle slaveProcesses)) $ \(m, them) -&gt; send them m 
+
+  -- Wait for the result
+  sumIntegers (fromIntegral n)
+</pre><blockquote><p><em>Exercise 1</em>: The slave processes keep running even when the master process
+finishes. How would you modify this example so that they are terminated
+when they are no longer necessary?</p></blockquote><p>The master pushes all bits of work to be done to the slaves <em>up front</em>. These
+messages will sit in the slaves' message queues until they are processed. If
+the messages are big then it might be more efficient to incrementally send
+messages to slaves.</p><blockquote><p><em>Exercise 2</em>: (More difficult) Modify the master so that the slaves will only
+have a limited number of messages waiting in their queue (this means that the
+master will need to know the sender slave of each reply). (An alternative
+solution is to switch from work-pushing to work-stealing, which we discuss in
+the next section).</p></blockquote><blockquote><p><em>Note on reliability</em> In the Master-Slave example, if one slave process
+dies we can restart it to redo that single computation. Restarting is more
+tricky in the Work-Pushing setup, because a single process is responsible for a
+large amount of work. </p></blockquote><h2> Work-Stealing</h2><p>A disadvantage of both the master-slave setup and the work-pushing setup is
+that the master node must decide, <em>a priori</em>, what each slave is going to do.
+Unless the master node can predict accurately how long each computation will
+take, it is likely that this leaves some slaves twidling their thumbs while
+others are buried in work.</p><p>One way to avoid this problem is to have the <em>slaves</em> ask the <em>master</em> for work
+whenever they're ready. This is a simple but effective way of achieving load
+balancing. </p><p><img src="http://www.well-typed.com/blog/aux/images/ch-series/workstealing.jpg" width="500" height="461" alt="Work-Stealing" title="Work-Stealing" /></p><blockquote><p><em>A single master node (red) and a bunch of slave nodes (blue). Each of the
+slave nodes runs a single slave process. The master node does not push work
+to the slaves, but rather the slaves query the master for work. To simplify
+the design, the master process spawns an auxiliary &quot;work queue&quot; process that
+the slave processes query for the next bit of work to do. This auxiliary
+process replies to the slave process which then does the work, posts the
+partial result to the master process message queue, and queries the &quot;work
+queue&quot; process for more work.</em></p></blockquote><pre>slave :: (ProcessId, ProcessId) -&gt; Process ()
+slave (master, workQueue) = do
+    us &lt;- getSelfPid
+    go us
+  where
+    go us = do
+      -- Ask the queue for work 
+      send workQueue us
+   
+      -- If there is work, do it, otherwise terminate 
+      receiveWait 
+        [ match $ \n  -&gt; send master (numPrimeFactors n) &gt;&gt; go us
+        , match $ \() -&gt; return ()
+        ]
+</pre><pre>remotable ['slave]
+</pre><p>The slave is passed the process ID of the process that it can query for more
+work, as well as the process ID of the master. When it receives an integer it
+factorizes it, sends the number of prime factors to the master process, and
+then asks the work queue process for the next bit of work; when it receives a
+unit value <code>()</code> it terminates. </p><pre>master :: Integer -&gt; [NodeId] -&gt; Process Integer
+master n slaves = do
+  us &lt;- getSelfPid
+
+  workQueue &lt;- spawnLocal $ do
+    -- Return the next bit of work to be done 
+    forM_ [1 .. n] $ \m -&gt; do
+      them &lt;- expect 
+      send them m 
+
+    -- Once all the work is done tell the slaves to terminate 
+    forever $ do
+      pid &lt;- expect
+      send pid ()
+
+  -- Start slave processes
+  forM_ slaves $ \nid -&gt; spawn nid ($(mkClosure 'slave) (us, workQueue))
+
+  -- Wait for the result
+  sumIntegers (fromIntegral n)
+</pre><p>The master process needs to do two things concurrently: it needs to make sure
+that slave nodes can ask for more work to do, and it needs to collect the
+partial results from the slaves. We could do this in a single process, but the
+design above is much simpler: the master spawns an auxiliary process whose sole
+purpose is to provide the slaves with more work when they request it; the
+master process itself meanwhile waits for the partial results from the slaves,
+as before. </p><p>The master spawns a local process which the slaves can query for work; it just
+sends out the integers <code>[0 .. 100]</code> in order to whomever asks nexts. It then
+starts the slaves, waits for results, and returns the sum. </p><blockquote><p><em>Exercise 3</em>: Does the above implementation of the master process guarantee
+that all slave nodes will be properly terminated? </p></blockquote><blockquote><p><em>Exercise 4</em>: A downside of this approach compared to the work-pushing
+approach above is that the latency between computations by each slave is
+higher: when one computation completes, the slaves must wait for a reply from
+the work queue process before the next can start. How might you improve this?</p></blockquote><h2> To be continued</h2><p>In the <a href="http://www.well-typed.com/blog/72">next blog post</a> we will analyze the performance and memory usage of
+these communication patterns in more detail.
+</p>
+
+
+</div>
+<div class="footer">
+            <div class="copyright">
+               <address>Copyright &copy; 2008-2016, Well-Typed LLP.</address>
+            </div>
+</div>
+</div>
+
+    </body>
+
+<!-- Mirrored from www.well-typed.com/blog/71/ by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:53:51 GMT -->
+</html>
+

@@ -1,0 +1,412 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+    
+<!-- Mirrored from www.well-typed.com/blog/94/ by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:53:51 GMT -->
+<head>
+        <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+        <title>
+           
+           Well-Typed - The Haskell Consultants: Understanding the Stack
+           
+        </title>
+        <link rel="Stylesheet" type="text/css" href="http://www.well-typed.com/css/wt.css" />
+        <link rel="shortcut icon" type="image/x-icon" href="http://www.well-typed.com/favicon.ico" />
+        
+    </head>
+    <body class="normal">
+
+<div class="pagelogo">
+<div class="smalllogo">
+  <a href="http://www.well-typed.com/"><img src="http://www.well-typed.com/img/wtlogo-small.png" width="243" height="70" alt="Well-Typed, The Haskell Consultants" /></a>
+</div>
+</div>
+
+<div class="bar">
+  <div class="smallmenu">
+<ul class="menu">
+  <li class="header"><a href="http://www.well-typed.com/services">Services</a>
+    <ul class="submenu">
+      <li class="subheader"><a href="http://www.well-typed.com/services_applications">Development</a></li>
+      <li class="subheader"><a href="http://www.well-typed.com/services_libraries">Maintenance</a></li>
+      <li class="subheader"><a href="http://www.well-typed.com/services_advice">Advice</a></li>
+      <li class="subheader"><a href="http://www.well-typed.com/services_training">Training</a></li>
+    </ul>
+  </li>
+  <li class="header"><a href="http://www.well-typed.com/about_welltyped">About</a>
+    <ul class="submenu">
+      <li class="subheader"><a href="http://www.well-typed.com/community">Community</a></li>
+      <li class="subheader"><a href="http://www.well-typed.com/who_we_are">Who We Are</a></li>
+      <li class="subheader"><a href="http://www.well-typed.com/contact">Contact</a></li>
+    </ul>
+  </li>
+  <li class="header"><a href="http://www.well-typed.com/press_releases">Press Releases</a></li>
+  <li class="header" id="active"><a href="http://www.well-typed.com/blog">Blog</a></li>
+</ul>
+</div>
+<div style="clear: both;"></div>
+
+
+</div>
+
+<div class="body">
+<div class="text">
+
+  <h1><a href="http://www.well-typed.com/blog/2014/05/understanding-the-stack">Understanding the Stack</a></h1>
+
+<p style="text-align: right"><small>Wednesday, 21 May 2014, by <a href="http://www.well-typed.com/blog/people/edsko">Edsko de Vries</a>.<br />
+  Filed under <a href="http://www.well-typed.com/blog/tags/coding">coding</a>.</small></p>
+
+<p>One of our clients sent us a bug report, which consisted of a 700 line Haskell program with a complaint that “it deadlocks”. After studying the code I concluded that, for the sake of the bug report, it could be summarized as</p>
+<blockquote>
+<p>print a bunch of stuff, then crash with a stack overflow</p>
+</blockquote>
+<p>So I wanted to replace the original code with code that did just that: print a bunch of stuff, then crash with a stack overflow. No big deal:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">{-# LANGUAGE CPP #-}</span>
+<span class="kw">module</span> <span class="dt">Main</span> (main) <span class="kw">where</span>
+
+<span class="ot">go ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">Int</span>
+go n <span class="fu">=</span> <span class="kw">do</span>
+  <span class="kw">if</span> (n <span class="ot">`rem`</span> <span class="dt">THRESHOLD</span> <span class="fu">==</span> <span class="dv">0</span>)
+    <span class="kw">then</span> putChar <span class="ch">'.'</span>
+    <span class="kw">else</span> return ()
+  n' <span class="ot">&lt;-</span> go (n <span class="fu">+</span> <span class="dv">1</span>)
+  return (n <span class="fu">+</span> n')
+
+<span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> print <span class="fu">=&lt;&lt;</span> go <span class="dv">0</span></code></pre></div>
+<p>The function <code>go</code> prints a dot every <code>THRESHOLD</code> recursive calls; we have a (dummy, since it can never be reached) addition after the recursive call to ensure that <code>go</code> is not tail recursive and will eventually run out of stack space. The <code>THRESHOLD</code> macro variable is there so that we can tweak how quickly the program runs out of stack space, or in other words, how many dots it prints before it crashes. For example, if we compile the code with</p>
+<pre><code>ghc -O1 PrintThenCrash.hs -fforce-recomp -DTHRESHOLD=23</code></pre>
+<p>it prints 22,126 dots before crashing; if we compile with</p>
+<pre><code>ghc -O1 PrintThenCrash.hs -fforce-recomp -DTHRESHOLD=26</code></pre>
+<p>it prints 19,483 dots before crashing. But as I was experimenting to find the right value for this parameter, I noticed something very strange. If we compile with</p>
+<pre><code>ghc -O1 PrintThenCrash.hs -fforce-recomp -DTHRESHOLD=24</code></pre>
+<p>it never crashes! It just prints, and prints, and prints (with GHC 7.6.3). This blog post documents my attempt to understand this behaviour, and explains some aspects of <code>ghc</code>’s runtime, and in particular, its stack, as it goes.</p>
+<h2 id="checking-core">Checking <code>core</code></h2>
+<p>After type checking <code>ghc</code> translates Haskell to an intermediate language called <code>core</code>, which is the “real life” version of the more “academic” language <a href="http://research.microsoft.com/en-us/um/people/simonpj/papers/ext-f/fc-tldi.pdf" title="System F with Type Equality Coercions">System FC</a>. We can ask <code>ghc</code> to output the (optimized) <code>core</code> version of our program with</p>
+<pre><code>ghc -O1 PrintThenCrash.hs -fforce-recomp -DTHRESHOLD=24 -dsuppress-all -ddump-simpl</code></pre>
+<p>This is useful, because it allows to verify that even with a <code>THRESHOLD</code> value of 24 the optimizer did not somehow manage to make the function tail recursive:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="fu">$</span>wa <span class="fu">=</span>
+  \ ww_s1SW w_s1SY <span class="ot">-&gt;</span>
+    <span class="kw">case</span> remInt<span class="st"># ww_s1SW 24 of _ {</span>
+      __<span class="dt">DEFAULT</span> <span class="ot">-&gt;</span>
+        <span class="kw">case</span> <span class="fu">$</span>wa (<span class="fu">+#</span> ww_s1SW <span class="dv">1</span>) w_s1SY <span class="kw">of</span> _ { (<span class="st"># ipv_aEw, ipv1_aEx #) -&gt;</span>
+        (<span class="st"># ipv_aEw,</span>
+           <span class="kw">case</span> ipv1_aEx <span class="kw">of</span> _ { <span class="dt">I</span><span class="st"># y_axO -&gt; I# (+# ww_s1SW y_axO) } #)</span>
+        };
+      <span class="dv">0</span> <span class="ot">-&gt;</span>
+        <span class="kw">case</span> <span class="fu">$</span>wa5 stdout <span class="ch">'.'</span> w_s1SY <span class="kw">of</span> _ { (<span class="st"># ipv_aEw, _ #) -&gt;</span>
+        <span class="kw">case</span> <span class="fu">$</span>wa (<span class="fu">+#</span> ww_s1SW <span class="dv">1</span>) ipv_aEw <span class="kw">of</span> _ { (<span class="st"># ipv2_XET, ipv3_XEV #) -&gt;</span>
+        (<span class="st"># ipv2_XET,</span>
+           <span class="kw">case</span> ipv3_XEV <span class="kw">of</span> _ { <span class="dt">I</span><span class="st"># y_axO -&gt; I# (+# ww_s1SW y_axO) } #)</span>
+        }
+        }
+    }</code></pre></div>
+<p>This is a bit difficult to read; don’t worry about the details for now, we will start dealing with low level details soon enough. For now, it’s enough to note that <code>$wa</code> is the translation of <code>go</code>, and that the recursive calls to <code>$wa</code> are <em>not</em> in tail position; the optimizer did not somehow manage to make the function tail recursive. Ok. Then what? Why is this function not crashing with a stack overflow?</p>
+<h2 id="simplifying-the-problem">Simplifying the problem</h2>
+<p>If we cannot understand the behaviour of the code by looking at <code>core</code> then we need to drop all the way down to assembly language. However, if we want to have any hope of being able to step through the assembly language we need to simplify that call to <code>putChar</code>. Sadly, replacing it with</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">foreign <span class="kw">import </span>ccall &quot;putchar&quot; c_putchar :: <span class="dt">Char</span> -&gt; <span class="dt">IO</span> ()</code></pre></div>
+<p>made the problem go away: the program now always crashed. So the strange behaviour of our program had <em>something</em> to do with the the implementation of <code>putChar</code>. The real <code>putChar</code> is more involved that it might seem; it deals with buffering, character encodings, concurrent access to <code>Handle</code>s, etc.</p>
+<p>Unfortunately, since I had no idea what aspect of the implementation of <code>putChar</code> was causing the behaviour I was seeing, I could think of no other approach than to inline <code>putChar</code> and the functions it calls, and start simplifying it bit by bit until the strange behaviour disappeared.</p>
+<p>Many, many hours later I ended up with this code:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">hPutChar ::</span> <span class="dt">State</span><span class="st"># RealWorld -&gt; (# State# RealWorld, () #)</span>
+hPutChar w0 <span class="fu">=</span> <span class="kw">case</span> stdout <span class="kw">of</span> () <span class="ot">-&gt;</span> (<span class="st"># w0, () #)</span>
+
+<span class="ot">go ::</span> <span class="dt">State</span><span class="st"># RealWorld -&gt; (# State# RealWorld, () #)</span>
+go w0 <span class="fu">=</span>
+  <span class="kw">case</span> maskAsyncExceptions<span class="st"># hPutChar w0 of</span>
+    (<span class="st"># w1, _ #) -&gt;</span>
+      <span class="kw">case</span> go w1 <span class="kw">of</span>
+        (<span class="st"># w2, () #) -&gt; (# w2, () #)</span>
+
+<span class="ot">stdout ::</span> ()
+stdout <span class="fu">=</span> ()
+
+<span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> <span class="dt">IO</span> go</code></pre></div>
+<p>In order to understand this code, you first have to realize that the IO monad is a state monad with the <code>RealWorld</code> as the state:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">newtype</span> <span class="dt">IO</span> a <span class="fu">=</span> <span class="dt">IO</span> (<span class="dt">State</span><span class="st"># RealWorld -&gt; (# State# RealWorld, a #))</span></code></pre></div>
+<p>I have written the code with explicit state passing, instead of using the monad, so that the Haskell code is as close as possible to the generated <code>core</code> and beyond.</p>
+<p>That out of the way, let’s discuss the actual code. First of all, the real <code>putChar</code> is defined as</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">putChar <span class="fu">=</span> hPutChar stdout</code></pre></div>
+<p>where <code>stdout</code> has type <code>Handle</code>. As it turns out, there are only two aspects of <code>hPutChar</code> that are relevant:</p>
+<ol style="list-style-type: decimal">
+<li><p><code>hPutChar</code> does a case analysis on <em>something</em> (actually, of course, it does case analyses on lots of things); as it turns out, all that matters for our example is that it does a case analysis at all, so we have modelled <code>stdout</code> simply by <code>()</code>.</p></li>
+<li><p>This case analysis happens while asynchronous exceptions have been masked. This happens because a <code>Handle</code> contains an <code>MVar</code>, and most of the I/O operation happens while we have taken the value from this <code>MVar</code> (see <code>withHandle'</code> in <code>GHC.IO.Handle.Internals</code>).</p></li>
+</ol>
+<p>At this point we can simplify no further. Although we are not actually printing any dots anymore, if we run this code it will run forever until you interrupt it manually; but if you remove either the case analysis from <code>hPutChar</code> or the call to <code>maskAsyncExceptions#</code> from <code>go</code> the program will exit with a stack overflow almost immediately. What gives?</p>
+<h2 id="understanding-hputchar">Understanding hPutChar</h2>
+<p>When <code>ghc</code> compiles your program, after lexical analysis and syntax analysis it first removes syntactical sugar and does scope analysis; then, after type checking, it translates your code to <code>core</code>, as we saw. The <code>core</code> gets optimized and then translated to <code>stg</code> (for <a href="http://research.microsoft.com/~simonpj/papers/spineless-tagless-gmachine.ps.gz" title="Implementing lazy functional languages on stock hardware: the Spineless Tagless G-machine">“Spineless Tagless G-machine”</a>); <code>stg</code> code is very similar to <code>core</code>, but with a handful of additional restrictions; most importantly, all constructor applications must be fully applied (and if not, an explicit lambda must be constructed). Finally, the <code>stg</code> code gets translated to <code>C--</code>, which is a portable assembly language similar in intent to <code>llvm</code>, and the <code>C--</code> code then is translated to assembly language.</p>
+<p>We wrote our code in such a low level way that the <code>core</code> and <code>stg</code> translations are not very interesting; they all look very alike. The <code>C--</code> code however is a big step down in level. Recall that we simplified <code>hPutChar</code> to</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">hPutChar ::</span> <span class="dt">State</span><span class="st"># RealWorld -&gt; (# State# RealWorld, () #)</span>
+hPutChar w0 <span class="fu">=</span> <span class="kw">case</span> stdout <span class="kw">of</span> () <span class="ot">-&gt;</span> (<span class="st"># w0, () #)</span></code></pre></div>
+<p>The <code>C--</code> code for this “<code>hPutChar</code>” is (<code>-ddump-opt-cmm</code>):</p>
+<div class="sourceCode"><pre class="sourceCode gnuassembler"><code class="sourceCode gnuassembler">Main.hPutChar_info<span class="kw">:</span>
+        if ((Sp + -<span class="dv">8</span>) &lt; SpLim) goto c1ae<span class="co">;</span>
+        R1 = PicBaseReg + IO.stdout_closure<span class="co">;</span>
+        I64[Sp - <span class="dv">8</span>] = PicBaseReg + s19G_info<span class="co">;</span>
+        Sp = Sp - <span class="dv">8</span><span class="co">;</span>
+        if (R1 &amp; <span class="dv">7</span> != <span class="dv">0</span>) goto c1ah<span class="co">;</span>
+        jump I64[R1]<span class="co">; // [R1]</span>
+    <span class="kw">c1ae:</span>
+        R1 = PicBaseReg + Main.hPutChar_closure<span class="co">;</span>
+        jump (I64[BaseReg - <span class="dv">8</span>])<span class="co">; // [R1]</span>
+    <span class="kw">c1ah:</span> jump s19G_info<span class="co">; // [R1]</span>
+
+<span class="kw">s19G_info:</span>
+    R1 = PicBaseReg + GHC.Tuple.()_closure + <span class="dv">1</span><span class="co">;</span>
+    Sp = Sp + <span class="dv">8</span><span class="co">;</span>
+    jump (I64[Sp + <span class="dv">0</span>])<span class="co">; // [R1]</span></code></pre></div>
+<p>This might look rather frightening, especially when you are used to Haskell, so let’s take it step by step. We will be pushing a value to the stack, so we first check if there is enough room on the stack to do so:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">if</span> ((<span class="dt">Sp</span> <span class="fu">+</span> <span class="fu">-</span><span class="dv">8</span>) <span class="fu">&lt;</span> <span class="dt">SpLim</span>) goto c1ae;</code></pre></div>
+<p>If not, we will call a function from the GHC runtime called <code>__stg_gc_fun</code>, which will extend the stack, if possible. We will come back to this in detail later.</p>
+<p>In order to do case analysis on <code>stdout</code> we first have to make sure that it is in weak head normal form (in this case, it will always be, but it might not be in general). In order to do this, we need to call its definition; but before we can do that, we need to do two more things.</p>
+<p>First, in general <code>stdout</code> might be a thunk, with free variables in the closure, and hence it needs to know where it can find the values of those free variables. The convention is therefore that when we call a closure, the address of the closure can always be found in register <code>R1</code>:</p>
+<div class="sourceCode"><pre class="sourceCode gnuassembler"><code class="sourceCode gnuassembler">R1 = PicBaseReg + IO.stdout_closure<span class="co">;</span></code></pre></div>
+<p>Secondly, when <code>stdout</code> completes, it needs to know what to do next. It does this by looking at the stack: when it finishes, it loads a “continuation address” from the top of the stack and calls it. Hence we need to push this address to the stack so that <code>stdout</code> will be able to find it later:</p>
+<div class="sourceCode"><pre class="sourceCode gnuassembler"><code class="sourceCode gnuassembler">I64[Sp - <span class="dv">8</span>] = PicBaseReg + s19G_info<span class="co">;</span>
+Sp = Sp - <span class="dv">8</span><span class="co">;</span></code></pre></div>
+<p>At this point we could call <code>stdout</code>, but actually we can do slightly better. <code>ghc</code> implements an optimization called <a href="http://research.microsoft.com/pubs/67969/ptr-tagging.pdf" title="Faster Laziness Using Dynamic Pointer Tagging">pointer tagging</a>. Since addresses are always word aligned, the lower 3 bits (or, on 32-bit machines, the lower 2 bits) of addresses are always 0. For datatype constructors <code>ghc</code> uses these bits to encode, <em>as part of the pointer itself</em>, which constructor of the datatype it is (non-zero value) or whether the thunk is not yet in weak head normal form. So we can check by looking at the pointer if there is a point calling <code>stdout</code> at all:</p>
+<div class="sourceCode"><pre class="sourceCode gnuassembler"><code class="sourceCode gnuassembler">if (R1 &amp; <span class="dv">7</span> != <span class="dv">0</span>) goto c1ah<span class="co">;</span>
+
+<span class="kw">c1ah:</span> jump s19G_info<span class="co">; // [R1]</span></code></pre></div>
+<p>If the constructor is already in weak head normal form, we call the continuation directly (note that <code>s19G_info</code> is the same address that we pushed to the stack as the continuation address for <code>stdout</code>). Finally, if it turns out that we <em>do</em> still need to evaluate the <code>stdout</code> we call it:</p>
+<div class="sourceCode"><pre class="sourceCode gnuassembler"><code class="sourceCode gnuassembler">jump I64[R1]<span class="co">; // [R1]</span></code></pre></div>
+<p>In the continuation we now know that <code>stdout</code> is in weak head normal form; technically speaking, we should now pattern match on it to find out which constructor it is, but of course <code>()</code> only has a single constructor, so we can skip that step. This means that all that is left to do is to call <em>our</em> continuation with the result. We are returning</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">(<span class="st"># w0, () #)</span></code></pre></div>
+<p>In general, unboxed tuples are represented as a pair of pointers, either as two consecutive memory locations or, ideally, in two registers. However, real world tokens disappear from generated code, so all we have to return is <code>()</code>. By convention the first few arguments are passed in registers; in this case, that means that we need to load the address of <code>()</code> into register <code>R1</code> before calling the continuation:</p>
+<div class="sourceCode"><pre class="sourceCode gnuassembler"><code class="sourceCode gnuassembler">R1 = PicBaseReg + GHC.Tuple.()_closure + <span class="dv">1</span><span class="co">;</span>
+Sp = Sp + <span class="dv">8</span><span class="co">;</span>
+jump (I64[Sp + <span class="dv">0</span>])<span class="co">; // [R1]</span></code></pre></div>
+<p>The <code>+ 1</code> part is pointer tagging at work: <code>()</code> is already in weak head normal form, and it is the first (and only) constructor of the <code>()</code> type.</p>
+<h2 id="understanding-go">Understanding <code>go</code></h2>
+<p>At this point you might realize why I said at the start that it would be completely unfeasible to step through the real <code>hPutChar</code>; our simplified version just does a case analysis (on something of unit value, no less) and then returns unit, and it is already complicated enough! What about <code>go</code>?</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">go ::</span> <span class="dt">State</span><span class="st"># RealWorld -&gt; (# State# RealWorld, () #)</span>
+go w0 <span class="fu">=</span>
+  <span class="kw">case</span> maskAsyncExceptions<span class="st"># hPutChar w0 of</span>
+    (<span class="st"># w1, _ #) -&gt;</span>
+      <span class="kw">case</span> go w1 <span class="kw">of</span>
+        (<span class="st"># w2, () #) -&gt; (# w2, () #)</span></code></pre></div>
+<p>Thankfully, the code was carefully written to make the translation to lower level code as simple as possible; the <code>C--</code> translation of <code>go</code> does not introduce any more concepts that we already used in <code>hPutChar</code>:</p>
+<div class="sourceCode"><pre class="sourceCode gnuassembler"><code class="sourceCode gnuassembler">Main.go_info()<span class="kw">:</span>
+    <span class="kw">c1aM:</span>
+        if ((Sp + -<span class="dv">8</span>) &lt; SpLim) goto c1aO<span class="co">;</span>
+        R1 = PicBaseReg + Main.hPutChar_closure + <span class="dv">1</span><span class="co">;</span>
+        I64[Sp - <span class="dv">8</span>] = PicBaseReg + s19O_info<span class="co">;</span>
+        Sp = Sp - <span class="dv">8</span><span class="co">;</span>
+        jump stg_maskAsyncExceptions<span class="co">#; // [R1]</span>
+    <span class="kw">c1aO:</span>
+        R1 = PicBaseReg + Main.go_closure<span class="co">;</span>
+        jump (I64[BaseReg - <span class="dv">8</span>])<span class="co">; // [R1]</span>
+
+<span class="kw">s19O_info:</span>
+        I64[Sp + <span class="dv">0</span>] = PicBaseReg + s19N_info<span class="co">;</span>
+        jump Main.go_info<span class="co">; // []</span>
+
+<span class="kw">s19N_info:</span>
+        I64[Sp + <span class="dv">0</span>] = PicBaseReg + s19M_info<span class="co">;</span>
+        if (R1 &amp; <span class="dv">7</span> != <span class="dv">0</span>) goto c1aI<span class="co">;</span>
+        jump I64[R1]<span class="co">; // [R1]</span>
+    <span class="kw">c1aI:</span>
+        jump s19M_info<span class="co">; // [R1]</span>
+
+<span class="kw">s19M_info:</span>
+        R1 = PicBaseReg + GHC.Tuple.()_closure + <span class="dv">1</span><span class="co">;</span>
+        Sp = Sp + <span class="dv">8</span><span class="co">;</span>
+        jump (I64[Sp + <span class="dv">0</span>])<span class="co">; // [R1]</span></code></pre></div>
+<p>The structure is very similar as before, except that we have two (actually, three) case statements.</p>
+<ol style="list-style-type: decimal">
+<li><p>First we do a stack overflow check again, as before.</p></li>
+<li><p>We need to evaluate the scrutinee of the first case statement: the call to the primop <code>maskAsyncExceptions#</code> (the equivalent of <code>mask_</code> in Haskell-land), which expects its argument in <code>R1</code>. In this case, the argument is <code>hPutChar</code>, except that as before we use pointer tagging (in this case, to indicate that the function has been evaluated and that its arity is 1).</p></li>
+<li><p>The continuation after we are finished with the scrutinee is <code>s19O_info</code>; this is a second case statement, so we push a second continuation (<code>s19N_info</code>) onto the stack and recursively call <code>go</code>.</p></li>
+<li><p>The second continuation—which is never reached—makes sure that <code>go</code> indeed returned unit, and then returns unit; if you look at the <code>stg</code> translation of <code>go</code> (<code>-ddump-stg</code>) you will notice that <code>go</code> is actually a triply nested case statement:</p></li>
+</ol>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">case</span> maskAsyncExceptions<span class="st"># [Main.hPutChar w0_s19t] of _ {</span>
+  (<span class="st">#,#) ipv_s19x _ -&gt;</span>
+      <span class="kw">case</span> Main.go ipv_s19x <span class="kw">of</span> _ {
+        (<span class="st">#,#) ipv2_s19D ipv3_s19B -&gt;</span>
+            <span class="kw">case</span> ipv3_s19B <span class="kw">of</span> _ { () <span class="ot">-&gt;</span> (<span class="st">#,#) [ipv2_s19D GHC.Tuple.()]; };</span>
+      };
+};</code></pre></div>
+<p>Three case statements, hence three continuations (<code>s19O_info</code>, <code>s19N_info</code>, <code>s19M_info</code>).</p>
+<h2 id="running-the-code">Running the code</h2>
+<p>All this is pure theory, so far. Let’s confirm it by actually running our code. We can load up the code into a debugger; make sure to compile the code with <code>-debug</code> to link it against the version of the Haskell RTS that has debugging symbols. Since I am working on OSX Mavericks I will be using <code>lldb</code>; <code>gdb</code> will work in <a href="https://developer.apple.com/library/mac/documentation/IDEs/Conceptual/gdb_to_lldb_transition_guide/document/lldb-command-examples.html" title="GDB and LLDB Command Examples">a very similar way</a>.</p>
+<p>One of the abstractions that <code>C--</code> offers over real assembly language is virtual registers. When we translate <code>C--</code> to assembly these are mapped to machine registers by a register allocator in <code>ghc</code>’s native code generator. On my machine, <code>Sp</code> and <code>SpLim</code> are mapped to <code>rbp</code> and <code>r15</code>, and <code>R1</code> is mapped to <code>rbx</code>.</p>
+<p>Let’s load up our code, set a breakpoint in <code>go</code>, ask it to print <code>Sp</code> and <code>SpLim</code> whenever we hit a breakpoint, and then start the program (which, during my debugging, I called “<code>weird</code>”, which is why you will see many references to “<code>weird</code>” below).</p>
+<pre><code># lldb weird
+Current executable set to 'weird' (x86_64).
+
+(lldb) breakpoint set -n Main_go_info
+Breakpoint 1: where = weird`Main_go_info, address = 0x0000000100000f98
+
+(lldb) target stop-hook add --one-liner &quot;register read rbp r15&quot;
+Stop hook #1 added.
+
+(lldb) run
+Process 35298 launched: '/Users/dev/wt/weird/weird' (x86_64)
+     rbp = 0x0000000000000000
+     r15 = 0x0000000000000000
+Process 35298 stopped
+* thread #1: tid = 0xebc474, 0x0000000100000f98 weird`Main_go_info, queue = 'com.apple.main-thread', stop reason = breakpoint 1.1
+    frame #0: 0x0000000100000f98 weird`Main_go_info
+weird`Main_go_info:
+-&gt; 0x100000f98:  leaq   -0x8(%rbp), %rax
+   0x100000f9c:  cmpq   %r15, %rax
+   0x100000f9f:  jb     0x100000fc0               ; Main_go_info + 40
+   0x100000fa1:  leaq   0xd8818(%rip), %rax       ; Main_hPutChar_closure
+     rbp = 0x0000000100405370
+     r15 = 0x00000001004050c0</code></pre>
+<p><code>lldb</code> started the program, stopped at the breakpoint, and told us the value of <code>Sp</code> and <code>SpLim</code>, as asked. It also shows us a disassembly of the code. The <code>C--</code> code started with</p>
+<div class="sourceCode"><pre class="sourceCode gnuassembler"><code class="sourceCode gnuassembler">if ((Sp + -<span class="dv">8</span>) &lt; SpLim) goto c1aO<span class="co">;</span></code></pre></div>
+<p>which, if you recall, was to check if we might run into a stack overflow. This translates into</p>
+<div class="sourceCode"><pre class="sourceCode gnuassembler"><code class="sourceCode gnuassembler">leaq   -<span class="bn">0x8</span>(%rbp), %rax
+cmpq   %r15, %rax
+jb     <span class="bn">0x100000fc0</span>               <span class="co">; Main_go_info + 40</span></code></pre></div>
+<p>in Intel assembly language. The details don’t matter very much, and are beyond the scope of this blog post. If you haven’t seen Intel assembly language, <code>leaq</code> is “load effective address”, <code>cmpq</code> is “compare” and <code>jb</code> “jump if below”. We will not explain such details any further; hopefully you will be able to squint a bit and see that it resembles the <code>C--</code> rather closely.</p>
+<p>Before we do anything else, let’s see what’s on the stack before we start:</p>
+<pre><code>(lldb) memory read -format A -count 3 $rbp
+0x100405370: 0x000000010009eb68 weird`stg_catch_frame_info
+0x100405378: 0x0000000000000000
+0x100405380: 0x00000001000dbf72 base_GHCziTopHandler_runIO2_closure + 2</code></pre>
+<p>So, the stack frame immediately above us when we start is a <em>catch frame</em>. Catch frames are pushed onto the stack when you use <code>catch</code>, and are used by the runtime to find which exception handler to run when an exception occurs. The catch frame has two additional fields in its payload: the handler to run (in this case, the default top-level handler), and a mask which indicates if asynchronous exceptions have been blocked or not (in this case, they haven’t).</p>
+<p>We can use the <code>step</code> command from <code>lldb</code> to start stepping through the execution of the code. We check for stack overflow, find that there is none, and then set things up for the first case statement in <code>go</code>: we push a continuation address to the stack, put the argument to <code>maskAsyncExceptions#</code> in <code>rbx</code> (the machine equivalent of R1), and then call <code>maskAsyncExceptions</code>. At this point the stack therefore looks like</p>
+<pre><code>0x100405368: 0x0000000100000f68 weird`s19O_info
+0x100405370: 0x000000010009eb68 weird`stg_catch_frame_info
+0x100405378: 0x0000000000000000
+0x100405380: 0x00000001000dbf72 base_GHCziTopHandler_runIO2_closure + 2</code></pre>
+<p>and we can confirm that <code>rbx</code> contains the tagged address of <code>hPutChar</code></p>
+<pre><code>(lldb) image lookup --address $rbx
+      Address: weird[0x00000001000d97c1] (weird.__DATA.__data + 1)
+      Summary: Main_hPutChar_closure + 1</code></pre>
+<p>You can find the implementation of <code>maskAsyncExceptions#</code> as <code>stg_maskAsyncExceptionszh</code> in <code>Exception.cmm</code> in the <code>rts/</code> directory of the <code>ghc</code> source (“<code>zh</code>” is the z-encoding of “<code>#</code>”). The details are not so important, however. It masks async exceptions by setting a flag in a register, pushes a frame onto the stack to unmask exceptions when we are done, and then calls the function (whose address is in <code>R1</code>). This means that we will end up in <code>hPutChar</code>, at which point the stack looks like</p>
+<pre><code>0x100405360: 0x000000010009e540 weird`stg_unmaskAsyncExceptionszh_ret_info
+0x100405368: 0x0000000100000f68 weird`s19O_info
+0x100405370: 0x000000010009eb68 weird`stg_catch_frame_info
+0x100405378: 0x0000000000000000
+0x100405380: 0x00000001000dbf72 base_GHCziTopHandler_runIO2_closure + 2</code></pre>
+<p>This continues on. <code>hPutChar</code> executes, completes, and runs the contination, which happens to be <code>stg_unmaskAsyncExceptionszh_ret_info</code>; this unmasks asynchronous exceptions, and continues with the continuation above it, which in this case is the original continuation from <code>go</code>. And after some more steps we end up back in go for the next recursive call, and the whole process repeats. However, the stack now looks like</p>
+<pre><code>0x100405368: 0x0000000100000f38 weird`s19N_info
+0x100405370: 0x000000010009eb68 weird`stg_catch_frame_info
+0x100405378: 0x0000000000000000
+0x100405380: 0x00000001000dbf72 base_GHCziTopHandler_runIO2_closure + 2
+0x100405388: 0x00000001000a46c0 weird`stg_stop_thread_info</code></pre>
+<p>Remember that <code>go</code> is not tail recursive, so once this recursive call completes, we still need to call the continuation from the previous invocation. And this repeats; if we run until the breakpoint again (using <code>cont</code>) and print the stack, we will see</p>
+<pre><code>0x100405360: 0x0000000100000f38 weird`s19N_info
+0x100405368: 0x0000000100000f38 weird`s19N_info
+0x100405370: 0x000000010009eb68 weird`stg_catch_frame_info
+0x100405378: 0x0000000000000000
+0x100405380: 0x00000001000dbf72 base_GHCziTopHandler_runIO2_closure + 2
+0x100405388: 0x00000001000a46c0 weird`stg_stop_thread_info</code></pre>
+<p>and so on. This is precisely the behaviour that we were expecting: since the function is not tail recursive, we are using up more and more stack space and should eventually run out, and crash with a stack overflow. So why don’t we?</p>
+<h2 id="stack-overflow">Stack overflow</h2>
+<p>After precisely 84 recursive calls, the stack looks like</p>
+<pre><code>0x1004050d0: 0x0000000100000f38 weird`s19N_info
+...
+0x100405368: 0x0000000100000f38 weird`s19N_info
+0x100405370: 0x000000010009eb68 weird`stg_catch_frame_info
+0x100405378: 0x0000000000000000
+0x100405380: 0x00000001000dbf72 base_GHCziTopHandler_runIO2_closure + 2</code></pre>
+<p>with 84 <code>s19N_info</code> pointers in total. Moreover, the top of the stack (virtual register <code>Sp</code>, real register <code>rbp</code>) is now dangerously close to the stack limit (virtual register <code>SpLim</code>, real register <code>r15</code>):</p>
+<pre><code>(lldb) register read rbp r15
+     rbp = 0x00000001004050d0
+     r15 = 0x00000001004050c0</code></pre>
+<p>That is, we have 16 bytes left, or space for two addresses. This means that we have <em>just</em> enough stack space to make it to the entry point for <code>hPutChar</code>; we get there in the same way as before, and the stack now looks like</p>
+<pre><code>0x1004050c0: 0x000000010009e540 weird`stg_unmaskAsyncExceptionszh_ret_info
+0x1004050c8: 0x0000000100000f68 weird`s19O_info
+0x1004050d0: 0x0000000100000f38 weird`s19N_info
+...
+0x100405368: 0x0000000100000f38 weird`s19N_info
+0x100405370: 0x000000010009eb68 weird`stg_catch_frame_info
+0x100405378: 0x0000000000000000
+0x100405380: 0x00000001000dbf72 base_GHCziTopHandler_runIO2_closure + 2</code></pre>
+<p>Note that we pushed two additional addresses onto the stack, which is therefore now full. Remember that <code>hPutChar</code> starts with a check for stack overflow:</p>
+<div class="sourceCode"><pre class="sourceCode gnuassembler"><code class="sourceCode gnuassembler">if ((Sp + -<span class="dv">8</span>) &lt; SpLim) goto c1ae<span class="co">;</span>
+
+<span class="kw">c1ae:</span>
+    R1 = PicBaseReg + Main.hPutChar_closure<span class="co">;</span>
+    jump (I64[BaseReg - <span class="dv">8</span>])<span class="co">; // [R1]</span></code></pre></div>
+<p>Actually, if we look at the unoptimized <code>C--</code> minus instead (<code>-ddump-cmm</code>) we will see</p>
+<div class="sourceCode"><pre class="sourceCode gnuassembler"><code class="sourceCode gnuassembler"><span class="kw">c1ae:</span>
+    R1 = Main.hPutChar_closure<span class="co">;</span>
+    jump stg_gc_fun<span class="co">; // [R1]</span></code></pre></div>
+<p>instead, which is a lot clearer: we load the address of <code>hPutChar</code> into register <code>R1</code> and then run the garbage collector. In the optimized <code>C--</code> code we find the address of the garbage collector somewhere else, but we can verify in <code>lldb</code> that it’s the same thing:</p>
+<pre><code>(lldb) memory read -format A -count 1 $r13-8
+0x1000e1290: 0x000000010009fcb0 weird`__stg_gc_fun</code></pre>
+<p>Either way, the garbage collector runs. It notices that we are out of stack space (as opposed to out of heap space; we carefully avoided any heap allocation in this test code), creates a new, bigger, stack, copies the old stack over, and then calls back into our function. In other words, we end up back at the start of <code>hPutChar</code>, but now the stack looks like:</p>
+<pre><code>0x1004fcd30: 0x000000010009e540 weird`stg_unmaskAsyncExceptionszh_ret_info
+0x1004fcd38: 0x0000000100000f68 weird`s19O_info
+0x1004fcd40: 0x0000000100000f38 weird`s19N_info
+...
+0x1004fcfd8: 0x0000000100000f38 weird`s19N_info
+0x1004fcfe0: 0x000000010009eb68 weird`stg_catch_frame_info
+0x1004fcfe8: 0x0000000000000000
+0x1004fcff0: 0x00000001000dbf72 base_GHCziTopHandler_runIO2_closure + 2</code></pre>
+<p>which is the same stack as before, except at a different location; and, crucially, we have space on the stack again:</p>
+<pre><code>(lldb) register read rbp r15
+rbp = 0x00000001004fcd30
+r15 = 0x00000001004f50c0</code></pre>
+<p>so we can continue recursing.</p>
+<h2 id="running-out-of-stack-space">Running out of stack space</h2>
+<p>Of course, we cannot continue increasing the stack forever; eventually we should reach the maximum stack size (8 MB by default in <code>ghc</code> 7.6). So why don’t we? Well, now that we understand the problem at this level of detail a quick Google search will reveal that this is due to a <a href="https://ghc.haskell.org/trac/ghc/ticket/8303" title="defer StackOverflow exceptions (rather than dropping them) when exceptions are masked">“bug” in <code>ghc</code></a> (depending on your definition of bug, I suppose) prior to version 7.8: when a stack overflow happens while asynchronous exceptions are blocked, the stack will be grown no matter what the limitation on the stack size is.</p>
+<p>In this example, it just so happens that we run out of stack space when we try to push the continuation address in <code>hPutChar</code>, at which point asynchronous exceptions are indeed masked. Hence, this program will continue growing the stack unpunished, until we run out of machine memory completely. If we remove the case statement from <code>hPutChar</code> (or indeed, if we modify the program in a myriad of other, minor, ways) we would detect the stack overflow outside of the <code>maskAsyncExceptions#</code> and hence we would crash with a stack overflow exception when we reach the maximum stack size.</p>
+<p>In the original program that we started with, the value of <code>THRESHOLD</code> determines how many continuation addresses for <code>go</code> are on the stack when we call (the real) <code>putChar</code>. We run out of stack space either while asynchronous exceptions were masked (somewhere deep inside the bowels of the real <code>hPutChar</code>), or outside it, and hence we would run forever or crash almost immediately, respectively. This is clearly not what one would expect, and with GHC 7.8 the problem has been resolved – a stack overflow is now treated like any other asynchronous exception, and the program will crash with a stack overflow as soon as asynchronous exceptions are no longer masked.</p>
+<h2 id="further-reading">Further Reading</h2>
+<p>If you want to understand ghc’s runtime execution model <a href="http://research.microsoft.com/en-us/um/people/simonpj/papers/eval-apply/" title="How to make a fast curry: push/enter vs eval/apply">How to make a fast curry: push/enter vs eval/apply</a> is essential reading, although you can ignore the comparison with push/enter, which is not used in ghc. <a href="http://research.microsoft.com/pubs/67969/ptr-tagging.pdf" title="Faster Laziness Using Dynamic Pointer Tagging">Faster Laziness Using Dynamic Pointer Tagging</a> explains the pointer tagging trick we discussed above. Apart from these two papers, there are various other references that might be helpful. Be aware however that <code>ghc</code> is constantly evolving and many of these references may no longer precisely match what is in <code>ghc</code> right now.</p>
+<ul>
+<li><p><a href="http://research.microsoft.com/en-us/um/people/simonpj/papers/ext-f/fc-tldi.pdf" title="System F with Type Equality Coercions">System F with Type Equality Coercions</a> describes System FC, the idealized version of <code>core</code>; <a href="../../../book.realworldhaskell.org/read/profiling-and-optimization.html" title="Chapter 25 (Profiling and Optimization) of Real World Haskell">Chapter 25 (Profiling and Optimization) of Real World Haskell</a> discusses reading <code>core</code> and using it for optimization purposes.</p></li>
+<li><p><a href="https://ghc.haskell.org/trac/ghc/wiki/Commentary/Compiler/GeneratedCode" title="I know kung fu: learning STG by example">I know kung fu: learning STG by example</a> on the <code>ghc</code> wiki describing the compilation from Haskell down to assembly language in quite some detail.</p></li>
+<li><p>Edward Z. Yang has a number of blog posts that discuss the execution of Haskell code at a low level of detail; they are all worth reading: <a href="http://blog.ezyang.com/2011/05/unraveling-the-mystery-of-the-io-monad/" title="Unraveling the mystery of the IO monad">Unraveling the mystery of the IO monad</a>, <a href="http://blog.ezyang.com/2011/04/tracing-the-compilation-of-hello-factorial/" title="Tracing the compilation of Hello Factorial!">Tracing the compilation of Hello Factorial!</a>, and <a href="http://blog.ezyang.com/2010/08/interrupting-ghc/" title="Interrupting GHC">Interrupting GHC</a></p></li>
+<li><p>Blog post <a href="http://mainisusuallyafunction.blogspot.ie/2011/10/thunks-and-lazy-blackholes-introduction.html" title="Thunks and lazy blackholes: an introduction to GHC at runtime">Thunks and lazy blackholes: an introduction to GHC at runtime</a> by Keegan McAllister discusses more about the heap, which we did not cover at all here.</p></li>
+<li><p>For <code>C--</code> it is unfortunately hard to find definitive references; <code>ghc</code>’s version of <code>C--</code> (<code>cmm</code>) differs significantly from the official standard. The <a href="https://ghc.haskell.org/trac/ghc/wiki/Commentary/Compiler/CmmType" title="Description of `C--` on the ghc wiki">description on the ghc wiki</a> is probably a good starting point; the comment at the top of <code>CmmParse.y</code> in the <code>ghc</code> sources is also very helpful. The paper <a href="http://www.cs.tufts.edu/~nr/pubs/c--gc-abstract.html" title="`C--`: a portable assembly language that supports garbage collection (Abstract)"><code>C--</code>: a portable assembly language that supports garbage collection (Abstract)</a> describes some of the underlying motivations but is somewhat outdated. <a href="http://research.microsoft.com/en-us/um/people/simonpj/papers/c--/dfopt.pdf" title="Hoopl: A Modular, Reusable Library for Dataﬂow Analysis and Transformation">Hoopl: A Modular, Reusable Library for Dataﬂow Analysis and Transformation</a> describes a library that is used to optimize <code>C--</code>.</p></li>
+<li><p><a href="http://research.microsoft.com/en-us/um/people/simonpj/papers/parallel/multicore-ghc.pdf" title="Runtime Support for Multicore Haskell">Runtime Support for Multicore Haskell</a> describes how Haskell runs on multiple cores; Section 4 contains some information about the GHC runtime, and in particular, how it relates to foreign calls (calls into the C world). <a href="../../../community.haskell.org/_simonmar/papers/conc-ffi.pdf" title="Extending the Haskell Foreign Function Interface with Concurrency">Extending the Haskell Foreign Function Interface with Concurrency</a> is an older paper that describes this in some detail, too.</p></li>
+<li><p><a href="https://ghc.haskell.org/trac/ghc/wiki/Debugging/CompiledCode" title="Debugging GHC-compiled code with gdb">Debugging GHC-compiled code with gdb</a> on the <code>ghc</code> wiki contains some useful information about using <code>gdb</code> on compiled Haskell code; <a href="https://developer.apple.com/library/mac/documentation/IDEs/Conceptual/gdb_to_lldb_transition_guide/document/lldb-command-examples.html" title="GDB and LLDB Command Examples">GDB and LLDB Command Examples</a> is a nice a reference for <code>lldb</code>.</p></li>
+<li><p>Finally, David Terei has a <a href="../../../www.scs.stanford.edu/11au-cs240h/notes/ghc-slides.html" title="A Haskell Compiler">presentation about <code>ghc</code></a> where he gives a bird’s eye view of the entire thing, and his bachelor’s thesis <a href="http://www.cse.unsw.edu.au/~pls/thesis/davidt-thesis.pdf" title="Low Level Virtual Machine for Glasgow Haskell Compiler">Low Level Virtual Machine for Glasgow Haskell Compiler</a> talks about the <code>llvm</code> backend for <code>ghc</code>.</p></li>
+</ul>
+<h2 id="postscript">Postscript</h2>
+<p>One of the many variations that I played with while tracking this bug down looked like</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">module</span> <span class="dt">Main</span> (main) <span class="kw">where</span>
+
+<span class="kw">import </span><span class="dt">Control.Exception</span>
+<span class="kw">import </span><span class="dt">Data.IORef</span>
+<span class="kw">import </span><span class="dt">System.IO.Unsafe</span> (unsafePerformIO)
+
+<span class="ot">counter ::</span> <span class="dt">IORef</span> <span class="dt">Int</span>
+<span class="ot">{-# NOINLINE counter #-}</span>
+counter <span class="fu">=</span> unsafePerformIO <span class="fu">$</span> newIORef <span class="dv">0</span>
+
+<span class="ot">hPutChar ::</span> <span class="dt">IO</span> ()
+hPutChar <span class="fu">=</span> mask_ <span class="fu">$</span> <span class="kw">do</span>
+  n <span class="ot">&lt;-</span> readIORef counter
+  writeIORef counter (n <span class="fu">+</span> <span class="dv">1</span>)
+
+<span class="ot">go ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">Int</span>
+go n <span class="fu">=</span>
+  <span class="kw">case</span> n <span class="ot">`rem`</span> <span class="dv">2</span> <span class="kw">of</span>
+    <span class="dv">0</span> <span class="ot">-&gt;</span> <span class="kw">do</span> hPutChar
+            go (n <span class="fu">+</span> <span class="dv">1</span>)
+    _ <span class="ot">-&gt;</span> <span class="kw">do</span> n' <span class="ot">&lt;-</span> go (n <span class="fu">+</span> <span class="dv">1</span>)
+            return (n <span class="fu">+</span> n')
+
+<span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> <span class="kw">do</span>  _ <span class="ot">&lt;-</span> go <span class="dv">0</span> ; return ()</code></pre></div>
+<p>When you run this in 7.8 this program will crash with</p>
+<pre><code>Weird: internal error: scavenge_stack: weird activation record found on stack: 415597384
+    (GHC version 7.8.2 for x86_64_apple_darwin)
+    Please report this as a GHC bug:  http://www.haskell.org/ghc/reportabug
+Abort trap: 6</code></pre>
+<p>This turns out to be due to an unrelated bug in 7.8.2; see <a href="https://ghc.haskell.org/trac/ghc/ticket/9045" title="threads006: internal error: scavenge_stack: weird activation record found on stack: 415597384">#9045</a> (and <a href="https://ghc.haskell.org/trac/ghc/ticket/8866" title="scavenge_stack: weird activation record found on stack on cabal install -j">#8866</a>). It has already been fixed and should be released as part of 7.8.3.</p>
+
+
+</div>
+<div class="footer">
+            <div class="copyright">
+               <address>Copyright &copy; 2008-2016, Well-Typed LLP.</address>
+            </div>
+</div>
+</div>
+
+    </body>
+
+<!-- Mirrored from www.well-typed.com/blog/94/ by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:53:51 GMT -->
+</html>
+

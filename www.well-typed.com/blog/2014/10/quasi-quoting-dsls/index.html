@@ -1,0 +1,301 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+    
+<!-- Mirrored from www.well-typed.com/blog/2014/10/quasi-quoting-dsls/ by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:53:50 GMT -->
+<head>
+        <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+        <title>
+           
+           Well-Typed - The Haskell Consultants: Quasi-quoting DSLs for free
+           
+        </title>
+        <link rel="Stylesheet" type="text/css" href="https://www.well-typed.com/css/wt.css" />
+        <link rel="shortcut icon" type="image/x-icon" href="https://www.well-typed.com/favicon.ico" />
+        
+    </head>
+    <body class="normal">
+
+<div class="pagelogo">
+<div class="smalllogo">
+  <a href="https://www.well-typed.com/"><img src="https://www.well-typed.com/img/wtlogo-small.png" width="243" height="70" alt="Well-Typed, The Haskell Consultants" /></a>
+</div>
+</div>
+
+<div class="bar">
+  <div class="smallmenu">
+<ul class="menu">
+  <li class="header"><a href="https://www.well-typed.com/services">Services</a>
+    <ul class="submenu">
+      <li class="subheader"><a href="https://www.well-typed.com/services_applications">Development</a></li>
+      <li class="subheader"><a href="https://www.well-typed.com/services_libraries">Maintenance</a></li>
+      <li class="subheader"><a href="https://www.well-typed.com/services_advice">Advice</a></li>
+      <li class="subheader"><a href="https://www.well-typed.com/services_training">Training</a></li>
+    </ul>
+  </li>
+  <li class="header"><a href="https://www.well-typed.com/about_welltyped">About</a>
+    <ul class="submenu">
+      <li class="subheader"><a href="https://www.well-typed.com/community">Community</a></li>
+      <li class="subheader"><a href="https://www.well-typed.com/who_we_are">Who We Are</a></li>
+      <li class="subheader"><a href="https://www.well-typed.com/contact">Contact</a></li>
+    </ul>
+  </li>
+  <li class="header"><a href="https://www.well-typed.com/press_releases">Press Releases</a></li>
+  <li class="header" id="active"><a href="https://www.well-typed.com/blog">Blog</a></li>
+</ul>
+</div>
+<div style="clear: both;"></div>
+
+
+</div>
+
+<div class="body">
+<div class="text">
+
+  <h1><a href="https://www.well-typed.com/blog/2014/10/quasi-quoting-dsls">Quasi-quoting DSLs for free</a></h1>
+
+<p style="text-align: right"><small>Sunday, 19 October 2014, by <a href="https://www.well-typed.com/blog/people/edsko">Edsko de Vries</a>.<br />
+  Filed under <a href="https://www.well-typed.com/blog/tags/coding">coding</a>.</small></p>
+
+<p>Suppose you are writing a compiler for some programming language or DSL. If you are doing source to source transformations in your compiler, perhaps as part of an optimization pass, you will need to construct and deconstruct bits of abstract syntax. It would be very convenient if we could write that abstract syntax <em>using the syntax of your language</em>. In this blog post we show how you can reuse your existing compiler infrastructure to make this possible by writing a quasi-quoter with support for metavariables. As we will see, a key insight is that we can reuse object variables as meta variables.</p>
+<h2 id="toy-language-imp">Toy Language “<code>Imp</code>”</h2>
+<p>For the sake of this blog post we will be working with a toy language called <code>Imp</code>. The abstract syntax for <code>Imp</code> is defined by</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">VarName</span> <span class="fu">=</span> <span class="dt">String</span>
+
+<span class="kw">data</span> <span class="dt">Expr</span> <span class="fu">=</span>
+    <span class="dt">Var</span> <span class="dt">VarName</span>
+  <span class="fu">|</span> <span class="dt">Add</span> <span class="dt">Expr</span> <span class="dt">Expr</span>
+  <span class="fu">|</span> <span class="dt">Sub</span> <span class="dt">Expr</span> <span class="dt">Expr</span>
+  <span class="fu">|</span> <span class="dt">Int</span> <span class="dt">Integer</span>
+  <span class="fu">|</span> <span class="dt">Read</span>
+  <span class="kw">deriving</span> (<span class="dt">Data</span>, <span class="dt">Typeable</span>, <span class="dt">Show</span>, <span class="dt">Eq</span>)
+
+<span class="kw">data</span> <span class="dt">Cmd</span> <span class="fu">=</span>
+    <span class="dt">Write</span> <span class="dt">Expr</span>
+  <span class="fu">|</span> <span class="dt">Assign</span> <span class="dt">VarName</span> <span class="dt">Expr</span>
+  <span class="fu">|</span> <span class="dt">Decl</span> <span class="dt">VarName</span>
+  <span class="kw">deriving</span> (<span class="dt">Data</span>, <span class="dt">Typeable</span>, <span class="dt">Show</span>)
+
+<span class="kw">data</span> <span class="dt">Prog</span> <span class="fu">=</span> <span class="dt">Prog</span> [<span class="dt">Cmd</span>]
+  <span class="kw">deriving</span> (<span class="dt">Data</span>, <span class="dt">Typeable</span>, <span class="dt">Show</span>)</code></pre></div>
+<p>and we will assume that we have some <a href="http://hackage.haskell.org/package/parsec" title="The parsec package"><code>parsec</code></a> parsers</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">parseExpr ::</span> <span class="dt">Parser</span> <span class="dt">Expr</span>
+<span class="ot">parseProg ::</span> <span class="dt">Parser</span> <span class="dt">Prog</span></code></pre></div>
+<p>We will also make use of</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">topLevel ::</span> <span class="dt">Parser</span> a <span class="ot">-&gt;</span> <span class="dt">Parser</span> a
+topLevel p <span class="fu">=</span> whiteSpace <span class="fu">*&gt;</span> p <span class="fu">&lt;*</span> eof</code></pre></div>
+<p>and the following useful combinator for running a parser:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">parseIO ::</span> <span class="dt">Parser</span> a <span class="ot">-&gt;</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> a</code></pre></div>
+<p>The details of these parsers are beyond the scope of this post. There are plenty of <code>parsec</code> tutorials online; for instance, you could start with the <a href="../../../../../book.realworldhaskell.org/read/using-parsec.html" title="Real World Haskell: Using Parsec"><code>parsec</code> chapter in Real World Haskell</a>. Moreover, the full code for this blog post, including a simple interpreter for the language, is available <a href="https://gist.github.com/edsko/61234464a8be47e83f1a" title="Blog post source code">on github</a> if you want to play with it. Here is a simple example of an <code>Imp</code> program:</p>
+<pre><code>var x ;
+x := read ;
+write (x + x + 1)</code></pre>
+<h2 id="a-simple-quasi-quoter">A simple quasi-quoter</h2>
+<p>We want to be able to write something like</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">prog1 ::</span> <span class="dt">Prog</span>
+prog1 <span class="fu">=</span> [prog<span class="fu">|</span>
+    var x ;
+    x <span class="fu">:=</span> read ;
+    write (x <span class="fu">+</span> x <span class="fu">+</span> <span class="dv">1</span>)
+  <span class="fu">|</span>]</code></pre></div>
+<p>where the intention is that the <code>[prog| ... |]</code> quasi-quote will expand to something like</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">prog1 <span class="fu">=</span> <span class="dt">Prog</span> [
+      <span class="dt">Decl</span> <span class="st">&quot;x&quot;</span>
+    , <span class="dt">Assign</span> <span class="st">&quot;x&quot;</span> <span class="dt">Read</span>
+    , <span class="dt">Write</span> (<span class="dt">Add</span> (<span class="dt">Add</span> (<span class="dt">Var</span> <span class="st">&quot;x&quot;</span>) (<span class="dt">Var</span> <span class="st">&quot;x&quot;</span>)) (<span class="dt">Int</span> <span class="dv">1</span>))
+    ]</code></pre></div>
+<p>To achieve this, we have to write a <em>quasi-quoter</em>. A <a href="http://hackage.haskell.org/package/template-haskell-2.9.0.0/docs/Language-Haskell-TH-Quote.html#v:QuasiQuoter" title="Language.Haskell.TH.Quote">quasi-quoter</a> is an instance of the following data type:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">QuasiQuoter</span> <span class="fu">=</span> <span class="dt">QuasiQuoter</span> {
+<span class="ot">    quoteExp  ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Q</span> <span class="dt">Exp</span>
+  ,<span class="ot"> quotePat  ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Q</span> <span class="dt">Pat</span>
+  ,<span class="ot"> quoteType ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Q</span> <span class="dt">Type</span>
+  ,<span class="ot"> quoteDec  ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Q</span> [<span class="dt">Dec</span>]
+  }</code></pre></div>
+<p>The different fields are used when using the quasi-quoter in different places in your Haskell program: at a position where we expect a (Haskell) expression, a pattern (we will see an example of that later), a type or a declaration; we will not consider the latter two at all in this blog post.</p>
+<p>In order to make the above example (<code>prog1</code>) work, we need to implement <code>quoteExp</code> but we can leave the other fields undefined:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">prog ::</span> <span class="dt">QuasiQuoter</span>
+prog <span class="fu">=</span> <span class="dt">QuasiQuoter</span> {
+      quoteExp <span class="fu">=</span> \str <span class="ot">-&gt;</span> <span class="kw">do</span>
+        l <span class="ot">&lt;-</span> location'
+        c <span class="ot">&lt;-</span> runIO <span class="fu">$</span> parseIO (setPosition l <span class="fu">*&gt;</span> topLevel parseProg) str
+        dataToExpQ (const <span class="dt">Nothing</span>) c
+    , quotePat  <span class="fu">=</span> undefined
+    , quoteType <span class="fu">=</span> undefined
+    , quoteDec  <span class="fu">=</span> undefined
+    }</code></pre></div>
+<p>Let’s see what’s going on here. The quasi-quoter gets as argument the string in the quasi-quote brackets, and must return a Haskell expression in the Template-Haskell <code>Q</code> monad. This monad supports, amongst other things, getting the current location in the Haskell file. It also supports IO.</p>
+<h3 id="location">Location</h3>
+<p>The first thing that we do is find the current location in the Haskell source file and convert it to <code>parsec</code> format:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">location' ::</span> <span class="dt">Q</span> <span class="dt">SourcePos</span>
+location' <span class="fu">=</span> aux <span class="fu">&lt;$&gt;</span> location
+  <span class="kw">where</span>
+<span class="ot">    aux ::</span> <span class="dt">Loc</span> <span class="ot">-&gt;</span> <span class="dt">SourcePos</span>
+    aux loc <span class="fu">=</span> uncurry (newPos (loc_filename loc)) (loc_start loc)</code></pre></div>
+<h3 id="running-the-parser">Running the parser</h3>
+<p>Once we have the location we then parse the input string to a term in our abstract syntax (something of type <code>Prog</code>). We use <code>parsec</code>’s <code>setPosition</code> to tell <code>parsec</code> where we are in the Haskell source file, so that if we make a mistake such as</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">prog1 ::</span> <span class="dt">Prog</span>
+prog1 <span class="fu">=</span> [prog<span class="fu">|</span>
+    var x ;
+    x <span class="fu">:=</span> read ;
+    write (x <span class="fu">+</span> x <span class="fu">+</span> )
+  <span class="fu">|</span>]</code></pre></div>
+<p>we get an error that points to the correct location in our <em>Haskell</em> file:</p>
+<pre><code>TestQQAST.hs:6:9:
+    Exception when trying to run compile-time code:
+      user error (&quot;TestQQAST.hs&quot; (line 9, column 20):
+unexpected &quot;)&quot;
+expecting &quot;(&quot;, &quot;read&quot;, identifier or integer)</code></pre>
+<h3 id="converting-to-haskell-abstract-syntax">Converting to Haskell abstract syntax</h3>
+<p>The parser returns something of type <code>Prog</code>, but we want something of type <code>Exp</code>; <a href="http://hackage.haskell.org/package/template-haskell-2.9.0.0/docs/Language-Haskell-TH-Syntax.html#t:Exp" title="data Exp"><code>Exp</code></a> is defined in Template Haskell and reifies the abstract syntax of Haskell. For example, we would have to translate the <code>Imp</code> abstract syntax term</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="dt">Var</span> <span class="st">&quot;x&quot;</span><span class="ot"> ::</span> <span class="dt">Prog</span></code></pre></div>
+<p>to its reflection as a piece of abstract <em>Haskell</em> syntax as</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="dt">AppE</span> (<span class="dt">ConE</span> <span class="ch">'Var) (LitE (StringL &quot;x&quot;)) :: TH.Exp</span></code></pre></div>
+<p>which, when spliced into the Haskell source, <em>yields</em> the original <code>Prog</code> value. Fortunately, we don’t have to write this translation by hand, but we can make use of the following Template Haskell function:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">dataToExpQ ::</span> <span class="dt">Data</span> a
+           <span class="ot">=&gt;</span> (forall b<span class="fu">.</span> <span class="dt">Data</span> b <span class="ot">=&gt;</span> b <span class="ot">-&gt;</span> <span class="dt">Maybe</span> (<span class="dt">Q</span> <span class="dt">Exp</span>))
+           <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">Q</span> <span class="dt">Exp</span></code></pre></div>
+<p>This function can translate any term to a reified Haskell expression, as long as the type of the term derives <code>Data</code> (<code>Data</code> instances can be auto-derived by <code>ghc</code> if you enable the <code>DeriveDataTypeable</code> language extension). The first argument allows you to override the behaviour of the function for specific cases; we will see an example use case in the next section. In our quasi-quoter so far we don’t want to override anything, so we pass a function that always returns <code>Nothing</code>.</p>
+<p>Once we have defined this quasi-quoter we can write</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">prog1 ::</span> <span class="dt">Prog</span>
+prog1 <span class="fu">=</span> [prog<span class="fu">|</span>
+    var x ;
+    x <span class="fu">:=</span> read ;
+    write (x <span class="fu">+</span> x <span class="fu">+</span> <span class="dv">1</span>)
+  <span class="fu">|</span>]</code></pre></div>
+<p>and <code>ghc</code> will run our quasi-quoter and splice in the Haskell expression corresponding to the abstract syntax tree of this program (provided that we enable the <code>QuasiQuotes</code> language extension).</p>
+<h2 id="meta-variables">Meta-variables</h2>
+<p>Consider this function:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">prog2 ::</span> <span class="dt">VarName</span> <span class="ot">-&gt;</span> <span class="dt">Integer</span> <span class="ot">-&gt;</span> <span class="dt">Prog</span>
+prog2 y n <span class="fu">=</span> [prog<span class="fu">|</span>
+    var x ;
+    x <span class="fu">:=</span> read ;
+    write (x <span class="fu">+</span> y <span class="fu">+</span> n)
+  <span class="fu">|</span>]</code></pre></div>
+<p>As mentioned, in the <a href="https://gist.github.com/edsko/61234464a8be47e83f1a" title="Blog post source code">source code</a> for this blog post we also have an interpreter for the language. What happens if we try to run <code>(prog2 &quot;x&quot; 1)</code>?</p>
+<pre><code>*Main&gt; intIO $ intProg (prog2 &quot;x&quot; 2)
+5
+*** Exception: user error (Unbound variable &quot;y&quot;)</code></pre>
+<p>Indeed, when we look at the syntax tree that got spliced in for <code>prog2</code> we see</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="dt">Prog</span> [ <span class="dt">Decl</span> <span class="st">&quot;x&quot;</span>
+     , <span class="dt">Assign</span> <span class="st">&quot;x&quot;</span> <span class="dt">Read</span>
+     , <span class="dt">Write</span> (<span class="dt">Add</span> (<span class="dt">Add</span> (<span class="dt">Var</span> <span class="st">&quot;x&quot;</span>) (<span class="dt">Var</span> <span class="st">&quot;y&quot;</span>)) (<span class="dt">Var</span> <span class="st">&quot;n&quot;</span>))
+     ]</code></pre></div>
+<p>What happened? Didn’t we pass in <code>&quot;x&quot;</code> as the argument <code>y</code>? Actually, on second thought, this makes perfect sense: this is after all what our string parses to. The fact that <code>y</code> and <code>n</code> also happen to be <em>Haskell</em> variables, and happen to be in scope at the point of the quasi-quote, is really irrelevant. But we would still like <code>prog2</code> to do what we expected it to do.</p>
+<h3 id="meta-variables-in-template-haskell">Meta-variables in Template Haskell</h3>
+<p>To do that, we have to support <em>meta variables</em>: variables from the “meta” language (Haskell) instead of the object language (<code>Imp</code>). Template Haskell supports this out of the box. For example, we can define</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">ex ::</span> <span class="dt">Lift</span> a <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">Q</span> <span class="dt">Exp</span>
+ex x <span class="fu">=</span> [<span class="fu">|</span> id x <span class="fu">|</span>]</code></pre></div>
+<p>Given any argument that supports <code>Lift</code>, <code>ex</code> constructs a piece of abstract Haskell syntax which corresponds to the application of the identity function to <code>x</code>. (Don’t confuse this with anti-quotation; see <a href="../../../../../edsko.net/2013/05/09/brief-intro-to-quasi-quotation/index.html" title="Brief Intro to Quasi-Quotation">Brief Intro to Quasi-Quotation</a>.) <a href="http://hackage.haskell.org/package/template-haskell-2.9.0.0/docs/Language-Haskell-TH-Syntax.html#t:Lift" title="class Lift"><code>Lift</code></a> is a type class with a single method</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Lift</span> t <span class="kw">where</span>
+<span class="ot">  lift ::</span> t <span class="ot">-&gt;</span> <span class="dt">Q</span> <span class="dt">Exp</span></code></pre></div>
+<p>For example, here is the instance for <code>Integer</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Lift</span> <span class="dt">Integer</span> <span class="kw">where</span>
+  lift x <span class="fu">=</span> return (<span class="dt">LitE</span> (<span class="dt">IntegerL</span> x))</code></pre></div>
+<h3 id="meta-variables-in-quasi-quotes">Meta-variables in quasi-quotes</h3>
+<p>Quasi-quotes don’t have automatic support for meta-variables. This makes sense: Template Haskell is for quoting Haskell so it has a specific concrete syntax to work with, where as quasi-quotes are for arbitrary custom syntaxes and so we have to decide what the syntax and behaviour of meta-variables is going to be.</p>
+<p>For <code>Imp</code> we want to translate any unbound <code>Imp</code> (object-level) variable in the quasi-quote to a reference to a <code>Haskell</code> (meta-level) variable. To do that, we will introduce a similar type class to <code>Lift</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">ToExpr</span> a <span class="kw">where</span>
+<span class="ot">  toExpr ::</span> a <span class="ot">-&gt;</span> <span class="dt">Expr</span></code></pre></div>
+<p>and provide instances for variables and integers:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">ToExpr</span> <span class="dt">VarName</span> <span class="kw">where</span>
+  toExpr <span class="fu">=</span> <span class="dt">Var</span>
+
+<span class="kw">instance</span> <span class="dt">ToExpr</span> <span class="dt">Integer</span> <span class="kw">where</span>
+  toExpr <span class="fu">=</span> <span class="dt">Int</span></code></pre></div>
+<p>We will also need to know which variables in an <code>Imp</code> program are bound and unbound; in the <a href="https://gist.github.com/edsko/61234464a8be47e83f1a" title="Blog post source code">source code</a> you will find a function which returns the set of free variables in an <code>Imp</code> program:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">fvProg ::</span> <span class="dt">Prog</span> <span class="ot">-&gt;</span> <span class="dt">Set</span> <span class="dt">VarName</span></code></pre></div>
+<h3 id="overriding-the-behaviour-of-datatoexpq">Overriding the behaviour of <code>dataToExpQ</code></h3>
+<p>In the previous section we mentioned that rather than doing the <code>Prog -&gt; Q Exp</code> transformation by hand we use the generic function <code>dataToExpQ</code> to do it for us. However, now we want to override the behaviour of this function for the specific case of unbound <code>Imp</code> variables, which we want to translate to <em>Haskell</em> variables.</p>
+<p>Recall that <code>dataToExpQ</code> has type</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">dataToExpQ ::</span> <span class="dt">Data</span> a
+           <span class="ot">=&gt;</span> (forall b<span class="fu">.</span> <span class="dt">Data</span> b <span class="ot">=&gt;</span> b <span class="ot">-&gt;</span> <span class="dt">Maybe</span> (<span class="dt">Q</span> <span class="dt">Exp</span>))
+           <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">Q</span> <span class="dt">Exp</span></code></pre></div>
+<p>This is a rank-2 type: the first argument to <code>dataToExpQ</code> must <em>itself</em> be polymorphic in <code>b</code>: it must work on any type <code>b</code> that derives <code>Data</code>. So far we have been passing in</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">const <span class="dt">Nothing</span></code></pre></div>
+<p>which is obviously polymorphic in <code>b</code> since it completely ignores its argument. But how do we do something more interesting? <code>Data</code> and its associated combinators come from a generic programming library called <em>Scrap Your Boilerplate</em> (<a href="http://hackage.haskell.org/package/syb" title="The syb package"><code>Data.Generics</code></a>). A full discussion of SYB is beyond the scope of this blog post; the <a href="http://research.microsoft.com/en-us/um/people/simonpj/papers/hmap/" title="Scrap your boilerplate">SYB papers</a> are a good starting point if you would like to know more (I would recommend reading them in chronological order, the first published paper first). For the sake of what we are trying to do it suffices to know about the existence of the following combinator:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">extQ ::</span> (<span class="dt">Typeable</span> a, <span class="dt">Typeable</span> b) <span class="ot">=&gt;</span> (a <span class="ot">-&gt;</span> q) <span class="ot">-&gt;</span> (b <span class="ot">-&gt;</span> q) <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> q</code></pre></div>
+<p>Given a polymorphic query (<code>forall a</code>)—in our case this is <code>const Nothing</code>—<code>extQ</code> allows to extend the query with a type specific case (for a specific type <code>b</code>). We will use this to give a specific case for <code>Expr</code>: when we see a free variable in an expression we translate it to an application of <code>toExpr</code> to a Haskell variable with the same name:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">metaExp ::</span> <span class="dt">Set</span> <span class="dt">VarName</span> <span class="ot">-&gt;</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">Maybe</span> <span class="dt">ExpQ</span>
+metaExp fvs (<span class="dt">Var</span> x) <span class="fu">|</span> x <span class="ot">`Set.member`</span> fvs <span class="fu">=</span>
+  <span class="dt">Just</span> [<span class="fu">|</span> toExpr <span class="fu">$</span>(varE (mkName x)) <span class="fu">|</span>]
+metaExp _ _ <span class="fu">=</span>
+  <span class="dt">Nothing</span></code></pre></div>
+<h3 id="the-improved-quasi-quoter">The improved quasi-quoter</h3>
+<p>With this in hand we can define our improved quasi-quoter:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">prog ::</span> <span class="dt">QuasiQuoter</span>
+prog <span class="fu">=</span> <span class="dt">QuasiQuoter</span> {
+      quoteExp <span class="fu">=</span> \str <span class="ot">-&gt;</span> <span class="kw">do</span>
+        l <span class="ot">&lt;-</span> location'
+        c <span class="ot">&lt;-</span> runIO <span class="fu">$</span> parseIO (setPosition l <span class="fu">*&gt;</span> topLevel parseProg) str
+        dataToExpQ (const <span class="dt">Nothing</span> <span class="ot">`extQ`</span> metaExp (fvProg c)) c
+    , quotePat  <span class="fu">=</span> undefined
+    , quoteType <span class="fu">=</span> undefined
+    , quoteDec  <span class="fu">=</span> undefined
+    }</code></pre></div>
+<p>Note that we are extending the query for <code>Expr</code>, not for <code>Prog</code>; <code>dataToExpQ</code> (or, more accurately, SYB) makes sure that this extension is applied at all the right places. Running <code>(prog2 &quot;x&quot; 2)</code> now has the expected behaviour:</p>
+<pre><code>*Main&gt; intIO $ intProg (prog2 &quot;x&quot; 2)
+6
+14</code></pre>
+<p>Indeed, when we have a variable in our code that is unbound <em>both</em> in <code>Imp</code> <em>and</em> in Haskell, we now get a <em>Haskell</em> type error:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">prog2 ::</span> <span class="dt">VarName</span> <span class="ot">-&gt;</span> <span class="dt">Integer</span> <span class="ot">-&gt;</span> <span class="dt">Prog</span>
+prog2 y n <span class="fu">=</span> [prog<span class="fu">|</span>
+    var x ;
+    x <span class="fu">:=</span> read ;
+    write (x <span class="fu">+</span> z <span class="fu">+</span> n)
+  <span class="fu">|</span>]</code></pre></div>
+<p>gives</p>
+<pre><code>TestQQAST.hs:15:19: Not in scope: ‘z’</code></pre>
+<p>Parenthetical remark: it is a design decision whether or not we want to allow local binding sites in a splice to “capture” meta-variables. Put another way, when we pass in <code>&quot;x&quot;</code> to <code>prog2</code>, do we mean the <code>x</code> that is bound locally in <code>prog2</code>, or do we mean a different <code>x</code>? Certainly a case can be made that we should not be able to refer to the locally bound <code>x</code> at all—after all, it’s not bound outside of the snippet! This is an orthogonal concern however and we will not discuss it any further in this blog post.</p>
+<h2 id="quasi-quoting-patterns">Quasi-quoting patterns</h2>
+<p>We can also use quasi-quoting to support patterns. This enables us to write something like</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">optimize ::</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">Expr</span>
+optimize [expr<span class="fu">|</span> a <span class="fu">+</span> n <span class="fu">-</span> m <span class="fu">|</span>] <span class="fu">|</span> n <span class="fu">==</span> m <span class="fu">=</span> optimize a
+optimize other <span class="fu">=</span> other</code></pre></div>
+<p>As before, the occurrence of <code>a</code> in this pattern is free, and we intend it to correspond to a <em>Haskell</em> variable, not an <code>Imp</code> variable; the above code should correspond to</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">optimize (<span class="dt">Sub</span> (<span class="dt">Add</span> a n) m) <span class="fu">|</span> n <span class="fu">==</span> m <span class="fu">=</span> optimize a</code></pre></div>
+<p>(note that this is comparing <code>Expr</code>s for equality, hence the need for <code>Expr</code> to derive <code>Eq</code>). We did <em>not</em> mean the pattern</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">optimize (<span class="dt">Sub</span> (<span class="dt">Add</span> (<span class="dt">Var</span> <span class="st">&quot;a&quot;</span>) (<span class="dt">Var</span> <span class="st">&quot;n&quot;</span>)) (<span class="dt">Var</span> <span class="st">&quot;m&quot;</span>))</code></pre></div>
+<p>To achieve this, we can define a quasi-quoter for <code>Expr</code> that supports patterns (as well as expressions):</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">expr ::</span> <span class="dt">QuasiQuoter</span>
+expr <span class="fu">=</span> <span class="dt">QuasiQuoter</span> {
+      quoteExp  <span class="fu">=</span> \str <span class="ot">-&gt;</span> <span class="kw">do</span>
+        l <span class="ot">&lt;-</span> location'
+        e <span class="ot">&lt;-</span> runIO <span class="fu">$</span> parseIO (setPosition l <span class="fu">*&gt;</span> topLevel parseExpr) str
+        dataToExpQ (const <span class="dt">Nothing</span> <span class="ot">`extQ`</span> metaExp (fvExpr e)) e
+    , quotePat  <span class="fu">=</span> \str <span class="ot">-&gt;</span> <span class="kw">do</span>
+        l <span class="ot">&lt;-</span> location'
+        e <span class="ot">&lt;-</span> runIO <span class="fu">$</span> parseIO (setPosition l <span class="fu">*&gt;</span> topLevel parseExpr) str
+        dataToPatQ (const <span class="dt">Nothing</span> <span class="ot">`extQ`</span> metaPat (fvExpr e)) e
+    , quoteType <span class="fu">=</span> undefined
+    , quoteDec  <span class="fu">=</span> undefined
+    }</code></pre></div>
+<p>The implementation of <code>quotePat</code> is very similar to the definition of <code>quoteExp</code>. The only difference is that we use <code>dataToPatQ</code> instead of <code>dataToExpQ</code> to generate a Haskell pattern rather than a Haskell expression, and we use <code>metaPat</code> to give a type specific case which translates free <code>Imp</code> variables to Haskell pattern variables:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">metaPat ::</span> <span class="dt">Set</span> <span class="dt">VarName</span> <span class="ot">-&gt;</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">Maybe</span> <span class="dt">PatQ</span>
+metaPat fvs (<span class="dt">Var</span> x) <span class="fu">|</span> x <span class="ot">`Set.member`</span> fvs <span class="fu">=</span> <span class="dt">Just</span> (varP (mkName x))
+metaPat _ _ <span class="fu">=</span> <span class="dt">Nothing</span></code></pre></div>
+<p>Note that there is no need to lift now; the Haskell variable will be bound to whatever matches in the expression.</p>
+<h2 id="limitations">Limitations</h2>
+<p>We might be tempted to also add support for <code>Prog</code> patterns. While that is certainly possible, it’s of limited use if we follow the same strategy that we followed for expressions. For instance, we would not be able to write something like</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">opt [prog<span class="fu">|</span> var x ; c <span class="fu">|</span>] <span class="fu">|</span> x <span class="ot">`Set.notMember`</span> fvProg c <span class="fu">=</span> opt c</code></pre></div>
+<p>The intention here is that we can remove unused variables. Unfortunately, this will not work because this will cause a parse error: the syntax for <code>Imp</code> does not allow for variables for commands, and hence we also don’t allow for meta-variables at this point. This is important to remember:</p>
+<blockquote>
+By using object-level variables as stand-ins for meta-level variables, we <em>only</em> allow for meta-level variables where the syntax for the object-level language allows variables.
+</blockquote>
+<p>If this is too restrictive, we need to add special support in the ADT and in the corresponding parsers for meta-variables. This is a trade-off in increased expressiveness of the quasi-quotes against additional complexity in their implementation (new parsers, new ADTs).</p>
+<h2 id="conclusions">Conclusions</h2>
+<p>By reusing object-level variables as stand-ins for meta variables you can reuse existing parsers and ADTs to define quasi-quoters. Using the approach described in this blog we were able to add support for quasi-quoting to a real compiler for a domain specific programming language with a minimum of effort. The implementation is very similar to what we have shown above, except that we also dealt with renaming (so that meta variables cannot be captured by binding sites in the quasi quotes) and type checking (reusing the existing renamer and type checker, of course).</p>
+
+
+</div>
+<div class="footer">
+            <div class="copyright">
+               <address>Copyright &copy; 2008-2016, Well-Typed LLP.</address>
+            </div>
+</div>
+</div>
+
+    </body>
+
+<!-- Mirrored from www.well-typed.com/blog/2014/10/quasi-quoting-dsls/ by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:53:50 GMT -->
+</html>
+

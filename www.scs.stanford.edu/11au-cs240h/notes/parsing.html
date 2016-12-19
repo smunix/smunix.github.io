@@ -1,0 +1,302 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<!-- Mirrored from www.scs.stanford.edu/11au-cs240h/notes/parsing.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:55:13 GMT -->
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta name="generator" content="pandoc" />
+  <title>Parsing and continuations</title>
+  <style type="text/css">
+table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode, table.sourceCode pre 
+   { margin: 0; padding: 0; border: 0; vertical-align: baseline; border: none; }
+td.lineNumbers { border-right: 1px solid #AAAAAA; text-align: right; color: #AAAAAA; padding-right: 5px; padding-left: 5px; }
+td.sourceCode { padding-left: 5px; }
+code.sourceCode span.kw { color: #007020; font-weight: bold; } 
+code.sourceCode span.dt { color: #902000; }
+code.sourceCode span.dv { color: #40a070; }
+code.sourceCode span.bn { color: #40a070; }
+code.sourceCode span.fl { color: #40a070; }
+code.sourceCode span.ch { color: #4070a0; }
+code.sourceCode span.st { color: #4070a0; }
+code.sourceCode span.co { color: #60a0b0; font-style: italic; }
+code.sourceCode span.ot { color: #007020; }
+code.sourceCode span.al { color: red; font-weight: bold; }
+code.sourceCode span.fu { color: #06287e; }
+code.sourceCode span.re { }
+code.sourceCode span.er { color: red; font-weight: bold; }
+  </style>
+</head>
+<body>
+<h1 class="title">Parsing and continuations</h1>
+<h1 id="lets-talk-about-parsing">Let's talk about parsing</h1>
+<p>A whole lot of programming involves interacting with external sources of data:</p>
+<ul>
+<li><p>Files</p></li>
+<li><p>Network peers</p></li>
+</ul>
+<p>Sometimes the data from these sources is wrapped up behind a nice API, but often we need to interpret it ourselves.</p>
+<h1 id="example-http-1.1">Example: HTTP 1.1</h1>
+<p>Here's the beginning of one of the most famous network protocols around, the BNF definition of a HTTP 1.1 request:</p>
+<pre><code>Request = Request-Line              ; Section 5.1
+          *(( general-header        ; Section 4.5
+           | request-header         ; Section 5.3
+           | entity-header ) CRLF)  ; Section 7.1
+          CRLF
+          [ message-body ]          ; Section 4.3
+</code></pre>
+<p>(The BNF grammar used above is typical of the IETF, and is defined in <a href="http://www.w3.org/Protocols/rfc2616/rfc2616-sec2.html#sec2">RFC 2616 section 2</a> if you're interested.)</p>
+<h1 id="the-two-approaches-to-parsing">The two approaches to parsing</h1>
+<p>Long ago, the ancients wrote all of their parsers by hand, because that was all they could do.</p>
+<p>After a long while, techniques arrived to automatically generate parsers from machine-readable language descriptions.</p>
+<p>Each approach has its advantages. Parser generators remain popular because they are expressive and can catch certain classes of error.</p>
+<p>Why does expressiveness matter? Let's run a quick survey.</p>
+<h1 id="parsing-by-machine-ragel-fragment">Parsing by machine: Ragel fragment</h1>
+<pre class="rl"><code>%%{
+  machine http_parser_common;
+
+  scheme = ( alpha | digit | &quot;+&quot; | &quot;-&quot; | &quot;.&quot; )* ;
+  absolute_uri = (scheme &quot;:&quot; (uchar | reserved )*);
+
+  path = ( pchar+ ( &quot;/&quot; pchar* )* ) ;
+  query = ( uchar | reserved )* %query_string ;
+  param = ( pchar | &quot;/&quot; )* ;
+  params = ( param ( &quot;;&quot; param )* ) ;
+  rel_path = ( path? %request_path (&quot;;&quot; params)? ) (&quot;?&quot; %start_query query)?;
+  absolute_path = ( &quot;/&quot;+ rel_path );
+
+  Request_URI = ( &quot;*&quot; | absolute_uri | absolute_path ) &gt;mark %request_uri;
+  Fragment = ( uchar | reserved )* &gt;mark %fragment;
+  Method = ( upper | digit | safe ){1,20} &gt;mark %request_method;
+
+  http_number = ( digit+ &quot;.&quot; digit+ ) ;
+  HTTP_Version = ( &quot;HTTP/&quot; http_number ) &gt;mark %http_version ;
+  Request_Line = ( Method &quot; &quot; Request_URI (&quot;#&quot; Fragment){0,1} &quot; &quot; HTTP_Version CRLF ) ;
+
+  field_name = ( token -- &quot;:&quot; )+ &gt;start_field %write_field;
+
+  field_value = any* &gt;start_value %write_value;
+
+  message_header = field_name &quot;:&quot; &quot; &quot;* field_value :&gt; CRLF;
+
+  Request = Request_Line ( message_header )* ( CRLF @done );
+
+  main := Request;
+}%%
+</code></pre>
+<h1 id="parsing-by-hand-c-parser-fragment">Parsing by hand: C++ parser fragment</h1>
+<pre class="sourceCode"><code class="sourceCode cpp"><span class="dt">void</span> Response::ProcessStatusLine( std::string <span class="dt">const</span>&amp; line )<br />{<br />    <span class="dt">const</span> <span class="dt">char</span>* p = line.c_str();<br /><br />    <span class="kw">while</span>( *p &amp;&amp; *p == ' ' )<br />        ++p;<br /><br />    <span class="kw">while</span>( *p &amp;&amp; *p != ' ' )<br />        m_VersionString += *p++;<br />    <span class="kw">while</span>( *p &amp;&amp; *p == ' ' )<br />        ++p;<br /><br />    std::string status;<br />    <span class="kw">while</span>( *p &amp;&amp; *p != ' ' )<br />        status += *p++;<br />    <span class="kw">while</span>( *p &amp;&amp; *p == ' ' )<br />        ++p;<br /><br />    <span class="kw">while</span>( *p )<br />        m_Reason += *p++;<br /><br />    m_Status = atoi( status.c_str() );<br />    <span class="kw">if</span>( m_Status &lt; <span class="dv">100</span> || m_Status &gt; <span class="dv">999</span> )<br />        <span class="kw">throw</span> Wobbly( <span class="st">&quot;BadStatusLine (%s)&quot;</span>, line.c_str() );<br /><br />    <span class="kw">if</span>( m_VersionString == <span class="st">&quot;HTTP:/1.0&quot;</span> )<br />        m_Version = <span class="dv">10</span>;<br />    <span class="kw">else</span> <span class="kw">if</span>( <span class="dv">0</span>==m_VersionString.compare( <span class="dv">0</span>,<span class="dv">7</span>,<span class="st">&quot;HTTP/1.&quot;</span> ) )<br />        m_Version = <span class="dv">11</span>;<br />    <span class="kw">else</span><br />        <span class="kw">throw</span> Wobbly( <span class="st">&quot;UnknownProtocol (%s)&quot;</span>, m_VersionString.c_str() );<br /><br />    m_State = HEADERS;<br />    m_HeaderAccum.clear();<br />}</code></pre>
+<h1 id="parsing-by-hand-java-parser-fragment-page-1">Parsing by hand: Java parser fragment, page 1</h1>
+<pre class="sourceCode"><code class="sourceCode java"><span class="kw">public</span> <span class="kw">class</span> HttpResponseParser <span class="kw">extends</span> AbstractMessageParser {<br /><br />    <span class="kw">private</span> <span class="dt">final</span> HttpResponseFactory responseFactory;<br />    <span class="kw">private</span> <span class="dt">final</span> CharArrayBuffer lineBuf;<br /><br />    <span class="kw">public</span> <span class="fu">HttpResponseParser</span>(<br />            <span class="dt">final</span> SessionInputBuffer buffer,<br />            <span class="dt">final</span> LineParser parser,<br />            <span class="dt">final</span> HttpResponseFactory responseFactory,<br />            <span class="dt">final</span> HttpParams params) {<br />        <span class="kw">super</span>(buffer, parser, params);<br />        <span class="kw">if</span> (responseFactory == <span class="kw">null</span>) {<br />            <span class="kw">throw</span> <span class="kw">new</span> IllegalArgumentException(<span class="st">&quot;Response factory may not be null&quot;</span>);<br />        }<br />        <span class="kw">this</span>.<span class="fu">responseFactory</span> = responseFactory;<br />        <span class="kw">this</span>.<span class="fu">lineBuf</span> = <span class="kw">new</span> <span class="fu">CharArrayBuffer</span>(<span class="dv">128</span>);<br />    }</code></pre>
+<h1 id="parsing-by-hand-java-parser-fragment-page-2">Parsing by hand: Java parser fragment, page 2</h1>
+<pre class="sourceCode"><code class="sourceCode java">    <span class="kw">protected</span> HttpMessage <span class="fu">parseHead</span>(<br />            <span class="dt">final</span> SessionInputBuffer sessionBuffer)<br />        <span class="kw">throws</span> IOException, HttpException, ParseException {<br /><br />        <span class="kw">this</span>.<span class="fu">lineBuf</span>.<span class="fu">clear</span>();<br />        <span class="dt">int</span> i = sessionBuffer.<span class="fu">readLine</span>(<span class="kw">this</span>.<span class="fu">lineBuf</span>);<br />        <span class="kw">if</span> (i == -<span class="dv">1</span>) {<br />            <span class="kw">throw</span> <span class="kw">new</span> <span class="fu">NoHttpResponseException</span>(<span class="st">&quot;The target server failed to respond&quot;</span>);<br />        }<br />        <span class="co">//create the status line from the status string</span><br />        ParserCursor cursor = <span class="kw">new</span> <span class="fu">ParserCursor</span>(<span class="dv">0</span>, <span class="kw">this</span>.<span class="fu">lineBuf</span>.<span class="fu">length</span>());<br />        StatusLine statusline = lineParser.<span class="fu">parseStatusLine</span>(<span class="kw">this</span>.<span class="fu">lineBuf</span>, cursor);<br />        <span class="kw">return</span> <span class="kw">this</span>.<span class="fu">responseFactory</span>.<span class="fu">newHttpResponse</span>(statusline, <span class="kw">null</span>);<br />    }<br />}</code></pre>
+<h1 id="a-retrospective">A retrospective</h1>
+<p>With the Ragel fragment, we had most of a parser squeezed into a single page. That's impressive!</p>
+<p>The obvious downsides?</p>
+<ul>
+<li><p>It's a completely unfamiliar language that we'd have to learn.</p></li>
+<li><p>The boundary between Ragel and &quot;real&quot; programming language is not pretty.</p></li>
+</ul>
+<p>The C++ code is very low-level. Pointer arithmetic? It's quite hard to tell what is really going on.</p>
+<p>And the Java? Alas, I cannot find anything very polite to say.</p>
+<h1 id="can-manual-parsing-be-liberated-from-detail">Can manual parsing be liberated from detail?</h1>
+<p>Surely we can achieve a way of parsing that's almost as concise and close to the original BNF as Ragel, but without escaping into a different and unfamiliar language.</p>
+<p>Ragel is a domain-specific language, but we want one that's <em>embedded</em> in Haskell.</p>
+<h1 id="whats-in-a-grammar">What's in a grammar?</h1>
+<p>A modren BNF grammar bears many features that are familiar to functional programmers.</p>
+<ul>
+<li><p>A grammar is built from a combination of smaller rules, just as a function is constructed from smaller operations.</p></li>
+<li><p>Abstract operators such as repetition and choice <em>combine</em> existing rules to create new ones, in the same way that we have combinators to operate on functions.</p></li>
+</ul>
+<p>The resemblance extends to data:</p>
+<ul>
+<li><p>A sequence is similar to a recursive type.</p></li>
+<li><p>An alternative resembles a sum type.</p></li>
+<li><p>A fixed series of tokens looks like a product type.</p></li>
+</ul>
+<h1 id="enter-parsec">Enter Parsec</h1>
+<p>There's a long history of functional programmers writing parsing libraries.</p>
+<p>Parsec (<a href="http://legacy.cs.uu.nl/daan/download/papers/parsec-paper.pdf">Leijen 2001</a>) was the first to be practical for real world use, and is now the most famous.</p>
+<h1 id="parsec-and-attoparsec">Parsec and attoparsec</h1>
+<p>Inspired by Parsec, I wrote a specialized derivative named <a href="http://hackage.haskell.org/package/attoparsec">attoparsec</a>.</p>
+<p>How do the two differ?</p>
+<ul>
+<li><p>It's optimized for fast stream and file parsing, so it works with the <code>ByteString</code> type. Parsec is more general: it can parse <code>String</code> or <code>Text</code>, or other more exotic token types.</p></li>
+<li><p>attoparsec does not attempt to give friendly error messages (no file names or line numbers). Parsec might be a better choice for e.g. parsing source files, where the friendliness/performance tradeoff is a little different.</p></li>
+</ul>
+<p>In this class, we'll talk about attoparsec, because (a) it's my baby (let's be honest!) and (b) we're interested in systems-style applications.</p>
+<h1 id="getting-started-with-attoparsec">Getting started with attoparsec</h1>
+<p>If you don't have it installed on your system, fetch it:</p>
+<pre><code>cabal install attoparsec
+</code></pre>
+<p>All of our examples will assume this language extension:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">{-# LANGUAGE OverloadedStrings #-}</span></code></pre>
+<p>This extension generalizes the type of quoted string constants:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="fu">&gt;&gt;</span> <span class="fu">:</span>set <span class="fu">-</span><span class="dt">XOverloadedStrings</span><br /><span class="fu">&gt;&gt;</span> <span class="kw">import</span> <span class="dt">Data.String</span><br /><span class="fu">&gt;&gt;</span> <span class="fu">:</span><span class="kw">type</span> <span class="st">&quot;foo&quot;</span><br /><span class="st">&quot;foo&quot;</span><span class="ot"> </span><span class="ot">::</span> <span class="dt">IsString</span> a <span class="ot">=&gt;</span> a</code></pre>
+<p>With <code>OverloadedStrings</code> enabled, we can write a string literal of any of the common string-like types:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="fu">&gt;&gt;</span> <span class="kw">import</span> <span class="dt">Data.ByteString.Char8</span><br /><span class="fu">&gt;&gt;</span> <span class="fu">:</span>info <span class="dt">IsString</span><br /><span class="kw">class</span> <span class="dt">IsString</span> a <span class="kw">where</span><br /><span class="ot">    fromString </span><span class="ot">::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> a<br /><span class="kw">instance</span> <span class="dt">IsString</span> [<span class="dt">Char</span>]<br /><span class="kw">instance</span> <span class="dt">IsString</span> <span class="dt">ByteString</span></code></pre>
+<h1 id="parsing-a-request-line">Parsing a request line</h1>
+<p>What does an HTTP request line consist of?</p>
+<pre><code>GET /foo HTTP/1.1
+</code></pre>
+<p>As a data type:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">import</span> <span class="dt">Data.ByteString</span> (<span class="dt">ByteString</span>)<br /><br /><span class="kw">data</span> <span class="dt">Request</span> <span class="fu">=</span> <span class="dt">Request</span> {<br /><span class="ot">      requestMethod  </span><span class="ot">::</span> <span class="dt">ByteString</span><br />    ,<span class="ot"> requestUri     </span><span class="ot">::</span> <span class="dt">ByteString</span><br />    ,<span class="ot"> requestVersion </span><span class="ot">::</span> <span class="dt">ByteString</span><br />    } <span class="kw">deriving</span> (<span class="kw">Eq</span>, <span class="kw">Ord</span>, <span class="kw">Show</span>)</code></pre>
+<h1 id="a-word-about-imports">A word about imports</h1>
+<p>With functions that deal in <code>ByteString</code> values, you'll often see imports like these:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">import</span> <span class="kw">qualified</span> <span class="dt">Data.Attoparsec</span> <span class="kw">as</span> <span class="dt">P</span><br /><span class="kw">import</span> <span class="kw">qualified</span> <span class="dt">Data.Attoparsec.Char8</span> <span class="kw">as</span> <span class="dt">P8</span><br /><br /><span class="kw">import</span> <span class="kw">qualified</span> <span class="dt">Data.ByteString</span> <span class="kw">as</span> <span class="dt">B</span><br /><span class="kw">import</span> <span class="kw">qualified</span> <span class="dt">Data.ByteString.Char8</span> <span class="kw">as</span> <span class="dt">B8</span></code></pre>
+<p>The reason for this is that we'll often have two versions of a function, one specialized for <code>Word8</code> (a byte) and another for &quot;let's cheat, and pretend this <code>Word8</code> is really a <code>Char</code>&quot;:</p>
+<pre class="sourceCode"><code class="sourceCode haskell">B.count<span class="ot">  </span><span class="ot">::</span> <span class="dt">Word8</span> <span class="ot">-&gt;</span> <span class="dt">ByteString</span> <span class="ot">-&gt;</span> <span class="dt">Int</span><br />B8.count<span class="ot"> </span><span class="ot">::</span> <span class="dt">Char</span>  <span class="ot">-&gt;</span> <span class="dt">ByteString</span> <span class="ot">-&gt;</span> <span class="dt">Int</span></code></pre>
+<p>Of course cheating is unsafe. Let's see when we can get away with it.</p>
+<h1 id="bytes-characters-and-cheating">Bytes, characters, and cheating</h1>
+<p>If you're using the <code>ByteString</code> type, you <em>must</em> know when it's reasonably tolerable to cheat and pretend that <code>Word8</code> is <code>Char</code>.</p>
+<ul>
+<li><p>For a protocol such as HTTP 1.1 where the headers are pretty much always 7-bit ASCII text, it's generally okay.</p></li>
+<li><p>Even so, many of these protocols (including HTTP 1.1) have exceptions, so you <em>still</em> have to be careful.</p></li>
+<li><p>Otherwise, you should either always work with <code>Word8</code>, or use a more appropriate type such as <a href="http://hackage.haskell.org/package/text"><code>Text</code></a> or <code>String</code>.</p></li>
+</ul>
+<h1 id="land-of-many-imports">Land of many imports</h1>
+<p>Here are the modules we'll want in order to write our HTTP parser:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">import</span> <span class="dt">Data.ByteString</span> (<span class="dt">ByteString</span>)<br /><span class="kw">import</span> <span class="kw">qualified</span> <span class="dt">Data.ByteString.Char8</span> <span class="kw">as</span> <span class="dt">B8</span><br /><br /><span class="kw">import</span> <span class="dt">Data.Attoparsec</span> <span class="kw">as</span> <span class="dt">P</span><br /><span class="kw">import</span> <span class="dt">Data.Attoparsec.Char8</span> (char8, endOfLine)<br /><span class="kw">import</span> <span class="kw">qualified</span> <span class="dt">Data.Attoparsec.Char8</span> <span class="kw">as</span> <span class="dt">P8</span><br /><br /><span class="kw">import</span> <span class="dt">Control.Applicative</span> <span class="kw">hiding</span> (many)<br /><span class="kw">import</span> <span class="dt">Data.Word</span> (<span class="dt">Word8</span>)<br /><span class="kw">import</span> <span class="dt">Data.Char</span></code></pre>
+<h1 id="actually-parsing-a-request-line">Actually parsing a request line</h1>
+<p>And here's a complete parser.</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">requestLine </span><span class="ot">::</span> <span class="dt">Parser</span> <span class="dt">Request</span><br />requestLine <span class="fu">=</span> <span class="kw">do</span><br />  method <span class="ot">&lt;-</span> P.takeWhile1 isToken <span class="fu">&lt;*</span> char8 <span class="ch">' '</span><br />  cheesyUri <span class="ot">&lt;-</span> P8.takeWhile1 (<span class="fu">/=</span><span class="ch">' '</span>) <span class="fu">&lt;*</span> char8 <span class="ch">' '</span><br />  ver <span class="ot">&lt;-</span> version <span class="fu">&lt;*</span> endOfLine<br />  <span class="fu">return</span> (<span class="dt">Request</span> method cheesyUri ver)<br /><br /><span class="ot">version </span><span class="ot">::</span> <span class="dt">Parser</span> <span class="dt">ByteString</span><br />version <span class="fu">=</span> string <span class="st">&quot;HTTP/&quot;</span> <span class="fu">&gt;&gt;</span><br />          P8.takeWhile (\c <span class="ot">-&gt;</span> <span class="fu">isDigit</span> c <span class="fu">||</span> c <span class="fu">==</span> <span class="ch">'.'</span>)</code></pre>
+<h1 id="starting-small">Starting small</h1>
+<p>Our first observation is that attoparsec's <code>Parser</code> type is monadic, as implied by our use of the <code>&gt;&gt;</code> operator here.</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">version </span><span class="ot">::</span> <span class="dt">Parser</span> <span class="dt">ByteString</span><br />version <span class="fu">=</span> string <span class="st">&quot;HTTP/&quot;</span> <span class="fu">&gt;&gt;</span><br />          P8.takeWhile (\c <span class="ot">-&gt;</span> <span class="fu">isDigit</span> c <span class="fu">||</span> c <span class="fu">==</span> <span class="ch">'.'</span>)</code></pre>
+<p>The <code>string</code> combinator succeeds only if the beginning of the current input matches the given string.</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">string </span><span class="ot">::</span> <span class="dt">ByteString</span> <span class="ot">-&gt;</span> <span class="dt">Parser</span> <span class="dt">ByteString</span></code></pre>
+<p>The <code>P8.takeWhile</code> combinator always succeeds, and consumes input as long as the given predicate returns <code>True</code> on each successive byte (treated as a <code>Char</code>).</p>
+<pre class="sourceCode"><code class="sourceCode haskell">P8.takeWhile<span class="ot"> </span><span class="ot">::</span> (<span class="dt">Char</span> <span class="ot">-&gt;</span> <span class="dt">Bool</span>) <span class="ot">-&gt;</span> <span class="dt">Parser</span> <span class="dt">ByteString</span></code></pre>
+<h1 id="success-and-consumption">Success and consumption</h1>
+<p>An attoparsec parser can do two things.</p>
+<ul>
+<li><p>It may succeed or fail.</p></li>
+<li><p>It may consume input, or leave the input unchanged.</p></li>
+</ul>
+<p>What does it mean to consume input?</p>
+<ul>
+<li>If the current input is <code>&quot;foo&quot;</code>, and we consume one byte, the input will then become <code>&quot;oo&quot;</code>.</li>
+</ul>
+<p>As the previous slide implies, it's possible for a parser to succeed without consuming input.</p>
+<p>A parser may also fail, but consume input while doing so.</p>
+<h1 id="whats-wrong-with-our-version-parser">What's wrong with our version parser?</h1>
+<p>Let's identify, and fix, the problems with that version parsing code.</p>
+<ul>
+<li>This is a mini-lab. It's your job to make it work better, right here in class! You have 5 minutes.</li>
+</ul>
+<p>Along the way, you can take advantage of the fact that <code>Parser</code> is an applicative functor.</p>
+<p>You can also use the very handy &quot;pointy sequencing&quot; combinators:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">(*&gt;) </span><span class="ot">::</span> <span class="dt">Applicative</span> f <span class="ot">=&gt;</span> f a <span class="ot">-&gt;</span> f b <span class="ot">-&gt;</span> f b<br /><span class="ot">(&lt;*) </span><span class="ot">::</span> <span class="dt">Applicative</span> f <span class="ot">=&gt;</span> f a <span class="ot">-&gt;</span> f b <span class="ot">-&gt;</span> f a</code></pre>
+<p>Please explore what they actually do in <code>ghci</code>, and let us know what you figure out!</p>
+<h1 id="while-you-work">While you work</h1>
+<p>When you want to test your parser, use <code>parseOnly</code> or <code>parseTest</code>:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">import</span> <span class="kw">qualified</span> <span class="dt">Data.Attoparsec</span> <span class="kw">as</span> <span class="dt">P</span><br /><br />P.parseOnly<span class="ot"> </span><span class="ot">::</span> <span class="dt">Parser</span> a <span class="ot">-&gt;</span> <span class="dt">ByteString</span> <span class="ot">-&gt;</span> <span class="dt">Either</span> <span class="dt">String</span> a<br />P.parseTest<span class="ot"> </span><span class="ot">::</span> <span class="kw">Show</span> a <span class="ot">=&gt;</span> <span class="dt">Parser</span> a <span class="ot">-&gt;</span> <span class="dt">ByteString</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> ()</code></pre>
+<p>Feel free to ask us questions, and for actual help if you're stuck.</p>
+<p>It's totally reasonable to ask &quot;isn't there surely some pre-existing function that will solve problem <em>x</em> for me already?&quot;</p>
+<ul>
+<li>Remember: if you are stuck or have a question, someone else is probably in the same situation.</li>
+</ul>
+<p>We're not grading your effort here! So don't stress out; we just want to make sure you're understanding how the pieces fit together.</p>
+<h1 id="my-solution">My solution</h1>
+<p>This code is completely applicative: no monadic operations in sight. Hooray!</p>
+<pre class="sourceCode"><code class="sourceCode haskell">betterVersion <span class="fu">=</span> string <span class="st">&quot;HTTP/&quot;</span> <span class="fu">*&gt;</span><br />                ((,) <span class="fu">&lt;$&gt;</span> (P8.decimal <span class="fu">&lt;*</span> char8 <span class="ch">'.'</span>) <span class="fu">&lt;*&gt;</span> P8.decimal)</code></pre>
+<h1 id="next-up">Next up</h1>
+<p>You have 5 minutes to write a parser for the first line of an HTTP response:</p>
+<pre><code>Status-Line = HTTP-Version SP Status-Code SP Reason-Phrase CRLF
+</code></pre>
+<p>Where:</p>
+<ul>
+<li><p><code>SP</code> is a space character</p></li>
+<li><p><code>CRLF</code> is a carriage return followed by a line feed</p></li>
+<li><p><code>Status-Code</code> is a 3-digit number</p></li>
+<li><p><code>Reason-Phrase</code> is any text <em>excluding</em> <code>CR</code> and <code>LF</code></p></li>
+</ul>
+<h1 id="my-solution-1">My solution</h1>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">responseLine </span><span class="ot">::</span> <span class="dt">Parser</span> ((<span class="dt">Int</span>,<span class="dt">Int</span>,<span class="dt">Int</span>), <span class="dt">ByteString</span>)<br />responseLine <span class="fu">=</span><br />    (,) <span class="fu">&lt;$&gt;</span> (betterVersion <span class="fu">*&gt;</span> sp <span class="fu">*&gt;</span> xxx <span class="fu">&lt;*</span> sp) <br />        <span class="fu">&lt;*&gt;</span> P.takeTill P8.isEndOfLine <span class="fu">&lt;*</span> P8.endOfLine<br />  <span class="kw">where</span> xxx <span class="fu">=</span> (,,) <span class="fu">&lt;$&gt;</span> x <span class="fu">&lt;*&gt;</span> x <span class="fu">&lt;*&gt;</span> x<br />        x <span class="fu">=</span> <span class="fu">digitToInt</span> <span class="fu">&lt;$&gt;</span> P8.digit<br />        sp <span class="fu">=</span> char8 <span class="ch">' '</span></code></pre>
+<p>Let's try it in <code>ghci</code>:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="fu">&gt;&gt;</span> <span class="fu">:</span>set <span class="fu">-</span><span class="dt">XOverloadedStrings</span><br /><span class="fu">&gt;&gt;</span> P.parseOnly responseLine <span class="st">&quot;HTTP/1.1 200 OK\r\n&quot;</span><br /><span class="kw">Right</span> ((<span class="dv">2</span>,<span class="dv">0</span>,<span class="dv">0</span>),<span class="st">&quot;OK&quot;</span>)</code></pre>
+<h1 id="alternatives">Alternatives</h1>
+<p>It often happens that there are several possible valid parses in one spot.</p>
+<p>The <code>Alternative</code> class lets us express this idea: it's like a <code>Monoid</code>, only expressed via applicative functors. (The related class for monads is named <code>MonadPlus</code>.)</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Applicative</span> f <span class="ot">=&gt;</span> <span class="dt">Alternative</span> f <span class="kw">where</span><br />    <span class="co">-- the identity</span><br />    <span class="co">-- usually means &quot;failure&quot;</span><br /><span class="ot">    empty </span><span class="ot">::</span> f a<br /><br />    <span class="co">-- an associative binary operation</span><br />    <span class="co">-- usually means &quot;if a fails, then b&quot;</span><br /><span class="ot">    (&lt;|&gt;) </span><span class="ot">::</span> f a <span class="ot">-&gt;</span> f a <span class="ot">-&gt;</span> f a</code></pre>
+<h1 id="alternatives-in-action">Alternatives in action</h1>
+<p>For example:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Foo</span> <span class="fu">=</span> <span class="dt">Bar</span><br />         <span class="fu">|</span> <span class="dt">Quux</span><br />           <span class="kw">deriving</span> (<span class="kw">Show</span>)<br /><br />foo   <span class="fu">=</span>   (<span class="dt">Bar</span> <span class="fu">&lt;$</span> string <span class="st">&quot;bar&quot;</span>)<br />     <span class="fu">&lt;|&gt;</span>  (<span class="dt">Quux</span> <span class="fu">&lt;$</span> string <span class="st">&quot;quux&quot;</span>)</code></pre>
+<p>(I bet you wonder what that <code>&lt;$</code> operator is. Figure it out!)</p>
+<p>If you have many alternatives to string together, there are some useful combinators:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="co">-- one or more</span><br /><span class="ot">some </span><span class="ot">::</span> <span class="dt">Alternative</span> f <span class="ot">=&gt;</span> f a <span class="ot">-&gt;</span> f [a]<br /><br /><span class="co">-- zero or more</span><br /><span class="ot">many </span><span class="ot">::</span> <span class="dt">Alternative</span> f <span class="ot">=&gt;</span> f a <span class="ot">-&gt;</span> f [a]</code></pre>
+<p>Other types for which their <code>Alternative</code> instances are very handy include <code>STM</code>, <code>[]</code>, and <code>Maybe</code>.</p>
+<h1 id="last-exercise---whew">Last exercise - whew!</h1>
+<p>Here's the BNF for an HTTP <code>Accept</code> header.</p>
+<pre><code>Accept         = &quot;Accept&quot; &quot;:&quot;
+         #( media-range [ accept-params ] )
+media-range    = ( &quot;*/*&quot;
+         | ( type &quot;/&quot; &quot;*&quot; )
+         | ( type &quot;/&quot; subtype )
+         ) *( &quot;;&quot; parameter )
+type           = token
+subtype        = token
+accept-params  = &quot;;&quot; &quot;q&quot; &quot;=&quot; qvalue *( accept-extension )
+accept-extension = &quot;;&quot; token [ &quot;=&quot; ( token | quoted-string ) ]
+</code></pre>
+<p>And here are a couple of simple and more complex examples:</p>
+<pre><code>Accept: audio/*; q=0.2, audio/basic
+
+Accept: text/plain; q=0.5, text/html,
+    text/x-dvi; q=0.8, text/x-c
+</code></pre>
+<p>Go forth and write as much of an <code>Accept</code> parser as you can in 10 minutes.</p>
+<h1 id="yo-dawg">Yo dawg</h1>
+<p>I heard you like continuations.</p>
+<p>So I put a continuation in your continuation.</p>
+<p>So you can continue while you continue.</p>
+<h1 id="what-is-this-i-dont-even">What is this I don't even</h1>
+<p>Let's play around in <code>ghci</code> again.</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="fu">&gt;&gt;</span> <span class="fu">:</span><span class="kw">type</span> P.parse<br />P.parse<span class="ot"> </span><span class="ot">::</span> <span class="dt">Parser</span> a <span class="ot">-&gt;</span> <span class="dt">ByteString</span> <span class="ot">-&gt;</span> <span class="dt">Result</span> a<br /><span class="fu">&gt;&gt;</span> P.parse responseLine <span class="st">&quot;HTTP/1.1&quot;</span><br /><span class="dt">Partial</span> _</code></pre>
+<p>What's that <code>Result</code> type?</p>
+<h1 id="its-all-about-results">It's all about results</h1>
+<p>There are many applications where we are fed partial pieces of input, and can produce a final parse only when we've been given enough input.</p>
+<ul>
+<li>Common case: a TCP connection where we're receiving small segments of input at a time, fragmented on unknown boundaries.</li>
+</ul>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Result</span> r <span class="fu">=</span> <span class="dt">Fail</span> <span class="dt">ByteString</span> [<span class="dt">String</span>] <span class="dt">String</span><br />              <span class="fu">|</span> <span class="dt">Partial</span> (<span class="dt">ByteString</span> <span class="ot">-&gt;</span> <span class="dt">Result</span> r)<br />              <span class="fu">|</span> <span class="dt">Done</span> <span class="dt">ByteString</span> r<br /><br /><span class="kw">instance</span> <span class="kw">Functor</span> <span class="dt">Result</span><br /><span class="kw">instance</span> <span class="kw">Show</span> r <span class="ot">=&gt;</span> <span class="kw">Show</span> (<span class="dt">Result</span> r)</code></pre>
+<p>The <code>Partial</code> constructor captures that behaviour.</p>
+<ul>
+<li><p>It contains a <em>function</em> that indicates that we cannot give an answer until the function is fed more input.</p></li>
+<li><p>We can start feeding the parser input as soon as we have some, and if it doesn't return <code>Fail</code> or <code>Done</code>, we can &quot;refill&quot; it once more input arrives.</p></li>
+<li><p>Completely separates the concern of parsing from those of connection management, buffering (not needed at all), timeouts, and the like.</p></li>
+</ul>
+<h1 id="behind-the-scenes">Behind the scenes</h1>
+<p>attoparsec achieves this magical-seeming behaviour by being built entirely (and invisibly!) using <em>continuations</em>.</p>
+<p>At any time, there are two continuations in play:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="co">-- What to do if the current parse fails.</span><br /><span class="kw">type</span> <span class="dt">Failure</span>   r <span class="fu">=</span> <span class="dt">Input</span> <span class="ot">-&gt;</span> <span class="dt">Added</span> <span class="ot">-&gt;</span> <span class="dt">More</span> <span class="ot">-&gt;</span> [<span class="dt">String</span>] <span class="ot">-&gt;</span> <span class="dt">String</span> <br />                <span class="ot">-&gt;</span> <span class="dt">Result</span> r<br /><span class="co">-- The Strings above are for reporting an error message.</span><br /><br /><span class="co">-- What to do if the current parse succeeds.</span><br /><span class="kw">type</span> <span class="dt">Success</span> a r <span class="fu">=</span> <span class="dt">Input</span> <span class="ot">-&gt;</span> <span class="dt">Added</span> <span class="ot">-&gt;</span> <span class="dt">More</span> <span class="ot">-&gt;</span> a <br />                <span class="ot">-&gt;</span> <span class="dt">Result</span> r</code></pre>
+<p>What are those other types that they refer to?</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="co">-- The current input.</span><br /><span class="kw">newtype</span> <span class="dt">Input</span> <span class="fu">=</span> <span class="dt">I</span> {<span class="ot">unI </span><span class="ot">::</span> <span class="dt">B.ByteString</span>}<br /><br /><span class="co">-- Input that was fed to us when we returned a Partial result.</span><br /><span class="kw">newtype</span> <span class="dt">Added</span> <span class="fu">=</span> <span class="dt">A</span> {<span class="ot">unA </span><span class="ot">::</span> <span class="dt">B.ByteString</span>}<br /><br /><span class="co">-- Have we reached the end of all input?</span><br /><span class="kw">data</span> <span class="dt">More</span> <span class="fu">=</span> <span class="dt">Complete</span> <span class="fu">|</span> <span class="dt">Incomplete</span><br />            <span class="kw">deriving</span> (<span class="kw">Eq</span>, <span class="kw">Show</span>)</code></pre>
+<h1 id="whats-in-a-parser">What's in a parser</h1>
+<p>The scoped type parameter <code>r</code> represents &quot;the rest of the parse&quot;.</p>
+<p>Remember that a scoped type variable effectively lets the callee of a function decide what the concrete type to be used is.</p>
+<p>Here, we've scoped <code>r</code> because we want attoparsec (and not its callers) to decide what the concrete type of the continuation is.</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">{-# LANGUAGE Rank2Types #-}</span><br /><br /><span class="kw">newtype</span> <span class="dt">Parser</span> a <span class="fu">=</span> <span class="dt">Parser</span> {<br /><span class="ot">      runParser </span><span class="ot">::</span> forall r<span class="fu">.</span> <span class="dt">Input</span> <span class="ot">-&gt;</span> <span class="dt">Added</span> <span class="ot">-&gt;</span> <span class="dt">More</span><br />                <span class="ot">-&gt;</span> <span class="dt">Failure</span>   r<br />                <span class="ot">-&gt;</span> <span class="dt">Success</span> a r<br />                <span class="ot">-&gt;</span> <span class="dt">Result</span> r<br />    }</code></pre>
+<h1 id="reducing-the-headache-factor">Reducing the headache factor</h1>
+<p>That is undeniably a beefy definition.</p>
+<p>A parser is a function of five arguments, of which two are continuations. And we're using rank-2 types, too. Yow!</p>
+<p>Here's an easier way to think about it.</p>
+<p>The first three arguments are really just the state of the input. Here is a more traditional way to package up that information:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">InputState</span> <span class="fu">=</span> {<br /><span class="ot">      stInput </span><span class="ot">::</span> <span class="dt">Input</span><br />    ,<span class="ot"> stAdded </span><span class="ot">::</span> <span class="dt">Added</span><br />    ,<span class="ot"> stMore  </span><span class="ot">::</span> <span class="dt">More</span><br />    }</code></pre>
+<p>So really, all we have is input state, what to do on failure, and what to do on success. Looked at this way, it doesn't seem so scary... right?</p>
+<h1 id="games-coders-play">Games coders play</h1>
+<p>The implementation of <code>fmap</code> is simple, and representative of the low-level internals of attoparsec.</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="fu">fmap</span><span class="ot"> </span><span class="ot">::</span> (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> <span class="dt">Parser</span> a <span class="ot">-&gt;</span> <span class="dt">Parser</span> b<br /><span class="fu">fmap</span> f m <span class="fu">=</span> <span class="dt">Parser</span> <span class="fu">$</span> \i0 a0 m0 kf ks <span class="ot">-&gt;</span><br />           <span class="kw">let</span> ks' i1 a1 m1 a <span class="fu">=</span> ks i1 a1 m1 (f a)<br />           <span class="kw">in</span>  runParser m i0 a0 m0 kf ks'</code></pre>
+<p>Throughout the library, much of the code simply replaces either the failure or the success continuation with a different one.</p>
+<p>The case above looks a little daunting, but all we've done is replace the success continuation. The rest is just plumbing.</p>
+<h1 id="asking-for-more-input">Asking for more input</h1>
+<p>Supposing the internal plumbing needs to ask for more input. This is pretty easy to do.</p>
+<pre class="sourceCode"><code class="sourceCode haskell">prompt i0 a0 _m0 kf ks <span class="fu">=</span> <span class="dt">Partial</span> <span class="fu">$</span> \s <span class="ot">-&gt;</span><br />    <span class="kw">if</span> B.null s<br />    <span class="kw">then</span> kf i0 a0 <span class="dt">Complete</span><br />    <span class="kw">else</span> ks (<span class="dt">I</span> (unI i0 <span class="fu">+++</span> s))<br />            (<span class="dt">A</span> (unA a0 <span class="fu">+++</span> s)) <br />        <span class="dt">Incomplete</span></code></pre>
+<h1 id="running-and-ending-a-parse">Running and ending a parse</h1>
+<p>As is usually the case with monads, the user-visible &quot;run this monad&quot; function is quite simple.</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">parse </span><span class="ot">::</span> <span class="dt">Parser</span> a <span class="ot">-&gt;</span> <span class="dt">B.ByteString</span> <span class="ot">-&gt;</span> <span class="dt">Result</span> a<br />parse m s <span class="fu">=</span> runParser m (<span class="dt">I</span> s) (<span class="dt">A</span> B.empty) <span class="dt">Incomplete</span> failK successK</code></pre>
+<p>The only slight complication is that we need to create &quot;terminal continuations&quot;, i.e. continuations that do not chain up yet another continuation, but instead return us to our usual mode of computation.</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">failK </span><span class="ot">::</span> <span class="dt">Failure</span> a<br />failK i0 _a0 _m0 stack msg <span class="fu">=</span> <span class="dt">Fail</span> (unI i0) stack msg<br /><br /><span class="ot">successK </span><span class="ot">::</span> <span class="dt">Success</span> a a<br />successK i0 _a0 _m0 a <span class="fu">=</span> <span class="dt">Done</span> (unI i0) a</code></pre>
+</body>
+
+<!-- Mirrored from www.scs.stanford.edu/11au-cs240h/notes/parsing.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:55:13 GMT -->
+</html>

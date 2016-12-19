@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+    
+<!-- Mirrored from edsko.net/2013/05/09/brief-intro-to-quasi-quotation/ by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:53:50 GMT -->
+<head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <title>edsko.net - Brief Intro to Quasi-Quotation (Show me the types already)</title>
+        <link rel="stylesheet" type="text/css" href="http://edsko.net/css/default.css" />
+    </head>
+    <body>
+        <div id="header">
+            <div id="logo">
+                <a href="http://edsko.net/">edsko.net</a> - Brief Intro to Quasi-Quotation (Show me the types already)
+            </div>
+            <img src="http://edsko.net/images/edskonetheader.jpg" id="header"> 
+            <div id="navigation">
+                <a href="http://edsko.net/">Blog</a>
+                <a href="http://edsko.net/chinese.html">中文</a>
+                <a href="http://edsko.net/pubs.html">Publications</a>
+<!--
+                <a href="/about.html">About</a>
+                <a href="/contact.html">Contact</a>
+                <a href="/archive.html">Archive</a>
+-->                
+            </div>
+        </div>
+
+        <div id="content">
+            <div class="info">
+    <h1>Brief Intro to Quasi-Quotation (Show me the types already)</h1>
+    Posted on May  9, 2013
+    
+    
+</div>
+
+<p>This posts serves as a brief introduction to quasi-quotation in Haskell, because I couldn’t make much sense of the <a href="http://www.haskell.org/haskellwiki/Quasiquotation">existing documentation</a>, which gets bogged down in unnecessary details about writing parsers, the use of SYB, etc. Also, although quasi-quotation borrows syntax from Template Haskell, the TH expression <code>[|e|]</code> and the QQ <code>[qq|e|]</code> are <a href="../../../../../en.wikipedia.org/wiki/False_friend.html">false friends</a> at best.</p>
+<!--more-->
+<h2 id="recap-template-haskell">Recap: Template Haskell</h2>
+<p><a href="http://hackage.haskell.org/packages/archive/template-haskell/2.8.0.0/doc/html/Language-Haskell-TH.html">Template Haskell</a> is a library and language extension for writing Haskell meta programs: Haskell code that generates Haskell code (sometimes called macros in other language communities). The language extension allows us to quote Haskell expressions:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">{-# LANGUAGE TemplateHaskell #-}</span>
+
+<span class="ot">ex1 ::</span> <span class="dt">Q</span> <span class="dt">Exp</span>
+ex1 <span class="fu">=</span> [<span class="fu">|</span> \x <span class="ot">-&gt;</span> x <span class="fu">|</span>]
+
+<span class="ot">ex2 ::</span> <span class="dt">Q</span> <span class="dt">Type</span>
+ex2 <span class="fu">=</span> [t<span class="fu">|</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">String</span> <span class="fu">|</span>]</code></pre></div>
+<p>The quote syntax <code>[| someExpression |]</code> is a convenient way to create quoted expressions; that is, values of type <code>Q Exp</code> ; likewise, <code>[t| someType |]</code> can be used to quote types. <code>Q</code> is the Template Haskell monad, which allows to create fresh variables, get location information, or even perform arbitrary IO; <code>Exp</code> and <code>Type</code> are types from the TH library that reify Haskell expressions and types. There’s nothing special about them; we could have written</p>
+<pre><code>ex2 = return $ AppT (AppT ArrowT ''String) (ConT ''String)</code></pre>
+<p>instead (the double tick indicates we want the name of the type, not the type itself).</p>
+<p>We can use a quoted expression where Haskell expects an expression by splicing it; similarly for quoted types. For instance, we can write</p>
+<pre><code>ex3 :: $ex2
+ex3 = $ex1</code></pre>
+<h2 id="quasi-quotation">Quasi-Quotation</h2>
+<p><a href="http://hackage.haskell.org/packages/archive/template-haskell/latest/doc/html/Language-Haskell-TH-Quote.html">Quasi-quotation</a> extends Template Haskell and makes it possible to write custom parsers. The most important data type is</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">QuasiQuoter</span> <span class="fu">=</span> <span class="dt">QuasiQuoter</span> {
+<span class="ot">    quoteExp  ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Q</span> <span class="dt">Exp</span>
+  ,<span class="ot"> quotePat  ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Q</span> <span class="dt">Pat</span>
+  ,<span class="ot"> quoteType ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Q</span> <span class="dt">Type</span>
+  ,<span class="ot"> quoteDec  ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Q</span> [<span class="dt">Dec</span>] 
+  }</code></pre></div>
+<p>Here’s a trivial example:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">qq1 ::</span> <span class="dt">QuasiQuoter</span>
+qq1 <span class="fu">=</span> <span class="dt">QuasiQuoter</span> {
+          quoteExp <span class="fu">=</span> stringE
+       }</code></pre></div>
+<p>But now here’s the confusing part: consider the following example</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">{-# LANGUAGE QuasiQuotes #-}</span>
+
+<span class="ot">ex4 ::</span> <span class="dt">String</span>
+ex4 <span class="fu">=</span> [qq1<span class="fu">|</span><span class="dt">Hello</span><span class="fu">|</span>]</code></pre></div>
+<p>This is a splice, not a quote! The appropriate parser in the quasi quoter (depending on context) is used to convert the string to a quoted expression, and is then spliced in as an actual Haskell expression; in fact, this example is equivalent to</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">ex4' ::</span> <span class="dt">String</span>
+ex4' <span class="fu">=</span> <span class="fu">$</span>(quoteExp qq1 <span class="st">&quot;Hello&quot;</span>)</code></pre></div>
+<p>Really the only difference is that the syntax is somewhat more convenient, that it automatically picks the right parser for the context (type vs expression, etc.); moreover, quasi-quotes can be used in patterns, as we shall see below.</p>
+<h2 id="meta-variables-and-anti-quotation">Meta-Variables and Anti-Quotation</h2>
+<p>First two more Template Haskell examples:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">ex7 ::</span> <span class="dt">Lift</span> a <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">Q</span> <span class="dt">Exp</span>
+ex7 x <span class="fu">=</span> [<span class="fu">|</span> x <span class="fu">|</span>]
+
+<span class="ot">ex8 ::</span> <span class="dt">Q</span> <span class="dt">Exp</span> <span class="ot">-&gt;</span> <span class="dt">Q</span> <span class="dt">Exp</span>
+ex8 x <span class="fu">=</span> [<span class="fu">|</span> <span class="fu">$</span>x <span class="fu">|</span>]</code></pre></div>
+<p>The first example uses simple type class defined in the TH libraries:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Lift</span> t <span class="kw">where</span>
+<span class="ot">  lift ::</span> t <span class="ot">-&gt;</span> <span class="dt">Q</span> <span class="dt">Exp</span></code></pre></div>
+<p>The second example shows that we can splice inside quotes; actually, ex8 is an identify function (quoting and splicing are inverses). Unless we modify our quasi-quoter, however, the following two functions probably don’t have the intended effect (whatever the intended effect was):</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">ex7' ::</span> a <span class="ot">-&gt;</span> <span class="dt">String</span>
+ex7' x <span class="fu">=</span> [qq1<span class="fu">|</span> x <span class="fu">|</span>]
+
+<span class="ot">ex8' ::</span> a <span class="ot">-&gt;</span> <span class="dt">String</span>
+ex8' x <span class="fu">=</span> [qq1<span class="fu">|</span> <span class="fu">$</span>x <span class="fu">|</span>]</code></pre></div>
+<p>Both of these functions ignore their argument; the first evaluates to the string <code>&quot;x&quot;</code> and the second evaluates to the string <code>&quot;$x&quot;</code>. If we want to support meta-variables we need to modify the parsers for our quasi-quoter. The convention is that parsers in quasi-quoters recognize <code>$x</code> as referring to a meta-variable <code>x</code>. We can define a quasi-quoter that only recognizes these as</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">qq2 ::</span> <span class="dt">QuasiQuoter</span>
+qq2 <span class="fu">=</span> <span class="dt">QuasiQuoter</span> {
+          quoteExp <span class="fu">=</span> \(<span class="ch">'$'</span> <span class="fu">:</span> n) <span class="ot">-&gt;</span> varE (mkName n)
+        }</code></pre></div>
+<p>and then define</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">ex9 ::</span> a <span class="ot">-&gt;</span> a
+ex9 x <span class="fu">=</span> [qq2<span class="fu">|$</span>x<span class="fu">|</span>]</code></pre></div>
+<p>(But note the difference in type between <code>ex8</code> and <code>ex9</code>.) In fact, if we extend our quasi-quoter with a parser for patterns too:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">qq2 ::</span> <span class="dt">QuasiQuoter</span>
+qq2 <span class="fu">=</span> <span class="dt">QuasiQuoter</span> {
+          quoteExp <span class="fu">=</span> \(<span class="ch">'$'</span> <span class="fu">:</span> n) <span class="ot">-&gt;</span> varE (mkName n)
+        , quotePat <span class="fu">=</span> \(<span class="ch">'$'</span> <span class="fu">:</span> n) <span class="ot">-&gt;</span> varP (mkName n)
+        }</code></pre></div>
+<p>then we can also use a quasi-quote in a pattern position (something that TH does not support):</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">ex9' ::</span> a <span class="ot">-&gt;</span> a
+ex9' [qq2<span class="fu">|$</span>x<span class="fu">|</span>] <span class="fu">=</span> [qq2<span class="fu">|$</span>x<span class="fu">|</span>]</code></pre></div>
+<h2 id="conclusions">Conclusions</h2>
+<p>If you are already familiar with Template Haskell then quasi-quotation isn’t much of an extension, except that the resemblance in syntax is confusing and misleading. The only thing I haven’t covered in this short post are <code>dataToExpQ</code> and <code>dataToPatQ</code>, which are basically generic versions of TH’s <code>Lift</code> class, with support for anti-quotation. See Section 3.2 of the <a href="http://www.eecs.harvard.edu/~mainland/publications/mainland07quasiquoting.pdf">original paper</a> for details.</p>
+
+        </div>
+        <div id="footer">
+          edsko.net
+        </div>
+    </body>
+
+<!-- Mirrored from edsko.net/2013/05/09/brief-intro-to-quasi-quotation/ by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:53:51 GMT -->
+</html>

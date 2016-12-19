@@ -1,0 +1,284 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<!-- Mirrored from www.scs.stanford.edu/11au-cs240h/notes/par.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:55:13 GMT -->
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta name="generator" content="pandoc" />
+  <title>Folds and parallelism</title>
+  <style type="text/css">
+table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode, table.sourceCode pre 
+   { margin: 0; padding: 0; border: 0; vertical-align: baseline; border: none; }
+td.lineNumbers { border-right: 1px solid #AAAAAA; text-align: right; color: #AAAAAA; padding-right: 5px; padding-left: 5px; }
+td.sourceCode { padding-left: 5px; }
+code.sourceCode span.kw { color: #007020; font-weight: bold; } 
+code.sourceCode span.dt { color: #902000; }
+code.sourceCode span.dv { color: #40a070; }
+code.sourceCode span.bn { color: #40a070; }
+code.sourceCode span.fl { color: #40a070; }
+code.sourceCode span.ch { color: #4070a0; }
+code.sourceCode span.st { color: #4070a0; }
+code.sourceCode span.co { color: #60a0b0; font-style: italic; }
+code.sourceCode span.ot { color: #007020; }
+code.sourceCode span.al { color: red; font-weight: bold; }
+code.sourceCode span.fu { color: #06287e; }
+code.sourceCode span.re { }
+code.sourceCode span.er { color: red; font-weight: bold; }
+  </style>
+</head>
+<body>
+<h1 class="title">Folds and parallelism</h1>
+<h1 id="a-monday-recap">A Monday recap</h1>
+<p>Someone asked a thoughtful question on Monday about folds, specifically about <code>foldr</code> vs <code>foldl</code> and <code>foldl'</code>.</p>
+<p>I wasn't very happy with the answers I came up with, because I was in a bit of a rush.</p>
+<ul>
+<li><p>Always be suspicious of teachers who get into a muddle if you spring an unexpected question!</p></li>
+<li><p>Do they really know what they're talking about, or are they just good at reading slides?</p></li>
+</ul>
+<p>Today, let's slow down and think about folds a little more.</p>
+<h1 id="folding-from-the-right">Folding from the right</h1>
+<p>Here's the definition of <code>foldr</code>:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="fu">foldr</span><span class="ot"> </span><span class="ot">::</span> (a <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> [a] <span class="ot">-&gt;</span> b<br /><span class="fu">foldr</span> f <span class="fu">=</span> go<br />  <span class="kw">where</span><br />    go (x<span class="fu">:</span>xs) <span class="fu">=</span> f x (go xs)<br />    go z      <span class="fu">=</span> z</code></pre>
+<p>It associates to the right, so here's what a use of <code>foldr</code> looks like, expanded:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="fu">foldr</span> f z [a,b,c,d] <span class="fu">=</span> f a (f b (f c (f d z)))</code></pre>
+<h1 id="foldr-and-strictness-0-of-n">foldr and strictness: 0 of n</h1>
+<p>Suppose we want to sum the elements of a list using <code>foldr</code>:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="fu">foldr</span> (<span class="fu">+</span>) <span class="dv">0</span> [<span class="dv">3</span><span class="fu">..</span><span class="dv">6</span>]</code></pre>
+<p>In order for the <code>(+)</code> operator to add two numbers, it has to know what each one is, so at least for the usual types we work with, it's <em>strict</em> in both of its arguments.</p>
+<p>(Note: <code>(+)</code> is not required to be strict. That behaviour depends on the instance of <code>Num</code> in use.)</p>
+<h1 id="foldr-and-strictness-1-of-n">foldr and strictness: 1 of n</h1>
+<p>Let's do a stepwise expansion of the <code>foldr</code>-based sum.</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="fu">foldr</span> (<span class="fu">+</span>) <span class="dv">0</span> (<span class="dv">3</span><span class="fu">:</span><span class="co">{-...-}</span>) <span class="fu">=</span> <span class="dv">3</span> <span class="fu">+</span> <span class="co">{-...-}</span></code></pre>
+<p>We can't produce an answer after consuming the first element of the list, because <code>+</code> is strict in its arguments.</p>
+<h1 id="foldr-and-strictness-2-of-n">foldr and strictness: 2 of n</h1>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="fu">foldr</span> (<span class="fu">+</span>) <span class="dv">0</span> (<span class="dv">3</span><span class="fu">:</span><span class="dv">4</span><span class="fu">:</span><span class="co">{-...-}</span>) <span class="fu">=</span> <span class="dv">3</span> <span class="fu">+</span> (<span class="dv">4</span> <span class="fu">+</span> <span class="co">{-...-}</span>)</code></pre>
+<p>Neither can we produce an answer after the second element.</p>
+<p>In fact, we're building up an expression that we can't reduce to a smaller form, because we're associating to the right and we haven't seen the rest of the list yet (see the definition of <code>foldr</code>).</p>
+<h1 id="foldr-and-strictness-n-of-n">foldr and strictness: n of n</h1>
+<p>In fact, not until we reach the end of the list do we have a number on the right hand side of a <code>+</code>:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="fu">foldr</span> (<span class="fu">+</span>) <span class="dv">0</span> (<span class="dv">3</span><span class="fu">:</span><span class="dv">4</span><span class="fu">:</span><span class="dv">5</span><span class="fu">:</span><span class="dv">6</span><span class="fu">:</span>[]) <span class="fu">=</span> <span class="dv">3</span> <span class="fu">+</span> (<span class="dv">4</span> <span class="fu">+</span> (<span class="dv">5</span> <span class="fu">+</span> (<span class="dv">6</span> <span class="fu">+</span> <span class="dv">0</span>)))</code></pre>
+<p>What we've done is build up a big expression that we can't evaluate until we've seen the entire list.</p>
+<p>This is due in equal part to two factors:</p>
+<ul>
+<li><p><code>foldr</code> is right associative.</p></li>
+<li><p>The function we're folding with is strict in both arguments.</p></li>
+</ul>
+<h1 id="so-how-about-foldl">So how about foldl?</h1>
+<p>If <code>foldr</code> was getting us all screwed up due to the associativity, maybe <code>foldl</code> will do better.</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="fu">foldl</span><span class="ot"> </span><span class="ot">::</span> (a <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> a) <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> [b] <span class="ot">-&gt;</span> a<br /><span class="fu">foldl</span> f <span class="fu">=</span> go<br />  <span class="kw">where</span><br />    go z (x<span class="fu">:</span>xs) <span class="fu">=</span> go (f z x) xs<br />    go z _      <span class="fu">=</span> z</code></pre>
+<p>Let's see an expansion.</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="fu">foldl</span> f z [a,b,c,d] <span class="fu">=</span> f (f (f (f z a) b) c) d</code></pre>
+<p>Ouch! Maybe we can make that clearer with infix syntax?</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="fu">foldl</span> (<span class="fu">+</span>) z [a,b,c,d] <span class="fu">=</span> (((z <span class="fu">+</span> a) <span class="fu">+</span> b) <span class="fu">+</span> c) <span class="fu">+</span> d</code></pre>
+<h1 id="foldl-and-strictness">foldl and strictness</h1>
+<p>For summing elements, this looks better than <code>foldr</code> on the face of things, because at every step through the list, the function we're folding with can see both of its arguments.</p>
+<p>But there's a catch.</p>
+<p>None of the intermediate results are visible to the caller of <code>foldl</code>, so the caller cannot force those results to be evaluated.</p>
+<p>In other words, we're still building up a big thunk!</p>
+<h1 id="a-strict-left-fold">A strict left fold</h1>
+<p>This function is defined for us in <code>Data.List</code>, and it has the same type as <code>foldl</code>:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">{-# LANGUAGE BangPatterns #-}</span><br /><br /><span class="ot">foldl' </span><span class="ot">::</span> (a <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> a) <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> [b] <span class="ot">-&gt;</span> a<br />foldl' f <span class="fu">=</span> go<br />  <span class="kw">where</span><br />    go <span class="fu">!</span>z (x<span class="fu">:</span>xs) <span class="fu">=</span> go (f z x) xs<br />    go <span class="fu">!</span>z  _     <span class="fu">=</span> z</code></pre>
+<p>The crucial difference lies with the strictness annotation, which forces each intermediate result to be evaluated to WHNF.</p>
+<h1 id="foldl-and-strictness-1-of-n">foldl' and strictness: 1 of n</h1>
+<p>That same sum again.</p>
+<pre class="sourceCode"><code class="sourceCode haskell">foldl' (<span class="fu">+</span>) <span class="dv">0</span> [<span class="dv">1</span>,<span class="dv">2</span>,<span class="dv">3</span>]</code></pre>
+<p>First step:</p>
+<pre class="sourceCode"><code class="sourceCode haskell">foldl' (<span class="fu">+</span>) <span class="dv">0</span> (<span class="dv">1</span><span class="fu">:</span><span class="co">{-...-}</span>) <span class="fu">=</span> foldl' (<span class="dv">0</span><span class="fu">+</span><span class="dv">1</span>) <span class="co">{-...-}</span><br />                         <span class="fu">=</span> foldl' <span class="dv">1</span>     <span class="co">{-...-}</span></code></pre>
+<h1 id="foldl-and-strictness-2-of-n">foldl' and strictness: 2 of n</h1>
+<p>Second step:</p>
+<pre class="sourceCode"><code class="sourceCode haskell">foldl' (<span class="fu">+</span>) <span class="dv">1</span> (<span class="dv">2</span><span class="fu">:</span><span class="co">{-...-}</span>) <span class="fu">=</span> foldl' (<span class="dv">1</span><span class="fu">+</span><span class="dv">2</span>) <span class="co">{-...-}</span><br />                         <span class="fu">=</span> foldl' <span class="dv">2</span>     <span class="co">{-...-}</span></code></pre>
+<p>The structure of <code>foldl'</code> causes us to replace the accumulator <code>z</code> with a new value at each step.</p>
+<p>The strictness annotation (we could have used <code>seq</code> too) causes that accumulator to be evaluated to WHNF before we continue.</p>
+<h1 id="foldl-and-strictness-n-of-n">foldl' and strictness: n of n</h1>
+<p>Last step:</p>
+<pre class="sourceCode"><code class="sourceCode haskell">foldl' (<span class="fu">+</span>) <span class="dv">3</span> [] <span class="fu">=</span> <span class="dv">3</span></code></pre>
+<p>I hope this makes the difference between <code>foldl'</code> and <code>foldr</code> more apparent!</p>
+<h1 id="dont-use-foldl">Don't use foldl</h1>
+<p>It should be clear by now that plain old <code>foldl</code> is very rarely useful.</p>
+<p>In fact, I've <em>never</em> personally found a situation where it was the right kind of fold to use.</p>
+<p>If you find yourself thinking &quot;I need a left fold&quot;, it's safe to assume that <code>foldl'</code> is what you'll need.</p>
+<h1 id="foldr-and-laziness">foldr and laziness</h1>
+<p>We've discussed the fact that using <code>foldr</code> with a strict function is a bad idea, because it generates a chain of thunks.</p>
+<p>What if we used a function that was <em>lazy</em> in its second argument?</p>
+<p>Hmm. Conveniently enough, we have an everyday example of just such a function: the list constructor!</p>
+<p>What does this function do?</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="fu">foldr</span> (<span class="fu">:</span>) []</code></pre>
+<h1 id="a-handy-way-to-think-about-foldr">A handy way to think about foldr</h1>
+<p>Let's do another expansion, but this time we'll align the input list and result expression lexically:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="fu">foldr</span> (<span class="fu">&lt;+&gt;</span>) z <br />  (a  <span class="fu">:</span>  (b  <span class="fu">:</span>  (c  <span class="fu">:</span>  (d  <span class="fu">:</span>  [])))) <span class="fu">=</span><br />  (a <span class="fu">&lt;+&gt;</span> (b <span class="fu">&lt;+&gt;</span> (c <span class="fu">&lt;+&gt;</span> (d <span class="fu">&lt;+&gt;</span> z ))))</code></pre>
+<p>Notice that each <code>(:)</code> in the input list is &quot;replaced&quot; by an application of <code>(&lt;+&gt;)</code> in the result, and the <code>[]</code> at the end is replaced with <code>z</code>.</p>
+<p>(It doesn't matter what <code>(&lt;+&gt;)</code> actually does here. We're purely interested in the structures of the two expressions.)</p>
+<h1 id="quick-exercise-1-map">Quick exercise 1: map</h1>
+<p>Write a version of <code>map</code> that does not pattern match on its input list, but instead uses <code>foldr</code>:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="fu">map</span><span class="ot"> </span><span class="ot">::</span> (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> [a] <span class="ot">-&gt;</span> [b]<br /><br /><span class="fu">map</span> (<span class="fu">+</span><span class="dv">1</span>) [<span class="dv">1</span>,<span class="dv">2</span>,<span class="dv">3</span>] <span class="fu">==</span> [<span class="dv">2</span>,<span class="dv">3</span>,<span class="dv">4</span>]</code></pre>
+<h1 id="quick-exercise-1-my-implementation">Quick exercise 1: my implementation</h1>
+<pre class="sourceCode"><code class="sourceCode haskell">myMap f <span class="fu">=</span> <span class="fu">foldr</span> go []<br />  <span class="kw">where</span> go x xs <span class="fu">=</span> f x <span class="fu">:</span> xs</code></pre>
+<h1 id="quick-exercise-2-filter">Quick exercise 2: filter</h1>
+<p>Write a version of <code>filter</code> that again uses <code>foldr</code>:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="fu">filter</span><span class="ot"> </span><span class="ot">::</span> (a <span class="ot">-&gt;</span> <span class="dt">Bool</span>) <span class="ot">-&gt;</span> [a] <span class="ot">-&gt;</span> [a]<br /><br /><span class="fu">filter</span> <span class="fu">odd</span> [<span class="dv">0</span><span class="fu">..</span><span class="dv">5</span>] <span class="fu">==</span> [<span class="dv">1</span>,<span class="dv">3</span>,<span class="dv">5</span>]</code></pre>
+<h1 id="quick-exercise-2-my-version">Quick exercise 2: my version</h1>
+<pre class="sourceCode"><code class="sourceCode haskell">myFilter p <span class="fu">=</span> <span class="fu">foldr</span> go []<br />  <span class="kw">where</span><br />    go x xs<br />      <span class="fu">|</span> p x       <span class="fu">=</span> x <span class="fu">:</span> xs<br />      <span class="fu">|</span> <span class="fu">otherwise</span> <span class="fu">=</span> xs</code></pre>
+<h1 id="quick-exercise-3-append">Quick exercise 3: append</h1>
+<p>Write an <code>append</code> function that has the same behaviour as the <code>(++)</code> operator:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">(++) </span><span class="ot">::</span> [a] <span class="ot">-&gt;</span> [a] <span class="ot">-&gt;</span> [a]<br /><br />[<span class="dv">1</span>,<span class="dv">2</span>,<span class="dv">3</span>] <span class="fu">++</span> [<span class="dv">4</span>,<span class="dv">5</span>,<span class="dv">6</span>] <span class="fu">==</span> [<span class="dv">1</span>,<span class="dv">2</span>,<span class="dv">3</span>,<span class="dv">4</span>,<span class="dv">5</span>,<span class="dv">6</span>]</code></pre>
+<p>For bonus points, make your implementation as short as possible.</p>
+<h1 id="quick-exercise-3-mine">Quick exercise 3: mine</h1>
+<pre class="sourceCode"><code class="sourceCode haskell">append <span class="fu">=</span> <span class="fu">flip</span> (<span class="fu">foldr</span> (<span class="fu">:</span>))</code></pre>
+<h1 id="parallelism-vs-concurrency">Parallelism vs concurrency</h1>
+<p>A handy rule of thumb for distinguishing the two:</p>
+<ul>
+<li><p>Concurrency: &quot;I have a number of potentially unrelated tasks to deal with.&quot;</p></li>
+<li><p>Parallelism: &quot;I want my single question to be answered sooner if I can throw more resources at the problem.&quot;</p></li>
+</ul>
+<p>Many languages blur these notions together, by providing a &quot;one size fits all&quot; toolkit for concurrency and parallelism.</p>
+<h1 id="what-does-a-concurrent-system-need">What does a concurrent system need?</h1>
+<p>We do not need multiple CPU cores to achieve concurrent processing, nor do we even need threads.</p>
+<p>However, a good language runtime and programming environment <em>will</em> offer improved throughput and latency on concurrent problems if it can use multiple cores.</p>
+<h1 id="what-about-a-parallel-system">What about a parallel system?</h1>
+<p>The essence of parallel programming is to have multiple computing elements process parts of a problem simultaneously.</p>
+<p>GHC provides a &quot;baked in&quot; way of using multiple CPU cores to do this.</p>
+<p>To take advantage of this, we <em>must</em> build our executables with <code>-threaded</code>.</p>
+<p>This links a Haskell program against the &quot;threaded runtime&quot;, which can schedule lightweight Haskell threads across multiple CPU cores, and which can also run parallel programs on those cores.</p>
+<h1 id="low-level-parallel-programming">Low-level parallel programming</h1>
+<p>In the <code>Control.Parallel</code> module lives an intriguing function.</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">par </span><span class="ot">::</span> a <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> b</code></pre>
+<p>This is the parallel cousin to <code>seq</code>. It tells the threaded runtime that it may be beneficial to evaluate the first argument in parallel with the second.</p>
+<p>Like <code>seq</code>, <code>par</code> returns the value of its second argument.</p>
+<h1 id="pseq">pseq</h1>
+<p>As it happens, we need another oddball function to work with <code>par</code>.</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">pseq </span><span class="ot">::</span> a <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> b</code></pre>
+<p>This is semantically identical to <code>seq</code>, but with a subtle operational difference.</p>
+<p><code>seq</code> is strict in <em>both</em> arguments, so the compiler can take an expression like this:</p>
+<pre class="sourceCode"><code class="sourceCode haskell">a <span class="ot">`seq`</span> b </code></pre>
+<p>And transform it into this:</p>
+<pre class="sourceCode"><code class="sourceCode haskell">b <span class="ot">`seq`</span> a <span class="ot">`seq`</span> b</code></pre>
+<p>This can be a problem when annotating code for parallelism, when we need more control over the order of evaluation.</p>
+<p>In contrast to <code>seq</code>, <code>pseq</code> is only strict in its <em>first</em> argument.</p>
+<p>This restricts the transformations that the compiler can perform, and lets us retain control of the evaluation order.</p>
+<h1 id="when-to-use-par">When to use par</h1>
+<p>We use <code>par</code> when two conditions are true:</p>
+<ul>
+<li><p>The first argument is somewhat expensive to compute.</p></li>
+<li><p>We don't have an immediate need for the result of the first computation.</p></li>
+</ul>
+<p>If the first argument is too cheap, then the book-keeping overhead to evaluate it in parallel will diminish or erase any performance gain.</p>
+<h1 id="futures">Futures</h1>
+<p>The <code>par</code> operator makes use of the overlap between lazy evaluation and futures.</p>
+<p>To implement lazy evaluation, we need <em>thunks</em>: a representation for expressions which are not yet evaluated but whose value may later be demanded.</p>
+<p>A <em>future</em> is a computation whose value is being evaluated in parallel and which we may wait for.</p>
+<p><code>par</code> offers a way to annotate a lazy computation as being potentially profitable to evaluate in parallel.</p>
+<p>In other words, it turns a lazy computation into a future.</p>
+<h1 id="o-rly">O rly?</h1>
+<p>In practice, <code>par</code> and <code>pseq</code> are a pain in the neck to use.</p>
+<p>To use <code>par</code> effectively, we have to get some surprisingly subtle things right:</p>
+<ol style="list-style-type: decimal">
+<li><p>Pass an unevaluated computation to <code>par</code></p></li>
+<li><p>The unevaluated computation must be somewhat expensive</p></li>
+<li><p>Ensure that its value will not be required by the enclosing computation for a while</p></li>
+<li><p>Ensure that the result is shared by the rest of the program</p></li>
+</ol>
+<p>If we miss any of 1 through 3, then we achieve little or no speedup.</p>
+<p>If we miss 4, then the GC may get rid of the computed result before it can be used.</p>
+<ul>
+<li>In practice, even experts fall afoul of these requirements on a regular basis.</li>
+</ul>
+<h1 id="the-par-monad">The Par monad</h1>
+<p>The <code>monad-par</code> package provides a library that makes parallelism easier to achieve and reason about.</p>
+<pre><code>cabal install monad-par
+</code></pre>
+<p>It gives us a type named <code>Par</code>:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">newtype</span> <span class="dt">Par</span> a<br /><br /><span class="kw">instance</span> <span class="kw">Functor</span> <span class="dt">Par</span><br /><span class="kw">instance</span> <span class="dt">Applicative</span> <span class="dt">Par</span><br /><span class="kw">instance</span> <span class="kw">Monad</span> <span class="dt">Par</span></code></pre>
+<p>To evaluate a <code>Par</code> computation, we use <code>runPar</code>:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">runPar </span><span class="ot">::</span> <span class="dt">Par</span> a <span class="ot">-&gt;</span> a</code></pre>
+<p>Notice that this has no side effects, so it will run deterministically.</p>
+<h1 id="building-blocks">Building blocks</h1>
+<p>To start a parallel computation, we use the <code>fork</code> action:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">fork </span><span class="ot">::</span> <span class="dt">Par</span> () <span class="ot">-&gt;</span> <span class="dt">Par</span> ()</code></pre>
+<p>Forked tasks need a way to communicate with each other, for which we use the <code>IVar</code> type:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">IVar</span> a<br />    <span class="kw">deriving</span> (<span class="kw">Eq</span>)<br /><br /><span class="ot">new </span><span class="ot">::</span> <span class="dt">Par</span> (<span class="dt">IVar</span> a)<br /><span class="ot">get </span><span class="ot">::</span> <span class="dt">IVar</span> a <span class="ot">-&gt;</span> <span class="dt">Par</span> a<br /><span class="ot">put </span><span class="ot">::</span> (<span class="dt">NFData</span> a) <span class="ot">=&gt;</span> <span class="dt">IVar</span> a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">Par</span> ()</code></pre>
+<p>The <code>IVar</code> type is a <em>write-once</em> mutable reference. The <code>get</code> function blocks until a <code>put</code> has been performed.</p>
+<h1 id="the-nfdata-class">The NFData class</h1>
+<p>We know that <code>seq</code> evaluates an expression to WHNF, but sometimes we want to completely evaluate an expression to normal form.</p>
+<p>Enter the <code>deeqseq</code> package:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">import</span> <span class="dt">Control.DeepSeq</span><br /><br /><span class="kw">class</span> <span class="dt">NFData</span> a <span class="kw">where</span><br /><span class="ot">    rnf </span><span class="ot">::</span> a <span class="ot">-&gt;</span> ()</code></pre>
+<p>We can write an <code>NFData</code> instance for any custom type. Our <code>rnf</code> implementation must reduce an expression to normal form.</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Foo</span> a <span class="fu">=</span> <span class="dt">Foo</span> <span class="dt">Int</span> a<br /><br /><span class="kw">instance</span> (<span class="dt">NFData</span> a) <span class="ot">=&gt;</span> <span class="dt">NFData</span> (<span class="dt">Foo</span> a) <span class="kw">where</span><br />    rnf (<span class="dt">Foo</span> x y) <span class="fu">=</span> rnf x <span class="ot">`seq`</span> rnf y</code></pre>
+<h1 id="higher-level-operations">Higher level operations</h1>
+<p>An extremely common pattern is for a thread to <code>fork</code> several children and wait for them to finish.</p>
+<p>We can easily capture this idea with a suitable combinator.</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">spawn </span><span class="ot">::</span> (<span class="dt">NFData</span> a) <span class="ot">=&gt;</span> <span class="dt">Par</span> a <span class="ot">-&gt;</span> <span class="dt">Par</span> (<span class="dt">IVar</span> a)<br />spawn act <span class="fu">=</span> <span class="kw">do</span><br />  i <span class="ot">&lt;-</span> new<br />  fork (put i <span class="fu">=&lt;&lt;</span> act)<br />  <span class="fu">return</span> i</code></pre>
+<p>In fact, usually all we want is to simply wait for all children and return a list of their results.</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">parMapM </span><span class="ot">::</span> (<span class="dt">NFData</span> b) <span class="ot">=&gt;</span> (a <span class="ot">-&gt;</span> <span class="dt">Par</span> b) <span class="ot">-&gt;</span> [a] <span class="ot">-&gt;</span> <span class="dt">Par</span> [b]<br />parMapM f acts <span class="fu">=</span> <span class="kw">do</span> <br />  ivars <span class="ot">&lt;-</span> <span class="fu">mapM</span> (spawn <span class="fu">.</span> f) acts<br />  <span class="fu">mapM</span> get ivars</code></pre>
+<h1 id="computing-the-mean-of-a-sample">Computing the mean of a sample</h1>
+<p>Suppose we need the mean of a list of numbers. The naive way to do so would be <code>sum xs / length xs</code>, but this has numerical stability problems.</p>
+<p>Here's a more stable method:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">import</span> <span class="dt">Data.List</span><br /><br /><span class="kw">data</span> <span class="dt">T</span> a <span class="fu">=</span> <span class="dt">T</span> <span class="fu">!</span>a <span class="fu">!</span><span class="dt">Int</span><br /><br /><span class="ot">mean </span><span class="ot">::</span> (<span class="kw">RealFrac</span> a) <span class="ot">=&gt;</span> [a] <span class="ot">-&gt;</span> a<br />mean <span class="fu">=</span> fini <span class="fu">.</span> foldl' go (<span class="dt">T</span> <span class="dv">0</span> <span class="dv">0</span>)<br />  <span class="kw">where</span><br />    fini (<span class="dt">T</span> a _) <span class="fu">=</span> a<br />    go (<span class="dt">T</span> m n) x <span class="fu">=</span> <span class="dt">T</span> m' n'<br />      <span class="kw">where</span> m' <span class="fu">=</span> m <span class="fu">+</span> (x <span class="fu">-</span> m) <span class="fu">/</span> <span class="fu">fromIntegral</span> n'<br />            n' <span class="fu">=</span> n <span class="fu">+</span> <span class="dv">1</span></code></pre>
+<h1 id="questionable-numbers">Questionable numbers</h1>
+<p>Supposing we have a set of sample data that we know little about, in particular its precision and variance.</p>
+<p>This is exactly the kind of problem that the criterion benchmarking library faces: we have performance data, but it's dirty and doesn't follow any particular statistical distribution.</p>
+<p>A technique called the <a href="http://en.wikipedia.org/wiki/Resampling_(statistics)">jackknife</a> lets us estimate these parameters.</p>
+<p>We successively recompute a function (such as <code>mean</code>) over subsets of a sample, each time with a sliding window cut out.</p>
+<p>For a <span class="math"><em>w</em></span>-width window and <span class="math"><em>k</em></span> samples, the jackknife has a cost of <span class="math"><em>O</em>((<em>k</em> - <em>w</em>)<sup>2</sup>)</span>.</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">jackknife </span><span class="ot">::</span> ([a] <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> [a] <span class="ot">-&gt;</span> [b]<br />jackknife f <span class="fu">=</span> <span class="fu">map</span> f <span class="fu">.</span> resamples <span class="dv">500</span></code></pre>
+<h1 id="resampling">Resampling</h1>
+<p>It's easy to write a resampling function using familiar building blocks.</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">resamples </span><span class="ot">::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> [a] <span class="ot">-&gt;</span> [[a]]<br />resamples k xs <span class="fu">=</span><br />    <span class="fu">take</span> (<span class="fu">length</span> xs <span class="fu">-</span> k) <span class="fu">$</span><br />    <span class="fu">zipWith</span> (<span class="fu">++</span>) (inits xs) (<span class="fu">map</span> (<span class="fu">drop</span> k) (tails xs))</code></pre>
+<p>Our function resamples a list with a window size of <code>k</code>.</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="fu">&gt;&gt;</span> resamples <span class="dv">2</span> [<span class="dv">0</span><span class="fu">..</span><span class="dv">5</span>]<br />[[    <span class="dv">2</span>,<span class="dv">3</span>,<span class="dv">4</span>,<span class="dv">5</span>],<br /> [<span class="dv">0</span>,    <span class="dv">3</span>,<span class="dv">4</span>,<span class="dv">5</span>],<br /> [<span class="dv">0</span>,<span class="dv">1</span>,    <span class="dv">4</span>,<span class="dv">5</span>],<br /> [<span class="dv">0</span>,<span class="dv">1</span>,<span class="dv">2</span>,    <span class="dv">5</span>]]</code></pre>
+<h1 id="speeding-up-the-jackknife">Speeding up the jackknife</h1>
+<p>The nice thing about the jackknife is that each element of the result list is independent, so it's an &quot;embarrassingly parallel&quot; problem.</p>
+<p>The <code>monad-par</code> package is very helpful in making this trivial to parallelize.</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">import</span> <span class="dt">Control.Monad.Par</span> (runPar, parMap)<br /><br />jackknifeP f <span class="fu">=</span> runPar <span class="fu">.</span> parMap f <span class="fu">.</span> resamples <span class="dv">500</span></code></pre>
+<p>Let's try it out!</p>
+<h1 id="suitably-noisy-data">Suitably noisy data</h1>
+<div class="figure">
+<img src="http://www.scs.stanford.edu/11au-cs240h/notes/foo.png" alt="Noise!" /><p class="caption">Noise!</p>
+</div>
+<h1 id="a-test-program">A test program</h1>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">import</span> <span class="dt">System.Random.Mersenne</span><br /><br />crud <span class="fu">=</span> <span class="fu">zipWith</span> (\x a <span class="ot">-&gt;</span> <span class="fu">sin</span> (x <span class="fu">/</span> <span class="dv">300</span>)<span class="fu">**</span><span class="dv">2</span> <span class="fu">+</span> a) [<span class="dv">0</span><span class="fu">..</span>]<br /><br />main <span class="fu">=</span> <span class="kw">do</span><br />  (xs,ys) <span class="ot">&lt;-</span> <span class="fu">splitAt</span> <span class="dv">1500</span> <span class="fu">.</span> <span class="fu">take</span> <span class="dv">6000</span> <span class="fu">&lt;$&gt;</span> (randoms <span class="fu">=&lt;&lt;</span> getStdGen)<br />  <span class="kw">let</span> rs <span class="fu">=</span> crud xs <span class="fu">++</span> ys<br />  <span class="fu">putStrLn</span> <span class="fu">$</span> <span class="st">&quot;sample mean:    &quot;</span> <span class="fu">++</span> <span class="fu">show</span> (mean rs)<br /><br />  <span class="kw">let</span> j <span class="fu">=</span> jackknifeP mean rs<br />  <span class="fu">putStrLn</span> <span class="fu">$</span> <span class="st">&quot;jack mean min:  &quot;</span> <span class="fu">++</span> <span class="fu">show</span> (<span class="fu">minimum</span> j)<br />  <span class="fu">putStrLn</span> <span class="fu">$</span> <span class="st">&quot;jack mean max:  &quot;</span> <span class="fu">++</span> <span class="fu">show</span> (<span class="fu">maximum</span> j)</code></pre>
+<h1 id="compiling">Compiling</h1>
+<p>We have to remember to build using <em>both</em> <code>-threaded</code> and <code>-rtsopts</code>.</p>
+<pre><code>ghc -O --make -rtsopts -threaded Jackknife
+</code></pre>
+<ul>
+<li><p><code>-threaded</code> gives us the threaded runtime.</p></li>
+<li><p>We'll need <code>-rtsopts</code> to tell the RTS how many cores to use. <em>It will default to just one if we do not specify otherwise</em>.</p></li>
+</ul>
+<p>To use e.g. 3 cores:</p>
+<pre><code>./Jackknife +RTS -N3
+</code></pre>
+<p>If we want to use all cores:</p>
+<pre><code>./Jackknife +RTS -N
+</code></pre>
+<h1 id="other-approaches-to-parallelism">Other approaches to parallelism</h1>
+<p>Meanwhile, <code>par</code> and the <code>monad-par</code> packages are not the only ways to achieve parallel speedups in Haskell.</p>
+<p>There are other more &quot;researchy&quot; projects under way:</p>
+<ul>
+<li><p>For multicore machines: Data Parallel Haskell</p></li>
+<li><p>For GPU computing: the accelerate package</p></li>
+</ul>
+<h1 id="data-parallel-haskell">Data Parallel Haskell</h1>
+<p><a href="http://www.haskell.org/haskellwiki/GHC/Data_Parallel_Haskell">DPH</a> is the name of a research project to support <a href="http://www.cs.cmu.edu/~scandal/cacm/cacm2.html">nested data parallelism</a> under GHC on multicore CPUs.</p>
+<p>Nested data parallelism extends the programming model of <em>flat</em> data parallelism, as known from modern Fortran dialects, to:</p>
+<ul>
+<li><p>Irregular parallel computations (such as divide-and-conquer algorithms) and</p></li>
+<li><p>Irregular data structures (such as sparse matrices and tree structures).</p></li>
+</ul>
+<p>This project is still a work in progress, and is quite technically intricate.</p>
+<h1 id="accelerate">Accelerate</h1>
+<p>The <a href="http://hackage.haskell.org/package/accelerate">accelerate library</a> defines an embedded language for regular, multi-dimensional array computations with multiple backends to facilitate high-performance implementations.</p>
+<p>Currently, there are two backends:</p>
+<ul>
+<li><p>An interpreter that serves as a reference implementation of the intended semantics of the language.</p></li>
+<li><p>A <a href="http://www.nvidia.com/object/cuda_home_new.html">CUDA</a> backend generating code for CUDA-capable NVIDIA GPUs.</p></li>
+</ul>
+<h1 id="busting-a-myth">Busting a myth</h1>
+<p>You'll sometimes hear uninformed people claim that functional programming is some kind of magic pixie dust for parallel programming.</p>
+<p>This is not really true.</p>
+<p>Certainly, aspects of the programming model make incidental parts of the problem easier.</p>
+<p>However, tricky considerations like data dependencies, memory placement, and thread scheduling have every bit as insidious an effect on parallel performance in Haskell as in C.</p>
+<p>Parallel programming is a <em>subtle art</em> no matter which language you do it in.</p>
+</body>
+
+<!-- Mirrored from www.scs.stanford.edu/11au-cs240h/notes/par.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:55:13 GMT -->
+</html>

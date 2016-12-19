@@ -1,0 +1,439 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<!-- Mirrored from www.scs.stanford.edu/11au-cs240h/notes/iteratee.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:55:13 GMT -->
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta name="generator" content="pandoc" />
+  <title></title>
+  <style type="text/css">
+/*<![CDATA[*/
+table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode, table.sourceCode pre 
+   { margin: 0; padding: 0; border: 0; vertical-align: baseline; border: none; }
+td.lineNumbers { border-right: 1px solid #AAAAAA; text-align: right; color: #AAAAAA; padding-right: 5px; padding-left: 5px; }
+td.sourceCode { padding-left: 5px; }
+code.sourceCode span.kw { color: #007020; font-weight: bold; } 
+code.sourceCode span.dt { color: #902000; }
+code.sourceCode span.dv { color: #40a070; }
+code.sourceCode span.bn { color: #40a070; }
+code.sourceCode span.fl { color: #40a070; }
+code.sourceCode span.ch { color: #4070a0; }
+code.sourceCode span.st { color: #4070a0; }
+code.sourceCode span.co { color: #60a0b0; font-style: italic; }
+code.sourceCode span.ot { color: #007020; }
+code.sourceCode span.al { color: red; font-weight: bold; }
+code.sourceCode span.fu { color: #06287e; }
+code.sourceCode span.re { }
+code.sourceCode span.er { color: red; font-weight: bold; }
+/*]]>*/
+  </style>
+</head>
+<body>
+<h1 id="simple-programming-task-count-lines">Simple programming task: count lines</h1>
+<ul>
+<li><p>Here's a Unix command to count lines in include files</p>
+<pre><code>find /usr/include -type f -print | xargs cat | wc -l
+</code></pre></li>
+<li>Let's implement the same thing in Haskell
+<ul>
+<li><p>Examples will require the following imports</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">import</span> <span class="dt">Control.Exception</span><br /><span class="kw">import</span> <span class="dt">Control.Monad</span><br /><span class="kw">import</span> <span class="kw">qualified</span> <span class="dt">Data.ByteString.Strict</span> <span class="kw">as</span> <span class="dt">S</span><br /><span class="kw">import</span> <span class="kw">qualified</span> <span class="dt">Data.ByteString.Lazy</span> <span class="kw">as</span> <span class="dt">L</span><br /><span class="kw">import</span> <span class="kw">qualified</span> <span class="dt">Data.ByteString.Lazy.Char8</span> <span class="kw">as</span> <span class="dt">L8</span><br /><span class="kw">import</span> <span class="dt">System.FilePath</span><br /><span class="kw">import</span> <span class="dt">System.Posix</span><br /><span class="kw">import</span> <span class="dt">System.IO.Unsafe</span>    <span class="co">-- for understanding, not recommended</span></code></pre></li>
+<li><p>Note in particular <code>Control.Monad</code> generalizes <code>liftM</code> to more args</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">liftM   </span><span class="ot">::</span> (<span class="kw">Monad</span> m) <span class="ot">=&gt;</span> (a1 <span class="ot">-&gt;</span> r) <span class="ot">-&gt;</span> m a1 <span class="ot">-&gt;</span> m r<br />liftM f m1 <span class="fu">=</span> <span class="kw">do</span> { x1 <span class="ot">&lt;-</span> m1; <span class="fu">return</span> (f x1) }<br /><br /><span class="ot">liftM2  </span><span class="ot">::</span> (<span class="kw">Monad</span> m) <span class="ot">=&gt;</span> (a1 <span class="ot">-&gt;</span> a2 <span class="ot">-&gt;</span> r) <span class="ot">-&gt;</span> m a1 <span class="ot">-&gt;</span> m a2 <span class="ot">-&gt;</span> m r<br />liftM2 f m1 m2 <span class="fu">=</span> <span class="kw">do</span> { x1 <span class="ot">&lt;-</span> m1; x2 <span class="ot">&lt;-</span> m2; <span class="fu">return</span> (f x1 x2) }<br /><br /><span class="co">-- also liftM3, liftM4, liftM5</span></code></pre></li>
+</ul></li>
+</ul>
+<h1 id="solution-overview">Solution overview</h1>
+<ul>
+<li><p>We need a function to lists all files under a directory recursively</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">recDir </span><span class="ot">::</span> <span class="fu">FilePath</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> [<span class="fu">FilePath</span>]</code></pre>
+<ul>
+<li>We'll consider how to implement this function shortly</li>
+</ul></li>
+<li><p>We need a function to read the contents of a list of files</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">readFiles </span><span class="ot">::</span> [<span class="fu">FilePath</span>] <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">L.ByteString</span><br />readFiles [] <span class="fu">=</span> <span class="fu">return</span> L.empty<br />readFiles (f<span class="fu">:</span>fs) <span class="fu">=</span> liftM2 L.append (L.readFile f)<br />                   (readFiles fs)</code></pre></li>
+<li>Can count newlines with <code>Data.ByteString.Lazy.count</code>
+<ul>
+<li>Actually use <code>.Char8</code> version to truncate <code>'\n'</code> to a <code>Word8</code></li>
+</ul>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">countLines </span><span class="ot">::</span> <span class="fu">FilePath</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> ()<br />countLines dir <span class="fu">=</span><br />    recDir dir <span class="fu">&gt;&gt;=</span> readFiles <span class="fu">&gt;&gt;=</span> <span class="fu">print</span> <span class="fu">.</span> L8.count <span class="ch">'\n'</span></code></pre></li>
+</ul>
+<h1 id="lets-try-this">Let's try this:</h1>
+<pre><code>*Main&gt; countLines &quot;/etc/rc.d&quot;
+4979
+*Main&gt; countLines &quot;/usr/include&quot;
+*** Exception: /usr/include/dovecot/master-service-settings.h: 
+openBinaryFile: resource exhausted (Too many open files)
+</code></pre>
+<ul>
+<li><p>Oops, what happened? Let's investigate with using <a href="http://people.freebsd.org/~abe/"><code>lsof</code></a> utility</p>
+<pre><code>*Main&gt; x &lt;- readFiles [&quot;/etc/motd&quot;, &quot;/etc/resolv.conf&quot;]
+*Main&gt; :!lsof -c ghc
+...
+ghc   4008   dm   7r   REG  8,3     0 2752575 /etc/motd
+ghc   4008   dm   8r   REG  8,3   152 2752562 /etc/resolv.conf
+*Main&gt; L.length x
+152
+*Main&gt; :!lsof -c ghc
+[gone]
+</code></pre>
+<ul>
+<li>Lazy I/O in <code>L.readFile</code> causes files to be opened but not read</li>
+<li><code>L.length</code>, a supposedly pure function, causes files to be read and closed!</li>
+<li>If we call <code>L.readFile</code> a lot without forcing I/O, run out of file descriptors</li>
+</ul></li>
+</ul>
+<h1 id="lazy-io-review">Lazy I/O review</h1>
+<ul>
+<li><p>Recall <code>unsafeInterleaveIO</code> from <a href="http://hackage.haskell.org/packages/archive/base/latest/doc/html/System-IO-Unsafe.html"><code>System.IO.Unsafe</code></a></p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">unsafeInterleaveIO </span><span class="ot">::</span> <span class="dt">IO</span> a <span class="ot">-&gt;</span> <span class="dt">IO</span> a</code></pre>
+<ul>
+<li>Returns a thunk that only performs the I/O when forced</li>
+<li>I <em>don't</em> recommend using the function, but do recommend understanding it</li>
+</ul></li>
+<li><p>Let's look at the lazy <code>ByteString</code> <a href="http://hackage.haskell.org/packages/archive/bytestring/latest/doc/html/src/Data-ByteString-Lazy-Internal.html#ByteString">implementation</a></p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">ByteString</span> <span class="fu">=</span> <span class="dt">Empty</span><br />                <span class="fu">|</span> <span class="dt">Chunk</span> <span class="ot">{-# UNPACK #-}</span> <span class="fu">!</span><span class="dt">S.ByteString</span> <span class="dt">ByteString</span><br /><br /><span class="fu">readFile</span> f <span class="fu">=</span> openBinaryFile f <span class="dt">ReadMode</span> <span class="fu">&gt;&gt;=</span> hGetContents<br /><br />hGetContents <span class="fu">=</span> hGetContentsN defaultChunkSize<br /><br />hGetContentsN k h <span class="fu">=</span> lazyRead<br />  <span class="kw">where</span> lazyRead <span class="fu">=</span> unsafeInterleaveIO loop<br />        loop <span class="fu">=</span> <span class="kw">do</span> c <span class="ot">&lt;-</span> S.hGetSome h k<br />                  <span class="kw">if</span> S.null c<br />                    <span class="kw">then</span> hClose h <span class="fu">&gt;&gt;</span> <span class="fu">return</span> <span class="dt">Empty</span><br />                    <span class="kw">else</span> <span class="kw">do</span> cs <span class="ot">&lt;-</span> lazyRead<br />                            <span class="fu">return</span> (<span class="dt">Chunk</span> c cs)</code></pre></li>
+</ul>
+<h1 id="fixing-readfiles">Fixing <code>readFiles</code></h1>
+<ul>
+<li><code>L.readFile</code> opens files immediately, closes when thunk evaluated
+<ul>
+<li>Why? Because most errors happen on file open</li>
+<li>Would be unintuitive call <code>L.length</code>, get &quot;no such file or directory&quot; exception</li>
+</ul></li>
+<li><p>One fix: delay file opens with <code>unsafeInterleaveIO</code></p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">readFiles </span><span class="ot">::</span> [<span class="fu">FilePath</span>] <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">L.ByteString</span><br />readFiles [] <span class="fu">=</span> <span class="fu">return</span> L.empty<br />readFiles (f<span class="fu">:</span>fs) <span class="fu">=</span> liftM2 L.append (L.readFile f)<br />                   (unsafeInterleaveIO <span class="fu">$</span> readFiles fs)</code></pre>
+<ul>
+<li><p>Now doesn't open next file until previous one closed</p>
+<pre><code>*Main&gt; x &lt;- recDir &quot;/etc/rc.d&quot; &gt;&gt;= readFiles
+*Main&gt; :!lsof -c ghc
+... 
+ghc  10180   dm   8r   REG  8,3   894 2754867 /etc/rc.d/healthd
+*Main&gt; L.index x 10000
+62
+*Main&gt; :!lsof -c ghc
+...
+ghc  10180   dm   8r   REG  8,3   779 2753245 /etc/rc.d/sshd
+</code></pre></li>
+</ul></li>
+</ul>
+<h1 id="how-to-implement-recdir">How to implement <code>recDir</code>?</h1>
+<ul>
+<li>Need to list names in a directory</li>
+<li>Need to determine directories, and recurse into them
+<ul>
+<li>Other than directories, we'll ignore non-regular files (symlinks, pipes, etc.)</li>
+</ul></li>
+<li><p>Some useful functions from <code>System.Posix</code>:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">openDirStream </span><span class="ot">::</span> <span class="fu">FilePath</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">DirStream</span><br /><span class="ot">readDirStream </span><span class="ot">::</span> <span class="dt">DirStream</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="fu">FilePath</span>   <span class="co">-- &quot;&quot; at end of dir</span><br /><span class="ot">closeDirStream </span><span class="ot">::</span> <span class="dt">DirStream</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> ()<br /><br /><span class="ot">getSymbolicLinkStatus </span><span class="ot">::</span> <span class="fu">FilePath</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">FileStatus</span>     <span class="co">-- lstat</span><br /><span class="ot">isRegularFile </span><span class="ot">::</span> <span class="dt">FileStatus</span> <span class="ot">-&gt;</span> <span class="dt">Bool</span><br /><span class="ot">isDirectory </span><span class="ot">::</span> <span class="dt">FileStatus</span> <span class="ot">-&gt;</span> <span class="dt">Bool</span></code></pre></li>
+<li><p>A useful combinator from <code>System.Filepath</code></p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">(&lt;/&gt;) </span><span class="ot">::</span> <span class="fu">FilePath</span> <span class="ot">-&gt;</span> <span class="fu">FilePath</span> <span class="ot">-&gt;</span> <span class="fu">FilePath</span>  <span class="co">-- concatenate paths</span></code></pre></li>
+<li>Let's try to do this lazily
+<ul>
+<li>Recurse over huge directory tree without running out of memory</li>
+</ul></li>
+</ul>
+<h1 id="lazy-recdir----first-attempt">lazy <code>recDir</code> -- first attempt</h1>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">recDir </span><span class="ot">::</span> <span class="fu">FilePath</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> [<span class="fu">FilePath</span>]<br />recDir dir <span class="fu">=</span> <span class="kw">do</span><br />  ds <span class="ot">&lt;-</span> openDirStream dir<br /><br />  <span class="kw">let</span> nextName <span class="fu">=</span> unsafeInterleaveIO <span class="fu">$</span> readDirStream ds <span class="fu">&gt;&gt;=</span> checkName<br /><br />      checkName <span class="st">&quot;&quot;</span> <span class="fu">=</span> closeDirStream ds <span class="fu">&gt;&gt;</span> <span class="fu">return</span> []<br />      checkName <span class="st">&quot;.&quot;</span> <span class="fu">=</span> nextName<br />      checkName <span class="st">&quot;..&quot;</span> <span class="fu">=</span> nextName<br />      checkName name <span class="fu">=</span> getSymbolicLinkStatus path <span class="fu">&gt;&gt;=</span> checkStat path<br />          <span class="kw">where</span> path <span class="fu">=</span> dir <span class="fu">&lt;/&gt;</span> name<br /><br />      checkStat path stat<br />          <span class="fu">|</span> isRegularFile stat <span class="fu">=</span> liftM (path <span class="fu">:</span>) nextName<br />          <span class="fu">|</span> isDirectory stat   <span class="fu">=</span> liftM2 (<span class="fu">++</span>) (recDir path) nextName<br />          <span class="fu">|</span> <span class="fu">otherwise</span>          <span class="fu">=</span> nextName<br /><br />  nextName</code></pre>
+<h1 id="testing-recdir">testing <code>recDir</code></h1>
+<pre><code>*Main&gt; countLines &quot;/usr/include&quot;
+3774172
+*Main&gt; x &lt;- recDir &quot;/usr/include&quot;
+*Main&gt; :!lsof -c ghc
+...
+ghc   9412   dm   7r  DIR  254,0 45056    15 /usr/include
+*Main&gt; length x
+19568
+*Main&gt; :!lsof -c ghc
+[gone]
+</code></pre>
+<p>so far so good, but...</p>
+<pre><code>*Main&gt; x &lt;- recDir &quot;/etc&quot;
+*Main&gt; length x
+*** Exception: /etc/sudoers.d: openDirStream:
+permission denied (Permission denied)
+*Main&gt; :!lsof -c ghc
+...
+ghc   9817   dm   7r  DIR  254,0 12288 146200 /etc
+*Main&gt; 
+</code></pre>
+<p>Oops... length threw an exception and now we've leaked a file descriptor!</p>
+<h1 id="lazy-recdir----second-attempt">lazy <code>recDir</code> -- second attempt</h1>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">recDir2 </span><span class="ot">::</span> <span class="fu">FilePath</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> [<span class="fu">FilePath</span>]<br />recDir2 dir <span class="fu">=</span> <span class="kw">do</span><br />  ds <span class="ot">&lt;-</span> openDirStream dir<br />  <span class="kw">let</span> protect m <span class="fu">=</span> m <span class="ot">`onException`</span> closeDirStream ds<br /><br />      nextName <span class="fu">=</span> unsafeInterleaveIO <span class="fu">$</span><br />                 protect (readDirStream ds) <span class="fu">&gt;&gt;=</span> checkName<br /><br />      checkName <span class="st">&quot;&quot;</span> <span class="fu">=</span> closeDirStream ds <span class="fu">&gt;&gt;</span> <span class="fu">return</span> []<br />      checkName <span class="st">&quot;.&quot;</span> <span class="fu">=</span> nextName<br />      checkName <span class="st">&quot;..&quot;</span> <span class="fu">=</span> nextName<br />      checkName name <span class="fu">=</span> getSymbolicLinkStatus path <span class="fu">&gt;&gt;=</span> checkStat path<br />          <span class="kw">where</span> path <span class="fu">=</span> dir <span class="fu">&lt;/&gt;</span> name<br /><br />      checkStat path stat<br />          <span class="fu">|</span> isRegularFile stat <span class="fu">=</span> liftM (path <span class="fu">:</span>) nextName<br />          <span class="fu">|</span> isDirectory stat <span class="fu">=</span><br />              liftM2 (<span class="fu">++</span>) (protect <span class="fu">$</span> recDir2 path) nextName<br />          <span class="fu">|</span> <span class="fu">otherwise</span> <span class="fu">=</span> nextName<br /><br />  nextName</code></pre>
+<ul>
+<li>Add <code>protect</code> function to catch exceptions</li>
+</ul>
+<h1 id="testing-recdir2">Testing <code>recDir2</code></h1>
+<pre><code>*Main&gt; x &lt;- recDir2 &quot;/etc&quot;
+*Main&gt; length x
+*** Exception: /etc/sudoers.d: openDirStream:
+permission denied (Permission denied)
+*Main&gt; :!lsof -c ghc
+[no leaked fd]
+</code></pre>
+<p>We've fixed one file descriptor leak, but exceptions at other times can still leak descriptors...</p>
+<pre><code>*Main&gt; :!mkdir -p /tmp/perm/perm/perm; chmod 0 /tmp/perm/perm/perm
+*Main&gt; recDir2 &quot;/tmp/perm&quot;
+*Main&gt; :!lsof -c ghc
+...
+ghc  7337  dm    8r   DIR   0,17    60 82955 /tmp/perm
+</code></pre>
+<pre><code>*Main&gt; countLines2 &quot;/etc&quot;
+*** Exception: /etc/avenger/dh1024.pem: openBinaryFile:
+permission denied (Permission denied)
+*Main&gt; :!lsof -c ghc
+...
+ghc  8102  dm    7r   DIR  253,5 12288 393217 /etc
+ghc  8102  dm    8r   DIR  253,5  4096 393227 /etc/avenger
+</code></pre>
+<h1 id="pitfalls-of-lazy-io">Pitfalls of lazy I/O</h1>
+<ul>
+<li>Lazy I/O is nice for prototyping or quick scripts
+<ul>
+<li>Maybe just want quick line count, don't care about leaked fds</li>
+</ul></li>
+<li>But Haskell is supposed to be a pure functional language...
+<ul>
+<li>Evaluating <em>functions</em> shouldn't cause file I/O to happen</li>
+</ul></li>
+<li>It also interacts very poorly with error handling
+<ul>
+<li>I/O simply has more failure modes than computing over memory</li>
+<li>Pretending I/O isn't happening makes it hard to deal with errors sensibly</li>
+</ul></li>
+<li><p>Lazy I/O makes it really easy to consume huge amounts of memory</p>
+<ul>
+<li><p>E.g., this works fine:</p>
+<pre><code>*Main&gt; recDir2 &quot;/usr/include&quot; &gt;&gt;= readFiles &gt;&gt;= print . L.length
+154732979
+</code></pre></li>
+<li><p>While this makes GHC consume an extra 150 MB of memory... oops!</p>
+<pre><code>*Main&gt; x &lt;- recDir2 &quot;/usr/include&quot; &gt;&gt;= readFiles
+*Main&gt; L.length x
+154732979
+</code></pre></li>
+</ul></li>
+</ul>
+<h1 id="why-does-haskell-even-have-lazy-io">Why does Haskell even have lazy I/O?</h1>
+<ul>
+<li>The illusion of a huge string is easy to compute over
+<ul>
+<li>Don't have to worry about buffer boundaries</li>
+<li>Can provide a set of general-purpose functions (e.g., <code>L.length</code>) that would otherwise have to know about application-specific buffering</li>
+</ul></li>
+<li><p>Remember how <code>netcat</code> used lazy I/O in <a href="http://cs240h.scs.stanford.edu/notes/concurrency-slides.html#(28)">lecture 5</a>?</p>
+<pre class="sourceCode"><code class="sourceCode haskell">  <span class="co">-- Copy data back and forth</span><br />  done <span class="ot">&lt;-</span> newEmptyMVar<br />  forkIO <span class="fu">$</span> (hGetContents h <span class="fu">&gt;&gt;=</span> <span class="fu">putStr</span>) <span class="ot">`finally`</span> putMVar done ()<br />  <span class="fu">getContents</span> <span class="fu">&gt;&gt;=</span> hPutStr h<br />  takeMVar done</code></pre></li>
+<li><code>getContents &gt;&gt;= hPutStr h</code> is concise and pleasing
+<ul>
+<li>It looks a lot like a Unix pipeline, but Unix pipelines don't provide the illusion of huge buffers... just need flow control</li>
+</ul></li>
+<li><p>Can we build Haskell equivalent of <code>cat file | wc -l</code>?</p></li>
+</ul>
+<h1 id="the-iteratee-abstraction-kiselyov">The iteratee abstraction <a href="http://okmij.org/ftp/Streams.html#iteratee">[Kiselyov]</a></h1>
+<ul>
+<li>Let's introduce some terminology
+<ul>
+<li>We call a data source such as <code>cat</code> an <strong>enumerator</strong></li>
+<li>A data sink such as <code>wc</code> is an <strong>iteratee</strong></li>
+<li>Idea: enumerator <em>iterates</em> over data by folding data through the iteratee</li>
+</ul></li>
+<li>Iteratee concept introduced by <a href="http://okmij.org/ftp/Streams.html#iteratee">[Kiselyov]</a></li>
+<li>Currently three implementations of the ideas on hackage
+<ul>
+<li><a href="http://hackage.haskell.org/package/iterIO">iterIO</a> - newest implementation, written by me, easiest to learn/use</li>
+<li><a href="http://hackage.haskell.org/package/enumerator">enumerator</a> - second implementation, possibly most widely used</li>
+<li><a href="http://hackage.haskell.org/package/iteratee">iteratee</a> - oldest implementation, fastest, hardest to understand</li>
+</ul></li>
+<li>Today's lecture patterned after <a href="http://hackage.haskell.org/package/iterIO">iterIO</a>
+<ul>
+<li>However, we'll build things up from scratch</li>
+<li>Code here: <a href="http://cs240h.scs.stanford.edu/notes/miniIter.hs"><code class="url">http://cs240h.scs.stanford.edu/notes/miniIter.hs</code></a></li>
+</ul></li>
+</ul>
+<h1 id="representing-iteratees">Representing iteratees</h1>
+<ul>
+<li>Let's think about pipeline stage <code>wc</code> in command <code>cat file | wc -l</code>?</li>
+<li>It consumes input, takes actions that are a function of the input
+<ul>
+<li>If input is not EOF, goes back and consumes more input</li>
+<li>On EOF, causes I/O side-effects (writes line to stdout)</li>
+<li>Finally returns an exit value</li>
+<li>Could also conceivably fail</li>
+</ul></li>
+<li><p>Coding Haskell equivalent:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Chunk</span> <span class="fu">=</span> <span class="dt">Chunk</span> {<span class="ot"> chunkData </span><span class="ot">::</span> <span class="fu">!</span><span class="dt">L.ByteString</span><br />                   ,<span class="ot"> chunkAtEOF </span><span class="ot">::</span> <span class="fu">!</span><span class="dt">Bool</span> } <span class="kw">deriving</span> (<span class="kw">Show</span>)<br /><br /><span class="kw">newtype</span> <span class="dt">Iter</span> a <span class="fu">=</span> <span class="dt">Iter</span> {<span class="ot"> runIter </span><span class="ot">::</span> <span class="dt">Chunk</span> <span class="ot">-&gt;</span> <span class="dt">Result</span> a }<br /><br /><span class="kw">data</span> <span class="dt">Result</span> a <span class="fu">=</span> <span class="dt">Done</span> {<span class="ot"> rResult </span><span class="ot">::</span> a,<span class="ot"> rResidual </span><span class="ot">::</span> <span class="dt">Chunk</span> }<br />              <span class="fu">|</span> <span class="dt">NeedInput</span> <span class="fu">!</span>(<span class="dt">Iter</span> a)<br />              <span class="fu">|</span> <span class="dt">NeedIO</span> <span class="fu">!</span>(<span class="dt">IO</span> (<span class="dt">Result</span> a))<br />              <span class="fu">|</span> <span class="dt">Failed</span> <span class="fu">!</span><span class="dt">SomeException</span></code></pre></li>
+</ul>
+<h1 id="example-reading-a-line-of-input">Example: Reading a line of input</h1>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">readLine </span><span class="ot">::</span> <span class="dt">Iter</span> (<span class="dt">Maybe</span> <span class="dt">L.ByteString</span>)<br />readLine <span class="fu">=</span> <span class="dt">Iter</span> (go L.empty)<br />    <span class="kw">where</span> go acc (<span class="dt">Chunk</span> input eof)<br />              <span class="fu">|</span> <span class="fu">not</span> (L.null b) <span class="fu">=</span> <span class="dt">Done</span> (<span class="kw">Just</span> acca) (<span class="dt">Chunk</span> btail eof)<br />              <span class="fu">|</span> <span class="fu">not</span> eof        <span class="fu">=</span> <span class="dt">NeedInput</span> (<span class="dt">Iter</span> (go acca))<br />              <span class="fu">|</span> <span class="fu">otherwise</span>      <span class="fu">=</span> <span class="dt">Done</span> <span class="kw">Nothing</span> (<span class="dt">Chunk</span> acca eof)<br />              <span class="kw">where</span> (a, b) <span class="fu">=</span> L8.break (<span class="fu">==</span> <span class="ch">'\n'</span>) input<br />                    acca <span class="fu">=</span> L.append acc a<br />                    btail <span class="fu">=</span> L.tail b</code></pre>
+<ul>
+<li><code>readLine</code> returns <code>Just</code> next input line, or <code>Nothing</code> if no more <code>'\n'</code>
+<ul>
+<li>Processes input one <code>Chunk</code> at a time</li>
+<li><code>L8.break (== '\n')</code> splits input at first newline (if any)</li>
+<li><code>acc :: L.ByteString</code> keeps accumulating input while no <code>'\n'</code> found</li>
+</ul></li>
+</ul>
+<h1 id="enumerators">Enumerators</h1>
+<ul>
+<li><p>An enumerator feeds data to an iteratee to get a result</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">Enumerator</span> a <span class="fu">=</span> <span class="dt">Iter</span> a <span class="ot">-&gt;</span> <span class="dt">IO</span> (<span class="dt">Result</span> a)</code></pre>
+<ul>
+<li>Or with Rank2Types might use <code>forall a. Iter a -&gt; IO (Result a)</code></li>
+</ul></li>
+<li><p>For example, could feed the contents of a file like this:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">enumerateFile </span><span class="ot">::</span> <span class="fu">FilePath</span> <span class="ot">-&gt;</span> <span class="dt">Enumerator</span> a<br />enumerateFile path iter0 <span class="fu">=</span><br />    bracket (openFile path <span class="dt">ReadMode</span>) hClose <span class="fu">$</span> \h <span class="ot">-&gt;</span><br />    <span class="kw">let</span> go iter <span class="fu">=</span> <span class="kw">do</span><br />          input <span class="ot">&lt;-</span> S.hGetSome h <span class="dv">32752</span><br />          <span class="kw">if</span> S.null input<br />            <span class="kw">then</span> <span class="fu">return</span> (<span class="dt">NeedInput</span> iter)<br />            <span class="kw">else</span> check <span class="fu">$</span> runIter iter <span class="fu">$</span><br />                 <span class="dt">Chunk</span> (L.fromChunks [input]) <span class="kw">False</span><br />        check (<span class="dt">NeedInput</span> iter) <span class="fu">=</span> go iter<br />        check (<span class="dt">NeedIO</span> iter)    <span class="fu">=</span> iter <span class="fu">&gt;&gt;=</span> check<br />        check result           <span class="fu">=</span> <span class="fu">return</span> result<br />    <span class="kw">in</span> go iter0</code></pre>
+<ul>
+<li>Leave <code>chunkAtEOF</code> <code>False</code> to keep possibility of concatenating files</li>
+</ul></li>
+</ul>
+<h1 id="running-iteratees">Running iteratees</h1>
+<ul>
+<li><p>Simple function to extract result of an iteratee:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">chunkEOF </span><span class="ot">::</span> <span class="dt">Chunk</span><br />chunkEOF <span class="fu">=</span> <span class="dt">Chunk</span> L.empty <span class="kw">True</span><br /><br /><span class="ot">getResult0 </span><span class="ot">::</span> <span class="dt">Result</span> a <span class="ot">-&gt;</span> <span class="dt">IO</span> a<br />getResult0 (<span class="dt">Done</span> a _)           <span class="fu">=</span> <span class="fu">return</span> a<br />getResult0 (<span class="dt">NeedInput</span> (<span class="dt">Iter</span> f)) <span class="fu">=</span> getResult0 (f chunkEOF)<br />getResult0 (<span class="dt">NeedIO</span> io)          <span class="fu">=</span> io <span class="fu">&gt;&gt;=</span> getResult0<br />getResult0 (<span class="dt">Failed</span> e)           <span class="fu">=</span> throwIO e</code></pre></li>
+<li><p>For example, a complicated way to get first line of a file...</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="fu">*</span><span class="dt">Main</span><span class="fu">&gt;</span> enumerateFile <span class="st">&quot;/etc/resolv.conf&quot;</span> readLine <span class="fu">&gt;&gt;=</span> getResult0<br /><span class="kw">Just</span> (<span class="dt">Chunk</span> <span class="st">&quot;search scs.stanford.edu&quot;</span> <span class="dt">Empty</span>)</code></pre></li>
+</ul>
+<h1 id="calling-iteratees-from-other-iteratees">Calling iteratees from other iteratees</h1>
+<ul>
+<li>Our actual goal is to count lines, so want an <code>Iter Int</code></li>
+<li><p>Let's leverage <code>readLine</code> to build this</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">nlines0 </span><span class="ot">::</span> <span class="dt">Iter</span> <span class="dt">Int</span><br />nlines0 <span class="fu">=</span> <span class="dt">Iter</span> (go <span class="dv">0</span>)<br />    <span class="kw">where</span> go n c0 <span class="fu">=</span> check (runIter readLine c0)<br />              <span class="kw">where</span><br />                check (<span class="dt">NeedInput</span> (<span class="dt">Iter</span> f)) <span class="fu">=</span><br />                    <span class="dt">NeedInput</span> (<span class="dt">Iter</span> (check <span class="fu">.</span> f))<br />                check (<span class="dt">Done</span> (<span class="kw">Just</span> _) c) <span class="fu">=</span> go (n <span class="fu">+</span> <span class="dv">1</span>) c<br />                check (<span class="dt">Done</span> <span class="kw">Nothing</span> c)  <span class="fu">=</span> <span class="dt">Done</span> n c<br />                check (<span class="dt">NeedIO</span> r)        <span class="fu">=</span> <span class="dt">NeedIO</span> (liftM check r)<br />                check (<span class="dt">Failed</span> e)        <span class="fu">=</span> <span class="dt">Failed</span> e</code></pre></li>
+<li><p>This works!</p>
+<pre><code>*Main&gt; enumerateFile &quot;/etc/resolv.conf&quot; nlines0 &gt;&gt;= getResult0
+4
+</code></pre>
+<ul>
+<li>But seriously? What a yucky way to count lines!</li>
+<li>What if there were an easy way to implement one <code>Iter</code> in terms of another?</li>
+</ul></li>
+</ul>
+<h1 id="make-iter-into-a-monad">Make <code>Iter</code> into a <code>Monad</code>!</h1>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="kw">Monad</span> <span class="dt">Iter</span> <span class="kw">where</span><br />    <span class="fu">return</span> a <span class="fu">=</span> <span class="dt">Iter</span> <span class="fu">$</span> <span class="dt">Done</span> a<br />    m <span class="fu">&gt;&gt;=</span> k <span class="fu">=</span> <span class="dt">Iter</span> <span class="fu">$</span> \c <span class="ot">-&gt;</span> check (runIter m c)<br />        <span class="kw">where</span> check (<span class="dt">Done</span> a c)     <span class="fu">=</span> runIter (k a) c<br />              check (<span class="dt">NeedInput</span> m') <span class="fu">=</span> <span class="dt">NeedInput</span> (m' <span class="fu">&gt;&gt;=</span> k)<br />              check (<span class="dt">NeedIO</span> io)    <span class="fu">=</span> <span class="dt">NeedIO</span> (liftM check io)<br />              check (<span class="dt">Failed</span> e)     <span class="fu">=</span> <span class="dt">Failed</span> e<br />    <span class="fu">fail</span> msg <span class="fu">=</span> iterThrow (<span class="dt">ErrorCall</span> msg)<br /><br /><span class="ot">iterThrow </span><span class="ot">::</span> (<span class="dt">Exception</span> e) <span class="ot">=&gt;</span> e <span class="ot">-&gt;</span> <span class="dt">Iter</span> a<br />iterThrow e <span class="fu">=</span> <span class="dt">Iter</span> <span class="fu">$</span> \_ <span class="ot">-&gt;</span> <span class="dt">Failed</span> (toException e)</code></pre>
+<ul>
+<li><p>Each <code>Iter</code> action consumes some input and returns a result</p></li>
+<li><p>Monads let us completely hide the details of residual input!</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">nlines1 </span><span class="ot">::</span> <span class="dt">Iter</span> <span class="dt">Int</span><br />nlines1 <span class="fu">=</span> go <span class="dv">0</span><br />    <span class="kw">where</span> go n <span class="fu">=</span> readLine <span class="fu">&gt;&gt;=</span> check n<br />          check n (<span class="kw">Just</span> _) <span class="fu">=</span> go <span class="fu">$!</span> n <span class="fu">+</span> <span class="dv">1</span><br />          check n <span class="kw">Nothing</span>  <span class="fu">=</span> <span class="fu">return</span> n</code></pre></li>
+</ul>
+<h1 id="counting-lines-revisited">Counting lines revisited</h1>
+<ul>
+<li><p>Let's implement a function to concatenate enumerators</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">cat0 </span><span class="ot">::</span> <span class="dt">Enumerator</span> a <span class="ot">-&gt;</span> <span class="dt">Enumerator</span> a <span class="ot">-&gt;</span> <span class="dt">Enumerator</span> a<br />cat0 a b iter <span class="fu">=</span> a iter <span class="fu">&gt;&gt;=</span> check<br />    <span class="kw">where</span> check (<span class="dt">NeedInput</span> iter') <span class="fu">=</span> b iter'<br />          check (<span class="dt">NeedIO</span> io)       <span class="fu">=</span> io <span class="fu">&gt;&gt;=</span> check<br />          check r                 <span class="fu">=</span> <span class="fu">return</span> r</code></pre></li>
+<li><p>This gives us what we need to count lines again:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">enumerateNull </span><span class="ot">::</span> <span class="dt">Enumerator</span> a<br />enumerateNull <span class="fu">=</span> <span class="fu">return</span> <span class="fu">.</span> <span class="dt">NeedInput</span><br /><br /><span class="ot">countLines0 </span><span class="ot">::</span> <span class="fu">FilePath</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">Int</span><br />countLines0 dir <span class="fu">=</span> <span class="kw">do</span><br />  files <span class="ot">&lt;-</span> recDir dir<br />  <span class="kw">let</span> enumerator <span class="fu">=</span> <span class="fu">foldr</span> cat0 enumerateNull <span class="fu">$</span><br />                   <span class="fu">map</span> enumerateFile files<br />  enumerator nlines1 <span class="fu">&gt;&gt;=</span> getResult0</code></pre>
+<ul>
+<li>This is obviously a bit less efficient, since it creates a bunch of garbage for each line, but we are guaranteed no leaked file descriptors or memory</li>
+</ul></li>
+</ul>
+<h1 id="the-monadio-class">The <code>MonadIO</code> class</h1>
+<ul>
+<li><p>Module <a href="http://hackage.haskell.org/packages/archive/mtl/latest/doc/html/Control-Monad-Trans.html"><code>Control.Monad.Trans</code></a> defines an important class <code>MonadIO</code></p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">class</span> (<span class="kw">Monad</span> m) <span class="ot">=&gt;</span> <span class="dt">MonadIO</span> m <span class="kw">where</span><br /><span class="ot">    liftIO </span><span class="ot">::</span> <span class="dt">IO</span> a <span class="ot">-&gt;</span> m a</code></pre>
+<ul>
+<li>Defines a class of monads in which you can execute IO actions</li>
+<li>Use <code>liftIO</code> to write code that works in multiple Monads</li>
+</ul></li>
+<li><p>Trivial example</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">MonadIO</span> <span class="dt">IO</span> <span class="kw">where</span> liftIO <span class="fu">=</span> <span class="fu">id</span></code></pre></li>
+<li><p>Let's make <code>Iter</code> an instance of <code>MonadIO</code></p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">MonadIO</span> <span class="dt">Iter</span> <span class="kw">where</span><br />    liftIO io <span class="fu">=</span> <span class="dt">Iter</span> <span class="fu">$</span> \c <span class="ot">-&gt;</span> <span class="dt">NeedIO</span> <span class="fu">$</span> try io <span class="fu">&gt;&gt;=</span> mkResult c<br />        <span class="kw">where</span> mkResult _ (<span class="kw">Left</span> e)  <span class="fu">=</span> <span class="fu">return</span> (<span class="dt">Failed</span> e)<br />              mkResult c (<span class="kw">Right</span> a) <span class="fu">=</span> <span class="fu">return</span> (<span class="dt">Done</span> a c)</code></pre></li>
+</ul>
+<h1 id="more-simple-iteratees">More simple iteratees</h1>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="co">-- Return chunk that is non-empty of has EOF set</span><br /><span class="ot">iterChunk </span><span class="ot">::</span> <span class="dt">Iter</span> <span class="dt">Chunk</span><br />iterChunk <span class="fu">=</span> <span class="dt">Iter</span> <span class="fu">$</span> \c<span class="fu">@</span>(<span class="dt">Chunk</span> buf eof) <span class="ot">-&gt;</span><br />            <span class="kw">if</span> L.null buf <span class="fu">&amp;&amp;</span> <span class="fu">not</span> eof<br />            <span class="kw">then</span> <span class="dt">NeedInput</span> iterChunk<br />            <span class="kw">else</span> <span class="dt">Done</span> c (<span class="dt">Chunk</span> L.empty eof)<br /><br /><span class="co">-- Dump input to standard output</span><br /><span class="ot">iterStdout </span><span class="ot">::</span> <span class="dt">Iter</span> ()<br />iterStdout <span class="fu">=</span> <span class="kw">do</span><br />  (<span class="dt">Chunk</span> buf eof) <span class="ot">&lt;-</span> iterChunk<br />  liftIO <span class="fu">$</span> L.putStr buf<br />  unless eof iterStdout</code></pre>
+<ul>
+<li>Very useful for debugging enumerators</li>
+</ul>
+<pre><code>*Main&gt; enumerateFile &quot;/etc/issue&quot; iterStdout &gt;&gt;= getResult0
+Arch Linux \r  (\n) (\l)
+
+*Main&gt;
+</code></pre>
+<h1 id="inner-pipeline-stages">Inner pipeline stages</h1>
+<ul>
+<li><p>Unix pipelines can consist of more than two stages</p>
+<pre><code>find /usr/include -type f -print | xargs cat | wc -l
+</code></pre>
+<ul>
+<li><p><code>xargs cat</code> takes filenames as input and produces contents as output</p></li>
+<li><p>So it's both an iteratee and an enumerator. Call it an <code>Inum</code>:</p></li>
+</ul>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">Inum</span> a <span class="fu">=</span> <span class="dt">Iter</span> a <span class="ot">-&gt;</span> <span class="dt">Iter</span> (<span class="dt">Result</span> a)</code></pre></li>
+<li><p>Let's get rid of <code>Enumerator</code> as <code>Inum</code> is more general</p>
+<ul>
+<li>For example, an <code>Inum</code> that enumerates a file is just an <code>Iter</code> that happens to consume no input:</li>
+</ul>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">inumFile0 </span><span class="ot">::</span> <span class="fu">FilePath</span> <span class="ot">-&gt;</span> <span class="dt">Inum</span> a<br />inumFile0 path iter <span class="fu">=</span> liftIO <span class="fu">$</span> enumerateFile path iter</code></pre></li>
+</ul>
+<h1 id="inum-examples"><code>Inum</code> examples</h1>
+<ul>
+<li><p>Let's fix <code>cat0</code> to work with <code>Inum</code>s</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">cat </span><span class="ot">::</span> <span class="dt">Inum</span> a <span class="ot">-&gt;</span> <span class="dt">Inum</span> a <span class="ot">-&gt;</span> <span class="dt">Inum</span> a<br />cat a b iter <span class="fu">=</span> a iter <span class="fu">&gt;&gt;=</span> check<br />    <span class="kw">where</span> check (<span class="dt">NeedInput</span> iter') <span class="fu">=</span> b iter'<br />          check (<span class="dt">NeedIO</span> io)       <span class="fu">=</span> liftIO io <span class="fu">&gt;&gt;=</span> check<br />          check r                 <span class="fu">=</span> <span class="fu">return</span> r</code></pre>
+<ul>
+<li>(Actually works for <code>Enumerator</code>s too if we get rid of type signature)</li>
+</ul></li>
+<li><p>Example: an <code>Inum</code> that acts like <code>xargs cat</code> command</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">xargsCat </span><span class="ot">::</span> <span class="dt">Inum</span> a<br />xargsCat iter <span class="fu">=</span> <span class="kw">do</span><br />  mpath <span class="ot">&lt;-</span> readLine<br />  <span class="kw">case</span> mpath <span class="kw">of</span><br />    <span class="kw">Nothing</span>   <span class="ot">-&gt;</span> <span class="fu">return</span> (<span class="dt">NeedInput</span> iter)<br />    <span class="kw">Just</span> path <span class="ot">-&gt;</span> inumFile (L8.unpack path) <span class="ot">`cat`</span> xargsCat <span class="fu">$</span> iter</code></pre>
+<ul>
+<li>Because <code>nextFile</code> is an <code>Iter</code>, it can consume input</li>
+<li>But it also generates output that it feeds to an <code>Iter</code></li>
+</ul></li>
+</ul>
+<h1 id="building-pipelines">Building pipelines</h1>
+<ul>
+<li><p>Let's fix <code>getResult0</code> to work in both the <code>IO</code> and <code>Iter</code> monads:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">getResult </span><span class="ot">::</span> (<span class="dt">MonadIO</span> m) <span class="ot">=&gt;</span> <span class="dt">Result</span> a <span class="ot">-&gt;</span> m a<br />getResult (<span class="dt">Done</span> a _)           <span class="fu">=</span> <span class="fu">return</span> a<br />getResult (<span class="dt">NeedInput</span> (<span class="dt">Iter</span> f)) <span class="fu">=</span> getResult (f chunkEOF)<br />getResult (<span class="dt">NeedIO</span> io)          <span class="fu">=</span> liftIO io <span class="fu">&gt;&gt;=</span> getResult<br />getResult (<span class="dt">Failed</span> e)           <span class="fu">=</span> liftIO <span class="fu">$</span> throwIO e</code></pre></li>
+<li><p>Now let's define a pipe operator to hook pipeline stages together</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">(.|) </span><span class="ot">::</span> <span class="dt">Inum</span> a <span class="ot">-&gt;</span> <span class="dt">Iter</span> a <span class="ot">-&gt;</span> <span class="dt">Iter</span> a<br />(<span class="fu">.|</span>) inum iter <span class="fu">=</span> inum iter <span class="fu">&gt;&gt;=</span> getResult<br /><span class="kw">infixr</span> <span class="dv">4</span> <span class="fu">.|</span></code></pre></li>
+<li><p>And a function to let us run an <code>Iter</code> in any <code>MonadIO</code> monad</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">run </span><span class="ot">::</span> (<span class="dt">MonadIO</span> m) <span class="ot">=&gt;</span> <span class="dt">Iter</span> a <span class="ot">-&gt;</span> m a<br />run <span class="fu">=</span> getResult <span class="fu">.</span> <span class="dt">NeedInput</span></code></pre></li>
+<li><p>Wow this is starting to look more like command pipelines!</p>
+<pre><code>*Main&gt; run $ inumFile &quot;/etc/mtab&quot; .| countLines1
+12
+</code></pre></li>
+</ul>
+<h1 id="exception-handling">Exception handling</h1>
+<ul>
+<li>Let's write exception functions analogous to standard <code>IO</code> ones</li>
+</ul>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">iterCatch </span><span class="ot">::</span> <span class="dt">Iter</span> a <span class="ot">-&gt;</span> (<span class="dt">SomeException</span> <span class="ot">-&gt;</span> <span class="dt">Iter</span> a) <span class="ot">-&gt;</span> <span class="dt">Iter</span> a<br />iterCatch (<span class="dt">Iter</span> f0) handler <span class="fu">=</span> <span class="dt">Iter</span> (check <span class="fu">.</span> f0)<br />    <span class="kw">where</span> check (<span class="dt">NeedInput</span> (<span class="dt">Iter</span> f)) <span class="fu">=</span> <span class="dt">NeedInput</span> (<span class="dt">Iter</span> (check <span class="fu">.</span> f))<br />          check (<span class="dt">NeedIO</span> io)          <span class="fu">=</span> <span class="dt">NeedIO</span> (liftM check io)<br />          check (<span class="dt">Failed</span> e)           <span class="fu">=</span> <span class="dt">NeedInput</span> (handler e)<br />          check done                 <span class="fu">=</span> done<br /><br /><span class="ot">onFailed </span><span class="ot">::</span> <span class="dt">Iter</span> a <span class="ot">-&gt;</span> <span class="dt">Iter</span> b <span class="ot">-&gt;</span> <span class="dt">Iter</span> a<br />onFailed iter cleanup <span class="fu">=</span> iter <span class="ot">`iterCatch`</span> \e <span class="ot">-&gt;</span> cleanup <span class="fu">&gt;&gt;</span> iterThrow e<br /><br /><span class="ot">iterBracket </span><span class="ot">::</span> <span class="dt">Iter</span> a <span class="ot">-&gt;</span> (a <span class="ot">-&gt;</span> <span class="dt">Iter</span> b) <span class="ot">-&gt;</span> (a <span class="ot">-&gt;</span> <span class="dt">Iter</span> c) <span class="ot">-&gt;</span> <span class="dt">Iter</span> c<br />iterBracket before after action <span class="fu">=</span> <span class="kw">do</span><br />  a <span class="ot">&lt;-</span> before<br />  b <span class="ot">&lt;-</span> action a <span class="ot">`onFailed`</span> after a<br />  after a<br />  <span class="fu">return</span> b<br /><br /><span class="ot">inumBracket </span><span class="ot">::</span> <span class="dt">Iter</span> a <span class="ot">-&gt;</span> (a <span class="ot">-&gt;</span> <span class="dt">Iter</span> b) <span class="ot">-&gt;</span> (a <span class="ot">-&gt;</span> <span class="dt">Inum</span> c) <span class="ot">-&gt;</span> <span class="dt">Inum</span> c<br />inumBracket before after inum iter <span class="fu">=</span><br />    iterBracket before after (<span class="fu">flip</span> inum iter)</code></pre>
+<h1 id="simplifying-inum-construction">Simplifying <code>Inum</code> construction</h1>
+<ul>
+<li><code>Inum</code>s still hard to write... why not build them from <code>Iter</code>s?
+<ul>
+<li>Introduce a <code>Codec</code> which returns data and an optional next <code>Inum</code></li>
+</ul>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">Codec</span> a <span class="fu">=</span> <span class="dt">Iter</span> (<span class="dt">L.ByteString</span>, <span class="dt">Maybe</span> (<span class="dt">Inum</span> a))<br /><br /><span class="ot">inumPure </span><span class="ot">::</span> <span class="dt">L.ByteString</span> <span class="ot">-&gt;</span> <span class="dt">Inum</span> a<br />inumPure buf (<span class="dt">Iter</span> f) <span class="fu">=</span> <span class="fu">return</span> (f (<span class="dt">Chunk</span> buf <span class="kw">False</span>))<br /><br /><span class="ot">runCodec </span><span class="ot">::</span> <span class="dt">Codec</span> a <span class="ot">-&gt;</span> <span class="dt">Inum</span> a<br />runCodec codec iter <span class="fu">=</span> <span class="kw">do</span><br />  (input, mNext) <span class="ot">&lt;-</span> codec<br />  <span class="fu">maybe</span> (inumPure input) (inumPure input <span class="ot">`cat`</span>) mNext <span class="fu">$</span> iter</code></pre></li>
+<li><p>Example:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">inumFile  </span><span class="ot">::</span> <span class="fu">FilePath</span> <span class="ot">-&gt;</span> <span class="dt">Inum</span> a<br />inumFile path <span class="fu">=</span> inumBracket (liftIO <span class="fu">$</span> openFile path <span class="dt">ReadMode</span>)<br />                (liftIO <span class="fu">.</span> hClose) <span class="fu">$</span> \h <span class="ot">-&gt;</span><br />    <span class="kw">let</span> inum <span class="fu">=</span> runCodec <span class="fu">$</span> <span class="kw">do</span><br />          input <span class="ot">&lt;-</span> liftIO <span class="fu">$</span> S.hGetSome h <span class="dv">32752</span><br />          <span class="kw">let</span> next <span class="fu">=</span> <span class="kw">if</span> S.null input <span class="kw">then</span> <span class="kw">Nothing</span> <span class="kw">else</span> <span class="kw">Just</span> inum<br />          <span class="fu">return</span> (L.fromChunks [input], next)<br />    <span class="kw">in</span> inum</code></pre></li>
+</ul>
+<h1 id="example-enumdir">Example: <code>enumDir</code></h1>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">enumDir </span><span class="ot">::</span> <span class="fu">FilePath</span> <span class="ot">-&gt;</span> <span class="dt">Inum</span> a<br />enumDir dir <span class="fu">=</span> inumBracket (liftIO <span class="fu">$</span> openDirStream dir)<br />              (liftIO <span class="fu">.</span> closeDirStream) <span class="fu">$</span> \ds <span class="ot">-&gt;</span><br />  <span class="kw">let</span> inum <span class="fu">=</span> runCodec nextName<br />      nextName <span class="fu">=</span> liftIO (readDirStream ds) <span class="fu">&gt;&gt;=</span> checkName<br /><br />      checkName <span class="st">&quot;&quot;</span> <span class="fu">=</span> <span class="fu">return</span> (L.empty, <span class="kw">Nothing</span>)<br />      checkName <span class="st">&quot;.&quot;</span> <span class="fu">=</span> nextName<br />      checkName <span class="st">&quot;..&quot;</span> <span class="fu">=</span> nextName<br />      checkName name <span class="fu">=</span> liftIO (getSymbolicLinkStatus path)<br />                       <span class="fu">&gt;&gt;=</span> checkStat path<br />          <span class="kw">where</span> path <span class="fu">=</span> dir <span class="fu">&lt;/&gt;</span> name<br /><br />      checkStat path stat<br />          <span class="fu">|</span> isRegularFile stat <span class="fu">=</span><br />              <span class="fu">return</span> (L8.pack <span class="fu">$</span> path <span class="fu">++</span> <span class="st">&quot;\n&quot;</span>, <span class="kw">Just</span> inum)<br />          <span class="fu">|</span> isDirectory stat <span class="fu">=</span><br />              <span class="fu">return</span> (L.empty, <span class="kw">Just</span> <span class="fu">$</span> enumDir path <span class="ot">`cat`</span> inum)<br />          <span class="fu">|</span> <span class="fu">otherwise</span> <span class="fu">=</span> nextName<br />  <span class="kw">in</span> inum</code></pre>
+<pre><code>*Main&gt; run $ enumDir &quot;/etc/rc.d&quot; .| xargsCat .| nlines1
+4588
+</code></pre>
+<h1 id="the-monadplus-class">The <code>MonadPlus</code> class</h1>
+<ul>
+<li><p><code>Control.Monad</code> defines another important class, <a href="http://hackage.haskell.org/packages/archive/base/latest/doc/html/Control-Monad.html#t:MonadPlus"><code>MonadPlus</code></a>:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">class</span> <span class="kw">Monad</span> m <span class="ot">=&gt;</span> <span class="dt">MonadPlus</span> m <span class="kw">where</span><br /><span class="ot">   mzero </span><span class="ot">::</span> m a <br /><span class="ot">   mplus </span><span class="ot">::</span> m a <span class="ot">-&gt;</span> m a <span class="ot">-&gt;</span> m a</code></pre>
+<ul>
+<li>Represents monads that let you try an alternative after a failure</li>
+</ul></li>
+<li><p>Example: <code>Maybe</code></p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">MonadPlus</span> <span class="dt">Maybe</span> <span class="kw">where</span><br />   mzero <span class="fu">=</span> <span class="kw">Nothing</span><br />   <span class="kw">Nothing</span> <span class="ot">`mplus`</span> ys <span class="fu">=</span> ys<br />   xs      <span class="ot">`mplus`</span> _  <span class="fu">=</span> xs</code></pre>
+<ul>
+<li><code>ma `mplus` mb `mplus` mc</code> is handy way to get first non-<code>Nothing</code> value</li>
+</ul></li>
+</ul>
+<h1 id="making-iter-a-monadplus">Making <code>Iter</code> a <code>MonadPlus</code></h1>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">MonadPlus</span> <span class="dt">Iter</span> <span class="kw">where</span><br />    mzero <span class="fu">=</span> <span class="fu">fail</span> <span class="st">&quot;mzero&quot;</span><br />    mplus itera0 iterb <span class="fu">=</span> go mempty itera0<br />        <span class="kw">where</span> go acc itera <span class="fu">=</span> <span class="dt">Iter</span> <span class="fu">$</span> \c <span class="ot">-&gt;</span><br />                  <span class="kw">let</span> acc' <span class="fu">=</span> mappend acc c<br />                      check (<span class="dt">NeedInput</span> i) <span class="fu">=</span> <span class="dt">NeedInput</span> (go acc' i)<br />                      check (<span class="dt">NeedIO</span> io) <span class="fu">=</span> <span class="dt">NeedIO</span> (liftM check io)<br />                      check (<span class="dt">Failed</span> _) <span class="fu">=</span> runIter iterb acc'<br />                      check r <span class="fu">=</span> r<br />                  <span class="kw">in</span> check <span class="fu">$</span> runIter itera c</code></pre>
+<ul>
+<li>Re-run second iter on same input
+<ul>
+<li>Allows you to handle parse alternatives</li>
+<li>iterIO contains parsing combinator library based on this idea</li>
+<li>Allows protocol implementations to look like grammar</li>
+</ul></li>
+<li>See <a href="http://hackage.haskell.org/packages/archive/iterIO/0.2/doc/html/Data-IterIO-Parse.html"><code>Data.IterIO.Parse</code></a> for examples of parsing combinators</li>
+</ul>
+</body>
+
+<!-- Mirrored from www.scs.stanford.edu/11au-cs240h/notes/iteratee.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:55:13 GMT -->
+</html>

@@ -1,0 +1,301 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+    
+<!-- Mirrored from www.well-typed.com/blog/74/ by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:53:55 GMT -->
+<head>
+        <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+        <title>
+           
+           Well-Typed - The Haskell Consultants: Communication Patterns in Cloud Haskell (Part 4)
+           
+        </title>
+        <link rel="Stylesheet" type="text/css" href="http://www.well-typed.com/css/wt.css" />
+        <link rel="shortcut icon" type="image/x-icon" href="http://www.well-typed.com/favicon.ico" />
+        
+    </head>
+    <body class="normal">
+
+<div class="pagelogo">
+<div class="smalllogo">
+  <a href="http://www.well-typed.com/"><img src="http://www.well-typed.com/img/wtlogo-small.png" width="243" height="70" alt="Well-Typed, The Haskell Consultants" /></a>
+</div>
+</div>
+
+<div class="bar">
+  <div class="smallmenu">
+<ul class="menu">
+  <li class="header"><a href="http://www.well-typed.com/services">Services</a>
+    <ul class="submenu">
+      <li class="subheader"><a href="http://www.well-typed.com/services_applications">Development</a></li>
+      <li class="subheader"><a href="http://www.well-typed.com/services_libraries">Maintenance</a></li>
+      <li class="subheader"><a href="http://www.well-typed.com/services_advice">Advice</a></li>
+      <li class="subheader"><a href="http://www.well-typed.com/services_training">Training</a></li>
+    </ul>
+  </li>
+  <li class="header"><a href="http://www.well-typed.com/about_welltyped">About</a>
+    <ul class="submenu">
+      <li class="subheader"><a href="http://www.well-typed.com/community">Community</a></li>
+      <li class="subheader"><a href="http://www.well-typed.com/who_we_are">Who We Are</a></li>
+      <li class="subheader"><a href="http://www.well-typed.com/contact">Contact</a></li>
+    </ul>
+  </li>
+  <li class="header"><a href="http://www.well-typed.com/press_releases">Press Releases</a></li>
+  <li class="header" id="active"><a href="http://www.well-typed.com/blog">Blog</a></li>
+</ul>
+</div>
+<div style="clear: both;"></div>
+
+
+</div>
+
+<div class="body">
+<div class="text">
+
+  <h1><a href="http://www.well-typed.com/blog/2012/10/communication-patterns-in-cloud-haskell-part-4">Communication Patterns in Cloud Haskell (Part 4)</a></h1>
+
+<p style="text-align: right"><small>Monday, 15 October 2012, by <a href="http://www.well-typed.com/blog/people/edsko">Edsko de Vries</a>.<br />
+  Filed under <a href="http://www.well-typed.com/blog/tags/parallel">parallel</a>, <a href="http://www.well-typed.com/blog/tags/cloud-haskell">cloud-haskell</a>.</small></p>
+
+<h2> K-Means</h2><p>In <a href="http://www.well-typed.com/blog/73">Part 3</a> of this series we showed how to write a simple distributed
+implementation of Map-Reduce using Cloud Haskell. In this final part of the
+series we will explain the K-Means algorithm and show how it can be implemented
+in terms of Map-Reduce. </p><p><a href="../../../en.wikipedia.org/wiki/K-means_clustering.html">K-Means</a> is an algorithm to
+partition a set of points into <em>n</em> clusters. The algorithm iterates the
+following two steps for a fixed number of times (or until convergence):</p><ul><li>Given a set of points and <em>n</em> cluster centres, associate each point with the
+cluster centre it is nearest to.</li></ul><ul><li>Compute the centre of each new cluster.</li></ul><p>The initial cluster centres can be chosen randomly. Here is one example run of
+the first 5 iterations of the algorithm on randomly (evenly) distributed
+two-dimensional points:</p><p><img src="http://www.well-typed.com/blog/aux/images/ch-series/plotA0.jpg" width="192" height="160" alt="Iteration B-1" title="Iteration B-1" />
+<img src="http://www.well-typed.com/blog/aux/images/ch-series/plotA1.jpg" width="192" height="160" alt="Iteration B-2" title="Iteration B-2" />
+<img src="http://www.well-typed.com/blog/aux/images/ch-series/plotA2.jpg" width="192" height="160" alt="Iteration B-3" title="Iteration B-3" />
+<img src="http://www.well-typed.com/blog/aux/images/ch-series/plotA3.jpg" width="192" height="160" alt="Iteration B-4" title="Iteration B-4" />
+<img src="http://www.well-typed.com/blog/aux/images/ch-series/plotA4.jpg" width="192" height="160" alt="Iteration B-5" title="Iteration B-5" /></p><p>Of course, in such an evenly distributed data set the clusters that are
+&quot;discovered&quot; are more or less arbitrary and heavily influenced by the choice of
+initial centers. For example, here is another run of the algorithm with
+different initial centers:</p><p><img src="http://www.well-typed.com/blog/aux/images/ch-series/plotB0.jpg" width="192" height="160" alt="Iteration B-1" title="Iteration B-1" />
+<img src="http://www.well-typed.com/blog/aux/images/ch-series/plotB1.jpg" width="192" height="160" alt="Iteration B-2" title="Iteration B-2" />
+<img src="http://www.well-typed.com/blog/aux/images/ch-series/plotB2.jpg" width="192" height="160" alt="Iteration B-3" title="Iteration B-3" />
+<img src="http://www.well-typed.com/blog/aux/images/ch-series/plotB3.jpg" width="192" height="160" alt="Iteration B-4" title="Iteration B-4" />
+<img src="http://www.well-typed.com/blog/aux/images/ch-series/plotB4.jpg" width="192" height="160" alt="Iteration B-5" title="Iteration B-5" /></p><h2> K-Means as a Map-Reduce skeleton</h2><p>We will use Map-Reduce to implement a <em>single iteration</em> of the K-Means
+algorithm. Each mapper node will execute step (1) of the algorithm for a subset
+of the points, and in the reduction step we will compute the new cluster
+centres. </p><pre>type Point    = (Double, Double)
+type Cluster  = (Double, Double)
+
+average :: Fractional a =&gt; [a] -&gt; a
+average xs = sum xs / fromIntegral (length xs)
+
+distanceSq :: Point -&gt; Point -&gt; Double 
+distanceSq (x1, y1) (x2, y2) = a * a + b * b
+  where
+    a = x2 - x1
+    b = y2 - y1
+
+nearest :: Point -&gt; [Cluster] -&gt; Cluster
+nearest p = minimumBy (compare `on` distanceSq p) 
+
+center :: [Point] -&gt; Point
+center ps = let (xs, ys) = unzip ps in (average xs, average ys) 
+
+kmeans :: Array Int Point -&gt; MapReduce (Int, Int) [Cluster] Cluster Point ([Point], Point)
+kmeans points = MapReduce {
+    mrMap    = \(lo, hi) cs -&gt; [ let p = points ! i in (nearest p cs, p)
+                               | i &lt;- [lo .. hi]
+                               ] 
+  , mrReduce = \_ ps -&gt; (ps, center ps)
+  }
+</pre><p>We start with a <code>Map (Int, Int) [Cluster]</code>; the keys in this map correspond to
+the segmentation of the input set; for instance, a key <code>(20, 39)</code> indicates
+that a mapper node should compute clusters for points <code>[20 .. 39]</code>.  The values
+in this map are the current center (that is, every key in the map has the same
+value).</p><p>The mappers then compute a list <code>[(Cluster, Point)]</code> which associates points
+with each cluster. Finally, in the reduction step we create a <code>Map Cluster
+([Point], Point)</code> which tells us for each cluster its set of points and its
+centre.</p><h2> Iterating locally</h2><p>The Map-Reduce skeleton only computes a single iteration of the algorithm; we
+need to iterate this a number of steps to implement the full algorithm. Using
+the <code>localMapReduce</code> we defined above we can do this as</p><pre>localKMeans :: Array Int Point 
+            -&gt; [Cluster] 
+            -&gt; Int
+            -&gt; Map Cluster ([Point], Point)
+localKMeans points cs iterations = go (iterations - 1)
+  where
+    mr :: [Cluster] -&gt; Map Cluster ([Point], Point)
+    mr = localMapReduce (kmeans points) . trivialSegmentation
+  
+    go :: Int -&gt; Map Cluster ([Point], Point)
+    go 0 = mr cs 
+    go n = mr . map snd . Map.elems . go $ n - 1
+
+    trivialSegmentation :: [Cluster] -&gt; Map (Int, Int) [Cluster]
+    trivialSegmentation cs' = Map.fromList [(bounds points, cs')]
+</pre><p>For the local implementation we don't care about how we partition the input, so
+we just create a trivial segmentation and have one mapper process the entire
+input.</p><h2> Generalizing the distributed Map-Reduce implementation</h2><p>The set of points itself does not vary from one iteration of the algorithm to
+another, and only needs to be distributed to the mapper nodes once. The master
+process of our Map-Reduce implementation from <a href="http://www.well-typed.com/blog/73">Part 3</a> however looks
+like</p><ul><li>Initialize the mappers </li><li>Run the Map-Reduce query</li><li>Terminate the mappers</li></ul><p>This means that if we use <code>distrMapReduce</code> as implemented we will re-distribute the
+full set of points to the mapper nodes on every iteration of the algorithm. To
+avoid this, we can generalize the Map-Reduce implementation to be</p><ul><li>Initialize the mappers</li><li>Run as many Map-Reduce queries as necessary</li><li>Terminate the mappers</li></ul><p>We will change the type of <code>distrMapReduce</code> to</p><pre>distrMapReduce :: Closure (MapReduce (Point, Point) [Cluster] Cluster
+                                     Point ([Point], Point))
+               -&gt; [NodeId]
+               -&gt; ((Map (Point, Point) [Cluster] -&gt;
+                   Process (Map Cluster ([Point], Point))) -&gt; Process a)
+               -&gt; Process a 
+</pre><p>In <code>distrMapReduce mrClosure mappers p</code> the process <code>p</code> is provided with a
+means to run map-reduce queries; compare the type of <code>distrMapReduce</code> to the
+types of functions such as</p><pre>withFile :: FilePath -&gt; IOMode -&gt; (Handle -&gt; IO r) -&gt; IO r
+</pre><blockquote><p><em>Exercise 8</em>: Implement <code>distrMapReduce</code> with the type above. This does
+not require any new Cloud Haskell concepts, but does require a bit of
+engineering. (You can find the implementation also in the
+<code>distributed-process-demos</code> package).</p></blockquote><p>Note that even with this generalization we will pass the <em>entire</em> set of points
+to <em>all</em> the nodes, even though each node will only operate on a subset of
+them; we leave optimizing this as an exercise to the reader (it will require a
+further generalization of the Map-Reduce driver).</p><h2> Polymorphism </h2><p>In the section above we changed the type of <code>distrMapReduce</code> to match the type
+of the K-Means MapReduce skeleton instead of the word-counting MapReduce
+skeleton; we can change that type without changing the implementation at all.
+What we really want, of course, is a polymorphic implementation of Map-Reduce:</p><pre>distrMapReduce :: (Serializable k1, Serializable v1, Serializable k2,
+                   Serializable v2, Serializable v3, Ord k2)
+               =&gt; Closure (MapReduce k1 v1 k2 v2 v3)
+               -&gt; [NodeId]
+               -&gt; ((Map k1 v1 -&gt; Process (Map k2 v3)) -&gt; Process a) 
+               -&gt; Process a 
+</pre><p>However, when we try to generalize our code above we run into a problem.
+Consider the code that we ship to the mapper nodes. What does this code need to
+do? First, it needs to wait for a message <em>of a specific type</em>. In order to do
+the type matching it needs some information about the type <code>(k1, v1)</code>. Once it
+receives such a message, it needs to send the list of type <code>[(k2,v2)]</code> created
+by the Map function back to the master. In order to do that, it needs to know
+how to serialize values of type <code>[(k2,v2)]</code>. </p><p>Where does <code>distrMapReduce</code> get this information? Well, it is provided by the
+<code>Serializable</code> type class constraints. Unfortunately, however, Haskell does not
+give an explicit handle on these arguments, much less provide us with a way to
+serialize these arguments so that we can ship them to the mapper nodes. We can,
+however, <em>reify</em> a type class constraint as an explicit dictionary:</p><pre>data SerializableDict a where
+    SerializableDict :: Serializable a =&gt; SerializableDict a
+</pre><p>We cannot serialize objects of type <code>SerializableDict</code> directly, but we <em>can</em>
+serialise <em>static</em> <code>SerializableDict</code>s! Hence, the type of <code>distrMapReduce</code>
+becomes: </p><pre>distrMapReduce :: forall k1 k2 v1 v2 v3 a. 
+                  (Serializable k1, Serializable v1, Serializable k2,
+                   Serializable v2, Serializable v3, Ord k2)
+               =&gt; Static (SerializableDict (k1, v1))
+               -&gt; Static (SerializableDict [(k2, v2)])
+               -&gt; Closure (MapReduce k1 v1 k2 v2 v3)
+               -&gt; [NodeId]
+               -&gt; ((Map k1 v1 -&gt; Process (Map k2 v3)) -&gt; Process a) 
+               -&gt; Process a 
+</pre><p>This type may look a bit intimidating, but really all that has changed is that
+we require <em>static</em> type information so that we can ship this type information
+to the mappers. We omit the implementation; you can find it in the
+<code>distributed-process-demos</code> package; the general principles are explained in
+the documentation of the
+<a href="http://hackage.haskell.org/package/distributed-static">distributed-static</a>
+package.</p><p>Using this polymorphic version of <code>distrMapReduce</code> is no more difficult than
+using the monomorphic version; for example, we can implement &quot;distributed word
+counting&quot; as</p><pre>dictIn :: SerializableDict (FilePath, Document)
+dictIn = SerializableDict
+
+dictOut :: SerializableDict [(Word, Frequency)]
+dictOut = SerializableDict
+
+countWords_ :: () -&gt; MapReduce FilePath Document Word Frequency Frequency
+countWords_ () = countWords
+
+remotable ['dictIn, 'dictOut, 'countWords_]
+
+distrCountWords :: [NodeId] -&gt; Map FilePath Document -&gt; Process (Map Word Frequency)
+distrCountWords mappers input = 
+  distrMapReduce $(mkStatic 'dictIn)
+                 $(mkStatic 'dictOut) 
+                 ($(mkClosure 'countWords_) ())
+                 mappers
+                 (\iteration -&gt; iteration input)
+</pre><p>Creating the necessary <code>SerializableDict</code>s is easy (there is only one
+constructor for <code>SerializableDict</code>, after all, and it doesn't take any
+arguments!).  Note that the word counter only calls the <code>iteration</code> function
+once; this will not be true for the final algorithm we consider: distributed
+k-means.</p><h2> Distributed K-Means</h2><p>The distributed K-means is not much more complicated. Everything up to and
+including <code>go</code> pretty much follows the local implementation; the remainder
+(<code>segments</code>, <code>dividePoints</code>, <code>pointsPerMapper</code> and <code>numPoints</code>) just compute
+which segment of the input each mapper node is going to do.</p><pre>dictIn :: SerializableDict ((Int, Int), [Cluster])
+dictIn = SerializableDict
+
+dictOut :: SerializableDict [(Cluster, Point)]
+dictOut = SerializableDict
+
+remotable ['kmeans, 'dictIn, 'dictOut]
+
+distrKMeans :: Array Int Point 
+            -&gt; [Cluster]
+            -&gt; [NodeId] 
+            -&gt; Int
+            -&gt; Process (Map Cluster ([Point], Point))
+distrKMeans points cs mappers iterations = 
+    distrMapReduce $(mkStatic 'dictIn) 
+                   $(mkStatic 'dictOut) 
+                   ($(mkClosure 'kmeans) points) 
+                   mappers
+                   (go (iterations - 1))
+  where
+    go :: Int
+       -&gt; (Map (Int, Int) [Cluster] -&gt; Process (Map Cluster ([Point], Point))) 
+       -&gt; Process (Map Cluster ([Point], Point))
+    go 0 iteration = do
+      iteration (Map.fromList $ map (, cs) segments) 
+    go n iteration = do
+      clusters &lt;- go (n - 1) iteration
+      let centers = map snd $ Map.elems clusters
+      iteration (Map.fromList $ map (, centers) segments)
+    
+    segments :: [(Int, Int)]
+    segments = let (lo, _) = bounds points in dividePoints numPoints lo
+
+    dividePoints :: Int -&gt; Int -&gt; [(Int, Int)]
+    dividePoints pointsLeft offset 
+      | pointsLeft &lt;= pointsPerMapper = [(offset, offset + pointsLeft - 1)] 
+      | otherwise = let offset' = offset + pointsPerMapper in
+                    (offset, offset' - 1)
+                  : dividePoints (pointsLeft - pointsPerMapper) offset' 
+
+    pointsPerMapper :: Int
+    pointsPerMapper = 
+      ceiling (toRational numPoints / toRational (length mappers))
+       
+    numPoints :: Int
+    numPoints = let (lo, hi) = bounds points in hi - lo + 1
+</pre><blockquote><p><em>Exercise 9</em>: In this example we create precisely enough segments that every
+mapper nodes gets a single segment. We could have created more or fewer
+segments. Why is creating one segment per mapper node the optimal choice for
+this algorithm? In which case might creating more segments be more efficient? </p></blockquote><blockquote><p><em>Exercise 10</em>: The data sent back from the mapper nodes to the master node
+contains a lot of redundancy. How might you improve that?</p></blockquote><h2> Profiling</h2><p>To conclude we briefly look at the heap profiles of the master and the slave
+nodes of our distributed k-means example. </p><p><img src="http://www.well-typed.com/blog/aux/images/ch-series/kmeans-master.jpg" width="500" height="278" alt="Map-Reduce Master" title="Map-Reduce Master" /></p><blockquote><p><em>Heap profile (by type) of the Map-Reduce master running K-Means</em>
+Single slave, clustering 50,000 points, 5 iterations</p></blockquote><p>In this example the master process first <em>creates</em> a random set of 50,000
+points, before running the K-means algorithm. This is the first peak. Then the
+other 5 peaks are the master node collecting data from the mapper nodes before
+reducing them locally.</p><blockquote><p><em>Exercise 11</em>. In the Work-Stealing example from <a href="http://www.well-typed.com/blog/71">Part 1</a> of this
+series the master reduces <em>as</em> it receives messages (<code>sumIntegers</code>). Might
+you do something similar in the Map-Reduce master? </p></blockquote><p><img src="http://www.well-typed.com/blog/aux/images/ch-series/kmeans-slave.jpg" width="500" height="257" alt="Map-Reduce Slave" title="Map-Reduce Slave" /></p><blockquote><p><em>Heap profile (by type) of the Map-Reduce slave running K-Means</em>
+Single slave, clustering 50,000 points, 5 iterations</p></blockquote><p>In the slave node too, we clearly see the 5 iterations of the algorithm. At the
+start of each iteration the mapper node creates a list that associates points
+to clusters. Once the list is created, the list is serialized as a bytestring
+(purple section in the profile) and sent to the master node before the cycle
+starts again. </p><blockquote><p><em>Exercise 12</em>: (More technical) Why is the entire list created before it is
+serialized to a bytestring? (Hint: look up the <code>Binary</code> instance for lists.)
+How might you change this so that the list is created lazily <em>as</em> it is
+serialized?</p></blockquote><h2> More information</h2><p>We hope you've enjoyed this series (Parts <a href="http://www.well-typed.com/blog/71">1</a>, <a href="http://www.well-typed.com/blog/72">2</a>, <a href="http://www.well-typed.com/blog/73">3</a>, <a href="http://www.well-typed.com/blog/74">4</a>).
+For links to more information see the
+<a href="http://www.haskell.org/haskellwiki/Cloud_Haskell">Cloud Haskell home page</a>.
+</p>
+
+
+</div>
+<div class="footer">
+            <div class="copyright">
+               <address>Copyright &copy; 2008-2016, Well-Typed LLP.</address>
+            </div>
+</div>
+</div>
+
+    </body>
+
+<!-- Mirrored from www.well-typed.com/blog/74/ by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:53:56 GMT -->
+</html>
+

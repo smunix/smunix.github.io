@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+  
+<!-- Mirrored from dev.stephendiehl.com/fun/003_lambda_calculus.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:55:43 GMT -->
+<head>
+    <meta charset="utf-8">
+    <title>Write You a Haskell ( Stephen Diehl )</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <link href="http://fonts.googleapis.com/css?family=Inconsolata" rel="stylesheet">
+    <style type="text/css">
+      
+    </style>
+    <link href="css/bootstrap-responsive.min.css" rel="stylesheet">
+    <link href="css/colors.css" rel="stylesheet">
+    <link rel="alternate" type="application/atom+xml" title="Write You a Haskell" href="rss/atom.xml" />
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','http://www.google-analytics.com/analytics.js','ga');
+
+      ga('create', 'UA-49839533-1', 'stephendiehl.com');
+      ga('send', 'pageview');
+
+    </script>
+
+          <style type="text/css">
+    table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode {
+      margin: 0; padding: 0; vertical-align: baseline; border: none; }
+    table.sourceCode { width: 100%; line-height: 100%; }
+    td.lineNumbers { text-align: right; padding-right: 4px; padding-left: 4px; color: #aaaaaa; border-right: 1px solid #aaaaaa; }
+    td.sourceCode { padding-left: 5px; }
+    code > span.kw { color: #007020; font-weight: bold; }
+    code > span.dt { color: #902000; }
+    code > span.dv { color: #40a070; }
+    code > span.bn { color: #40a070; }
+    code > span.fl { color: #40a070; }
+    code > span.ch { color: #4070a0; }
+    code > span.st { color: #4070a0; }
+    code > span.co { color: #60a0b0; font-style: italic; }
+    code > span.ot { color: #007020; }
+    code > span.al { color: #ff0000; font-weight: bold; }
+    code > span.fu { color: #06287e; }
+    code > span.er { color: #ff0000; font-weight: bold; }
+      </style>
+            <link rel="stylesheet" href="css/style.css" type="text/css" />
+                  <script src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML" type="text/javascript"></script>
+              </head>
+
+  <body>
+
+    <div>
+
+        <div class="row">
+
+          <div class="span3 side toc">
+              <ul>
+              <li><a href="index-2.html">Index</a></li>
+              <li><a href="https://github.com/sdiehl/write-you-a-haskell">Github</a></li>
+              <li><a href="rss/atom.xml">RSS</a></li>
+              <li><a href="WYAH.pdf">PDF</a></li>
+              </ul>
+              <ul>
+              <li><a href="#lambda-calculus">Lambda Calculus</a><ul>
+              <li><a href="#ski-combinators">SKI Combinators</a></li>
+              <li><a href="#implementation">Implementation</a></li>
+              <li><a href="#substitution">Substitution</a></li>
+              <li><a href="#conversion-and-equivalences">Conversion and Equivalences</a></li>
+              <li><a href="#reduction">Reduction</a></li>
+              <li><a href="#let">Let</a></li>
+              <li><a href="#everything-can-be-a-lambda-term">Everything Can Be a <span class="math">\(\lambda\)</span> term</a></li>
+              <li><a href="#recursion">Recursion</a></li>
+              <li><a href="#pretty-printing">Pretty Printing</a></li>
+              <li><a href="#full-source">Full Source</a></li>
+              </ul></li>
+              </ul>
+          </div>
+
+          <div class="span9 body">
+<!--<h1>Implementing a Functional Language in Haskell</h1>--!>
+<div style="display:none">
+<p><span class="math">\[\newcommand{\andalso}{\quad\quad}
+\newcommand{\infabbrev}[2]{\infax{#1 \quad\eqdef\quad #2}}
+\newcommand{\infrule}[2]{\displaystyle \dfrac{#1}{#2}}
+\newcommand{\ar}{\rightarrow}
+\newcommand{\Int}{\mathtt{Int}}
+\newcommand{\Bool}{\mathtt{Bool}}
+\newcommand{\becomes}{\Downarrow}
+\newcommand{\trule}[1]{(\textbf{#1})}
+\newcommand{\FV}[1]{\mathtt{fv}(#1)}
+\newcommand{\FTV}[1]{\mathtt{ftv}(#1)}
+\newcommand{\BV}[1]{\mathtt{bv}(#1)}
+\newcommand{\compiles}[1]{\text{C}\llbracket{#1}\rrbracket}
+\newcommand{\exec}[1]{\text{E}\llbracket{#1}\rrbracket}
+\renewcommand{\t}[1]{\mathtt{#1}}
+\newcommand{\ite}[3]{\text{if }#1\text{ then }#2\text{ else }#3}
+\]</span></p>
+</div>
+<div class="pagetitle">
+<div class="figure">
+<img src="http://dev.stephendiehl.com/fun/img/titles/lambda_calculus.png" />
+
+</div>
+</div>
+<p class="halfbreak">
+</p>
+<blockquote>
+<p><em>That language is an instrument of human reason, and not merely a medium for the expression of thought, is a truth generally admitted.</em></p>
+<p><cite>— George Boole</cite></p>
+</blockquote>
+<p class="halfbreak">
+</p>
+<h1 id="lambda-calculus">Lambda Calculus</h1>
+<p>Fundamental to all functional languages is the most atomic notion of composition, function abstraction of a single variable. The <strong>lambda calculus</strong> consists very simply of three terms and all valid recursive combinations thereof:</p>
+<div class="small">
+<div class="figure">
+<img src="http://dev.stephendiehl.com/fun/img/lambda.png" />
+
+</div>
+</div>
+<p>This compact notation looks slightly different from what you're used to in Haskell but it's actually not: <span class="math">\(\lambda x.xa\)</span> is equivalent to <code>\x -&gt; x a</code>. This means what you see in the picture above would translate to <code>(\x -&gt; x) (\y -&gt; y)</code>, which would be equivalent to writing <code>id id</code> (which of course evaluates to <code>id</code>).</p>
+<p>The three terms are typically referred to in code by several contractions of their names:</p>
+<ul>
+<li><strong>Var</strong> - A variable</li>
+<li><strong>Lam</strong> - A lambda abstraction</li>
+<li><strong>App</strong> - An application</li>
+</ul>
+<p>A lambda term is said to bind its variable. For example the lambda here binds <span class="math">\(x\)</span>. In mathematics we would typically write:</p>
+<p><span class="math">\[
+f(x) = e
+\]</span></p>
+<p>Using the lambda calculus notation we write:</p>
+<p><span class="math">\[
+f = \lambda x. e
+\]</span></p>
+<p>In other words, <span class="math">\(\lambda x.e\)</span> is a function that takes a variable <span class="math">\(x\)</span> and returns <span class="math">\(e\)</span>.</p>
+<p><span class="math">\[
+\begin{aligned}
+e :=\ &amp; x            &amp; \trule{Var} \\
+     &amp; \lambda x. e  &amp; \trule{Lam} \\
+     &amp; e\ e          &amp; \trule{App} \\
+\end{aligned}
+\]</span></p>
+<p>The lambda calculus is often called the &quot;assembly language&quot; of functional programming, and variations and extensions on it form the basis of many functional compiler intermediate forms for languages like Haskell, OCaml, Standard ML, etc. The variation we will discuss first is known as <strong>untyped lambda calculus</strong>, by contrast later we will discuss the <strong>typed lambda calculus</strong> which is an extension thereof.</p>
+<p>There are several syntactical conventions that we will adopt when writing lambda expressions. Application of multiple expressions associates to the left.</p>
+<p><span class="math">\[
+x_1\ x_2\  x_3\ ... x_n =  (... ((x_1 x_2 )x_3 ) ... x_n )
+\]</span></p>
+<p>By convention application extends as far to the right as is syntactically meaningful. Parentheses are used to disambiguate.</p>
+<p>In the lambda calculus, each lambda abstraction binds a single variable, and the lambda abstraction's body may be another lambda abstraction. Out of convenience we often write multiple lambda abstractions with their variables on one lambda symbol. This is merely a syntactical convention and does not change the underlying meaning.</p>
+<p><span class="math">\[
+\lambda xy.z = \lambda x. \lambda y.z
+\]</span></p>
+<p>The actual implementation of the lambda calculus admits several degrees of freedom in how lambda abstractions are represented. The most notable is the choice of identifiers for the binding variables. A variable is said to be <em>bound</em> if it is contained in a lambda expression of the same variable binding. Conversely a variable is <em>free</em> if it is not bound.</p>
+<p>A term with free variables is said to be an <em>open term</em> while one without free variables is said to be <em>closed</em> or a <em>combinator</em>.</p>
+<p><span class="math">\[
+\begin{aligned}
+e_0 &amp;= \lambda x . x \\
+e_1 &amp;= \lambda x. (x (\lambda y. y a) x) y \\
+\end{aligned}
+\]</span></p>
+<p><span class="math">\(e_0\)</span> is a combinator while <span class="math">\(e_1\)</span> is not. In <span class="math">\(e_1\)</span> both occurrences of <span class="math">\(x\)</span> are bound. The first <span class="math">\(y\)</span> is bound, while the second is free. <span class="math">\(a\)</span> is also free.</p>
+<p>Multiple lambda abstractions may bind the same variable name. Each occurrence of a variable is then bound by the nearest enclosing binder. For example, the <span class="math">\(x\)</span> variable in the following expression is bound on the inner lambda, while <span class="math">\(y\)</span> is bound on the outer lambda. This phenomenon is referred to as <em>name shadowing</em>.</p>
+<p><span class="math">\[
+\lambda x y. (\lambda x z. x + y)
+\]</span></p>
+<h2 id="ski-combinators">SKI Combinators</h2>
+<p>There are three fundamental closed expressions called the SKI combinators.</p>
+<p><span class="math">\[
+\begin{aligned}
+\textbf{S} &amp;= \lambda f .( \lambda g .( \lambda x. f x ( g x ) ) ) \\
+\textbf{K} &amp;= \lambda x . \lambda y. x \\
+\textbf{I} &amp;= \lambda x.x \\
+\end{aligned}
+\]</span></p>
+<p>In Haskell these are written simply:</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">s f g x <span class="fu">=</span> f x (g x)
+k x y <span class="fu">=</span> x
+i x <span class="fu">=</span> x</code></pre>
+<p>Rather remarkably Moses Schönfinkel showed that all closed lambda expressions can be expressed in terms of only the <strong>S</strong> and <strong>K</strong> combinators - even the <strong>I</strong> combinator. For example one can easily show that <strong>SKK</strong> reduces to <strong>I</strong>.</p>
+<p><span class="math">\[
+\begin{aligned}
+&amp;\textbf{S} \textbf{K} \textbf{K}\\
+&amp;= ((\lambda xyz.x z (y z)) (\lambda xy.x) (\lambda xy.x)) \\
+&amp;= ((\lambda yz.(\lambda xy.x) z (y z)) ( \lambda xy.x)) \\
+&amp;= \lambda  z.(\lambda xy.x) z ((\lambda xy.x) z) \\
+&amp;= \lambda  z.(\lambda y.z) ((\lambda xy.x) z) \\
+&amp;= \lambda  z.z \\
+&amp;= \textbf{I}\\
+\end{aligned}
+\]</span></p>
+<p>This fact is a useful sanity check when testing an implementation of the lambda calculus.</p>
+<h2 id="implementation">Implementation</h2>
+<p>The simplest implementation of the lambda calculus syntax with named binders is the following definition.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">Name</span> <span class="fu">=</span> <span class="dt">String</span>
+
+<span class="kw">data</span> <span class="dt">Expr</span>
+  <span class="fu">=</span> <span class="dt">Var</span> <span class="dt">Name</span>
+  <span class="fu">|</span> <span class="dt">App</span> <span class="dt">Expr</span> <span class="dt">Expr</span>
+  <span class="fu">|</span> <span class="dt">Lam</span> <span class="dt">Name</span> <span class="dt">Expr</span></code></pre>
+<p>There are several lexical syntax choices for lambda expressions, we will simply choose the Haskell convention which denotes lambda by the backslash (<code>\</code>) to the body with (<code>-&gt;</code>), and application by spaces. Named variables are simply alphanumeric sequences of characters.</p>
+<ul>
+<li><strong>Logical notation</strong>: <span class="math">\(\mathtt{const} = \lambda x y . x\)</span></li>
+<li><strong>Haskell notation</strong>: <code>const = \x y -&gt; x</code></li>
+</ul>
+<p>In addition other terms like literal numbers or booleans can be added, and these make writing expository examples a little easier. For these we will add a <code>Lit</code> constructor.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Expr</span>
+  <span class="fu">=</span> <span class="fu">...</span>
+  <span class="fu">|</span> <span class="dt">Lit</span> <span class="dt">Lit</span>
+
+<span class="kw">data</span> <span class="dt">Lit</span>
+  <span class="fu">=</span> <span class="dt">LInt</span> <span class="dt">Int</span>
+  <span class="fu">|</span> <span class="dt">LBool</span> <span class="dt">Bool</span></code></pre>
+<h2 id="substitution">Substitution</h2>
+<p>Evaluation of a lambda term (<span class="math">\((\lambda x.e) a\)</span>) proceeds by substitution of all free occurrences of the variable <span class="math">\(x\)</span> in <span class="math">\(e\)</span> with the argument <span class="math">\(a\)</span>. A single substitution step is called a <em>reduction</em>. We write the substitution application in brackets before the expression it is to be applied over, <span class="math">\([x / a]e\)</span> maps the variable <span class="math">\(x\)</span> to the new replacement <span class="math">\(a\)</span> over the expression <span class="math">\(e\)</span>.</p>
+<p><span class="math">\[
+(\lambda x. e) a \to [x / a] e
+\]</span></p>
+<p>A substitution metavariable will be written as <span class="math">\([s]\)</span>.</p>
+<p>In detail, substitution is defined like this:</p>
+<p><span class="math">\[
+\begin{aligned}
+&amp; [x/a] x          &amp;=&amp; \ a\\
+&amp; [x/a] y          &amp;=&amp; \ y &amp; \text{if}\ x\neq y\\
+&amp; [x/a]ee&#39;         &amp;=&amp; \ ([x/a]e)([x/a]e&#39;)\\
+&amp; [x/a]\lambda x.e &amp;=&amp; \ \lambda x.e\\
+&amp; [x/a]\lambda y.e &amp;=&amp; \ \lambda y.[x/a]e &amp; \text{if}\ x \neq y\ \text{and}\ y \notin\FV{a}
+\end{aligned}
+\]</span></p>
+<p>where <span class="math">\(\FV{e}\)</span> is the set of free variables in <span class="math">\(e\)</span>.</p>
+<p>The fundamental issue with using locally named binders is the problem of <em>name capture</em>, or how to handle the case where a substitution conflicts with the names of free variables. We need the condition in the last case to avoid the naive substitution that would fundamentally alter the meaning of the following expression when <span class="math">\(y\)</span> is rewritten to <span class="math">\(x\)</span>.</p>
+<p><span class="math">\[
+[y / x] (\lambda x.xy)  \to  \lambda x.xx
+\]</span></p>
+<p>By convention we will always use a <em>capture-avoiding</em> substitution. Substitution will only proceed if the variable is not in the set of free variables of the expression, and if it does then a fresh variable will be created in its place.</p>
+<p><span class="math">\[
+(\lambda x. e) a \to [x / a] e \quad \text{if}\ x \notin \FV{a}
+\]</span></p>
+<p>There are several binding libraries and alternative implementations of the lambda calculus syntax that avoid these problems. It is a very common problem and it is very easy to implement incorrectly even for experts.</p>
+<h2 id="conversion-and-equivalences">Conversion and Equivalences</h2>
+<p><strong>Alpha equivalence</strong></p>
+<p><span class="math">\[
+(\lambda x.e) \overset{\alpha} = (\lambda y. [x / y] e)
+\]</span></p>
+<p>Alpha equivalence is the property ( when using named binders ) that changing the variable on the binder and throughout the body of the expression should not change the fundamental meaning of the whole expression. So for example the following are alpha-equivalent.</p>
+<p><span class="math">\[
+\lambda x y.  x y \quad \overset{\alpha} = \quad \lambda a b . a b
+\]</span></p>
+<p><strong>Beta-reduction</strong></p>
+<p>Beta reduction is simply a single substitution step, replacing a variable bound by a lambda expression with the argument to the lambda throughout the body of the expression.</p>
+<p><span class="math">\[
+(\lambda x.a) y  \overset{\beta}{\rightarrow}  [x / y] a
+\]</span></p>
+<p><strong>Eta-reduction</strong></p>
+<p><span class="math">\[
+\lambda x.ex \overset{\eta}{\rightarrow} e \quad \text{if} \quad x \notin \FV{e}
+\]</span></p>
+<p>This is justified by the fact that if we apply both sides to a term, one step of beta reduction turns the left side to the right side:</p>
+<p><span class="math">\[
+(\lambda x.ex)e&#39; \overset{\beta}{\rightarrow} ee&#39; \quad \text{if} \quad x \notin \FV{e}
+\]</span></p>
+<p><strong>Eta-expansion</strong></p>
+<p>The opposite of eta reduction is eta-expansion, which takes a function that is not saturated and makes all variables explicitly bound in a lambda. Eta-expansion will be important when we discuss translation into STG.</p>
+<h2 id="reduction">Reduction</h2>
+<p>Evaluation of lambda calculus expressions proceeds by beta reduction. The variables bound in a lambda are substituted across the body of the lambda. There are several degrees of freedom in the design space about how to do this, and in which order an expression should be evaluated. For instance we could evaluate under the lambda and then substitute variables into it, or instead evaluate the arguments and then substitute and then reduce the lambda expressions. More on this will be discussed in the section on Evaluation models.</p>
+<pre class="sourceCode bash"><code class="sourceCode bash"><span class="kw">Untyped&gt;</span> (\x.x) <span class="kw">1</span>
+<span class="kw">1</span>
+
+<span class="kw">Untyped&gt;</span> (\x y . y) <span class="kw">1</span> 2
+<span class="kw">2</span>
+
+<span class="kw">Untyped&gt;</span> (\x y z. x z (y z)) <span class="kw">(</span>\<span class="kw">x</span> y . x<span class="kw">)</span> <span class="kw">(</span>\<span class="kw">x</span> y . x<span class="kw">)</span>
+  =<span class="kw">&gt;</span> \<span class="kw">x</span> y z . (x z (y z))
+  =<span class="kw">&gt;</span> \<span class="kw">y</span> z . ((\x y . x) <span class="kw">z</span> (y z))
+    =<span class="kw">&gt;</span> \<span class="kw">x</span> y . x
+    =<span class="kw">&gt;</span> \<span class="kw">y</span> . z
+   =<span class="kw">&gt;</span> <span class="kw">z</span>
+ =<span class="kw">&gt;</span> \<span class="kw">z</span> . z
+\<span class="kw">z</span> . z</code></pre>
+<p>Note that the last evaluation was <strong>SKK</strong> which we encountered earlier.</p>
+<p>In the untyped lambda calculus we can freely represent infinitely diverging expressions:</p>
+<pre class="sourceCode bash"><code class="sourceCode bash"><span class="kw">Untyped&gt;</span> \f . (f (\x . (f x x)) <span class="kw">(</span>\<span class="kw">x</span> . (f x x<span class="kw">)</span>))
+\<span class="kw">f</span> . (f (\x . (f x x)) <span class="kw">(</span>\<span class="kw">x</span> . (f x x<span class="kw">)</span>))
+
+<span class="kw">Untyped&gt;</span> (\f . (\x. (f x x)) <span class="kw">(</span>\<span class="kw">x.</span> (f x x<span class="kw">)</span>)) <span class="kw">(</span>\<span class="kw">f</span> x . f f<span class="kw">)</span>
+<span class="kw">...</span>
+
+<span class="kw">Untyped&gt;</span> (\x. x x) <span class="kw">(</span>\<span class="kw">x.</span> x x<span class="kw">)</span>
+<span class="kw">...</span></code></pre>
+<h2 id="let">Let</h2>
+<p>In addition to application, a construct known as a <strong>let binding</strong> is often added to the lambda calculus syntax. In the untyped lambda calculus, let bindings are semantically equivalent to applied lambda expressions.</p>
+<p><span class="math">\[
+\mathtt{let}\ a = e\ \mathtt{in}\ b \quad := \quad (\lambda a.b) e
+\]</span></p>
+<p>In our languages we will write let statements like they appear in Haskell.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">let</span> a <span class="fu">=</span> e <span class="kw">in</span> b</code></pre>
+<p>Toplevel expressions will be written as <code>let</code> statements without a body to indicate that they are added to the global scope. The Haskell language does not use this convention but OCaml, StandardML use this convention. In Haskell the preceding let is simply omitted for toplevel declarations.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">let</span> <span class="dt">S</span> f g x <span class="fu">=</span> f x (g x);
+<span class="kw">let</span> <span class="dt">K</span> x y <span class="fu">=</span> x;
+<span class="kw">let</span> <span class="dt">I</span> x <span class="fu">=</span> x;
+
+<span class="kw">let</span> skk <span class="fu">=</span> <span class="dt">S</span> <span class="dt">K</span> <span class="dt">K</span>;</code></pre>
+<p>For now the evaluation rule for let is identical to that of an applied lambda.</p>
+<p><span class="math">\[
+\begin{array}{clll}
+(\lambda x. e) v     &amp; \rightarrow &amp; [x/v] e                   &amp; \trule{E-Lam} \\
+\mathtt{let} \ x = v \ \mathtt{in} \ e &amp; \rightarrow &amp; [x/v] e &amp; \trule{E-Let} \\
+\end{array}
+\]</span></p>
+<p>In later variations of the lambda calculus let expressions will have different semantics and will differ from applied lambda expressions. More on this will be discussed in the section on Hindley-Milner inference.</p>
+<h2 id="everything-can-be-a-lambda-term">Everything Can Be a <span class="math">\(\lambda\)</span> term</h2>
+<ul>
+<li>0</li>
+<li>1</li>
+<li><p>2</p></li>
+<li>succ</li>
+<li><p>pred</p></li>
+<li>not</li>
+<li>and</li>
+<li><p>or</p></li>
+<li>add</li>
+<li><p>mul</p></li>
+</ul>
+<h2 id="recursion">Recursion</h2>
+<p>Probably the most famous combinator is Curry's Y combinator. Within an untyped lambda calculus, Y can be used to allow an expression to contain a reference to itself and reduce on itself permitting recursion and looping logic.</p>
+<p>The <span class="math">\(\textbf{Y}\)</span> combinator is one of many so called fixed point combinators.</p>
+<p><span class="math">\[
+\textbf{Y} = \lambda R.(\lambda x.(R (x x)) \lambda x.(R (x x)))
+\]</span></p>
+<p><span class="math">\(\textbf{Y}\)</span> is quite special in that given <span class="math">\(\textbf{R}\)</span> It returns the fixed point of <span class="math">\(\textbf{R}\)</span>.</p>
+<p><span class="math">\[
+\begin{aligned}
+\textbf{YR} &amp;= \lambda f.(\lambda x.(f (x x)) \lambda x.(f (x x))) R \\
+&amp; = (\lambda x.(\textbf{R} (x x)) \lambda x.(\textbf{R} (x x))) \\
+&amp; = \textbf{R} (\lambda x.(\textbf{R} (x x)) \lambda x.(\textbf{R} (x x))) \\
+&amp; = \textbf{R Y R}
+\end{aligned}
+\]</span></p>
+<p>For example the factorial function can be defined recursively in terms of repeated applications of itself to fixpoint until the base case of <span class="math">\(0!\)</span>.</p>
+<p><span class="math">\[
+n! = n (n-1)!
+\]</span></p>
+<p><span class="math">\[
+\begin{aligned}
+\textbf{fac}\ 0 &amp;= 1 \\
+\textbf{fac}\ n &amp;= \textbf{R}(\textbf{fac}) = \textbf{R}(\textbf{R}(\textbf{fac})) ...
+\end{aligned}
+\]</span></p>
+<p>For fun one can prove that the Y-combinator can be expressed in terms of the S and K combinators.</p>
+<p><span class="math">\[ \textbf{Y} = \textbf{SSK(S(K(SS(S(SSK))))K)}\]</span></p>
+<p>In an untyped lambda calculus language without explicit fixpoint or recursive let bindings, the Y combinator can be used to create both of these constructs out of nothing but lambda expressions. However it is more common to just add either an atomic fixpoint operator or a recursive let as a fundamental construct in the term syntax.</p>
+<p><span class="math">\[
+\begin{aligned}
+e :=\ &amp; x \\
+     &amp; e_1\ e_2 \\
+     &amp; \lambda x . e \\
+     &amp; \t{fix}\  e \\
+\end{aligned}
+\]</span></p>
+<p>Where <span class="math">\(\t{fix}\)</span> has the evaluation rule:</p>
+<p><span class="math">\[
+\begin{array}{cll}
+\mathtt{fix} \ v     &amp; \rightarrow &amp; v\ (\mathtt{fix}\ v) \\
+\end{array}
+\]</span></p>
+<p>Together with the fixpoint (or the Y combinator) we can create let bindings which contain a reference to itself within the body of the bound expression. We'll call these <em>recursive let bindings</em>, they are written as <code>let rec</code> in ML dialects. For now we will implement recursive lets as simply syntactic sugar for wrapping a fixpoint around a lambda binding by the following equivalence.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">let</span> rec x <span class="fu">=</span> e1 <span class="kw">in</span> e2    <span class="fu">=</span>    <span class="kw">let</span> x <span class="fu">=</span> fix (\x<span class="fu">.</span> e1) <span class="kw">in</span> e2</code></pre>
+<p>So for example we can now write down every functional programmer's favorite two functions: <code>factorial</code> and <code>fibonacci</code>. To show both styles, one is written with <code>let rec</code> and the other with explicit <code>fix</code>.</p>
+<pre class="sourceCode ocaml"><code class="sourceCode ocaml"><span class="kw">let</span> fact = fix (\fact -&gt; \n -&gt;
+  <span class="kw">if</span> (n == <span class="dv">0</span>)
+    <span class="kw">then</span> <span class="dv">1</span>
+    <span class="kw">else</span> (n * (fact (n<span class="dv">-1</span>))));</code></pre>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">let</span> rec fib n <span class="fu">=</span>
+  <span class="kw">if</span> (n <span class="fu">==</span> <span class="dv">0</span>)
+  <span class="kw">then</span> <span class="dv">0</span>
+  <span class="kw">else</span> <span class="kw">if</span> (n<span class="fu">==</span><span class="dv">1</span>)
+  <span class="kw">then</span> <span class="dv">1</span>
+  <span class="kw">else</span> ((fib (n<span class="fu">-</span><span class="dv">1</span>)) <span class="fu">+</span> (fib (n<span class="fu">-</span><span class="dv">2</span>)));</code></pre>
+<p><strong>Omega Combinator</strong></p>
+<p>An important degenerate case that we'll test is the omega combinator which applies a single argument to itself.</p>
+<p><span class="math">\[
+\omega = \lambda x. x x \\
+\]</span></p>
+<p>When we apply the <span class="math">\(\omega\)</span> combinator to itself we find that this results in an infinitely long repeating chain of reductions. A sequence of reductions that has no normal form ( i.e. it reduces indefinitely ) is said to <em>diverge</em>.</p>
+<p><span class="math">\[
+(\lambda x. x x) (\lambda x. x x) \to \\
+  \quad (\lambda x. x x)(\lambda x. x x) \to  \\
+  \quad \quad (\lambda x. x x)(\lambda x. x x) \ldots
+\]</span></p>
+<p>We'll call this expression the <span class="math">\(\Omega\)</span> combinator. It is the canonical looping term in the lambda calculus. Quite a few of our type systems which are statically typed will reject this term from being well-formed, so it is quite a useful tool for testing.</p>
+<p><span class="math">\[
+\Omega = \omega \omega = (\lambda x. x x) (\lambda x. x x)\\
+\]</span></p>
+<h2 id="pretty-printing">Pretty Printing</h2>
+<p>Hackage provides quite a few pretty printer libraries that ease the process of dumping out textual forms for our data types. Although there are some differences between the libraries most of them use the same set of combinators. We will use the <code>Text.PrettyPrint</code> module from the <a href="https://hackage.haskell.org/package/pretty-1.1.1.1">pretty</a> package on Hackage. Most of our pretty printing will be unavoidable boilerplate but will make debugging internal state much easier.</p>
+<table>
+<thead>
+<tr class="header">
+<th align="left"></th>
+<th align="left">Combinators</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left"><code>&lt;&gt;</code></td>
+<td align="left">Concatenation</td>
+</tr>
+<tr class="even">
+<td align="left"><code>&lt;+&gt;</code></td>
+<td align="left">Spaced concatenation</td>
+</tr>
+<tr class="odd">
+<td align="left"><code>char</code></td>
+<td align="left">Renders a character as a <code>Doc</code></td>
+</tr>
+<tr class="even">
+<td align="left"><code>text</code></td>
+<td align="left">Renders a string as a <code>Doc</code></td>
+</tr>
+<tr class="odd">
+<td align="left"><code>hsep</code></td>
+<td align="left">Horizontally concatenates a list of <code>Doc</code></td>
+</tr>
+<tr class="even">
+<td align="left"><code>vcat</code></td>
+<td align="left">Vertically joins a list of <code>Doc</code> with newlines</td>
+</tr>
+</tbody>
+</table>
+<p>The core type of the pretty printer is the <code>Doc</code> type which is the abstract type of documents. Combinators over this type will manipulate the internal structure of this document which is then finally reified to a physical string using the <code>render</code> function. Since we intend to pretty print across multiple types we will create a <code>Pretty</code> typeclass.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">module</span> <span class="dt">Pretty</span> <span class="kw">where</span>
+
+<span class="kw">import </span><span class="dt">Text.PrettyPrint</span>
+
+<span class="kw">class</span> <span class="dt">Pretty</span> p <span class="kw">where</span>
+<span class="ot">  ppr ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> p <span class="ot">-&gt;</span> <span class="dt">Doc</span>
+
+<span class="ot">  pp ::</span> p <span class="ot">-&gt;</span> <span class="dt">Doc</span>
+  pp <span class="fu">=</span> ppr <span class="dv">0</span></code></pre>
+<p>First, we create two helper functions that collapse our lambda bindings so we can print them out as single lambda expressions.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">viewVars ::</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> [<span class="dt">Name</span>]
+viewVars (<span class="dt">Lam</span> n a) <span class="fu">=</span> n <span class="fu">:</span> viewVars a
+viewVars _ <span class="fu">=</span> []
+
+<span class="ot">viewBody ::</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">Expr</span>
+viewBody (<span class="dt">Lam</span> _ a) <span class="fu">=</span> viewBody a
+viewBody x <span class="fu">=</span> x</code></pre>
+<p>Then we create a helper function for parenthesizing subexpressions.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">parensIf ::</span>  <span class="dt">Bool</span> <span class="ot">-&gt;</span> <span class="dt">Doc</span> <span class="ot">-&gt;</span> <span class="dt">Doc</span>
+parensIf <span class="dt">True</span> <span class="fu">=</span> parens
+parensIf <span class="dt">False</span> <span class="fu">=</span> id</code></pre>
+<p>Finally, we define <code>ppr</code>. The <code>p</code> variable will indicate our depth within the current structure we're printing and allow us to print out differently to disambiguate it from its surroundings if necessary.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Pretty</span> <span class="dt">Expr</span> <span class="kw">where</span>
+  ppr p e <span class="fu">=</span> <span class="kw">case</span> e <span class="kw">of</span>
+    <span class="dt">Lit</span> (<span class="dt">LInt</span> a)  <span class="ot">-&gt;</span> text (show a)
+    <span class="dt">Lit</span> (<span class="dt">LBool</span> b) <span class="ot">-&gt;</span> text (show b)
+    <span class="dt">Var</span> x   <span class="ot">-&gt;</span> text x
+    <span class="dt">App</span> a b <span class="ot">-&gt;</span> parensIf (p<span class="fu">&gt;</span><span class="dv">0</span>) <span class="fu">$</span> (ppr (p<span class="fu">+</span><span class="dv">1</span>) a) <span class="fu">&lt;+&gt;</span> (ppr p b)
+    <span class="dt">Lam</span> x a <span class="ot">-&gt;</span> parensIf (p<span class="fu">&gt;</span><span class="dv">0</span>) <span class="fu">$</span>
+         char <span class="ch">&#39;\\&#39;</span>
+      <span class="fu">&lt;&gt;</span> hsep (fmap pp (viewVars e))
+      <span class="fu">&lt;+&gt;</span> <span class="st">&quot;-&gt;&quot;</span>
+      <span class="fu">&lt;+&gt;</span> ppr (p<span class="fu">+</span><span class="dv">1</span>) (viewBody e)
+
+<span class="ot">ppexpr ::</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">String</span>
+ppexpr <span class="fu">=</span> render <span class="fu">.</span> ppr <span class="dv">0</span></code></pre>
+<h2 id="full-source">Full Source</h2>
+<ul>
+<li><a href="https://github.com/sdiehl/write-you-a-haskell/tree/master/chapter4/untyped">Untyped Lambda Calculus</a></li>
+</ul>
+<p></p>
+          </div>
+        </div>
+
+    </div>
+    <script src="https://code.jquery.com/jquery.js"></script>
+    <script src="js/nav.js"></script>
+  </body>
+
+<!-- Mirrored from dev.stephendiehl.com/fun/003_lambda_calculus.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:55:43 GMT -->
+</html>

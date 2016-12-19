@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+  
+<!-- Mirrored from dev.stephendiehl.com/fun/009_datatypes.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:55:43 GMT -->
+<head>
+    <meta charset="utf-8">
+    <title>Write You a Haskell ( Stephen Diehl )</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <link href="http://fonts.googleapis.com/css?family=Inconsolata" rel="stylesheet">
+    <style type="text/css">
+      
+    </style>
+    <link href="css/bootstrap-responsive.min.css" rel="stylesheet">
+    <link href="css/colors.css" rel="stylesheet">
+    <link rel="alternate" type="application/atom+xml" title="Write You a Haskell" href="rss/atom.xml" />
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','http://www.google-analytics.com/analytics.js','ga');
+
+      ga('create', 'UA-49839533-1', 'stephendiehl.com');
+      ga('send', 'pageview');
+
+    </script>
+
+          <style type="text/css">
+    div.sourceCode { overflow-x: auto; }
+    table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode {
+      margin: 0; padding: 0; vertical-align: baseline; border: none; }
+    table.sourceCode { width: 100%; line-height: 100%; }
+    td.lineNumbers { text-align: right; padding-right: 4px; padding-left: 4px; color: #aaaaaa; border-right: 1px solid #aaaaaa; }
+    td.sourceCode { padding-left: 5px; }
+    code > span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code > span.dt { color: #902000; } /* DataType */
+    code > span.dv { color: #40a070; } /* DecVal */
+    code > span.bn { color: #40a070; } /* BaseN */
+    code > span.fl { color: #40a070; } /* Float */
+    code > span.ch { color: #4070a0; } /* Char */
+    code > span.st { color: #4070a0; } /* String */
+    code > span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code > span.ot { color: #007020; } /* Other */
+    code > span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code > span.fu { color: #06287e; } /* Function */
+    code > span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code > span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+    code > span.cn { color: #880000; } /* Constant */
+    code > span.sc { color: #4070a0; } /* SpecialChar */
+    code > span.vs { color: #4070a0; } /* VerbatimString */
+    code > span.ss { color: #bb6688; } /* SpecialString */
+    code > span.im { } /* Import */
+    code > span.va { color: #19177c; } /* Variable */
+    code > span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code > span.op { color: #666666; } /* Operator */
+    code > span.bu { } /* BuiltIn */
+    code > span.ex { } /* Extension */
+    code > span.pp { color: #bc7a00; } /* Preprocessor */
+    code > span.at { color: #7d9029; } /* Attribute */
+    code > span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code > span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code > span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+      </style>
+            <link rel="stylesheet" href="css/style.css" type="text/css" />
+                  <script src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML" type="text/javascript"></script>
+              </head>
+
+  <body>
+
+    <div>
+
+        <div class="row">
+
+          <div class="span3 side toc">
+              <ul>
+              <li><a href="index-2.html">Index</a></li>
+              <li><a href="https://github.com/sdiehl/write-you-a-haskell">Github</a></li>
+              <li><a href="rss/atom.xml">RSS</a></li>
+              <li><a href="WYAH.pdf">PDF</a></li>
+              </ul>
+              <ul>
+              <li><a href="#datatypes">Datatypes</a><ul>
+              <li><a href="#algebraic-data-types">Algebraic data types</a></li>
+              <li><a href="#isorecursive-types">Isorecursive Types</a></li>
+              <li><a href="#memory-layout">Memory Layout</a></li>
+              <li><a href="#pattern-scrutiny">Pattern Scrutiny</a></li>
+              <li><a href="#syntax">Syntax</a></li>
+              <li><a href="#ghc.generics">GHC.Generics</a></li>
+              <li><a href="#pattern-expansion">Pattern Expansion</a></li>
+              <li><a href="#full-source">Full Source</a></li>
+              </ul></li>
+              </ul>
+          </div>
+
+          <div class="span9 body">
+<!--<h1>Implementing a Functional Language in Haskell</h1>--!>
+<div style="display:none">
+<p><span class="math display">\[\newcommand{\andalso}{\quad\quad}
+\newcommand{\infabbrev}[2]{\infax{#1 \quad\eqdef\quad #2}}
+\newcommand{\infrule}[2]{\displaystyle \dfrac{#1}{#2}}
+\newcommand{\ar}{\rightarrow}
+\newcommand{\Int}{\mathtt{Int}}
+\newcommand{\Bool}{\mathtt{Bool}}
+\newcommand{\becomes}{\Downarrow}
+\newcommand{\trule}[1]{(\textbf{#1})}
+\newcommand{\FV}[1]{\mathtt{fv}(#1)}
+\newcommand{\FTV}[1]{\mathtt{ftv}(#1)}
+\newcommand{\BV}[1]{\mathtt{bv}(#1)}
+\newcommand{\compiles}[1]{\text{C}\llbracket{#1}\rrbracket}
+\newcommand{\exec}[1]{\text{E}\llbracket{#1}\rrbracket}
+\renewcommand{\t}[1]{\mathtt{#1}}
+\newcommand{\ite}[3]{\text{if }#1\text{ then }#2\text{ else }#3}
+\]</span></p>
+</div>
+<p class="halfbreak">
+</p>
+<h1 id="datatypes">Datatypes</h1>
+<h2 id="algebraic-data-types">Algebraic data types</h2>
+<p><strong>Algebraic datatypes</strong> are a family of constructions arising out of two operations, <em>products</em> (<code>a * b</code>) and <em>sums</em> (<code>a + b</code>) (sometimes also called <em>coproducts</em>). A product encodes multiple arguments to constructors and sums encode choice between constructors.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">{-# LANGUAGE TypeOperators #-}</span>
+
+<span class="kw">data</span> <span class="dt">Unit</span> <span class="fu">=</span> <span class="dt">Unit</span>                 <span class="co">-- 1</span>
+<span class="kw">data</span> <span class="dt">Empty</span>                       <span class="co">-- 0</span>
+<span class="kw">data</span> (a <span class="fu">*</span> b) <span class="fu">=</span> <span class="dt">Product</span> a b       <span class="co">-- a * b</span>
+<span class="kw">data</span> (a <span class="fu">+</span> b) <span class="fu">=</span> <span class="dt">Inl</span> a <span class="fu">|</span> <span class="dt">Inr</span> b     <span class="co">-- a + b</span>
+<span class="kw">data</span> <span class="dt">Exp</span> a b <span class="fu">=</span> <span class="dt">Exp</span> (a <span class="ot">-&gt;</span> b)      <span class="co">-- a^b</span>
+<span class="kw">data</span> <span class="dt">Rec</span> f   <span class="fu">=</span> <span class="dt">Rec</span> (f (<span class="dt">Rec</span> f))   <span class="co">-- \mu</span></code></pre></div>
+<p>The two constructors <code>Inl</code> and <code>Inr</code> are the left and right <em>injections</em> for the sum. These allows us to construct sums.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="dt">Inl</span><span class="ot"> ::</span> a <span class="ot">-&gt;</span> a <span class="fu">+</span> b
+<span class="dt">Inr</span><span class="ot"> ::</span> b <span class="ot">-&gt;</span> a <span class="fu">+</span> b</code></pre></div>
+<p>Likewise for the product there are two function <code>fst</code> and <code>snd</code> which are <em>projections</em> which de construct products.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">fst<span class="ot"> ::</span> a <span class="fu">*</span> b <span class="ot">-&gt;</span> a
+snd<span class="ot"> ::</span> a <span class="fu">*</span> b <span class="ot">-&gt;</span> b</code></pre></div>
+<p>Once a language is endowed with the capacity to write a single product or a single sum, all higher order products can written in terms of sums of products. For example a 3-tuple can be written in terms of the composite of two 2-tuples. And indeed any n-tuple or record type can be written in terms of compositions of products.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">Prod3</span> a b c <span class="fu">=</span> a<span class="fu">*</span>(b<span class="fu">*</span>c)
+
+<span class="kw">data</span> <span class="dt">Prod3&#39;</span> a b c
+  <span class="fu">=</span> <span class="dt">Prod3</span> a b c
+
+<span class="ot">prod3 ::</span> <span class="dt">Prod3</span> <span class="dt">Int</span> <span class="dt">Int</span> <span class="dt">Int</span>
+prod3 <span class="fu">=</span> <span class="dt">Product</span> <span class="dv">1</span> (<span class="dt">Product</span> <span class="dv">2</span> <span class="dv">3</span>)</code></pre></div>
+<p>Or a sum type of three options can be written in terms of two sums:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">Sum3</span> a b c <span class="fu">=</span> (a<span class="fu">+</span>b)<span class="fu">+</span>c
+
+<span class="kw">data</span> <span class="dt">Sum3&#39;</span> a b c
+  <span class="fu">=</span> <span class="dt">Opt1</span> a
+  <span class="fu">|</span> <span class="dt">Opt2</span> b
+  <span class="fu">|</span> <span class="dt">Opt3</span> c
+
+<span class="ot">sum3 ::</span> <span class="dt">Sum3</span> <span class="dt">Int</span> <span class="dt">Int</span> <span class="dt">Int</span>
+sum3 <span class="fu">=</span> <span class="dt">Inl</span> (<span class="dt">Inl</span> <span class="dv">2</span>)</code></pre></div>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Option</span> a <span class="fu">=</span> <span class="dt">None</span> <span class="fu">|</span> <span class="dt">Some</span> a</code></pre></div>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">Option&#39;</span> a <span class="fu">=</span> <span class="dt">Unit</span> <span class="fu">+</span> a
+
+<span class="ot">some ::</span> <span class="dt">Unit</span> <span class="fu">+</span> a
+some <span class="fu">=</span> <span class="dt">Inl</span> <span class="dt">Unit</span>
+
+<span class="ot">none ::</span> a <span class="ot">-&gt;</span> <span class="dt">Unit</span> <span class="fu">+</span> a
+none a <span class="fu">=</span> <span class="dt">Inr</span> a</code></pre></div>
+<p>In Haskell the convention for the sum and product notation is as follows:</p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">Notation</th>
+<th align="left">Haskell Type</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left"><code>a * b</code></td>
+<td align="left"><code>(a,b)</code></td>
+</tr>
+<tr class="even">
+<td align="left"><code>a + b</code></td>
+<td align="left"><code>Either a b</code></td>
+</tr>
+<tr class="odd">
+<td align="left"><code>Inl</code></td>
+<td align="left"><code>Left</code></td>
+</tr>
+<tr class="even">
+<td align="left"><code>Inr</code></td>
+<td align="left"><code>Right</code></td>
+</tr>
+<tr class="odd">
+<td align="left"><code>Empty</code></td>
+<td align="left"><code>Void</code></td>
+</tr>
+<tr class="even">
+<td align="left"><code>Unit</code></td>
+<td align="left"><code>()</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="isorecursive-types">Isorecursive Types</h2>
+<p><span class="math display">\[
+\mathtt{Nat} = \mu \alpha. 1 + \alpha
+\]</span></p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">roll ::</span> <span class="dt">Rec</span> f <span class="ot">-&gt;</span> f (<span class="dt">Rec</span> f)
+roll (<span class="dt">Rec</span> f) <span class="fu">=</span> f
+
+<span class="ot">unroll ::</span> f (<span class="dt">Rec</span> f) <span class="ot">-&gt;</span> <span class="dt">Rec</span> f
+unroll f <span class="fu">=</span> <span class="dt">Rec</span> f</code></pre></div>
+<p>Peano numbers:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">Nat</span> <span class="fu">=</span> <span class="dt">Rec</span> <span class="dt">NatF</span>
+<span class="kw">data</span> <span class="dt">NatF</span> s <span class="fu">=</span> <span class="dt">Zero</span> <span class="fu">|</span> <span class="dt">Succ</span> s
+
+<span class="ot">zero ::</span> <span class="dt">Nat</span>
+zero <span class="fu">=</span> <span class="dt">Rec</span> <span class="dt">Zero</span>
+
+succ<span class="ot"> ::</span> <span class="dt">Nat</span> <span class="ot">-&gt;</span> <span class="dt">Nat</span>
+succ x <span class="fu">=</span> <span class="dt">Rec</span> (<span class="dt">Succ</span> x)</code></pre></div>
+<p>Lists:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">List</span> a <span class="fu">=</span> <span class="dt">Rec</span> (<span class="dt">ListF</span> a)
+<span class="kw">data</span> <span class="dt">ListF</span> a b <span class="fu">=</span> <span class="dt">Nil</span> <span class="fu">|</span> <span class="dt">Cons</span> a b
+
+<span class="ot">nil ::</span> <span class="dt">List</span> a
+nil <span class="fu">=</span> <span class="dt">Rec</span> <span class="dt">Nil</span>
+
+<span class="ot">cons ::</span> a <span class="ot">-&gt;</span> <span class="dt">List</span> a <span class="ot">-&gt;</span> <span class="dt">List</span> a
+cons x y <span class="fu">=</span> <span class="dt">Rec</span> (<span class="dt">Cons</span> x y)</code></pre></div>
+<h2 id="memory-layout">Memory Layout</h2>
+<p>Just as the type-level representation</p>
+<div class="figure">
+<img src="img/memory_layout.png" alt="" />
+
+</div>
+<div class="sourceCode"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span class="kw">typedef</span> <span class="kw">union</span> {
+    <span class="dt">int</span> a;
+    <span class="dt">float</span> b;
+} Sum;
+
+<span class="kw">typedef</span> <span class="kw">struct</span> {
+    <span class="dt">int</span> a;
+    <span class="dt">float</span> b;
+} Prod;</code></pre></div>
+<div class="sourceCode"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span class="dt">int</span> main()
+{
+    Prod x = { .a = <span class="dv">1</span>, .b = <span class="fl">2.0</span> };
+    Sum sum1 = { .a = <span class="dv">1</span> };
+    Sum sum2 = { .b = <span class="fl">2.0</span> }; 
+}</code></pre></div>
+<div class="sourceCode"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span class="ot">#include &lt;stddef.h&gt;</span>
+
+<span class="kw">typedef</span> <span class="kw">struct</span> T
+{
+  <span class="kw">enum</span> { NONE, SOME } tag;
+  <span class="kw">union</span>
+  {
+     <span class="dt">void</span> *none;
+     <span class="dt">int</span> some;
+  } value;
+} Option;</code></pre></div>
+<div class="sourceCode"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span class="dt">int</span> main()
+{
+    Option a = { .tag = NONE, .value = { .none = NULL } };
+    Option b = { .tag = SOME, .value = { .some = <span class="dv">3</span> } };
+}</code></pre></div>
+<ul>
+<li><a href="https://github.com/sdiehl/write-you-a-haskell/tree/master/chapter10/adt.c">Algebraic Datatypes in C (Part 1)</a></li>
+<li><a href="https://github.com/sdiehl/write-you-a-haskell/tree/master/chapter10/adt2.c">Algebraic Datatypes in C (Part 2)</a></li>
+</ul>
+<h2 id="pattern-scrutiny">Pattern Scrutiny</h2>
+<p>In Haskell:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">T</span>
+  <span class="fu">=</span> <span class="dt">Add</span> <span class="dt">T</span> <span class="dt">T</span>
+  <span class="fu">|</span> <span class="dt">Mul</span> <span class="dt">T</span> <span class="dt">T</span>
+  <span class="fu">|</span> <span class="dt">Div</span> <span class="dt">T</span> <span class="dt">T</span>
+  <span class="fu">|</span> <span class="dt">Sub</span> <span class="dt">T</span> <span class="dt">T</span>
+  <span class="fu">|</span> <span class="dt">Num</span> <span class="dt">Int</span>
+
+<span class="ot">eval ::</span> <span class="dt">T</span> <span class="ot">-&gt;</span> <span class="dt">Int</span>
+eval x <span class="fu">=</span> <span class="kw">case</span> x <span class="kw">of</span>
+  <span class="dt">Add</span> a b <span class="ot">-&gt;</span> eval a <span class="fu">+</span> eval b
+  <span class="dt">Mul</span> a b <span class="ot">-&gt;</span> eval a <span class="fu">+</span> eval b
+  <span class="dt">Div</span> a b <span class="ot">-&gt;</span> eval a <span class="fu">+</span> eval b
+  <span class="dt">Sub</span> a b <span class="ot">-&gt;</span> eval a <span class="fu">+</span> eval b
+  <span class="dt">Num</span> a   <span class="ot">-&gt;</span> a</code></pre></div>
+<p>In C:</p>
+<div class="sourceCode"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span class="kw">typedef</span> <span class="kw">struct</span> T {
+    <span class="kw">enum</span> { ADD, MUL, DIV, SUB, NUM } tag;
+    <span class="kw">union</span> {
+        <span class="kw">struct</span> {
+            <span class="kw">struct</span> T *left, *right;
+        } node;
+        <span class="dt">int</span> value;
+    };
+} Expr;
+
+<span class="dt">int</span> eval(Expr t)
+{
+    <span class="kw">switch</span> (t.tag) {
+        <span class="kw">case</span> ADD:
+            <span class="kw">return</span> eval(*t.node.left) + eval(*t.node.right);
+            <span class="kw">break</span>;
+        <span class="kw">case</span> MUL:
+            <span class="kw">return</span> eval(*t.node.left) * eval(*t.node.right);
+            <span class="kw">break</span>;
+        <span class="kw">case</span> DIV:
+            <span class="kw">return</span> eval(*t.node.left) / eval(*t.node.right);
+            <span class="kw">break</span>;
+        <span class="kw">case</span> SUB:
+            <span class="kw">return</span> eval(*t.node.left) - eval(*t.node.right);
+            <span class="kw">break</span>;
+        <span class="kw">case</span> NUM:
+            <span class="kw">return</span> t.value;
+            <span class="kw">break</span>;
+    }
+}</code></pre></div>
+<ul>
+<li><a href="https://github.com/sdiehl/write-you-a-haskell/tree/master/chapter10/eval.c">Pattern Matching</a></li>
+</ul>
+<h2 id="syntax">Syntax</h2>
+<h2 id="ghc.generics">GHC.Generics</h2>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Generic</span> a <span class="kw">where</span>
+  <span class="kw">type</span> family <span class="dt">Rep</span><span class="ot"> a ::</span> <span class="fu">*</span> <span class="ot">-&gt;</span> <span class="fu">*</span>
+<span class="ot">  to   ::</span> a <span class="ot">-&gt;</span> <span class="dt">Rep</span> a x
+<span class="ot">  from ::</span> <span class="dt">Rep</span> a x <span class="ot">-&gt;</span> a</code></pre></div>
+<table>
+<thead>
+<tr class="header">
+<th align="left">Constructor</th>
+<th align="left">Models</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left"><code>V1</code></td>
+<td align="left">Void: used for datatypes without constructors</td>
+</tr>
+<tr class="even">
+<td align="left"><code>U1</code></td>
+<td align="left">Unit: used for constructors without arguments</td>
+</tr>
+<tr class="odd">
+<td align="left"><code>K1</code></td>
+<td align="left">Constants, additional parameters.</td>
+</tr>
+<tr class="even">
+<td align="left"><code>:*:</code></td>
+<td align="left">Products: encode multiple arguments to constructors</td>
+</tr>
+<tr class="odd">
+<td align="left"><code>:+:</code></td>
+<td align="left">Sums: encode choice between constructors</td>
+</tr>
+<tr class="even">
+<td align="left"><code>L1</code></td>
+<td align="left">Left hand side of a sum.</td>
+</tr>
+<tr class="odd">
+<td align="left"><code>R1</code></td>
+<td align="left">Right hand side of a sum.</td>
+</tr>
+<tr class="even">
+<td align="left"><code>M1</code></td>
+<td align="left">Meta-information (constructor names, etc.)</td>
+</tr>
+</tbody>
+</table>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">newtype</span> <span class="dt">M1</span> i c f p <span class="fu">=</span> <span class="dt">M1</span> (f p)
+<span class="kw">newtype</span> <span class="dt">K1</span> i c   p <span class="fu">=</span> <span class="dt">K1</span> c
+<span class="kw">data</span> <span class="dt">U</span>           p <span class="fu">=</span> <span class="dt">U</span></code></pre></div>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> (<span class="fu">:*:</span>) a b p <span class="fu">=</span> a p <span class="fu">:*:</span> b p
+<span class="kw">data</span> (<span class="fu">:+:</span>) a b p <span class="fu">=</span> <span class="dt">L1</span> (a p) <span class="fu">|</span> <span class="dt">R1</span> (b p)</code></pre></div>
+<p>Implementation:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">{-# LANGUAGE TypeOperators #-}</span>
+<span class="ot">{-# LANGUAGE FlexibleContexts #-}</span>
+<span class="ot">{-# LANGUAGE DefaultSignatures #-}</span>
+
+<span class="kw">import </span><span class="dt">GHC.Generics</span>
+
+<span class="co">-- Auxiliary class</span>
+<span class="kw">class</span> <span class="dt">GEq&#39;</span> f <span class="kw">where</span>
+<span class="ot">  geq&#39; ::</span> f a <span class="ot">-&gt;</span> f a <span class="ot">-&gt;</span> <span class="dt">Bool</span>
+
+<span class="kw">instance</span> <span class="dt">GEq&#39;</span> <span class="dt">U1</span> <span class="kw">where</span>
+  geq&#39; _ _ <span class="fu">=</span> <span class="dt">True</span>
+
+<span class="kw">instance</span> (<span class="dt">GEq</span> c) <span class="ot">=&gt;</span> <span class="dt">GEq&#39;</span> (<span class="dt">K1</span> i c) <span class="kw">where</span>
+  geq&#39; (<span class="dt">K1</span> a) (<span class="dt">K1</span> b) <span class="fu">=</span> geq a b
+
+<span class="kw">instance</span> (<span class="dt">GEq&#39;</span> a) <span class="ot">=&gt;</span> <span class="dt">GEq&#39;</span> (<span class="dt">M1</span> i c a) <span class="kw">where</span>
+  geq&#39; (<span class="dt">M1</span> a) (<span class="dt">M1</span> b) <span class="fu">=</span> geq&#39; a b
+
+<span class="kw">instance</span> (<span class="dt">GEq&#39;</span> a, <span class="dt">GEq&#39;</span> b) <span class="ot">=&gt;</span> <span class="dt">GEq&#39;</span> (a <span class="fu">:+:</span> b) <span class="kw">where</span>
+  geq&#39; (<span class="dt">L1</span> a) (<span class="dt">L1</span> b) <span class="fu">=</span> geq&#39; a b
+  geq&#39; (<span class="dt">R1</span> a) (<span class="dt">R1</span> b) <span class="fu">=</span> geq&#39; a b
+  geq&#39; _      _      <span class="fu">=</span> <span class="dt">False</span>
+
+<span class="kw">instance</span> (<span class="dt">GEq&#39;</span> a, <span class="dt">GEq&#39;</span> b) <span class="ot">=&gt;</span> <span class="dt">GEq&#39;</span> (a <span class="fu">:*:</span> b) <span class="kw">where</span>
+  geq&#39; (a1 <span class="fu">:*:</span> b1) (a2 <span class="fu">:*:</span> b2) <span class="fu">=</span> geq&#39; a1 a2 <span class="fu">&amp;&amp;</span> geq&#39; b1 b2
+
+<span class="fu">--</span>
+<span class="kw">class</span> <span class="dt">GEq</span> a <span class="kw">where</span>
+<span class="ot">  geq ::</span> a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">Bool</span>
+  default<span class="ot"> geq ::</span> (<span class="dt">Generic</span> a, <span class="dt">GEq&#39;</span> (<span class="dt">Rep</span> a)) <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">Bool</span>
+  geq x y <span class="fu">=</span> geq&#39; (from x) (from y)</code></pre></div>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- Base equalities</span>
+<span class="kw">instance</span> <span class="dt">GEq</span> <span class="dt">Char</span> <span class="kw">where</span> geq <span class="fu">=</span> (<span class="fu">==</span>)
+<span class="kw">instance</span> <span class="dt">GEq</span> <span class="dt">Int</span> <span class="kw">where</span> geq <span class="fu">=</span> (<span class="fu">==</span>)
+<span class="kw">instance</span> <span class="dt">GEq</span> <span class="dt">Float</span> <span class="kw">where</span> geq <span class="fu">=</span> (<span class="fu">==</span>)</code></pre></div>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- Equalities derived from structure of (:+:) and (:*:) for free</span>
+<span class="kw">instance</span> <span class="dt">GEq</span> a <span class="ot">=&gt;</span> <span class="dt">GEq</span> (<span class="dt">Maybe</span> a)
+<span class="kw">instance</span> (<span class="dt">GEq</span> a, <span class="dt">GEq</span> b) <span class="ot">=&gt;</span> <span class="dt">GEq</span> (a,b)</code></pre></div>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> <span class="kw">do</span>
+  print <span class="fu">$</span> geq <span class="dv">2</span> (<span class="dv">3</span><span class="ot"> ::</span> <span class="dt">Int</span>)           <span class="co">-- False</span>
+  print <span class="fu">$</span> geq <span class="ch">&#39;a&#39;</span> <span class="ch">&#39;b&#39;</span>                <span class="co">-- False</span>
+  print <span class="fu">$</span> geq (<span class="dt">Just</span> <span class="ch">&#39;a&#39;</span>) (<span class="dt">Just</span> <span class="ch">&#39;a&#39;</span>)  <span class="co">-- True</span>
+  print <span class="fu">$</span> geq (<span class="ch">&#39;a&#39;</span>,<span class="ch">&#39;b&#39;</span>) (<span class="ch">&#39;a&#39;</span>, <span class="ch">&#39;b&#39;</span>)   <span class="co">-- True</span></code></pre></div>
+<ul>
+<li><a href="https://github.com/sdiehl/write-you-a-haskell/tree/master/chapter10/generics.hs">Generics</a></li>
+</ul>
+<h2 id="pattern-expansion">Pattern Expansion</h2>
+<!--
+Consider the task of expanding
+
+```haskell
+f :: Maybe (Either a b) -> Int
+f (Just (Left x))  = 1
+f (Just (Right x)) = 2
+f Nothing          = 3
+```
+
+
+```haskell
+f :: Maybe (Either a b) -> Int
+f = case ds of _ {
+      Nothing -> I# 3;
+      Just ds1 ->
+        case ds1 of _ {
+          Left x -> I# 1;
+          Right x -> I# 2
+        }
+    }
+```
+-->
+<h2 id="full-source">Full Source</h2>
+<p></p>
+          </div>
+        </div>
+
+    </div>
+    <script src="https://code.jquery.com/jquery.js"></script>
+    <script src="js/nav.js"></script>
+  </body>
+
+<!-- Mirrored from dev.stephendiehl.com/fun/009_datatypes.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:55:43 GMT -->
+</html>

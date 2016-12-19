@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+    
+<!-- Mirrored from www.well-typed.com/blog/72/ by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:53:51 GMT -->
+<head>
+        <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+        <title>
+           
+           Well-Typed - The Haskell Consultants: Communication Patterns in Cloud Haskell (Part 2)
+           
+        </title>
+        <link rel="Stylesheet" type="text/css" href="http://www.well-typed.com/css/wt.css" />
+        <link rel="shortcut icon" type="image/x-icon" href="http://www.well-typed.com/favicon.ico" />
+        
+    </head>
+    <body class="normal">
+
+<div class="pagelogo">
+<div class="smalllogo">
+  <a href="http://www.well-typed.com/"><img src="http://www.well-typed.com/img/wtlogo-small.png" width="243" height="70" alt="Well-Typed, The Haskell Consultants" /></a>
+</div>
+</div>
+
+<div class="bar">
+  <div class="smallmenu">
+<ul class="menu">
+  <li class="header"><a href="http://www.well-typed.com/services">Services</a>
+    <ul class="submenu">
+      <li class="subheader"><a href="http://www.well-typed.com/services_applications">Development</a></li>
+      <li class="subheader"><a href="http://www.well-typed.com/services_libraries">Maintenance</a></li>
+      <li class="subheader"><a href="http://www.well-typed.com/services_advice">Advice</a></li>
+      <li class="subheader"><a href="http://www.well-typed.com/services_training">Training</a></li>
+    </ul>
+  </li>
+  <li class="header"><a href="http://www.well-typed.com/about_welltyped">About</a>
+    <ul class="submenu">
+      <li class="subheader"><a href="http://www.well-typed.com/community">Community</a></li>
+      <li class="subheader"><a href="http://www.well-typed.com/who_we_are">Who We Are</a></li>
+      <li class="subheader"><a href="http://www.well-typed.com/contact">Contact</a></li>
+    </ul>
+  </li>
+  <li class="header"><a href="http://www.well-typed.com/press_releases">Press Releases</a></li>
+  <li class="header" id="active"><a href="http://www.well-typed.com/blog">Blog</a></li>
+</ul>
+</div>
+<div style="clear: both;"></div>
+
+
+</div>
+
+<div class="body">
+<div class="text">
+
+  <h1><a href="http://www.well-typed.com/blog/2012/10/communication-patterns-in-cloud-haskell-part-2">Communication Patterns in Cloud Haskell (Part 2)</a></h1>
+
+<p style="text-align: right"><small>Monday, 08 October 2012, by <a href="http://www.well-typed.com/blog/people/edsko">Edsko de Vries</a>.<br />
+  Filed under <a href="http://www.well-typed.com/blog/tags/parallel">parallel</a>, <a href="http://www.well-typed.com/blog/tags/cloud-haskell">cloud-haskell</a>.</small></p>
+
+<h2> Performance </h2><p>In <a href="http://www.well-typed.com/blog/71">Part 1</a> of this series we introduced a number of basic Cloud Haskell
+communication patterns.  All these patterns will work fine for modest numbers
+of work items; in this blog post we're going to look at the performance and
+memory use for much larger numbers of work items, so we can see how each
+pattern scales up. We will see that scalability improves as we move from
+master-slave to work-pushing to work-stealing, and that many further
+improvements can still be made. More importantly, we hope to help you to
+predict runtime behaviour from your code, so that you can write more scalable
+and high-performance code.  </p><h2> Predicting resource use and performance </h2><p>When thinking about Cloud Haskell performance you should consider things such
+as</p><ul><li><em>Bandwidth</em>. How many messages are you sending, and how large are those
+messages? Network bandwidth is typically <a href="../../../en.wikipedia.org/wiki/List_of_device_bit_rates.html">several orders of magnitudes lower</a> than direct
+memory access, so it is important to be aware of the cost of messaging. In
+fact, an important design criterion in the development of Cloud Haskell was
+that this cost should be visible to the programmer.  </li></ul><ul><li><em>Latency</em>. It takes time for even the smallest message to arrive at a remote
+node. <em>Synchronous</em> operations wait for an acknowledgement from the remote
+endpoint and hence imply a full network roundtrip.  Hence synchronous
+operations are often much slower than <em>asynchronous</em> operations, which fire
+off a message to the remote endpoint but don't wait to see when it arrives.
+For example, on many networks the bandwidth and latency are such that
+sending a hundred small messages in quick succession and waiting for one reply
+will take about the same time as sending just <em>one</em> message and waiting for a
+reply.
+
+The Cloud Haskell documentation will tell you which primitives are
+synchronous and which are not, but often you should be able to guess based on the result type. For
+example, <code>send</code> is asynchronous (result type <code>()</code>), but <code>spawn</code> is synchronous: it sends a
+<code>Closure</code> to the remote endpoint, and then waits for the remote endpoint to
+reply with the process ID of the newly created process. (There is also an
+asynchronous version of <code>spawn</code>, as we will see below). </li></ul><ul><li><em>Message Queue Size</em>. When messages are sent to a process they will sit in
+that process's message queue (or &quot;mailbox&quot;) until they are processed. These
+messages are kept in memory. How much memory this uses depends on the number
+of messages and their size.</li></ul><ul><li><em>Number of Processes</em>. Cloud Haskell processes are implemented as Haskell
+threads plus some additional data. They are therefore relatively
+lightweight, but not free.  </li></ul><p>You should try and make a mental comparison between the Master-Slave,
+Work-Pushing and Work-Stealing examples before reading the analysis, below.</p><h2> The Master process in the Master-Slave setup</h2><p>In the <a href="http://www.well-typed.com/blog/71">discussion</a> of the master-slave setup we mentioned that spawning a
+separate process for each subcomputation up-front might be too resource
+intensive on the client side. What we didn't mention, however, is that the
+<em>master</em> process we defined there is also resource hungry.</p><p><img src="http://www.well-typed.com/blog/aux/images/ch-series/spawnstrategies.jpg" width="800" height="176" alt="Spawn Strategies" title="Spawn Strategies" /></p><blockquote><p><em>Heap profile of the master process in the Master-Slave example</em>
+Single slave, factorizing first <em>n</em> = 5000 numbers</p><p>1. As defined above</p><p>2. Using <code>reconnect</code></p><p>3. Using <code>spawnAsync</code></p></blockquote><p>It is obvious from the heap profile that the master process has a memory leak.
+But where is that coming from? The problem arises when we spawn the child
+processes:</p><pre>spawnLocal $
+  forM_ (zip [1 .. n] (cycle slaves)) $ \(m, there) -&gt; 
+    spawn there ($(mkClosure 'slave) (us, m))
+</pre><p>In order to deal with network failure at any point during the spawning process,
+spawning involves sending a message to the newly started remote process that
+says &quot;it's okay to start running now&quot;. In order to provide reliable and ordered
+message passing, Cloud Haskell must maintain some state for every destination
+that a process sends messages to. This means that for the <code>master</code> process it
+must maintain state for <em>n</em> outgoing connections, since it starts a process for
+each subcomputation. </p><p>In a future version of Cloud Haskell this problem might be solved
+automatically, but for now we can solve it manually by using the <code>reconnect</code>
+primitive.  The <code>reconnect</code> primitive is primarily meant to be used in
+situations where processes get disconnected from each other, but as a side
+effect it lets us release the connection state, and that's the effect we need
+for our workaround here:</p><pre>spawnLocal $
+  forM_ (zip [1 .. n] (cycle slaves)) $ \(m, there) -&gt; do
+    them &lt;- spawn there ($(mkClosure 'slave) (us, m))
+    reconnect them
+</pre><p>This yields heap profile (2), above, and we see that the memory leak has
+disappeared.</p><p>However, there is another problem with this master. If we compare performance,
+we find that it is more than an order of magnitude slower than the master
+process in the work-pushing version. The reason is that <code>spawn</code> is synchronous:
+we wait for the remote node to tell us the process ID of the newly started
+process. That means that the execution of the master looks something like </p><pre>spawn first process
+wait for reply
+spawn second process
+wait for reply
+...
+</pre><p>Synchronous message passing is <em>much</em> slower than asynchronous message passing,
+which is why the work-pushing master is so much faster. However, <code>spawn</code> is
+actually implemented in terms of <code>spawnAsync</code>, which we can use directly: </p><pre>spawnLocal $
+  forM_ (zip [1 .. n] (cycle slaves)) $ \(m, there) -&gt; do
+    spawnAsync there ($(mkClosure 'slave) (us, m))
+    _ &lt;- expectTimeout 0 :: Process (Maybe DidSpawn)
+    return ()
+</pre><p>This yields a similar heap profile (profile 3, above), but is much faster. We
+use the <code>expectTimeout</code> function to check – without actually waiting – and
+discard <code>DidSpawn</code> notifications (which are notifications from the remote node
+that tell us the PID of new processes); this avoids a build-up in our message
+queue, which would show up in the heap profile as a new memory leak.  For every
+<code>spawnAsync</code> we do we remove at most one <code>DidSpawn</code> message; any <code>DidSpawn</code>
+message that are &quot;left over&quot; when we finish spawning will simply be discarded
+because the process that did the spawning will have terminated.</p><h2> Comparing the Master processes across Master-Slave, Work-Pushing and Work-Stealing</h2><p>The heap profile of the Master-Slave (with the memory leak fixed) is pretty
+similar to the heap profile of the master process of the work-pushing and the
+work-stealing examples:</p><p><img src="http://www.well-typed.com/blog/aux/images/ch-series/masters.jpg" width="800" height="179" alt="Master Heap Profiles" title="Master Heap Profiles" /></p><blockquote><p><em>Heap profiles of the master processes</em>
+Single slave, factorizing first <em>n</em> = 50,000 numbers</p><p>1. In the master-slave setup</p><p>2. In the work-pushing setup</p><p>3. In the work-stealing setup</p></blockquote><h2> Comparing the Slave processes across Master-Slave, Work-Pushing and Work-Stealing</h2><p>The heap profiles of the slave processes are however more interesting:</p><p><img src="http://www.well-typed.com/blog/aux/images/ch-series/slaves.jpg" width="800" height="177" alt="Slave Heap Profiles" title="Slave Heap Profiles" /></p><blockquote><p><em>Heap profiles of the slave processes</em>
+Single slave, factorizing first <em>n</em> = 50,000 numbers</p><p>1. In the master-slave setup</p><p>2. In the work-pushing setup</p><p>3. In the work-stealing setup</p></blockquote><p>As expected, the slave in the Master-Slave setup is the most resource hungry. A
+large amount of memory is used up when the slave starts; these are mostly
+messages to the slave's node controller that tell the node which processes to
+spawn. The heap-profile of the work-pushing slave has a similar shape, but with
+a much lower peak: in this case the memory is used to store the messages
+(containing just an integer) from the master to the slave process. </p><p>The heap profile of the work-stealing slave looks different. The increase in
+size you see comes from the algorithm used: it takes more memory to compute the
+number of prime factors of larger numbers. Note however that this only comes to
+550 kB in total; the master-slave and work-pushing slaves had the same
+behaviour, but the memory used by the factorization algorithm was
+insignificant. </p><h2> Execution time</h2><p>Finally, let's plot execution time versus number of slaves:</p><p><img src="http://www.well-typed.com/blog/aux/images/ch-series/speedup.jpg" width="500" height="260" alt="Execution time vs Number of Slaves" title="Execution time vs Number of Slaves" /></p><blockquote><p><em>Execution time (in seconds) versus number of slaves</em></p></blockquote><p>Ignoring the absolute values, we can conclude that the Master-Slave example has
+a lot of overhead and is significantly slower than the other two setups. The
+work-pushing setup is slightly faster than the work-stealing setup, probably due
+to the higher latency we mentioned above. Finally, speedup is much less than
+linear in the number of slaves; this is due to the relatively high
+communication overhead compared to the cost of the actual computation.</p><blockquote><p><em>Exercise 5</em>: Extend the time/memory comparison to the
+work-stealing-with-low-latency setup from Exercise 4 (from <a href="http://www.well-typed.com/blog/71">Part 1</a>). You should find that
+it's is as fast as the work-pushing setup and that its heap profile is
+comparable to the work-stealing setup.</p></blockquote><h2> To be continued</h2><p>In the <a href="http://www.well-typed.com/blog/73">next blog post</a> we will see how these communication patterns can be
+generalized as a Map-Reduce skeleton.
+</p>
+
+
+</div>
+<div class="footer">
+            <div class="copyright">
+               <address>Copyright &copy; 2008-2016, Well-Typed LLP.</address>
+            </div>
+</div>
+</div>
+
+    </body>
+
+<!-- Mirrored from www.well-typed.com/blog/72/ by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:53:55 GMT -->
+</html>
+

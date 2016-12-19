@@ -1,0 +1,219 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<!-- Mirrored from www.scs.stanford.edu/11au-cs240h/notes/omgwtfbbq.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:55:13 GMT -->
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta name="generator" content="pandoc" />
+  <title>Library level optimization</title>
+  <style type="text/css">
+table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode, table.sourceCode pre 
+   { margin: 0; padding: 0; border: 0; vertical-align: baseline; border: none; }
+td.lineNumbers { border-right: 1px solid #AAAAAA; text-align: right; color: #AAAAAA; padding-right: 5px; padding-left: 5px; }
+td.sourceCode { padding-left: 5px; }
+code.sourceCode span.kw { color: #007020; font-weight: bold; } 
+code.sourceCode span.dt { color: #902000; }
+code.sourceCode span.dv { color: #40a070; }
+code.sourceCode span.bn { color: #40a070; }
+code.sourceCode span.fl { color: #40a070; }
+code.sourceCode span.ch { color: #4070a0; }
+code.sourceCode span.st { color: #4070a0; }
+code.sourceCode span.co { color: #60a0b0; font-style: italic; }
+code.sourceCode span.ot { color: #007020; }
+code.sourceCode span.al { color: red; font-weight: bold; }
+code.sourceCode span.fu { color: #06287e; }
+code.sourceCode span.re { }
+code.sourceCode span.er { color: red; font-weight: bold; }
+  </style>
+</head>
+<body>
+<h1 class="title">Library level optimization</h1>
+<h1 id="we-love-inlining">We love inlining</h1>
+<p>In GHC-land, inlining a function is a big deal for performance.</p>
+<p>Function application might be cheap:</p>
+<pre class="sourceCode"><code class="sourceCode haskell">foo <span class="fu">=</span> <span class="fu">toUpper</span><br /><br />myUpper1 <span class="fu">=</span> <span class="fu">map</span> foo</code></pre>
+<p>But <em>not applying a function at all</em> has to be cheaper:</p>
+<pre class="sourceCode"><code class="sourceCode haskell">myUpper2 <span class="fu">=</span> <span class="fu">map</span> <span class="fu">toUpper</span></code></pre>
+<h1 id="list-traversal">List traversal</h1>
+<p>Here are a couple of classic definitions from the Prelude:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="fu">all</span><span class="ot"> </span><span class="ot">::</span> (a <span class="ot">-&gt;</span> <span class="dt">Bool</span>) <span class="ot">-&gt;</span> [a] <span class="ot">-&gt;</span> <span class="dt">Bool</span><br /><span class="fu">all</span> p <span class="fu">=</span> <span class="fu">and</span> <span class="fu">.</span> <span class="fu">map</span> p<br /><br /><span class="fu">and</span><span class="ot"> </span><span class="ot">::</span> [<span class="dt">Bool</span>] <span class="ot">-&gt;</span> <span class="dt">Bool</span><br /><span class="fu">and</span> <span class="fu">=</span> <span class="fu">foldr</span> (<span class="fu">&amp;&amp;</span>) <span class="kw">True</span></code></pre>
+<p>There's an efficiency problem with the definition of <code>all</code>. Can you spot it?</p>
+<h1 id="a-rewrite">A rewrite</h1>
+<p>Why is this more efficient than its predecessor?</p>
+<pre class="sourceCode"><code class="sourceCode haskell">all' p <span class="fu">=</span> go<br />  <span class="kw">where</span> go (x<span class="fu">:</span>xs) <br />           <span class="fu">|</span> p x       <span class="fu">=</span> go xs<br />           <span class="fu">|</span> <span class="fu">otherwise</span> <span class="fu">=</span> <span class="kw">False</span><br />        go _           <span class="fu">=</span> <span class="kw">True</span></code></pre>
+<h1 id="a-rewrite-1">A rewrite</h1>
+<p>Why is this more efficient than its predecessor?</p>
+<pre class="sourceCode"><code class="sourceCode haskell">all' p <span class="fu">=</span> go<br />  <span class="kw">where</span> go (x<span class="fu">:</span>xs) <br />           <span class="fu">|</span> p x       <span class="fu">=</span> go xs<br />           <span class="fu">|</span> <span class="fu">otherwise</span> <span class="fu">=</span> <span class="kw">False</span><br />        go _           <span class="fu">=</span> <span class="kw">True</span></code></pre>
+<p>The answer: in the original definition, <code>map</code> generates an &quot;intermediate&quot; list that <code>and</code> immediately consumes.</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="fu">all</span><span class="ot"> </span><span class="ot">::</span> (a <span class="ot">-&gt;</span> <span class="dt">Bool</span>) <span class="ot">-&gt;</span> [a] <span class="ot">-&gt;</span> <span class="dt">Bool</span><br /><span class="fu">all</span> p <span class="fu">=</span> <span class="fu">and</span> <span class="fu">.</span> <span class="fu">map</span> p</code></pre>
+<p>Our rewrite does away with the intermediate list. This can make a big difference to performance.</p>
+<h1 id="back-to-the-inliner">Back to the inliner</h1>
+<p>If the inliner can see the body of <code>all'</code>, it can expand both <code>all'</code> and <code>p</code> at the callsite.</p>
+<p>Given a definition like this:</p>
+<pre class="sourceCode"><code class="sourceCode haskell">allUpper <span class="fu">=</span> all' <span class="fu">isUpper</span></code></pre>
+<p>The inliner could turn it into:</p>
+<pre><code>allUpper = go
+  where go (x:xs) 
+           | isUpper x = go xs
+           | otherwise = False
+        go _           = True
+</code></pre>
+<p>That's about as efficient as we could hope for.</p>
+<h1 id="deforestation">Deforestation</h1>
+<p>This business of getting rid of intermediate data structures is called <a href="http://citeseer.ist.psu.edu/viewdoc/summary?doi=10.1.1.51.646"><em>deforestation</em></a>.</p>
+<p>Notice that although our manually deforested loop is efficient, it's harder to follow than this:</p>
+<pre class="sourceCode"><code class="sourceCode haskell">allUpper <span class="fu">=</span> all' <span class="fu">isUpper</span></code></pre>
+<p>Fortunately for us, GHC can do some deforestation automatically.</p>
+<h1 id="the-build-function">The build function</h1>
+<p>For almost 20 years, GHC has been able to deforest compositions of <code>foldr</code>-style primitive recursion.</p>
+<p>It does so using a special building block function:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">build </span><span class="ot">::</span> (forall b<span class="fu">.</span> (a <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> [a]<br />build g <span class="fu">=</span> g (<span class="fu">:</span>) []</code></pre>
+<p>This is called a <em>list producer</em>, and it's never used in real code. Instead, it's a hint to GHC's inliner.</p>
+<h1 id="controlling-the-inliner">Controlling the inliner</h1>
+<p>We use a special pragma to give instructions to GHC's inliner:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">{-# INLINE [1] build #-}</span></code></pre>
+<p>The simplifier is run repeatedly to perform Core-to-Core transformations.</p>
+<p>Each run of the simplifier has a different <em>phase number</em>. The phase number decreases towards zero.</p>
+<p>You can use <code>-dverbose-core2core</code> to see the sequence of phase numbers for successive runs of the simplifier.</p>
+<p>So <code>INLINE[k] f</code> means &quot;do not inline <code>f</code> until phase <code>k</code>, but from phase <code>k</code> down to zero, be very keen to inline it&quot;.</p>
+<h1 id="foldr-and-the-inliner">foldr and the inliner</h1>
+<p>There's a pragma associated with the definition of <code>foldr</code> too:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">{-# INLINE [0] foldr #-}</span></code></pre>
+<p>This ensures that <code>foldr</code> will not be inlined until the last stage of the simplifier.</p>
+<p>Why would we care about that?</p>
+<h1 id="enter-the-rewrite-rule">Enter the rewrite rule</h1>
+<p>GHC allows us to take advantage of Haskell's purity in a novel way: it exposes a <em>rewrite engine</em> that we can use.</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="co">{-# RULES &quot;map/map&quot;</span><br /><span class="co">    forall f g xs.  map f (map g xs) = map (f.g) xs</span><br /><span class="co">#-}</span></code></pre>
+<p>This tells GHC:</p>
+<ul>
+<li><p>The name of the rule is <code>map/map</code> (can be anything, only used when debugging rewrite rules).</p></li>
+<li><p>When you see two uses of <code>map</code> composed, combine them into a single <code>map</code> with the two functions composed.</p></li>
+</ul>
+<p>Thus we eliminate an intermediate list. Nice!</p>
+<h1 id="a-rewrite-rule-for-map">A rewrite rule for map</h1>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="co">{-# RULES &quot;map&quot; [~1]</span><br /><span class="co">    forall f xs.</span><br /><span class="co">    map f xs = build $ \c n -&gt; foldr (mapFB c f) n xs</span><br /><span class="co"> #-}</span></code></pre>
+<p>The <code>~</code> phase annotation is new. <code>INLINE[~k] f</code> means &quot;be very keen to inline <code>f</code> until (but not including) phase <code>k</code>, but from phase <code>k</code> onwards do not inline it&quot;.</p>
+<p>(Rewrite rules and the inliner use the same phase annotations.)</p>
+<p>What's <code>mapFB</code>?</p>
+<h1 id="&#951;-eta-expansion-and-mapfb">Η (eta) expansion and mapFB</h1>
+<p>There's a really simple equivalence we've never talked about:</p>
+<pre class="sourceCode"><code class="sourceCode haskell">\x <span class="ot">-&gt;</span> f x  <span class="fu">==</span> f</code></pre>
+<p>This is called η-equivalence (Greek letter &quot;eta&quot;).</p>
+<ul>
+<li><p>If we rewrite from left to right, it's called η-contraction.</p></li>
+<li><p>Rewriting from right to left is called η-expansion.</p></li>
+</ul>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">mapFB </span><span class="ot">::</span> (elt <span class="ot">-&gt;</span> lst <span class="ot">-&gt;</span> lst) <br />      <span class="ot">-&gt;</span> (a <span class="ot">-&gt;</span> elt)<br />      <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> lst <span class="ot">-&gt;</span> lst<br />mapFB c f <span class="fu">=</span> \x ys <span class="ot">-&gt;</span> c (f x) ys<br /><span class="ot">{-# INLINE [0] mapFB #-}</span></code></pre>
+<p>This <code>mapFB</code> function has the <code>x</code> and <code>ys</code> parameters η-expanded out, and the <code>(:)</code> constructor replaced with <code>c</code>.</p>
+<p>(If my recollection is correct) we care about the η-expansion of <code>x</code> and <code>ys</code> because the rewrite engine needs to see all arguments to an expression before it will fire a rule.</p>
+<h1 id="the-rewrite-rule-for-mapfb">The rewrite rule for mapFB</h1>
+<p>Once we've rewritten <code>map</code> to <code>mapFB</code>, we can fuse repeated <code>map</code>-based traversals together.</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="co">{-# RULES &quot;mapFB&quot; </span><br /><span class="co">    forall c f g.</span><br /><span class="co">    mapFB (mapFB c f) g = mapFB c (f.g)</span><br /><span class="co"> #-}</span></code></pre>
+<h1 id="and-back-to-a-list-again">And back to a list again</h1>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="co">{-# RULES &quot;mapList&quot; [1] </span><br /><span class="co">    forall f.</span><br /><span class="co">    foldr (mapFB (:) f) []  = map f</span><br /><span class="co"> #-}</span></code></pre>
+<p>This reverses the <code>foldr</code>/<code>mapFB</code> rule from a few slides back.</p>
+<p>Okay, but where are we going with all this?</p>
+<h1 id="the-foldrbuild-rule">The foldr/build rule</h1>
+<p>Here's the critical rule to make this rewrite stuff work.</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="co">{-# RULES &quot;foldr/build&quot;</span><br /><span class="co">    forall k z (g :: forall b. (a -&gt; b -&gt; b) -&gt; b -&gt; b) . </span><br /><span class="co">    foldr k z (build g) = g k z</span><br /><span class="co"> #-}</span></code></pre>
+<p>By now we've seen 4 rewrite rules spread across even more slides. Confused yet? You ought to be!</p>
+<h1 id="how-it-all-works">How it all works</h1>
+<p>The rules for <code>map</code> work like this (straight from the GHC commentary, no less).</p>
+<ul>
+<li><p>Up to (but <em>not</em> including) phase 1, we use the &quot;map&quot; rule to rewrite all saturated applications of <code>map</code> with its <code>build</code>/<code>foldr</code> form, hoping for fusion to happen.</p></li>
+<li><p>In phases 1 and 0, we switch off that rule, inline <code>build</code>, and switch on the &quot;mapList&quot; rule, which rewrites the <code>foldr</code>/<code>mapFB</code> thing back into plain <code>map</code>.</p></li>
+<li><p>It's important that these two rules aren't both active at once (along with <code>build</code>'s unfolding) else we'd get an infinite loop in the rules. Hence the activation control below.</p></li>
+<li><p>The &quot;mapFB&quot; rule optimises compositions of <code>map</code>.</p></li>
+</ul>
+<p>This same pattern is followed by many other functions: <code>append</code>, <code>filter</code>, <code>iterate</code>, <code>repeat</code>, etc.</p>
+<h1 id="a-worked-example-1">A worked example, 1</h1>
+<p>Let's manually apply our rewrite rules to this expression:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="fu">map</span> <span class="fu">toUpper</span> (<span class="fu">map</span> <span class="fu">toLower</span> xs)</code></pre>
+<p>Applying &quot;map&quot; to the inner expression:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="fu">map</span> <span class="fu">toUpper</span> (<span class="fu">map</span> <span class="fu">toLower</span> xs)<br /><br /><span class="co">-- RULES &quot;map&quot;</span><br /><br /><span class="fu">map</span> <span class="fu">toUpper</span> (build (\c n <span class="ot">-&gt;</span> <span class="fu">foldr</span> (mapFB c <span class="fu">toLower</span>) n xs))</code></pre>
+<p>Applying &quot;map&quot; again, this time to the outer expression:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="fu">map</span> <span class="fu">toUpper</span> (build (\c n <span class="ot">-&gt;</span> <span class="fu">foldr</span> (mapFB c <span class="fu">toLower</span>) n xs)) <span class="fu">=</span><br /><br /><span class="co">-- RULES &quot;map&quot;</span><br /><br />build (\c1 n1 <span class="ot">-&gt;</span> <br />       <span class="fu">foldr</span> (mapFB c1 <span class="fu">toUpper</span>) n1 <br />         (build (\c0 n0 <span class="ot">-&gt;</span> <br />             <span class="fu">foldr</span> (mapFB c0 <span class="fu">toLower</span>) n0 xs)))</code></pre>
+<h1 id="a-worked-example-2">A worked example, 2</h1>
+<p>Applying &quot;foldr/build&quot;:</p>
+<pre class="sourceCode"><code class="sourceCode haskell">build (\c1 n1 <span class="ot">-&gt;</span> <br />       <span class="fu">foldr</span> (mapFB c1 <span class="fu">toUpper</span>) n1 <br />             (build (\c0 n0 <span class="ot">-&gt;</span> <br />                     <span class="fu">foldr</span> (mapFB c0 <span class="fu">toLower</span>) n0 xs)))<br /><br /><span class="co">-- RULES &quot;map&quot;</span><br /><br />build (\c1 n1 <span class="ot">-&gt;</span> (\c0 n0 <span class="ot">-&gt;</span> <span class="fu">foldr</span> (mapFB c0 <span class="fu">toLower</span>) n0 xs)<br />                 (mapFB c1 <span class="fu">toUpper</span>) n1)<br /><br /><span class="co">-- Substitute for c0 and n0</span><br /><br />build (\c1 n1 <span class="ot">-&gt;</span> <span class="fu">foldr</span> (mapFB (mapFB c1 <span class="fu">toUpper</span>) <span class="fu">toLower</span>) n1 xs)</code></pre>
+<h1 id="a-worked-example-3">A worked example, 3</h1>
+<p>Applying &quot;mapFB&quot;:</p>
+<pre class="sourceCode"><code class="sourceCode haskell">build (\c1 n1 <span class="ot">-&gt;</span> <span class="fu">foldr</span> (mapFB (mapFB c1 <span class="fu">toUpper</span>) <span class="fu">toLower</span>) n1 xs)<br /><br /><span class="co">-- RULES &quot;mapFB&quot;</span><br /><br />build (\c1 n1 <span class="ot">-&gt;</span> <span class="fu">foldr</span> (mapFB c1 (<span class="fu">toUpper</span> <span class="fu">.</span> <span class="fu">toLower</span>) n1 xs)</code></pre>
+<p>Inlining <code>build</code>:</p>
+<pre class="sourceCode"><code class="sourceCode haskell">build (\c1 n1 <span class="ot">-&gt;</span> <span class="fu">foldr</span> (mapFB c1 (<span class="fu">toUpper</span> <span class="fu">.</span> <span class="fu">toLower</span>) n1 xs)) (<span class="fu">:</span>) []<br /><br /><span class="co">-- INLINE build</span><br /><br /><span class="fu">foldr</span> (mapFB (<span class="fu">:</span>) (<span class="fu">toUpper</span> <span class="fu">.</span> <span class="fu">toLower</span>) [] xs)</code></pre>
+<p>Applying &quot;mapList&quot;:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="fu">foldr</span> (mapFB (<span class="fu">:</span>) (<span class="fu">toUpper</span> <span class="fu">.</span> <span class="fu">toLower</span>) [] xs)<br /><br /><span class="co">-- RULES &quot;mapList&quot;</span><br /><br /><span class="fu">map</span> (<span class="fu">toUpper</span> <span class="fu">.</span> <span class="fu">toLower</span>) xs</code></pre>
+<h1 id="problem">Problem?</h1>
+<p>This foldr/build business is pretty sweet, BUT...</p>
+<p>...it only works for <code>foldr</code>-style loops.</p>
+<p>...it's pretty fragile.</p>
+<p>But we know that (strict) left folds are actually very common:</p>
+<ul>
+<li><code>length</code>, <code>sum</code>, <code>mean</code>, <em>etc</em>.</li>
+</ul>
+<p>So what's to be done?</p>
+<h1 id="induction">Induction</h1>
+<p>A list is an inductively-defined type:</p>
+<ul>
+<li><p>The base case is <code>[]</code></p></li>
+<li><p>The <span class="math"><em>n</em> + 1</span> case is <code>(:)</code></p></li>
+</ul>
+<p>It tells us how to <em>produce</em> more data.</p>
+<h1 id="turning-data-upside-down-coinduction">Turning data upside down: coinduction</h1>
+<p>Here's another way of dealing with the data:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">{-# LANGUAGE Rank2Types #-}</span><br /><br /><span class="kw">data</span> <span class="dt">Stream</span> a <span class="fu">=</span><br />    forall s<span class="fu">.</span> <span class="dt">Stream</span><br />    (s <span class="ot">-&gt;</span> <span class="dt">Step</span> s a)   <span class="co">-- observer function</span><br />    <span class="fu">!</span>s                <span class="co">-- current state</span><br /><br /><span class="kw">data</span> <span class="dt">Step</span> s a <span class="fu">=</span> <span class="dt">Done</span><br />              <span class="fu">|</span> <span class="dt">Skip</span> <span class="fu">!</span>s<br />              <span class="fu">|</span> <span class="dt">Yield</span> <span class="fu">!</span>a <span class="fu">!</span>s</code></pre>
+<p>The <code>Stream</code> type is <em>coinductive</em>. It tells us how to <em>consume</em> more data.</p>
+<p>The implementor of the <code>Stream</code> type provides two things:</p>
+<ul>
+<li><p>The current state of the stream (invisible to consumers, since it's an existential type)</p></li>
+<li><p>An observation function, which a consumer uses to get another element from the stream</p></li>
+</ul>
+<h1 id="from-lists-to-streams-and-back-again">From lists to streams, and back again</h1>
+<p>It's easy to convert between lists and streams.</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">streamList </span><span class="ot">::</span> [a] <span class="ot">-&gt;</span> <span class="dt">Stream</span> a<br />streamList s  <span class="fu">=</span> <span class="dt">Stream</span> next s<br />    <span class="kw">where</span> next []       <span class="fu">=</span> <span class="dt">Done</span><br />          next (x<span class="fu">:</span>xs)   <span class="fu">=</span> <span class="dt">Yield</span> x xs<br /><br /><span class="ot">{-# INLINE [0] streamList #-}</span></code></pre>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">unstreamList </span><span class="ot">::</span> <span class="dt">Stream</span> a <span class="ot">-&gt;</span> [a]<br />unstreamList (<span class="dt">Stream</span> next s0) <span class="fu">=</span> unfold s0<br />  <span class="kw">where</span> unfold <span class="fu">!</span>s <span class="fu">=</span> <span class="kw">case</span> next s <span class="kw">of</span><br />                      <span class="dt">Done</span>       <span class="ot">-&gt;</span> []<br />                      <span class="dt">Skip</span> s'    <span class="ot">-&gt;</span> unfold s'<br />                      <span class="dt">Yield</span> x s' <span class="ot">-&gt;</span> x <span class="fu">:</span> unfold s'<br /><br /><span class="ot">{-# INLINE [0] unstreamList #-}</span></code></pre>
+<h1 id="left-folds-over-streams">Left folds over streams</h1>
+<p>Not only can we easily write a right fold:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">{-# LANGUAGE BangPatterns #-}</span><br /><br /><span class="fu">foldr</span><span class="ot"> </span><span class="ot">::</span> (<span class="dt">Char</span> <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> <span class="dt">Stream</span> <span class="dt">Char</span> <span class="ot">-&gt;</span> b<br /><span class="fu">foldr</span> f z (<span class="dt">Stream</span> next s0) <span class="fu">=</span> go s0<br />  <span class="kw">where</span><br />    go <span class="fu">!</span>s <span class="fu">=</span> <span class="kw">case</span> next s <span class="kw">of</span><br />              <span class="dt">Done</span> <span class="ot">-&gt;</span> z<br />              <span class="dt">Skip</span> s' <span class="ot">-&gt;</span> go s'<br />              <span class="dt">Yield</span> x s' <span class="ot">-&gt;</span> f x (go s')<br /><br /><span class="ot">{-# INLINE [0] foldr #-}</span></code></pre>
+<p>We can just as simply write a left fold:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">foldl' </span><span class="ot">::</span> (b <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> <span class="dt">Stream</span> a <span class="ot">-&gt;</span> b<br />foldl' f z0 (<span class="dt">Stream</span> next s0) <span class="fu">=</span> go z0 s0<br />  <span class="kw">where</span><br />    go <span class="fu">!</span>z <span class="fu">!</span>s <span class="fu">=</span> <span class="kw">case</span> next s <span class="kw">of</span><br />                 <span class="dt">Done</span>       <span class="ot">-&gt;</span> z<br />         <span class="dt">Skip</span> s'    <span class="ot">-&gt;</span> go z s'<br />         <span class="dt">Yield</span> x s' <span class="ot">-&gt;</span> go (f z x) s'<br /><br /><span class="ot">{-# INLINE [0] foldl' #-}</span></code></pre>
+<h1 id="streams-vs-lists">Streams vs lists</h1>
+<p>This stream representation is used internally by several modern Haskell packages:</p>
+<ul>
+<li><p><code>vector</code> - fast packed and unpacked arrays</p></li>
+<li><p><code>text</code> - efficient support for Unicode text</p></li>
+</ul>
+<p>But why?</p>
+<h1 id="conversion">Conversion</h1>
+<p>We use rewrite rules to eliminate intermediate conversions.</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">stream </span><span class="ot">::</span> <span class="dt">Text</span> <span class="ot">-&gt;</span> <span class="dt">Stream</span> <span class="dt">Char</span><br /><span class="ot">{-# INLINE [0] stream #-}</span><br /><br /><span class="ot">unstream </span><span class="ot">::</span> <span class="dt">Stream</span> <span class="dt">Char</span> <span class="ot">-&gt;</span> <span class="dt">Text</span><br /><span class="ot">{-# INLINE [0] unstream #-}</span><br /><br /><span class="co">{-# RULES &quot;STREAM stream/unstream fusion&quot; </span><br /><span class="co">    forall s.</span><br /><span class="co">    stream (unstream s) = s </span><br /><span class="co"> #-}</span></code></pre>
+<h1 id="mapping-once-again">Mapping once again</h1>
+<p>The <code>map</code> function for <code>Text</code> is defined in terms of the <code>map</code> function over a <code>Stream Char</code>.</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">import</span> <span class="kw">qualified</span> <span class="dt">Data.Text.Fusion</span> <span class="kw">as</span> <span class="dt">S</span><br /><br /><span class="fu">map</span><span class="ot"> </span><span class="ot">::</span> (<span class="dt">Char</span> <span class="ot">-&gt;</span> <span class="dt">Char</span>) <span class="ot">-&gt;</span> <span class="dt">Text</span> <span class="ot">-&gt;</span> <span class="dt">Text</span><br /><span class="fu">map</span> f t <span class="fu">=</span> unstream (S.map f (stream t))<br /><span class="ot">{-# INLINE [1] map #-}</span></code></pre>
+<p>Why? So we can fuse the intermediate data structures away.</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="co">{-# RULES &quot;STREAM map/map fusion&quot; </span><br /><span class="co">    forall f g s.</span><br /><span class="co">    S.map f (S.map g s) = S.map (\x -&gt; f (g x)) s</span><br /><span class="co"> #-}</span></code></pre>
+<h1 id="but-why">But why?</h1>
+<p>We can turn multiple traversals, with intermediate data structures, into a <em>single</em> traversal, with <em>no</em> intermediate structures.</p>
+<ul>
+<li><p>The &quot;stream/unstream&quot; rule leaves only compositions of non-recursive functions behind</p></li>
+<li><p>We can combine streams using simpler rules, such as &quot;map/map&quot; above</p></li>
+<li><p>The final array will be fused from the combined single-pass stream pipeline</p></li>
+</ul>
+<h1 id="the-keys-to-good-performance-with-streams">The keys to good performance with streams</h1>
+<p>We have to get the inliner and rewrite rules firing at exactly the right times, or we lose these nice properties.</p>
+<p>That's a subtle business. Fortunately, it's the library writer's job, <em>not</em> that of the user of the library.</p>
+<p>On the other hand, users of the library will see the best performance if they know how to exploit its behaviour.</p>
+<ul>
+<li>For instance, single-pass algorithms and pipelines win big.</li>
+</ul>
+<h1 id="is-stream-fusion-awesome-coding">Is stream fusion awesome? Coding</h1>
+<p>The programming model is most definitely a pain in the ass.</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">I</span> s <span class="fu">=</span> <span class="dt">I1</span> <span class="fu">!</span>s<br />         <span class="fu">|</span> <span class="dt">I2</span> <span class="fu">!</span>s <span class="ot">{-# UNPACK #-}</span> <span class="fu">!</span><span class="dt">Char</span><br />         <span class="fu">|</span> <span class="dt">I3</span> <span class="fu">!</span>s<br /><br /><span class="ot">intersperse </span><span class="ot">::</span> <span class="dt">Char</span> <span class="ot">-&gt;</span> <span class="dt">Stream</span> <span class="dt">Char</span> <span class="ot">-&gt;</span> <span class="dt">Stream</span> <span class="dt">Char</span><br />intersperse c (<span class="dt">Stream</span> next0 s0) <span class="fu">=</span> <span class="dt">Stream</span> next (<span class="dt">I1</span> s0)<br />    <span class="kw">where</span><br />      next (<span class="dt">I1</span> s)   <span class="fu">=</span> <span class="kw">case</span> next0 s <span class="kw">of</span><br />        <span class="dt">Done</span>           <span class="ot">-&gt;</span> <span class="dt">Done</span><br />        <span class="dt">Skip</span> s'        <span class="ot">-&gt;</span> <span class="dt">Skip</span> (<span class="dt">I1</span> s')<br />        <span class="dt">Yield</span> x s'     <span class="ot">-&gt;</span> <span class="dt">Skip</span> (<span class="dt">I2</span> s' x)<br />      next (<span class="dt">I2</span> s x) <span class="fu">=</span> <span class="dt">Yield</span> x (<span class="dt">I3</span> s)<br />      next (<span class="dt">I3</span> s)   <span class="fu">=</span> <span class="kw">case</span> next0 s <span class="kw">of</span><br />        <span class="dt">Done</span>           <span class="ot">-&gt;</span> <span class="dt">Done</span><br />        <span class="dt">Skip</span> s'        <span class="ot">-&gt;</span> <span class="dt">Skip</span>    (<span class="dt">I3</span> s')<br />        <span class="dt">Yield</span> x s'     <span class="ot">-&gt;</span> <span class="dt">Yield</span> c (<span class="dt">I2</span> s' x)<br /><span class="ot">{-# INLINE [0] intersperse #-}</span></code></pre>
+<h1 id="is-stream-fusion-awesome-performance">Is stream fusion awesome? Performance</h1>
+<p>In quite a few cases, for the <code>text</code> library, I ended up writing hand-rolled loops because GHC wasn't doing a good enough job at eliminating heap allocation.</p>
+<p>For instance:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="fu">drop</span><span class="ot"> </span><span class="ot">::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Text</span> <span class="ot">-&gt;</span> <span class="dt">Text</span><br /><span class="fu">drop</span> n t<span class="fu">@</span>(<span class="dt">Text</span> arr off len)<br />    <span class="fu">|</span> n <span class="fu">&lt;=</span> <span class="dv">0</span>    <span class="fu">=</span> t<br />    <span class="fu">|</span> n <span class="fu">&gt;=</span> len  <span class="fu">=</span> empty<br />    <span class="fu">|</span> <span class="fu">otherwise</span> <span class="fu">=</span> loop <span class="dv">0</span> <span class="dv">0</span><br />  <span class="kw">where</span> loop <span class="fu">!</span>i <span class="fu">!</span>cnt<br />            <span class="fu">|</span> i <span class="fu">&gt;=</span> len <span class="fu">||</span> cnt <span class="fu">&gt;=</span> n   <span class="fu">=</span> <span class="dt">Text</span> arr (off<span class="fu">+</span>i) (len<span class="fu">-</span>i)<br />            <span class="fu">|</span> <span class="fu">otherwise</span>              <span class="fu">=</span> loop (i<span class="fu">+</span>d) (cnt<span class="fu">+</span><span class="dv">1</span>)<br />            <span class="kw">where</span> d <span class="fu">=</span> iter_ t i<br /><span class="ot">{-# INLINE [1] drop #-}</span><br /><br /><span class="co">{-# RULES</span><br /><span class="co">    &quot;TEXT drop -&gt; fused&quot; [~1] </span><br /><span class="co">    forall n t.</span><br /><span class="co">    drop n t = unstream (S.drop n (stream t))</span><br /><br /><span class="co">    &quot;TEXT drop -&gt; unfused&quot; [1]</span><br /><span class="co">    forall n t.</span><br /><span class="co">    unstream (S.drop n (stream t)) = drop n t</span><br /><span class="co"> #-}</span></code></pre>
+</body>
+
+<!-- Mirrored from www.scs.stanford.edu/11au-cs240h/notes/omgwtfbbq.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:55:13 GMT -->
+</html>

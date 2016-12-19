@@ -1,0 +1,265 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+    
+<!-- Mirrored from www.well-typed.com/blog/2015/05/parametricity/ by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:53:51 GMT -->
+<head>
+        <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+        <title>
+           
+           Well-Typed - The Haskell Consultants: Parametricity Tutorial (Part 1)
+           
+        </title>
+        <link rel="Stylesheet" type="text/css" href="http://www.well-typed.com/css/wt.css" />
+        <link rel="shortcut icon" type="image/x-icon" href="http://www.well-typed.com/favicon.ico" />
+        
+    </head>
+    <body class="normal">
+
+<div class="pagelogo">
+<div class="smalllogo">
+  <a href="http://www.well-typed.com/"><img src="http://www.well-typed.com/img/wtlogo-small.png" width="243" height="70" alt="Well-Typed, The Haskell Consultants" /></a>
+</div>
+</div>
+
+<div class="bar">
+  <div class="smallmenu">
+<ul class="menu">
+  <li class="header"><a href="http://www.well-typed.com/services">Services</a>
+    <ul class="submenu">
+      <li class="subheader"><a href="http://www.well-typed.com/services_applications">Development</a></li>
+      <li class="subheader"><a href="http://www.well-typed.com/services_libraries">Maintenance</a></li>
+      <li class="subheader"><a href="http://www.well-typed.com/services_advice">Advice</a></li>
+      <li class="subheader"><a href="http://www.well-typed.com/services_training">Training</a></li>
+    </ul>
+  </li>
+  <li class="header"><a href="http://www.well-typed.com/about_welltyped">About</a>
+    <ul class="submenu">
+      <li class="subheader"><a href="http://www.well-typed.com/community">Community</a></li>
+      <li class="subheader"><a href="http://www.well-typed.com/who_we_are">Who We Are</a></li>
+      <li class="subheader"><a href="http://www.well-typed.com/contact">Contact</a></li>
+    </ul>
+  </li>
+  <li class="header"><a href="http://www.well-typed.com/press_releases">Press Releases</a></li>
+  <li class="header" id="active"><a href="http://www.well-typed.com/blog">Blog</a></li>
+</ul>
+</div>
+<div style="clear: both;"></div>
+
+
+</div>
+
+<div class="body">
+<div class="text">
+
+  <h1><a href="http://www.well-typed.com/blog/2015/05/parametricity">Parametricity Tutorial (Part 1)</a></h1>
+
+<p style="text-align: right"><small>Saturday, 23 May 2015, by <a href="http://www.well-typed.com/blog/people/edsko">Edsko de Vries</a>.<br />
+  Filed under <a href="http://www.well-typed.com/blog/tags/coding">coding</a>.</small></p>
+
+<p>A powerful feature of Haskell’s type system is that we can deduce properties of functions by looking <em>only at their type</em>. For example, a function of type</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">f ::</span> <span class="ot">∀</span>a<span class="fu">.</span> a <span class="ot">-&gt;</span> a</code></pre></div>
+<p>can only be the identity function: since it must return something of type <code>a</code>, for <em>any</em> type <code>a</code>, the only thing it can do is return the argument of type <code>a</code> that it was given (or crash). Similarly, a function of type</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">f ::</span> <span class="ot">∀</span>a<span class="fu">.</span> a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a</code></pre></div>
+<p>can only do one of two things: either return the first argument, or return the second. This kind of reasoning is becoming more and more important with the increasing use of types such as this definition of a <a href="http://hackage.haskell.org/package/lens-4.7/docs/Control-Lens-Lens.html#t:Lens">“lens”</a>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">Lens</span> s t a b <span class="fu">=</span> forall f<span class="fu">.</span> <span class="dt">Functor</span> f <span class="ot">=&gt;</span> (a <span class="ot">-&gt;</span> f b) <span class="ot">-&gt;</span> s <span class="ot">-&gt;</span> f t</code></pre></div>
+<p>Since a lens is just a function of a particular type, the only thing we can conclude about such a function is whatever we can deduce from its type.</p>
+<p>To reason about the properties of functions based only on their types we make use of the theory of parametricity, which tells how to derive a so-called “free theorem” from a type. This blog post is a tutorial on how to do this; it won’t explain <em>why</em> the theory works, only <em>how</em> it works. A Haskell practitioner’s guide to parametricity, if you will.</p>
+<!-- more -->
+<p>This is a two-part blog post. In part 1 (this post) we will cover the basics: constant types, functions and polymorphism (over types of kind <code>*</code>).</p>
+<p>In <a href="../../08/parametricity-part2/index.html">part 2</a> we will deal with more advanced material: type constructor (types of kind <code>* -&gt; *</code>), type classes, polymorphism over type constructors and type constructor classes.</p>
+<h2 id="the-basics">The Basics</h2>
+<p>The main theorem of parametricity is the following:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">if</span><span class="ot"> f ::</span> t <span class="kw">then</span> f ℛ(t) f</code></pre></div>
+<p>When <code>t</code> is a closed type, <code>ℛ(t)</code> is a relation between two terms of type <code>t</code> (we shall see later that the type of <code>ℛ</code> is actually slightly more general). In words, parametricity states that any term <code>f</code> of type <code>t</code> is related to itself by <code>ℛ(t)</code>. Don’t worry if this all looks incredibly abstract! We shall see lots and lots of examples.</p>
+<h3 id="constant-types-types-of-kind">Constant types (types of kind <code>*</code>)</h3>
+<p>For any constant type <code>C</code>, the relation <code>ℛ(C)</code> is the identity relation. In other words,</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">     x ℛ(<span class="dt">C</span>) x'
+iff  x ≡ x'</code></pre></div>
+<p>(We will use ≡ throughout to mean mathematical equality, to distinguish it from Haskell’s equality function <code>(==)</code>.)</p>
+<p>Let’s see an example. Suppose that <code>x :: Int</code>. Then parametricity tells us that</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">     x ℛ(<span class="dt">Int</span>) x
+iff  x ≡ x</code></pre></div>
+<p>I.e., it tells us that <code>x</code> is equal to itself. Not very insightful! Intuitively, this makes sense: if all we know about <code>x</code> is that it is an integer, we cannot tell anything about its value.</p>
+<blockquote>
+<p><strong>TOOLING.</strong> <i> Many of the examples in this blog post (though sadly not all) can also be auto-derived by one of two tools. On the <a href="https://wiki.haskell.org/IRC_channel"><code>#haskell</code> IRC channel</a> we can ask <a href="https://wiki.haskell.org/Lambdabot"><code>lambdabot</code></a> to derive free theorems for any types not involving type classes or type constructor classes. If you ask</p>
+<pre><code>@free x :: Int</code></pre>
+<p><code>lambdabot</code> will reply with</p>
+<pre><code>x = x</code></pre>
+<p>(I recommend starting a private conversation with lambdabot so you avoid spamming the whole <code>#haskell</code> channel.)</p>
+Alternatively, you can also try the online <a href="http://www-ps.iai.uni-bonn.de/cgi-bin/free-theorems-webui.cgi">free theorem generator</a>. This free theorem generator is a bit more precise than <code>lambdabot</code> (which takes some shortcuts sometimes), and supports type classes, but cannot work with type constructors (<code>lambdabot</code> can work with unknown type constructors but not with quantification over type constructors, unfortunately). </i>
+</blockquote>
+<h3 id="functions">Functions</h3>
+<p>For functions we map related arguments to related results:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">     f ℛ(<span class="dt">A</span> <span class="ot">-&gt;</span> <span class="dt">B</span>) f'
+iff  forall x, x'<span class="fu">.</span>
+       <span class="kw">if</span> x ℛ(<span class="dt">A</span>) x' <span class="kw">then</span> f x ℛ(<span class="dt">B</span>) f' x'</code></pre></div>
+<p>(The types of <code>x</code> and <code>x'</code> here depend on what precisely <code>A</code> is; see <em>The type of ℛ</em>, below.)</p>
+<p>Example. Suppose <code>f :: Int -&gt; Bool</code>. By parametricity</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">     f ℛ(<span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Bool</span>) f
+iff  forall<span class="ot"> x ::</span> <span class="dt">Int</span>,<span class="ot"> x' ::</span> <span class="dt">Int</span><span class="fu">.</span>
+       <span class="kw">if</span> x ℛ(<span class="dt">Int</span>) x' <span class="kw">then</span> f x ℛ(<span class="dt">Bool</span>) f x'
+<span class="co">-- both Int and Bool are constant types</span>
+iff  forall<span class="ot"> x ::</span> <span class="dt">Int</span>,<span class="ot"> x' ::</span> <span class="dt">Int</span><span class="fu">.</span>
+       <span class="kw">if</span> x ≡ x' <span class="kw">then</span> f x ≡ f x'
+<span class="co">-- simplify</span>
+iff  f ≡ f</code></pre></div>
+<p>Again, not very informative. Parametricity doesn’t tell us anything about functions between constant types. Time to look at something more interesting!</p>
+<h3 id="polymorphism-over-types-of-kind">Polymorphism (over types of kind <code>*</code>)</h3>
+<p>The definition for polymorphic values is</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">     f ℛ(<span class="ot">∀</span>a<span class="fu">.</span> t) f'
+iff  forall <span class="dt">A</span>, <span class="dt">A'</span>,<span class="ot"> a ::</span> <span class="dt">A</span> ⇔ <span class="dt">A'</span><span class="fu">.</span>
+       f<span class="fu">@</span><span class="dt">A</span> ℛ(t) f'<span class="fu">@</span><span class="dt">A'</span>           <span class="co">-- where 'a' can occur free in t</span></code></pre></div>
+<p>That is, whenever we pick two types <code>A</code> and <code>A'</code>, and <em>some</em> relation <code>a</code> between <code>A</code> and <code>A'</code>, the function <code>f@A</code> obtained by instantiating the type variable by <code>A</code> must be related to the function <code>f'@A'</code> obtained by instantiating the type variable by <code>A'</code>. In what follows we will write explicit type instantiation like this only if the type is not clear from the context; specifically, we will omit it when we supply arguments to the function.</p>
+<blockquote>
+<p><strong>The type of ℛ.</strong></p>
+<p><code>∀ab. a -&gt; b -&gt; a</code> is an example of a <em>closed</em> type: all type variables are bound by a universal quantifier. An <em>open</em> type is a type with free type variables such as <code>∀b. a -&gt; b -&gt; a</code> or even <code>a -&gt; b -&gt; a</code>. (Note that this distinction is harder to see in Haskell where universal quantifiers are often implicit. We will not follow that convention in this article.)</p>
+<p>We said in the introduction that if <code>t</code> is a closed type, <code>ℛ(t)</code> relates two terms of type <code>t</code>. As we saw, in order to be able to give a meaning to <em>open</em> types we need a mapping from any free variable <code>a</code> to a relation <code>a :: A ⇔ A'</code>. In this article we somewhat informally maintain this mapping simply by using the same name for the type variable and the relation.</p>
+Given two relations <code>a :: A ⇔ A'</code> and <code>b :: B ⇔ B'</code>, <code>ℛ(a -&gt; b -&gt; a)</code> relates terms of type <code>A -&gt; B -&gt; A</code> with terms of type <code>A' -&gt; B' -&gt; A'</code>. It is important to realize that <code>ℛ</code> can therefore relate terms of different types. (For a more precise treatment, see my <a href="https://gist.github.com/edsko/8dbf6ddb88a772bfdc9f">Coq formalization of a part of this blog post</a>.)
+</blockquote>
+<p>The interpretation of <code>ℛ</code> for a free type variable <code>a</code> is defined in terms of the corresponding relation:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">     x ℛ(a) x'     <span class="co">-- the type variable</span>
+iff  (x, x') ∈ a    <span class="co">-- the relation</span></code></pre></div>
+<h4 id="example-a.-a---a">Example: <code>∀a. a -&gt; a</code></h4>
+<p>Let’s consider a number of examples, starting with an <code>f :: ∀a. a -&gt; a</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">     f ℛ(<span class="ot">∀</span>a<span class="fu">.</span> a <span class="ot">-&gt;</span> a) f
+<span class="co">-- parametricity</span>
+iff  forall <span class="dt">A</span>, <span class="dt">A'</span>,<span class="ot"> a ::</span> <span class="dt">A</span> ⇔ <span class="dt">A'</span><span class="fu">.</span>
+       f<span class="fu">@</span><span class="dt">A</span> ℛ(a <span class="ot">-&gt;</span> a) f<span class="fu">@</span><span class="dt">A'</span>
+<span class="co">-- definition for function types</span>
+iff  forall <span class="dt">A</span>, <span class="dt">A'</span>,<span class="ot"> a ::</span> <span class="dt">A</span> ⇔ <span class="dt">A'</span>,<span class="ot"> x ::</span> <span class="dt">A</span>,<span class="ot"> x' ::</span> <span class="dt">A'</span><span class="fu">.</span>
+       <span class="kw">if</span> x ℛ(a) x' <span class="kw">then</span> f x ℛ(a) f x'</code></pre></div>
+<p>It might not be immediately evident from the last line what this actually allows us to conclude about <code>f</code>, so let’s look at this a little closer. A function <code>g</code> is a special kind of relation, relating any argument <code>x</code> to <code>g x</code>; since the property holds for any kind of relation <code>a : A ⇔ A'</code>, it must also hold for a <em>function</em> <code>a⃯ :: A -&gt; A'</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">     forall x, x'<span class="fu">.</span>
+       <span class="kw">if</span> x ℛ(a⃯) x' <span class="kw">then</span> f x ℛ(a⃯) f x'
+<span class="co">-- x ℛ(a⃯) x' iff a⃯ x ≡ x'</span>
+iff  forall<span class="ot"> x ::</span> <span class="dt">A</span>,<span class="ot"> x' ::</span> <span class="dt">A'</span><span class="fu">.</span>
+       <span class="kw">if</span> a⃯ x ≡ x' <span class="kw">then</span> a⃯ (f x) ≡ f x'
+<span class="co">-- simplify</span>
+iff  forall<span class="ot"> x ::</span> <span class="dt">A</span>,
+       a⃯ (f x) ≡ f (a⃯ x)</code></pre></div>
+<p>We can apply this result to show that any <code>f :: ∀a. a -&gt; a</code> must be the identity function: picking <code>a⃯ = const x</code>, we get <code>const x (f x) ≡ f (const x x)</code>, i.e. <code>x ≡ f x</code>, as required.</p>
+<blockquote>
+<strong>NOTE</strong>. <em>We are doing <a href="http://www.cse.chalmers.se/~nad/publications/danielsson-et-al-popl2006.html">fast and loose</a> reasoning in this tutorial and will completely ignore any totality issues. See <a href="http://www.janis-voigtlaender.eu/papers/AutomaticallyGeneratingCounterexamplesToNaiveFreeTheorems.pdf">Automatically Generating Counterexamples to Naive Free Theorems</a>, or the <a href="http://www-ps.iai.uni-bonn.de/cgi-bin/exfind.cgi">associated web interface</a>, for some insights about what wrong conclusions we can draw by ignoring totality.</em>
+</blockquote>
+<h4 id="example-a.-a---a---a">Example: <code>∀a. a -&gt; a -&gt; a</code></h4>
+<p>Intuitively, there are only two things a function <code>f :: ∀a. a -&gt; a -&gt; a</code> can do: it can either return its first argument, or it can return its second argument. What does parametricity tell us? Let’s see:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">     f ℛ(<span class="ot">∀</span>a<span class="fu">.</span> a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a) f
+iff  forall <span class="dt">A</span>, <span class="dt">A'</span>,<span class="ot"> a ::</span> <span class="dt">A</span> ⇔ <span class="dt">A'</span><span class="fu">.</span>
+       f<span class="fu">@</span><span class="dt">A</span> ℛ(a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a) f<span class="fu">@</span><span class="dt">A'</span>
+<span class="co">-- applying the rule for functions twice</span>
+iff  forall <span class="dt">A</span>, <span class="dt">A'</span>,<span class="ot"> a ::</span> <span class="dt">A</span> ⇔ <span class="dt">A'</span>,<span class="ot"> x ::</span> <span class="dt">A</span>,<span class="ot"> x' ::</span> <span class="dt">A'</span>,<span class="ot"> y ::</span> <span class="dt">A</span>,<span class="ot"> y' ::</span> <span class="dt">A'</span><span class="fu">.</span>
+       <span class="kw">if</span> x ℛ(a) x', y ℛ(a) y' <span class="kw">then</span> f x y ℛ(a) f x' y'</code></pre></div>
+<p>Let’s again specialize the last line to pick a function <code>a⃯ :: A -&gt; A'</code> for the relation <code>a</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">     forall<span class="ot"> x ::</span> <span class="dt">A</span>,<span class="ot"> x' ::</span> <span class="dt">A'</span>,<span class="ot"> y ::</span> <span class="dt">A</span>,<span class="ot"> y' ::</span> <span class="dt">A'</span><span class="fu">.</span>
+       <span class="kw">if</span> x ℛ(a⃯) x', y ℛ(a⃯) y' <span class="kw">then</span> f x y ℛ(a⃯) f x' y'
+<span class="co">-- a⃯ is a function</span>
+iff  forall<span class="ot"> x ::</span> <span class="dt">A</span>,<span class="ot"> y ::</span> <span class="dt">A</span><span class="fu">.</span>
+       <span class="kw">if</span> a⃯ x ≡ x' and a⃯ y ≡ y' <span class="kw">then</span> a⃯ (f x y) ≡ f x' y'
+<span class="co">-- simplify</span>
+iff  a⃯ (f x y) <span class="fu">=</span> f (a⃯ x) (a⃯ y)</code></pre></div>
+<p>So parametricity allows us to “push in” or “distribute” <code>a⃯</code> over <code>f</code>. The fact that <code>f</code> must either return its first or its second argument follows from parametricity, but not in a completely obvious way; see the <code>reddit</code> thread <a href="http://www.reddit.com/r/haskell/comments/2r0dn3/how_to_use_free_theorems/">How to use free theorems</a>.</p>
+<h4 id="example-ab.-a---b"> Example: <code>∀ab. a -&gt; b</code></h4>
+<p>Other than <code>undefined</code> (which we are ignoring), there can be no function <code>f :: ∀ab. a -&gt; b</code>. Let’s suppose that one <em>did</em> exist; what does parametricity tell us?</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">     f ℛ(<span class="ot">∀</span>ab<span class="fu">.</span> a <span class="ot">-&gt;</span> b) f
+<span class="co">-- applying the rule for universal quantification, twice</span>
+iff  forall <span class="dt">A</span>, <span class="dt">A'</span>, <span class="dt">B</span>, <span class="dt">B'</span>,<span class="ot"> a ::</span> <span class="dt">A</span> ⇔ <span class="dt">A'</span>,<span class="ot"> b ::</span> <span class="dt">B</span> ⇔ <span class="dt">B'</span><span class="fu">.</span>
+       f<span class="fu">@</span><span class="dt">A</span>,<span class="dt">B</span> ℛ(a <span class="ot">-&gt;</span> b) f<span class="fu">@</span><span class="dt">A'</span>,<span class="dt">B'</span>
+<span class="co">-- applying the rule for functions</span>
+iff  forall <span class="dt">A</span>, <span class="dt">A'</span>, <span class="dt">B</span>, <span class="dt">B'</span>,<span class="ot"> a ::</span> <span class="dt">A</span> ⇔ <span class="dt">A'</span>,<span class="ot"> b ::</span> <span class="dt">B</span> ⇔ <span class="dt">B'</span>,<span class="ot"> x ::</span> <span class="dt">A</span>,<span class="ot"> x' ::</span> <span class="dt">A'</span><span class="fu">.</span>
+       <span class="kw">if</span> x ℛ(a) x' <span class="kw">then</span> f x ℛ(b) f x'</code></pre></div>
+<p>Picking two functions <code>a⃯ :: A -&gt; A'</code> and <code>b⃯ :: B -&gt; B'</code> for <code>a</code> and <code>b</code>, we get</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">b⃯ <span class="fu">.</span> f <span class="fu">=</span> f <span class="fu">.</span> a⃯</code></pre></div>
+<p>It’s not too difficult to derive contradiction from this (remember that you can pick any two functions <code>a⃯</code> and <code>b⃯</code> between any types of your choosing). Hence, such a function cannot exist.</p>
+<h4 id="example-ab.-a---b---a---b">Example: <code>∀ab. (a -&gt; b) -&gt; a -&gt; b</code></h4>
+<p>The only thing a function of this type can do is apply the supplied function to the supplied argument (alternatively, if you prefer, this must be the identity function). Let’s spell this example out in a bit of detail because it is our first example of a higher order function.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">     f ℛ(<span class="ot">∀</span>ab<span class="fu">.</span> (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> b) f
+<span class="co">-- apply rule for polymorphism, twice</span>
+iff  forall <span class="dt">A</span>, <span class="dt">A'</span>, <span class="dt">B</span>, <span class="dt">B'</span>,<span class="ot"> a ::</span> <span class="dt">A</span> ⇔ <span class="dt">A'</span>,<span class="ot"> b ::</span> <span class="dt">B</span> ⇔ <span class="dt">B'</span><span class="fu">.</span>
+       f<span class="fu">@</span><span class="dt">A</span>,<span class="dt">B</span> ℛ((a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> b) f<span class="fu">@</span><span class="dt">A'</span>,<span class="dt">B'</span>
+<span class="co">-- apply rule for functions, twice</span>
+iff  forall <span class="dt">A</span>, <span class="dt">A'</span>, <span class="dt">B</span>, <span class="dt">B'</span>,<span class="ot"> a ::</span> <span class="dt">A</span> ⇔ <span class="dt">A'</span>,<span class="ot"> b ::</span> <span class="dt">B</span> ⇔ <span class="dt">B'</span><span class="fu">.</span>
+     forall<span class="ot"> g ::</span> <span class="dt">A</span> <span class="ot">-&gt;</span> <span class="dt">B</span>,<span class="ot"> g' ::</span> <span class="dt">A'</span> <span class="ot">-&gt;</span> <span class="dt">B'</span>,<span class="ot"> x ::</span> <span class="dt">A</span>,<span class="ot"> x' ::</span> <span class="dt">A'</span><span class="fu">.</span>
+       <span class="kw">if</span> g ℛ(a <span class="ot">-&gt;</span> b) g' and x ℛ(a) x' <span class="kw">then</span> f g x ℛ(b) f g' x'</code></pre></div>
+<p>Let’s expand what that premise <code>g ℛ(a -&gt; b) g'</code> means:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">     g ℛ(a <span class="ot">-&gt;</span> b) g'
+iff  forall<span class="ot"> y ::</span> <span class="dt">A</span>,<span class="ot"> y' ::</span> <span class="dt">A'</span><span class="fu">.</span>
+       <span class="kw">if</span> y ℛ(a) y' <span class="kw">then</span> g y ℛ(b) g' y'</code></pre></div>
+<p>For the special case that we pick <em>functions</em> <code>a⃯ :: A -&gt; A'</code> and <code>b⃯ :: B -&gt; B'</code> for <code>a</code> and <code>b</code>, that premise collapses to</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">     forall<span class="ot"> y ::</span> <span class="dt">A</span>,<span class="ot"> y' ::</span> <span class="dt">A'</span><span class="fu">.</span>
+       <span class="kw">if</span> y ℛ(a⃯) y' <span class="kw">then</span> g y ℛ(b⃯) g' y'
+<span class="co">-- a⃯ and b⃯ are functions</span>
+iff  forall<span class="ot"> y ::</span> <span class="dt">A</span>,<span class="ot"> y' ::</span> <span class="dt">A'</span><span class="fu">.</span>
+       <span class="kw">if</span> a⃯ y ≡ y' <span class="kw">then</span> b⃯ (g y) ≡ g' y'
+<span class="co">-- simplify</span>
+iff  forall<span class="ot"> y ::</span> <span class="dt">A</span><span class="fu">.</span>
+       b⃯ (g y) ≡ g' (a⃯ y)
+<span class="co">-- simplify (extensionality)</span>
+iff  b⃯ <span class="fu">.</span> g ≡ g' <span class="fu">.</span> a⃯</code></pre></div>
+<p>So that the free theorem for <code>f :: ∀ab. (a -&gt; b) -&gt; a -&gt; b</code> becomes</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">if</span> b⃯ <span class="fu">.</span> g ≡ g' <span class="fu">.</span> a⃯ <span class="kw">then</span> b⃯ <span class="fu">.</span> f g ≡ f g' <span class="fu">.</span> a⃯</code></pre></div>
+<p>Picking <code>b⃯ = const g</code>, <code>g' = g</code>, and <code>a⃯ = id</code> (verify that the premise holds) we get that indeed <code>g ≡ f g</code>, as expected.</p>
+<blockquote>
+<p><strong>Useful shortcut.</strong> This pattern is worth remembering:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">      g ℛ(a⃯ <span class="ot">-&gt;</span> b⃯) g'
+iff   b⃯ <span class="fu">.</span> g ≡ g' <span class="fu">.</span> a⃯</code></pre></div>
+whenever <code>a⃯</code> and <code>b⃯</code> are function(al relation)s.
+</blockquote>
+<h4 id="example-ab.-c.-c---string---a---b---string">Example: <code>∀ab. (∀c. c -&gt; String) -&gt; a -&gt; b -&gt; String</code></h4>
+<p>A function <code>f :: ∀ab. (∀c. c -&gt; String) -&gt; a -&gt; b -&gt; String</code> is not only higher order, but has a rank-2 type: it insists that the function it is given is <em>itself</em> polymorphic. This makes it possible to write, for example</p>
+<pre><code>f g x y = g x ++ g y</code></pre>
+<p>Note that since <code>x</code> and <code>y</code> have different types, it is important that <code>g</code> is polymorphic. What is the free theorem for <code>f</code>?</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">     f ℛ(<span class="ot">∀</span>ab<span class="fu">.</span> (<span class="ot">∀</span>c<span class="fu">.</span> c <span class="ot">-&gt;</span> <span class="dt">String</span>) <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> <span class="dt">String</span>) f
+<span class="co">-- apply rule for polymorphism, twice</span>
+iff  forall <span class="dt">A</span>, <span class="dt">A'</span>, <span class="dt">B</span>, <span class="dt">B'</span>,<span class="ot"> a ::</span> <span class="dt">A</span> ⇔ <span class="dt">A'</span>,<span class="ot"> b ::</span> <span class="dt">B</span> ⇔ <span class="dt">B'</span><span class="fu">.</span>
+       f ℛ((<span class="ot">∀</span>c<span class="fu">.</span> c <span class="ot">-&gt;</span> <span class="dt">String</span>) <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> b <span class="ot">-&gt;</span> <span class="dt">String</span>) f
+<span class="co">-- apply rule for functions three times, and simplify ℛ(String) to (≡)</span>
+iff  forall <span class="dt">A</span>, <span class="dt">A'</span>, <span class="dt">B</span>, <span class="dt">B'</span>,<span class="ot"> a ::</span> <span class="dt">A</span> ⇔ <span class="dt">A'</span>,<span class="ot"> b ::</span> <span class="dt">B</span> ⇔ <span class="dt">B'</span><span class="fu">.</span>
+     forall<span class="ot"> g ::</span> <span class="ot">∀</span>c<span class="fu">.</span> c <span class="ot">-&gt;</span> <span class="dt">String</span>,<span class="ot"> g' ::</span> <span class="ot">∀</span>c<span class="fu">.</span> c <span class="ot">-&gt;</span> <span class="dt">String</span><span class="fu">.</span>
+     forall<span class="ot"> x ::</span> <span class="dt">A</span>,<span class="ot"> x' ::</span> <span class="dt">A'</span>,<span class="ot"> y ::</span> <span class="dt">B</span>,<span class="ot"> y' ::</span> <span class="dt">B'</span><span class="fu">.</span>
+       <span class="kw">if</span>
+         g ℛ(<span class="ot">∀</span>c<span class="fu">.</span> c <span class="ot">-&gt;</span> <span class="dt">String</span>) g', x ℛ(a) x', y ℛ(b) y'
+       <span class="kw">then</span>
+         f g x y ≡ f g' x' y'</code></pre></div>
+<p>Specializing this theorem to <em>functions</em> <code>a⃯ :: A -&gt; A'</code> and <code>b⃯ :: B -&gt; B'</code> we get</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">forall <span class="dt">A</span>, <span class="dt">A'</span>, <span class="dt">B</span>, <span class="dt">B'</span>, a⃯<span class="ot"> ::</span> <span class="dt">A</span> <span class="ot">-&gt;</span> <span class="dt">A'</span>, b⃯<span class="ot"> ::</span> <span class="dt">B</span> <span class="ot">-&gt;</span> <span class="dt">B'</span><span class="fu">.</span>
+forall<span class="ot"> g ::</span> <span class="ot">∀</span>c<span class="fu">.</span> c <span class="ot">-&gt;</span> <span class="dt">String</span>,<span class="ot"> g' ::</span> <span class="ot">∀</span>c<span class="fu">.</span> c <span class="ot">-&gt;</span> <span class="dt">String</span><span class="fu">.</span>
+forall<span class="ot"> x ::</span> <span class="dt">A</span>,<span class="ot"> y ::</span> <span class="dt">B</span><span class="fu">.</span>
+  <span class="kw">if</span>
+    g ℛ(<span class="ot">∀</span>c<span class="fu">.</span> c <span class="ot">-&gt;</span> <span class="dt">String</span>) g'
+  <span class="kw">then</span>
+    f g x y ≡ f g' (a⃯ x) (b⃯ y)</code></pre></div>
+<p>But that is somewhat surprising, because it seems to say that the values of <code>x</code> and <code>y</code> cannot matter at all! What is going on? Expanding the first premise:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">     g ℛ(<span class="ot">∀</span>c<span class="fu">.</span> c <span class="ot">-&gt;</span> <span class="dt">String</span>) g'
+iff  forall <span class="dt">C</span>, <span class="dt">C'</span>,<span class="ot"> c ::</span> <span class="dt">C</span> ⇔ <span class="dt">C'</span>,
+       g ℛ(c <span class="ot">-&gt;</span> <span class="dt">String</span>) g'
+iff  forall <span class="dt">C</span>, <span class="dt">C'</span>,<span class="ot"> c ::</span> <span class="dt">C</span> ⇔ <span class="dt">C'</span>,<span class="ot"> z ::</span> <span class="dt">C</span>,<span class="ot"> z' ::</span> <span class="dt">C'</span><span class="fu">.</span>
+       <span class="kw">if</span> z ℛ(c) z' <span class="kw">then</span> g z <span class="fu">=</span> g' z'</code></pre></div>
+<p>Let’s stop for a moment to ponder what this requirement for <code>g</code> and <code>g'</code> really says: given <em>any</em> relation <code>c</code>, and <em>any</em> elements <code>z</code> and <code>z'</code> that are related by <code>c</code>—in other words, for any <code>z</code> and <code>z'</code> at all—we must have that <code>g z</code> and <code>g' z'</code> give us equal results. This means that <code>g</code> and <code>g'</code> must be constant functions, and the <em>same</em> constant function at that. As a consequence, for any function <code>f</code> of the above type, <code>f g</code> must itself be constant in <code>x</code> and <code>y</code>. In part two we will see a more useful variation which uses the <code>Show</code> type class.</p>
+<p>Incidentally, note that this quantification over an arbitrary relation <code>c</code> is a <em>premise</em> to the free theorem, not a conclusion; hence we cannot simply choose to consider only <em>functions</em> c.</p>
+<blockquote>
+<p><strong>TOOLING.</strong> <i> Indeed, if you enter</p>
+<pre><code>(forall c. c -&gt; String) -&gt; a -&gt; b -&gt; String</code></pre>
+in the online <a href="http://www-ps.iai.uni-bonn.de/cgi-bin/free-theorems-webui.cgi">free theorem generator</a> you will see that it first gives the free theorem using relations only, and then says it will reduce all “permissible” relation variables to functions; in this example, that is all relations except for <code>c</code>; <code>lambdabot</code> doesn’t make this distinction and <em>always</em> reduces relations to functions, which is not correct. </i>
+</blockquote>
+<h2 id="to-be-continued">To be continued</h2>
+<p><a href="../../08/parametricity-part2/index.html">Part 2</a> covers type constructors, type classes and type constructor classes. Meanwhile, here are some links to papers on the subject if you want to read more.</p>
+<ul>
+<li><a href="http://ttic.uchicago.edu/~dreyer/course/papers/wadler.pdf">Theorems for free!</a> by Philip Wadler is the seminal paper on the topic. It doesn’t however cover general type classes, higher types, or type constructors.</li>
+<li><a href="http://www.cis.upenn.edu/~sweirich/papers/gparam-jfp.pdf">Type-safe cast does no harm: Syntactic parametricity for Fω and beyond</a> by Dimitrios Vytiniotis and Stephanie Weirich is a more theoretical paper about free theorems in a calculus with higher rank types and representation types.</li>
+</ul>
+
+
+</div>
+<div class="footer">
+            <div class="copyright">
+               <address>Copyright &copy; 2008-2016, Well-Typed LLP.</address>
+            </div>
+</div>
+</div>
+
+    </body>
+
+<!-- Mirrored from www.well-typed.com/blog/2015/05/parametricity/ by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:53:51 GMT -->
+</html>
+

@@ -1,0 +1,376 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<!-- Mirrored from www.scs.stanford.edu/11au-cs240h/notes/perf.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:55:13 GMT -->
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta name="generator" content="pandoc" />
+  <title>Performance</title>
+  <style type="text/css">
+table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode, table.sourceCode pre 
+   { margin: 0; padding: 0; border: 0; vertical-align: baseline; border: none; }
+td.lineNumbers { border-right: 1px solid #AAAAAA; text-align: right; color: #AAAAAA; padding-right: 5px; padding-left: 5px; }
+td.sourceCode { padding-left: 5px; }
+code.sourceCode span.kw { color: #007020; font-weight: bold; } 
+code.sourceCode span.dt { color: #902000; }
+code.sourceCode span.dv { color: #40a070; }
+code.sourceCode span.bn { color: #40a070; }
+code.sourceCode span.fl { color: #40a070; }
+code.sourceCode span.ch { color: #4070a0; }
+code.sourceCode span.st { color: #4070a0; }
+code.sourceCode span.co { color: #60a0b0; font-style: italic; }
+code.sourceCode span.ot { color: #007020; }
+code.sourceCode span.al { color: red; font-weight: bold; }
+code.sourceCode span.fu { color: #06287e; }
+code.sourceCode span.re { }
+code.sourceCode span.er { color: red; font-weight: bold; }
+  </style>
+</head>
+<body>
+<h1 class="title">Performance</h1>
+<h1 id="nomen-est-numen-to-name-is-to-know">Nomen est numen: &quot;to name is to know&quot;</h1>
+<p>When I got my start working in Haskell (back in the previous millennium), it felt like a kind of miracle that this magic we were writing could be executed at all.</p>
+<p>Nowadays, I feel a little cheated if my code doesn't perform within a small factor of C code.</p>
+<p>We get from &quot;it runs!&quot; to &quot;it's small and fast!&quot; by measuring, tweaking, and measuring again. And again.</p>
+<p>And <em>again</em>.</p>
+<h1 id="measuring-time-and-space">Measuring time and space</h1>
+<p>There are two aspects of performance that are of interest to us.</p>
+<ul>
+<li><p>How long does a program or function take?</p></li>
+<li><p>How much memory does it require?</p></li>
+</ul>
+<p>Let's start with time.</p>
+<h1 id="computing-the-length-of-a-list">Computing the length of a list</h1>
+<p>An old favourite:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">module</span> <span class="dt">Length</span> <span class="kw">where</span><br /><br /><span class="ot">len0 </span><span class="ot">::</span> [a] <span class="ot">-&gt;</span> <span class="dt">Int</span><br />len0 (_<span class="fu">:</span>xs) <span class="fu">=</span> <span class="dv">1</span> <span class="fu">+</span> len0 xs<br />len0 _      <span class="fu">=</span> <span class="dv">0</span></code></pre>
+<p>Yawn, right?</p>
+<p>But how long does it take to run?</p>
+<h1 id="measuring-time-performance">Measuring time performance</h1>
+<p>The standard Haskell tool for timing measurement is a package named criterion.</p>
+<pre><code>cabal install criterion
+</code></pre>
+<p>criterion makes it extremely easy to get a benchmark up and running.</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">import</span> <span class="dt">Criterion.Main</span><br /><span class="kw">import</span> <span class="dt">Length</span><br /><br />main <span class="fu">=</span> defaultMain [ bench <span class="st">&quot;len0&quot;</span> <span class="fu">$</span> whnf len0 [<span class="dv">0</span><span class="fu">..</span><span class="dv">100000</span>] ]</code></pre>
+<p>If we compile this to an executable, we'll have a fully usable benchmark program.</p>
+<h1 id="the-moving-parts">The moving parts</h1>
+<p>The <code>defaultMain</code> function accepts a list of benchmarks to run.</p>
+<p>It parses a standard set of command line arguments, then runs the benchmarks.</p>
+<p>The <code>bench</code> function describes a single benchmark.</p>
+<ul>
+<li><p>Its first argument is the name to print for the benchmark.</p></li>
+<li><p>The second is a description of the actual function to benchmark.</p></li>
+</ul>
+<p>The <code>whnf</code> function describes <em>how</em> to run a benchmark.</p>
+<h1 id="how-to-run-a-benchmark">How to run a benchmark</h1>
+<p>criterion provides several ways to run a benchmark.</p>
+<p>For pure functions:</p>
+<ul>
+<li><p><code>whnf</code> accepts two arguments, a function and the last argument to pass to the function. It supplies the argument to the function, then evaluates the result to weak head normal form (WHNF).</p></li>
+<li><p><code>nf</code> is similar, but evaluates the result to normal form (NF).</p></li>
+</ul>
+<p>For impure <code>IO</code> actions:</p>
+<ul>
+<li><p><code>whnfIO</code> accepts an <code>IO</code> action, runs it, and evaluates the result to WHNF.</p></li>
+<li><p><code>nfIO</code> accepts an <code>IO</code> action, runs it, and evaluates the result to NF.</p></li>
+</ul>
+<h1 id="the-ideal-benchmarking-environment-and-the-reality">The ideal benchmarking environment, and the reality</h1>
+<p>Ideally, we'd always benchmark on a completely quiet machine with predictable performance.</p>
+<p>There are many reasons why this is not achievable, among them:</p>
+<ul>
+<li><p>CPU frequency changes in response to load and thermal stress</p></li>
+<li><p>Other processes (e.g. web browsers) contending for resources</p></li>
+<li><p>External interrupts, e.g. from mouse, network adapters</p></li>
+</ul>
+<p>So are we doomed?</p>
+<h1 id="a-sanity-check">A sanity check</h1>
+<p>While we can't directly observe sources of measurement interference, we <em>can</em> detect interference that perturbs our measurements.</p>
+<p>If the interference is moderate to severe, it will perturb many measurements, and criterion will indicate that its measurements are suspicious.</p>
+<h1 id="what-do-we-see">What do we see?</h1>
+<p>The output of a criterion run:</p>
+<pre><code>warming up
+estimating clock resolution...
+mean is 2.083073 us (320001 iterations)
+found 42185 outliers among 319999 samples (13.2%)
+  19877 (6.2%) low severe
+  22308 (7.0%) high severe
+estimating cost of a clock call...
+mean is 57.19379 ns (20 iterations)
+found 3 outliers among 20 samples (15.0%)
+  3 (15.0%) high mild
+
+benchmarking len0
+mean: 1.490665 ms, lb 1.458564 ms, ub 1.531022 ms, ci 0.950
+std dev: 183.9797 us, lb 151.8929 us, ub 242.1031 us, ci 0.950
+</code></pre>
+<h1 id="why-scrutinize-the-clock-so-closely">Why scrutinize the clock so closely?</h1>
+<p>criterion works hard to be fully automatic.</p>
+<p>It considers clock <em>resolution</em>, the smallest unit by which the wallclock timer will increment.</p>
+<p>Why?</p>
+<ul>
+<li>If a function takes on the order of the same amount of time (or less) to evaluate, we must evaluate it many times to get a reliable measurement.</li>
+</ul>
+<p>It also considers clock <em>cost</em>, i.e. how long it takes to ask the clock the current time.</p>
+<h1 id="reporting-numbers">Reporting numbers</h1>
+<p>What about these numbers?</p>
+<pre><code>benchmarking len0
+mean: 1.490665 ms, lb 1.458564 ms, ub 1.531022 ms, ci 0.950
+std dev: 183.9797 us, lb 151.8929 us, ub 242.1031 us, ci 0.950
+</code></pre>
+<p>How come we're giving bounds (<code>lb</code> and <code>ub</code>) on the mean and standard deviation?</p>
+<p>Measuring is a noisy business. These are estimates of the range within which 95% of measurements are falling.</p>
+<h1 id="space-measurements-at-a-glance">Space measurements at a glance</h1>
+<p>We can get a great start by building our programs with the <code>-rtsopts</code> option. This allows us to pass extra options to GHC's runtime system when we run our compiled program.</p>
+<p>Suppose we want to see the space performance of this program.</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="kw">import</span> <span class="dt">Control.Monad</span> (forM_)<br /><span class="kw">import</span> <span class="dt">Data.List</span> (sortBy)<br /><span class="kw">import</span> <span class="dt">Data.Ord</span> (comparing)<br /><span class="kw">import</span> <span class="dt">System.Environment</span> (getArgs)<br /><span class="kw">import</span> <span class="kw">qualified</span> <span class="dt">Data.Map</span> <span class="kw">as</span> <span class="dt">M</span><br /><br />main <span class="fu">=</span> <span class="kw">do</span><br />  args <span class="ot">&lt;-</span> getArgs<br />  forM_ args <span class="fu">$</span> \f <span class="ot">-&gt;</span> <span class="kw">do</span><br />    ws <span class="ot">&lt;-</span> <span class="fu">words</span> <span class="ot">`fmap`</span> <span class="fu">readFile</span> f<br />    forM_ (sortBy (comparing <span class="fu">snd</span>) <span class="fu">.</span> M.toList <span class="fu">.</span><br />           <span class="fu">foldl</span> (\m w <span class="ot">-&gt;</span> M.insertWith (<span class="fu">+</span>) w <span class="dv">1</span> m) M.empty <span class="fu">$</span> ws) <span class="fu">$</span><br />          \(w,c) <span class="ot">-&gt;</span> <span class="fu">putStrLn</span> <span class="fu">$</span> <span class="fu">show</span> c <span class="fu">++</span> <span class="st">&quot;\t&quot;</span> <span class="fu">++</span> w</code></pre>
+<p>We compile it with the following command line:</p>
+<pre><code>ghc -O -rtsopts --make WordFreq.hs
+</code></pre>
+<h1 id="gc-summary-statistics">GC summary statistics</h1>
+<p>The <code>+RTS</code> command line option begins a series of RTS options. The RTS will hide these from our program.</p>
+<p>The <code>-RTS</code> option ends the series of RTS options. (We can omit it if RTS options are the last thing on the command line.)</p>
+<pre><code>./WordFreq foo.txt +RTS -s -RTS
+</code></pre>
+<p>The <code>-s</code> RTS option tells the runtime to print summary statistics from the memory manager.</p>
+<h1 id="what-do-gc-summary-statistics-look-like">What do GC summary statistics look like?</h1>
+<pre><code>   160,394,496 bytes allocated in the heap
+   104,813,280 bytes copied during GC
+    15,228,592 bytes maximum residency (9 sample(s))
+       328,112 bytes maximum slop
+        36 MB total memory in use (0 MB lost due to fragmentation)
+
+                  Tot time (elapsed)  Avg pause  Max pause
+Gen  0       297 colls,     0 par    0.10s    0.10s     0.0003s    0.0021s
+Gen  1         9 colls,     0 par    0.08s    0.10s     0.0113s    0.0350s
+
+INIT    time    0.00s  (  0.00s elapsed)
+MUT     time    0.12s  (  0.13s elapsed)
+GC      time    0.18s  (  0.20s elapsed)
+EXIT    time    0.00s  (  0.00s elapsed)
+Total   time    0.31s  (  0.33s elapsed)
+
+%GC     time      59.1%  (60.7% elapsed)
+
+Alloc rate    1,280,768,615 bytes per MUT second
+
+Productivity  40.9% of total user, 37.6% of total elapsed
+</code></pre>
+<h1 id="stats-part-1-of-4">Stats, part 1 of 4</h1>
+<p>Let's break it all down, from top to bottom.</p>
+<pre><code>   160,394,496 bytes allocated in the heap
+   104,813,280 bytes copied during GC
+    15,228,592 bytes maximum residency (9 sample(s))
+       328,112 bytes maximum slop
+        36 MB total memory in use (0 MB lost due to fragmentation)
+</code></pre>
+<p>Key statistics to look at:</p>
+<ul>
+<li><p><code>allocated in the heap</code>: total memory allocated during entire run</p></li>
+<li><p><code>copied during GC</code>: amount of memory that had to be copied because it was alive</p></li>
+<li><p><code>maximum residency</code>: largest amount of memory in use at one time</p></li>
+</ul>
+<h1 id="stats-part-2-of-4">Stats, part 2 of 4</h1>
+<p>Time spent in the garbage collector:</p>
+<pre><code>                  Tot time (elapsed)  Avg pause  Max pause
+Gen  0       297 colls,     0 par    0.10s    0.10s     0.0003s    0.0021s
+Gen  1         9 colls,     0 par    0.08s    0.10s     0.0113s    0.0350s
+</code></pre>
+<ul>
+<li><p>GHC uses a generational GC, so we get a GC breakdown by generation. Gen 0 is the nursery.</p></li>
+<li><p><code>par</code> is the number of GC passes that used multiple CPUs in parallel.</p></li>
+</ul>
+<h1 id="stats-part-3-of-4">Stats, part 3 of 4</h1>
+<p>Where the program spent its time:</p>
+<pre><code>INIT    time    0.00s  (  0.00s elapsed)
+MUT     time    0.12s  (  0.13s elapsed)
+GC      time    0.18s  (  0.20s elapsed)
+EXIT    time    0.00s  (  0.00s elapsed)
+Total   time    0.31s  (  0.33s elapsed)
+</code></pre>
+<ul>
+<li><p><code>INIT</code>: starting the program</p></li>
+<li><p><code>MUT</code>: &quot;mutation&quot;, the part where the program was doing useful work</p></li>
+<li><p><code>GC</code>: garbage collection</p></li>
+<li><p><code>EXIT</code>: shutdown</p></li>
+</ul>
+<p>There are two columns of numbers in case we're running on multiple cores.</p>
+<h1 id="stats-part-4-of-4">Stats, part 4 of 4</h1>
+<p>These are really the most useful numbers to look at:</p>
+<pre><code>%GC     time      59.1%  (60.7% elapsed)
+
+Alloc rate    1,280,768,615 bytes per MUT second
+
+Productivity  40.9% of total user, 37.6% of total elapsed
+</code></pre>
+<ul>
+<li><p>If GC time is high and productivity is low, we're spending a lot of time doing GC, which leaves less for real work.</p></li>
+<li><p>Are the numbers above healthy? NO!</p></li>
+</ul>
+<p>There were problems in our code - but what were they?</p>
+<h1 id="next-step-basic-heap-profiling">Next step: basic heap profiling</h1>
+<p>Another standard RTS option:</p>
+<pre><code>./WordFreq foo.txt +RTS -hT
+</code></pre>
+<p>This generates a file named <code>WordFreq.hp</code>, which contains a <em>heap profile</em>, a time-based snapshot of what was in the heap and when, categorized by data constructor.</p>
+<p>We can't easily read a heap profile, so we use <code>hp2ps</code> to convert it to a PostScript file.</p>
+<pre><code>hp2ps -c WordFreq.hp
+</code></pre>
+<p>This will give us <code>WordFreq.ps</code>, which we can open in a suitable viewer.</p>
+<h1 id="heap-profiler-output">Heap profiler output</h1>
+<div class="figure">
+<img src="http://www.scs.stanford.edu/11au-cs240h/notes/WordFreq-hT.png" alt="Not so happy looking!" /><p class="caption">Not so happy looking!</p>
+</div>
+<p>Clearly we're allocating a ton of cons cells, and half a ton of thunks.</p>
+<h1 id="our-program-with-its-space-leaks-fixed">Our program with its space leaks fixed</h1>
+<p>Does this heap profile look better?</p>
+<div class="figure">
+<img src="http://www.scs.stanford.edu/11au-cs240h/notes/WordFreq2-hT.png" alt="What a relief!" /><p class="caption">What a relief!</p>
+</div>
+<p>It's still a similar shape, but look at the units on the <em>y</em> axis above!</p>
+<p>Also, check out the healthier GC summary stats:</p>
+<pre><code>%GC     time      33.6%  (32.9% elapsed)
+
+Alloc rate    1,246,782,295 bytes per MUT second
+
+Productivity  66.4% of total user, 63.3% of total elapsed
+</code></pre>
+<h1 id="full-heap-profiling">Full heap profiling</h1>
+<p>Basic heap profiling is useful, but GHC supports a much richer way to profile our code.</p>
+<p>This richer profiling support has a space and time cost, so we don't leave it turned on all the time.</p>
+<p>To use it, we must compile both libraries and programs with <code>-prof</code>.</p>
+<p>If you're using <code>cabal</code>, see the <code>--enable-library-profiling</code> and <code>--enable-executable-profiling</code> options.</p>
+<ul>
+<li><p>As mentioned in an early lecture, simply leave <code>library-profiling</code> set to <code>True</code> in your <code>$HOME/.cabal/config</code>.</p></li>
+<li><p>With library profiling enabled, <code>cabal</code> will generate both normal and profiled libraries, and will use the right one at the right time.</p></li>
+</ul>
+<h1 id="more-about-full-heap-profiling">More about full heap profiling</h1>
+<p>The basics of full heap profiling are similar to what we saw with <code>-hT</code> and <code>hp2ps</code> a moment ago.</p>
+<p>The full profiler is a powerful facility, so it's worth reading <a href="http://www.haskell.org/ghc/docs/7.2.1/html/users_guide/profiling.html">the profiling chapter of the GHC manual</a>.</p>
+<p>In particular, to get much out of the profiler, you'll need to know about <a href="http://www.haskell.org/ghc/docs/7.2.1/html/users_guide/profiling.html#cost-centres">cost centres</a>, which are annotated expressions used for book-keeping when profiling.</p>
+<p>In many cases, you can simply use the <code>-auto-all</code> option to get GHC to annotate <em>all</em> top-level bindings with cost centres.</p>
+<p>You'll also want to use the <a href="http://www.haskell.org/ghc/docs/7.2.1/html/users_guide/prof-time-options.html"><code>-P</code> RTS option</a>, which writes a human-readable time and space profile into a file ending with a <code>.prof</code> extension.</p>
+<ul>
+<li><em>Caveat lector</em>: adding too many cost centres to your code, particularly on hot code paths, will cause the profiler's book-keeping to perturb your performance!</li>
+</ul>
+<h1 id="what-about-this">What about this?</h1>
+<p>Please enter the following definition into a source file, and load it into <code>ghci</code>.</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">sum0 </span><span class="ot">::</span> [<span class="dt">Integer</span>] <span class="ot">-&gt;</span> <span class="dt">Integer</span><br />sum0 (x<span class="fu">:</span>xs) <span class="fu">=</span> x <span class="fu">+</span> sum0 xs<br />sum0 _      <span class="fu">=</span> <span class="dv">0</span></code></pre>
+<p>Now please tell me the result of this expression.</p>
+<pre class="sourceCode"><code class="sourceCode haskell">sum0 [<span class="dv">0</span><span class="fu">..</span><span class="dv">9876543</span>]</code></pre>
+<p>Once you're done, please tell me the result of this expression.</p>
+<pre class="sourceCode"><code class="sourceCode haskell">sum0 [<span class="dv">0</span><span class="fu">..</span><span class="dv">98765432</span>]</code></pre>
+<h1 id="welcome-to-core">Welcome to Core</h1>
+<p>Given our earlier definition of the function <code>len0</code>, suppose were to try this on the command line:</p>
+<pre><code>ghc -c -ddump-simpl Length.hs
+</code></pre>
+<p>And we'll see GHC dump a transformed version of our code in a language named <em>Core</em>.</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="dt">Rec</span> {<br />Length.len0 [<span class="dt">Occ</span><span class="fu">=</span><span class="dt">LoopBreaker</span>]<br /><span class="ot">  </span><span class="ot">::</span> forall a_abp<span class="fu">.</span> [a_abp] <span class="ot">-&gt;</span> <span class="dt">GHC.Types.Int</span><br />[<span class="dt">GblId</span>, <span class="dt">Arity</span><span class="fu">=</span><span class="dv">1</span>]<br />Length.len0 <span class="fu">=</span><br />  \ (<span class="fu">@</span> a_aov) (<span class="ot">ds_dpn </span><span class="ot">::</span> [a_aov]) <span class="ot">-&gt;</span><br />    <span class="kw">case</span> ds_dpn <span class="kw">of</span> _ {<br />      [] <span class="ot">-&gt;</span> <span class="dt">GHC.Types.I</span><span class="fu">#</span> <span class="dv">0</span>;<br />      <span class="fu">:</span> ds1_dpo xs_abq <span class="ot">-&gt;</span><br />        <span class="fu">GHC.Num.+</span><br />          <span class="fu">@</span> <span class="dt">GHC.Types.Int</span><br />          <span class="fu">GHC.Num.$</span>fNumInt<br />          (<span class="dt">GHC.Types.I</span><span class="fu">#</span> <span class="dv">1</span>)<br />          (Length.len0 <span class="fu">@</span> a_aov xs_abq)<br />    }<br />end <span class="dt">Rec</span> }</code></pre>
+<h1 id="what-is-core">What is Core?</h1>
+<p>Core is also known as System FC, a greatly simplified version of Haskell that is used internally (in abstract form) by GHC.</p>
+<p>Real Haskell code is compiled to Core, which is then transformed repeatedly by various optimization passes. These live in the <em>simplifier</em>, roughly the middle of the compilation pipeline.</p>
+<p>What we see with <code>-ddump-simpl</code> is a pretty-printed version of the abstract Core representation after the simplifier has finished all of its transformations.</p>
+<p>Isn't Core scary?</p>
+<ul>
+<li><p>Not really.</p></li>
+<li><p>Remember, the pretty-printed representation is basically just greatly simplified Haskell, with extra annotations that are really only interesting to the compiler.</p></li>
+</ul>
+<p>Let's walk through some Core, for fun.</p>
+<h1 id="from-the-outside-in">From the outside in</h1>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="dt">Rec</span> {<br />Length.len0 [<span class="dt">Occ</span><span class="fu">=</span><span class="dt">LoopBreaker</span>]<br /><span class="ot">  </span><span class="ot">::</span> forall a_abp<span class="fu">.</span> [a_abp] <span class="ot">-&gt;</span> <span class="dt">GHC.Types.Int</span><br /><span class="co">{- ... -}</span><br />end <span class="dt">Rec</span> }</code></pre>
+<ul>
+<li><p><code>Rec { ... }</code> indicates that we're looking at a recursive binding.</p></li>
+<li><p>Notice that the <code>forall</code> that we're used to <em>not</em> seeing in Haskell is <em>explicit</em> in Core (bye bye, syntactic sugar!).</p></li>
+<li><p>Notice also that the type parameter named <code>a</code> in Haskell got renamed to <code>a_abp</code>, so that it's unique.</p></li>
+<li><p>If <code>a</code> crops up in a signature for another top-level function, it will be renamed to something different. This &quot;uniqueness renaming&quot; can sometimes make following types a little confusing.</p></li>
+<li><p>Type names are fully qualified: <code>GHC.Types.Int</code> instead of <code>Int</code>.</p></li>
+</ul>
+<h1 id="function-annotations">Function annotations</h1>
+<pre class="sourceCode"><code class="sourceCode haskell">[<span class="dt">GblId</span>, <span class="dt">Arity</span><span class="fu">=</span><span class="dv">1</span>]</code></pre>
+<ul>
+<li>This is a global identifier, and is a function that takes one parameter.</li>
+</ul>
+<h1 id="type-application">Type application</h1>
+<pre class="sourceCode"><code class="sourceCode haskell">Length.len0 <span class="fu">=</span><br />  \ (<span class="fu">@</span> a_aov) (<span class="ot">ds_dpn </span><span class="ot">::</span> [a_aov]) <span class="ot">-&gt;</span></code></pre>
+<p>The '@' annotation here is a <em>type application</em>: GHC is applying the type <code>a_aov</code> (another renaming of <code>a</code>) to the function.</p>
+<p>Type applications are of little real interest to us right here, but at least we know what this notation is (and we'll see it again soon).</p>
+<h1 id="case-analysis-part-1">Case analysis, part 1</h1>
+<pre class="sourceCode"><code class="sourceCode haskell">    <span class="kw">case</span> ds_dpn <span class="kw">of</span> _ {<br />      [] <span class="ot">-&gt;</span> <span class="dt">GHC.Types.I</span><span class="fu">#</span> <span class="dv">0</span>;</code></pre>
+<p>This looks like regular Haskell. Hooray!</p>
+<p>Since that's hardly interesting, let's focus on the right hand side above, namely this expression:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="dt">GHC.Types.I</span><span class="fu">#</span> <span class="dv">0</span></code></pre>
+<p>The <code>I#</code> above is the value constructor for the <code>Int</code> type.</p>
+<p>This indicates that we are allocating a boxed integer on the heap.</p>
+<h1 id="case-analysis-part-2">Case analysis, part 2</h1>
+<pre class="sourceCode"><code class="sourceCode haskell">      <span class="fu">:</span> ds1_dpo xs_abq <span class="ot">-&gt;</span></code></pre>
+<p>Normal pattern matching on the list type's <code>:</code> constructor. In Core, we use prefix notation, since we've eliminated syntactic sugar.</p>
+<pre class="sourceCode"><code class="sourceCode haskell">        <span class="fu">GHC.Num.+</span><br />          <span class="fu">@</span> <span class="dt">GHC.Types.Int</span><br />          <span class="fu">GHC.Num.$</span>fNumInt</code></pre>
+<p>We're calling the <code>+</code> operator, applied to the <code>Int</code> type.</p>
+<p>The use of <code>GHC.Num.$fNumInt</code> is a <em>dictionary</em>.</p>
+<ul>
+<li>It indicates that we are passing the <code>Num</code> dictionary for the <code>Int</code> type to <code>+</code>, so that it can determine which function to really call.</li>
+</ul>
+<p>In other words, dictionary passing has gone from implicit in Haskell to <em>explicit</em> in Core. This will be really helpful!</p>
+<h1 id="the-actual-parameters-to">The actual parameters to +</h1>
+<p>Finally, we allocate an integer on the heap.</p>
+<p>We'll add it to the result of calling <code>len0</code> on the second argument to the <code>:</code> constructor, where we're applying the <code>a_aov</code> type again.</p>
+<pre class="sourceCode"><code class="sourceCode haskell">          (<span class="dt">GHC.Types.I</span><span class="fu">#</span> <span class="dv">1</span>)<br />          (Length.len0 <span class="fu">@</span> a_aov xs_abq)</code></pre>
+<h1 id="strictness-in-core">Strictness in Core</h1>
+<p>In System FC, all evaluation is controlled through <code>case</code> expressions. A use of <code>case</code> demands that an expression be evaluated to WHNF, i.e. to the outermost constructor.</p>
+<p>Some examples:</p>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="co">-- Haskell:</span><br />foo (<span class="dt">Bar</span> a b) <span class="fu">=</span> <span class="co">{- ... -}</span><br /><br /><span class="co">-- Core:</span><br />foo wa <span class="fu">=</span> <span class="kw">case</span> wa <span class="kw">of</span> _ { <span class="dt">Bar</span> a b <span class="ot">-&gt;</span> <span class="co">{- ... -}</span> }</code></pre>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="co">-- Haskell:</span><br /><span class="ot">{-# LANGUAGE BangPatterns #-}</span><br /><span class="kw">let</span> <span class="fu">!</span>a <span class="fu">=</span> <span class="dv">2</span> <span class="fu">+</span> <span class="dv">2</span> <span class="kw">in</span> foo a<br /><br /><span class="co">-- Core:</span><br /><span class="kw">case</span> <span class="dv">2</span> <span class="fu">+</span> <span class="dv">2</span> <span class="kw">of</span> a { __<span class="dt">DEFAULT</span> <span class="ot">-&gt;</span> foo a }</code></pre>
+<pre class="sourceCode"><code class="sourceCode haskell"><span class="co">-- Haskell:</span><br />a <span class="ot">`seq`</span> b<br /><br /><span class="co">-- Core:</span><br /><span class="kw">case</span> a <span class="kw">of</span> _ { __<span class="dt">DEFAULT</span> <span class="ot">-&gt;</span> b }</code></pre>
+<h1 id="pop-quiz">Pop quiz!</h1>
+<p>Inspect the output of <code>ghc -ddump-simpl</code> and tell me which values are, and which are not, being forcibly evaluated in the definition of <code>sum0</code>.</p>
+<p>In return, I'll tell you why we got this error message:</p>
+<pre><code>*** Exception: stack overflow
+</code></pre>
+<h1 id="the-evaluation-stack">The evaluation stack</h1>
+<p>There is no such thing as a regular &quot;call stack&quot; in Haskell, no analogue to the stack you're used to thinking of in C or Python or whatever.</p>
+<p>When GHC hits a <code>case</code> expression, and must evaluate a possibly thunked expression to WHNF, it uses an internal stack.</p>
+<p>This stack has a fixed size, which defaults to 8MB.</p>
+<p>The size of the stack is fixed to prevent a program that's stuck in an infinite loop from consuming all memory.</p>
+<p>Most of the time, if you have a thunk that requires anywhere close to 8MB to evaluate, there's likely a problem in your code.</p>
+<h1 id="the-perils-of-chained-thunks">The perils of chained thunks</h1>
+<p>There are a few ways in which chained thunks can cause us harm.</p>
+<p>Besides stack overflows, I can think of two more problems off the top of my head.</p>
+<p>Please see if you can tell me what those problems are.</p>
+<h1 id="the-perils-of-chained-thunks-1">The perils of chained thunks</h1>
+<p>There are a few ways in which chained thunks can cause us harm.</p>
+<p>Besides stack overflows, I can think of two more problems off the top of my head.</p>
+<ul>
+<li><p>They have a space cost, since they must be allocated on the heap.</p></li>
+<li><p>They come with a time cost, once evaluation to WHNF is demanded.</p></li>
+</ul>
+<h1 id="so-...-thunks-are-bad">So ... thunks are bad?</h1>
+<p>No, because they enable lazy evaluation.</p>
+<p>What's bad is <em>not knowing</em> when lazy or strict evaluation is occurring.</p>
+<p>But now that you can read <code>-ddump-simpl</code> output and find those <code>case</code> expressions, you'll be able to tell immediately.</p>
+<p>With a little experience, you'll often be able to determine the strictness properties of small Haskell snippets by inspection. (For those times when you can't, <code>-ddump-simpl</code> will still be your friend.)</p>
+<h1 id="pro-tips">Pro tips</h1>
+<p>If you're using GHC 7.2 or newer and want to read simplifier output, consider using options like <code>-dsuppress-all</code> to prevent GHC from annotating the Core.</p>
+<p>It makes the dumped Core more readable, but at the cost of information that is sometimes useful.</p>
+<p>There's a handful of these suppression options (see the GHC man page), so you can gain finer control over suppressions.</p>
+<p>Also, try installing and using the <code>ghc-core</code> tool to automate some of the pain:</p>
+<pre><code>cabal install ghc-core
+</code></pre>
+<h1 id="the-role-of-reading-core">The role of reading Core</h1>
+<p>I always reach for <code>-ddump-simpl</code> <em>after</em>:</p>
+<ul>
+<li><p>I already have a working program.</p></li>
+<li><p>I'm happy (in principle) with the algorithms and data structures I'm using. <em>No amount of local tweaking of strictness is going to save me from the consequences of a poor choice of algorithm or data structure!</em></p></li>
+<li><p>I've written QuickCheck tests, even if only one or two.</p></li>
+<li><p>I have measured the performance of my code and find it wanting.</p></li>
+</ul>
+<p>A couple of minutes with simplifier output will help guide me to the one or two strictness annotations I'm likely to really need.</p>
+<p>This saves me from the common newbie mistake of a random splatter of unnecessary strictness annotations, indicating a high level of panic and lack of understanding.</p>
+<h1 id="find-out-more">Find out more</h1>
+<p>We've scratched the surface of some of the tools and techniques you can use, but there's plenty more to learn.</p>
+<ul>
+<li><p>Johan Tibell has a <a href="http://www.slideshare.net/tibbe/highperformance-haskell">great slide deck</a> from a tutorial he gave last year</p></li>
+<li><p>The Haskell wiki has an entire <a href="http://www.haskell.org/haskellwiki/Performance">section dedicated to performance</a>, but beware some of its advice</p></li>
+<li><p>There's a good <a href="../../../book.realworldhaskell.org/read/profiling-and-optimization.html">chapter on performance</a> in <a href="http://book.realworldhaskell.org/">Real World Haskell</a></p></li>
+</ul>
+</body>
+
+<!-- Mirrored from www.scs.stanford.edu/11au-cs240h/notes/perf.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:55:13 GMT -->
+</html>

@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+  
+<!-- Mirrored from dev.stephendiehl.com/fun/008_extended_parser.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:55:43 GMT -->
+<head>
+    <meta charset="utf-8">
+    <title>Write You a Haskell ( Stephen Diehl )</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <link href="http://fonts.googleapis.com/css?family=Inconsolata" rel="stylesheet">
+    <style type="text/css">
+      
+    </style>
+    <link href="css/bootstrap-responsive.min.css" rel="stylesheet">
+    <link href="css/colors.css" rel="stylesheet">
+    <link rel="alternate" type="application/atom+xml" title="Write You a Haskell" href="rss/atom.xml" />
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','http://www.google-analytics.com/analytics.js','ga');
+
+      ga('create', 'UA-49839533-1', 'stephendiehl.com');
+      ga('send', 'pageview');
+
+    </script>
+
+          <style type="text/css">
+    table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode {
+      margin: 0; padding: 0; vertical-align: baseline; border: none; }
+    table.sourceCode { width: 100%; line-height: 100%; }
+    td.lineNumbers { text-align: right; padding-right: 4px; padding-left: 4px; color: #aaaaaa; border-right: 1px solid #aaaaaa; }
+    td.sourceCode { padding-left: 5px; }
+    code > span.kw { color: #007020; font-weight: bold; }
+    code > span.dt { color: #902000; }
+    code > span.dv { color: #40a070; }
+    code > span.bn { color: #40a070; }
+    code > span.fl { color: #40a070; }
+    code > span.ch { color: #4070a0; }
+    code > span.st { color: #4070a0; }
+    code > span.co { color: #60a0b0; font-style: italic; }
+    code > span.ot { color: #007020; }
+    code > span.al { color: #ff0000; font-weight: bold; }
+    code > span.fu { color: #06287e; }
+    code > span.er { color: #ff0000; font-weight: bold; }
+      </style>
+            <link rel="stylesheet" href="css/style.css" type="text/css" />
+                  <script src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML" type="text/javascript"></script>
+              </head>
+
+  <body>
+
+    <div>
+
+        <div class="row">
+
+          <div class="span3 side toc">
+              <ul>
+              <li><a href="index-2.html">Index</a></li>
+              <li><a href="https://github.com/sdiehl/write-you-a-haskell">Github</a></li>
+              <li><a href="rss/atom.xml">RSS</a></li>
+              <li><a href="WYAH.pdf">PDF</a></li>
+              </ul>
+              <ul>
+              <li><a href="#extended-parser">Extended Parser</a><ul>
+              <li><a href="#toolchain">Toolchain</a></li>
+              <li><a href="#alex">Alex</a></li>
+              <li><a href="#happy">Happy</a></li>
+              <li><a href="#syntax-errors">Syntax Errors</a></li>
+              <li><a href="#type-error-provenance">Type Error Provenance</a></li>
+              <li><a href="#indentation">Indentation</a></li>
+              <li><a href="#extensible-operators">Extensible Operators</a></li>
+              <li><a href="#full-source">Full Source</a></li>
+              <li><a href="#resources">Resources</a></li>
+              </ul></li>
+              </ul>
+          </div>
+
+          <div class="span9 body">
+<!--<h1>Implementing a Functional Language in Haskell</h1>--!>
+<div style="display:none">
+<p><span class="math">\[\newcommand{\andalso}{\quad\quad}
+\newcommand{\infabbrev}[2]{\infax{#1 \quad\eqdef\quad #2}}
+\newcommand{\infrule}[2]{\displaystyle \dfrac{#1}{#2}}
+\newcommand{\ar}{\rightarrow}
+\newcommand{\Int}{\mathtt{Int}}
+\newcommand{\Bool}{\mathtt{Bool}}
+\newcommand{\becomes}{\Downarrow}
+\newcommand{\trule}[1]{(\textbf{#1})}
+\newcommand{\FV}[1]{\mathtt{fv}(#1)}
+\newcommand{\FTV}[1]{\mathtt{ftv}(#1)}
+\newcommand{\BV}[1]{\mathtt{bv}(#1)}
+\newcommand{\compiles}[1]{\text{C}\llbracket{#1}\rrbracket}
+\newcommand{\exec}[1]{\text{E}\llbracket{#1}\rrbracket}
+\renewcommand{\t}[1]{\mathtt{#1}}
+\newcommand{\ite}[3]{\text{if }#1\text{ then }#2\text{ else }#3}
+\]</span></p>
+</div>
+<div class="pagetitle">
+<div class="figure">
+<img src="http://dev.stephendiehl.com/fun/img/titles/extended_parser.png" />
+
+</div>
+</div>
+<p class="halfbreak">
+</p>
+<h1 id="extended-parser">Extended Parser</h1>
+<p>Up until now we've been using parser combinators to build our parsers. Parser combinators build top-down parsers that formally belong to the <span class="math">\(\mathtt{LL}(k)\)</span> family of parsers. The parser proceeds top-down, with a sequence of <span class="math">\(k\)</span> characters used to dispatch on the leftmost production rule. Combined with backtracking (i.e. the <code>try</code> combinator) this is simultaneously both an extremely powerful and simple model to implement as we saw before with our simple 100 line parser library.</p>
+<p>However there is a family of grammars that include left-recursion that <span class="math">\(\mathtt{LL}(k)\)</span> can be inefficient and often incapable of parsing. Left-recursive rules are such where the left-most symbol of the rule recurses on itself. For example:</p>
+<p><span class="math">\[
+\begin{aligned}
+e ::=\ e\ \t{op}\ \t{atom}
+\end{aligned}
+\]</span></p>
+<p>Now we demonstrated before that we could handle these cases using the parser combinator <code>chainl1</code>, and while this is possible sometimes it can in many cases be an inefficient use of the parser stack and lead to ambiguous cases.</p>
+<p>The other major family of parsers, <span class="math">\(\mathtt{LR}\)</span>, are not plagued with the same concerns over left recursion. On the other hand <span class="math">\(\mathtt{LR}\)</span> parser are exceedingly more complicated to implement, relying on a rather sophisticated method known as Tomita's algorithm to do the heavy lifting. The tooling around the construction of the <em>production rules</em> in a form that can be handled by the algorithm is often handled by a DSL that generates the code for the parser. While the tooling is fairly robust, there is a level of indirection between us and the code that can often be a bit of brittle to extend with custom logic.</p>
+<p>The most common form of this toolchain is the Lex/Yacc lexer and parser generator which compile into efficient C parsers for <span class="math">\(\mathtt{LR}\)</span> grammars. Haskell's <strong>Happy</strong> and <strong>Alex</strong> are roughly the Haskell equivalent of these tools.</p>
+<h2 id="toolchain">Toolchain</h2>
+<p>Our parser and lexer logic will be spread across two different modules.</p>
+<ul>
+<li>Lexer.x</li>
+<li>Parser.y</li>
+</ul>
+<p>The code in each of these modules is a hybrid of the specific Alex/Happy grammar syntax and arbitrary Haskell logic that is spliced in. Code delineated by braces (<code>{}</code>) is regular Haskell, while code outside is parsera and lexer logic.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- **Begin Haskell Syntax**</span>
+{
+<span class="ot">{-# OPTIONS_GHC -w #-}</span>
+
+<span class="kw">module</span> <span class="dt">Lexer</span> (
+  <span class="dt">Token</span>(<span class="fu">..</span>),
+  scanTokens
+) <span class="kw">where</span>
+
+<span class="kw">import </span><span class="dt">Syntax</span>
+}
+<span class="co">-- **End Haskell Syntax**</span>
+
+<span class="co">-- **Begin Alex Syntax**</span>
+<span class="fu">%</span>wrapper <span class="st">&quot;basic&quot;</span>
+
+<span class="fu">$</span>digit <span class="fu">=</span> <span class="dv">0</span><span class="fu">-</span><span class="dv">9</span>
+<span class="fu">$</span>alpha <span class="fu">=</span> [a<span class="fu">-</span>zA<span class="fu">-</span><span class="dt">Z</span>]
+<span class="fu">$</span>eol   <span class="fu">=</span> [\n]
+<span class="co">-- **End Alex Syntax**</span></code></pre>
+<p>The files will be used during the code generation of the two modules <code>Lexer</code> and <code>Parser</code>. The toolchain is accessible in several ways, first via the command-line tools <code>alex</code> and <code>happy</code> which will generate the resulting modules by passing the appropriate input file to the tool.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="fu">$</span> alex Lexer.x    <span class="st"># Generates Lexer.hs</span>
+<span class="fu">$</span> happy Parser.y  <span class="st"># Generates Parser.hs</span></code></pre>
+<p>Or inside of the cabal file using the <code>build-tools</code> command.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">  <span class="dt">Build</span><span class="fu">-</span>depends<span class="fu">:</span>       base, array
+  build<span class="fu">-</span>tools<span class="fu">:</span>         alex, happy
+  other<span class="fu">-</span>modules<span class="fu">:</span>       
+    <span class="dt">Parser</span>,
+    <span class="dt">Lexer</span></code></pre>
+<p>So the resulting structure of our interpreter will have the following set of files.</p>
+<ul>
+<li><strong>Lexer.hs</strong></li>
+<li><strong>Parser.hs</strong></li>
+<li>Eval.hs</li>
+<li>Main.hs</li>
+<li>Syntax.hs</li>
+</ul>
+<h2 id="alex">Alex</h2>
+<p>Our lexer module will export our Token definition and a function for converting an arbitrary String into a <em>token stream</em> or a list of Tokens.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">{
+<span class="kw">module</span> <span class="dt">Lexer</span> (
+  <span class="dt">Token</span>(<span class="fu">..</span>),
+  scanTokens
+) <span class="kw">where</span>
+
+<span class="kw">import </span><span class="dt">Syntax</span>
+}</code></pre>
+<p>The tokens are simply an enumeration of the unique possible tokens in our grammar.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Token</span> 
+  <span class="fu">=</span> <span class="dt">TokenLet</span>
+  <span class="fu">|</span> <span class="dt">TokenTrue</span>
+  <span class="fu">|</span> <span class="dt">TokenFalse</span>
+  <span class="fu">|</span> <span class="dt">TokenIn</span>
+  <span class="fu">|</span> <span class="dt">TokenLambda</span>
+  <span class="fu">|</span> <span class="dt">TokenNum</span> <span class="dt">Int</span>
+  <span class="fu">|</span> <span class="dt">TokenSym</span> <span class="dt">String</span>
+  <span class="fu">|</span> <span class="dt">TokenArrow</span>
+  <span class="fu">|</span> <span class="dt">TokenEq</span>
+  <span class="fu">|</span> <span class="dt">TokenAdd</span>
+  <span class="fu">|</span> <span class="dt">TokenSub</span>
+  <span class="fu">|</span> <span class="dt">TokenMul</span>
+  <span class="fu">|</span> <span class="dt">TokenLParen</span>
+  <span class="fu">|</span> <span class="dt">TokenRParen</span>
+  <span class="fu">|</span> <span class="dt">TokenEOF</span>
+  <span class="kw">deriving</span> (<span class="dt">Eq</span>,<span class="dt">Show</span>)
+
+<span class="ot">scanTokens ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> [<span class="dt">Token</span>]
+scanTokens <span class="fu">=</span> alexScanTokens</code></pre>
+<p>The token definition is a list of function definitions mapping atomic characters and alphabetical sequences to constructors for our <code>Token</code> datatype.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="fu">%</span>wrapper <span class="st">&quot;basic&quot;</span>
+
+<span class="fu">$</span>digit <span class="fu">=</span> <span class="dv">0</span><span class="fu">-</span><span class="dv">9</span>
+<span class="fu">$</span>alpha <span class="fu">=</span> [a<span class="fu">-</span>zA<span class="fu">-</span><span class="dt">Z</span>]
+<span class="fu">$</span>eol   <span class="fu">=</span> [\n]
+
+tokens <span class="fu">:-</span>
+
+  <span class="co">-- Whitespace insensitive</span>
+  <span class="fu">$</span>eol                          ;
+  <span class="fu">$</span>white<span class="fu">+</span>                       ;
+
+  <span class="co">-- Comments</span>
+  <span class="st">&quot;#&quot;</span><span class="fu">.*</span>                         ;
+
+  <span class="co">-- Syntax</span>
+  <span class="kw">let</span>                           { \s <span class="ot">-&gt;</span> <span class="dt">TokenLet</span> }
+  <span class="dt">True</span>                          { \s <span class="ot">-&gt;</span> <span class="dt">TokenTrue</span> }
+  <span class="dt">False</span>                         { \s <span class="ot">-&gt;</span> <span class="dt">TokenFalse</span> }
+  <span class="kw">in</span>                            { \s <span class="ot">-&gt;</span> <span class="dt">TokenIn</span> }
+  <span class="fu">$</span>digit<span class="fu">+</span>                       { \s <span class="ot">-&gt;</span> <span class="dt">TokenNum</span> (read s) }
+  <span class="st">&quot;-&gt;&quot;</span>                          { \s <span class="ot">-&gt;</span> <span class="dt">TokenArrow</span> }
+  \<span class="fu">=</span>                            { \s <span class="ot">-&gt;</span> <span class="dt">TokenEq</span> }
+  \\                            { \s <span class="ot">-&gt;</span> <span class="dt">TokenLambda</span> }
+  [\<span class="fu">+</span>]                          { \s <span class="ot">-&gt;</span> <span class="dt">TokenAdd</span> }
+  [\<span class="fu">-</span>]                          { \s <span class="ot">-&gt;</span> <span class="dt">TokenSub</span> }
+  [\<span class="fu">*</span>]                          { \s <span class="ot">-&gt;</span> <span class="dt">TokenMul</span> }
+  \(                            { \s <span class="ot">-&gt;</span> <span class="dt">TokenLParen</span> }
+  \)                            { \s <span class="ot">-&gt;</span> <span class="dt">TokenRParen</span> }
+  <span class="fu">$</span>alpha [<span class="fu">$</span>alpha <span class="fu">$</span>digit \_ \<span class="ch">&#39;]* { \s -&gt; TokenSym s }</span></code></pre>
+<h2 id="happy">Happy</h2>
+<p>Using Happy and our previosly defind lexer we'll write down the production rules for our simple untyped lambda calculus.</p>
+<p>We start by defining a <code>Syntax</code> module where we define the AST we'll generate from running over the token stream to produce the program graph structure.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">module</span> <span class="dt">Syntax</span> <span class="kw">where</span>
+
+<span class="kw">type</span> <span class="dt">Name</span> <span class="fu">=</span> <span class="dt">String</span>
+
+<span class="kw">data</span> <span class="dt">Expr</span>
+  <span class="fu">=</span> <span class="dt">Lam</span> <span class="dt">Name</span> <span class="dt">Expr</span>
+  <span class="fu">|</span> <span class="dt">App</span> <span class="dt">Expr</span> <span class="dt">Expr</span>
+  <span class="fu">|</span> <span class="dt">Var</span> <span class="dt">Name</span>
+  <span class="fu">|</span> <span class="dt">Lit</span> <span class="dt">Lit</span>
+  <span class="fu">|</span> <span class="dt">Op</span> <span class="dt">Binop</span> <span class="dt">Expr</span> <span class="dt">Expr</span>
+  <span class="kw">deriving</span> (<span class="dt">Eq</span>,<span class="dt">Show</span>)
+
+<span class="kw">data</span> <span class="dt">Lit</span>
+  <span class="fu">=</span> <span class="dt">LInt</span> <span class="dt">Int</span>
+  <span class="fu">|</span> <span class="dt">LBool</span> <span class="dt">Bool</span>
+  <span class="kw">deriving</span> (<span class="dt">Show</span>, <span class="dt">Eq</span>, <span class="dt">Ord</span>)
+
+<span class="kw">data</span> <span class="dt">Binop</span> <span class="fu">=</span> <span class="dt">Add</span> <span class="fu">|</span> <span class="dt">Sub</span> <span class="fu">|</span> <span class="dt">Mul</span> <span class="fu">|</span> <span class="dt">Eql</span>
+  <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Ord</span>, <span class="dt">Show</span>)</code></pre>
+<p>The token constructors are each assigned to a name that will be used in our production rules.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- Lexer structure </span>
+<span class="fu">%</span>tokentype { <span class="dt">Token</span> }
+
+<span class="co">-- Token Names</span>
+<span class="fu">%</span>token
+    <span class="kw">let</span>   { <span class="dt">TokenLet</span> }
+    true  { <span class="dt">TokenTrue</span> }
+    false { <span class="dt">TokenFalse</span> }
+    <span class="kw">in</span>    { <span class="dt">TokenIn</span> }
+    <span class="dt">NUM</span>   { <span class="dt">TokenNum</span> <span class="fu">$$</span> }
+    <span class="dt">VAR</span>   { <span class="dt">TokenSym</span> <span class="fu">$$</span> }
+    <span class="ch">&#39;\\&#39;</span>  { <span class="dt">TokenLambda</span> }
+    <span class="ch">&#39;-&gt;&#39;</span>  { <span class="dt">TokenArrow</span> }
+    <span class="ch">&#39;=&#39;</span>   { <span class="dt">TokenEq</span> }
+    <span class="ch">&#39;+&#39;</span>   { <span class="dt">TokenAdd</span> }
+    <span class="ch">&#39;-&#39;</span>   { <span class="dt">TokenSub</span> }
+    <span class="ch">&#39;*&#39;</span>   { <span class="dt">TokenMul</span> }
+    <span class="ch">&#39;(&#39;</span>   { <span class="dt">TokenLParen</span> }
+    <span class="ch">&#39;)&#39;</span>   { <span class="dt">TokenRParen</span> }</code></pre>
+<p>The parser itself will live inside of a custom monad of our choosing. In this case we'll add error handling with the <code>Except</code> monad that will break out of the parsing process if an invalid production or token is found and return a <code>Left</code> value which we'll handle inside of our toplevel logic.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- Parser monad</span>
+<span class="fu">%</span>monad { <span class="dt">Except</span> <span class="dt">String</span> } { (<span class="fu">&gt;&gt;=</span>) } { return }
+<span class="fu">%</span>error { parseError }</code></pre>
+<p>And finally our production rules, the toplevel entry point for our parser will be the <code>expr</code> rule. The left hand side of the production is a Happy production rule which can be mutually recursive, while the right hand side is a Haskell expression with several metavariable indicated by the dollar sign variables that map to the nth expression on the left hand side.</p>
+<pre><code>$0  $1  $2  $3   $4 $5
+let VAR &#39;=&#39; Expr in Expr    { App (Lam $2 $6) $4 }</code></pre>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- Entry point</span>
+<span class="fu">%</span>name expr
+
+<span class="co">-- Operators</span>
+<span class="fu">%</span>left <span class="ch">&#39;+&#39;</span> <span class="ch">&#39;-&#39;</span>
+<span class="fu">%</span>left <span class="ch">&#39;*&#39;</span>
+<span class="fu">%%</span>
+
+<span class="dt">Expr</span> <span class="fu">:</span> <span class="kw">let</span> <span class="dt">VAR</span> <span class="ch">&#39;=&#39;</span> <span class="dt">Expr</span> <span class="kw">in</span> <span class="dt">Expr</span>    { <span class="dt">App</span> (<span class="dt">Lam</span> <span class="fu">$</span><span class="dv">2</span> <span class="fu">$</span><span class="dv">6</span>) <span class="fu">$</span><span class="dv">4</span> }
+     <span class="fu">|</span> <span class="ch">&#39;\\&#39;</span> <span class="dt">VAR</span> <span class="ch">&#39;-&gt;&#39;</span> <span class="dt">Expr</span>          { <span class="dt">Lam</span> <span class="fu">$</span><span class="dv">2</span> <span class="fu">$</span><span class="dv">4</span> }
+     <span class="fu">|</span> <span class="dt">Form</span>                        { <span class="fu">$</span><span class="dv">1</span> }
+
+<span class="dt">Form</span> <span class="fu">:</span> <span class="dt">Form</span> <span class="ch">&#39;+&#39;</span> <span class="dt">Form</span>               { <span class="dt">Op</span> <span class="dt">Add</span> <span class="fu">$</span><span class="dv">1</span> <span class="fu">$</span><span class="dv">3</span> }
+     <span class="fu">|</span> <span class="dt">Form</span> <span class="ch">&#39;-&#39;</span> <span class="dt">Form</span>               { <span class="dt">Op</span> <span class="dt">Sub</span> <span class="fu">$</span><span class="dv">1</span> <span class="fu">$</span><span class="dv">3</span> }
+     <span class="fu">|</span> <span class="dt">Form</span> <span class="ch">&#39;*&#39;</span> <span class="dt">Form</span>               { <span class="dt">Op</span> <span class="dt">Mul</span> <span class="fu">$</span><span class="dv">1</span> <span class="fu">$</span><span class="dv">3</span> }
+     <span class="fu">|</span> <span class="dt">Fact</span>                        { <span class="fu">$</span><span class="dv">1</span> }
+
+<span class="dt">Fact</span> <span class="fu">:</span> <span class="dt">Fact</span> <span class="dt">Atom</span>                   { <span class="dt">App</span> <span class="fu">$</span><span class="dv">1</span> <span class="fu">$</span><span class="dv">2</span> }
+     <span class="fu">|</span> <span class="dt">Atom</span>                        { <span class="fu">$</span><span class="dv">1</span> }
+
+<span class="dt">Atom</span> <span class="fu">:</span> <span class="ch">&#39;(&#39;</span> <span class="dt">Expr</span> <span class="ch">&#39;)&#39;</span>                { <span class="fu">$</span><span class="dv">2</span> }
+     <span class="fu">|</span> <span class="dt">NUM</span>                         { <span class="dt">Lit</span> (<span class="dt">LInt</span> <span class="fu">$</span><span class="dv">1</span>) }
+     <span class="fu">|</span> <span class="dt">VAR</span>                         { <span class="dt">Var</span> <span class="fu">$</span><span class="dv">1</span> }
+     <span class="fu">|</span> true                        { <span class="dt">Lit</span> (<span class="dt">LBool</span> <span class="dt">True</span>) }
+     <span class="fu">|</span> false                       { <span class="dt">Lit</span> (<span class="dt">LBool</span> <span class="dt">False</span>) }</code></pre>
+<p>Notice how naturally we can write a left recursive grammar for our binary infix operators.</p>
+<h2 id="syntax-errors">Syntax Errors</h2>
+<p>Parsec's default error reporting leaves a bit to be desired, but does in fact contain most of the information needed to deliver better messages packed inside the ParseError structure.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">showSyntaxError ::</span> <span class="dt">L.Text</span> <span class="ot">-&gt;</span> <span class="dt">ParseError</span> <span class="ot">-&gt;</span> <span class="dt">String</span>
+showSyntaxError s err <span class="fu">=</span> L.unpack <span class="fu">$</span> L.unlines [
+      <span class="st">&quot;  &quot;</span>,
+      <span class="st">&quot;  &quot;</span> <span class="fu">&lt;&gt;</span> lineContents,
+      <span class="st">&quot;  &quot;</span> <span class="fu">&lt;&gt;</span> ((L.replicate col <span class="st">&quot; &quot;</span>) <span class="fu">&lt;&gt;</span> <span class="st">&quot;^&quot;</span>),
+      (L.pack <span class="fu">$</span> show err)
+    ]
+  <span class="kw">where</span>
+    lineContents <span class="fu">=</span> (L.lines s) <span class="fu">!!</span> line
+    pos  <span class="fu">=</span> errorPos err
+    line <span class="fu">=</span> sourceLine pos <span class="fu">-</span> <span class="dv">1</span>
+    col  <span class="fu">=</span> fromIntegral <span class="fu">$</span> sourceColumn pos <span class="fu">-</span> <span class="dv">1</span></code></pre>
+<p>Now when we enter an invalid expression the error reporting will point us directly to the adjacent lexeme that caused the problem as is common in many languages.</p>
+<pre class="sourceCode bash"><code class="sourceCode bash">λ<span class="kw">&gt;</span> \<span class="kw">x</span> -<span class="kw">&gt;</span> x + 
+  
+  \<span class="kw">x</span> -<span class="kw">&gt;</span> x + 
+            ^
+<span class="st">&quot;&lt;interactive&gt;&quot;</span> <span class="kw">(line</span> 1, column 11<span class="kw">):</span>
+<span class="kw">unexpected</span> end of input
+<span class="kw">expecting</span> <span class="st">&quot;(&quot;</span>, character, literal string, <span class="st">&quot;[&quot;</span>, integer, <span class="st">&quot;if&quot;</span> or identifier</code></pre>
+<h2 id="type-error-provenance">Type Error Provenance</h2>
+<p>Before our type inference engine would generate somewhat typical type inference error messages. If two terms couldn't be unified it simply told us this and some information about the top-level declaration where it occurred, leaving us with a bit of a riddle about how exactly this error came to be.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="dt">Cannot</span> unify types<span class="fu">:</span> 
+        <span class="dt">Int</span>
+with 
+        <span class="dt">Bool</span>
+<span class="kw">in</span> the definition <span class="kw">of</span> <span class="ch">&#39;foo&#39;</span></code></pre>
+<p>Effective error reporting in the presence of type inference is a difficult task, effectively our typechecker takes our frontend AST and transforms it into a large constraint problem, destroying position information in the process. Even if the position information were tracked, the nature of unification is that a cascade of several unifications can lead to unsolvability and the immediate two syntactic constructs that gave rise to a unification failure are not necessarily the two that map back to human intuition about how the type error arose. Very little research has done on this topic and it remains an open topic with very immediate and applicable results to programming.</p>
+<p>To do simple provenance tracking we will use a technique of tracking the &quot;flow&quot; of type information through our typechecker and associate position information with the inferred types.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">Name</span> <span class="fu">=</span> <span class="dt">String</span>
+
+<span class="kw">data</span> <span class="dt">Expr</span>
+  <span class="fu">=</span> <span class="dt">Var</span> <span class="dt">Loc</span> <span class="dt">Name</span>
+  <span class="fu">|</span> <span class="dt">App</span> <span class="dt">Loc</span> <span class="dt">Expr</span> <span class="dt">Expr</span>
+  <span class="fu">|</span> <span class="dt">Lam</span> <span class="dt">Loc</span> <span class="dt">Name</span> <span class="dt">Expr</span>
+  <span class="fu">|</span> <span class="dt">Lit</span> <span class="dt">Loc</span> <span class="dt">Int</span>
+
+<span class="kw">data</span> <span class="dt">Loc</span> <span class="fu">=</span> <span class="dt">NoLoc</span> <span class="fu">|</span> <span class="dt">Located</span> <span class="dt">Int</span>
+  <span class="kw">deriving</span> (<span class="dt">Show</span>, <span class="dt">Eq</span>, <span class="dt">Ord</span>)</code></pre>
+<p>So now inside of our parser we simply attach Parsec information on to each AST node. For example for the variable term.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">variable ::</span> <span class="dt">Parser</span> <span class="dt">Expr</span>
+variable <span class="fu">=</span> <span class="kw">do</span>
+  x <span class="ot">&lt;-</span> identifier
+  l <span class="ot">&lt;-</span> sourceLine <span class="fu">&lt;$&gt;</span> getPosition
+  return (<span class="dt">Var</span> (<span class="dt">Located</span> l) x)</code></pre>
+<p>Our type system will also include information, although by default it will use the <code>NoLoc</code> value until explicit information is provided during inference. The two functions <code>getLoc</code> and <code>setLoc</code> will be used to update and query the position information from type terms.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Type</span>
+  <span class="fu">=</span> <span class="dt">TVar</span> <span class="dt">Loc</span> <span class="dt">TVar</span>
+  <span class="fu">|</span> <span class="dt">TCon</span> <span class="dt">Loc</span> <span class="dt">Name</span>
+  <span class="fu">|</span> <span class="dt">TArr</span> <span class="dt">Loc</span> <span class="dt">Type</span> <span class="dt">Type</span>
+  <span class="kw">deriving</span> (<span class="dt">Show</span>, <span class="dt">Eq</span>, <span class="dt">Ord</span>)
+
+<span class="kw">newtype</span> <span class="dt">TVar</span> <span class="fu">=</span> <span class="dt">TV</span> <span class="dt">String</span>
+  <span class="kw">deriving</span> (<span class="dt">Show</span>, <span class="dt">Eq</span>, <span class="dt">Ord</span>)
+
+<span class="ot">typeInt ::</span> <span class="dt">Type</span>
+typeInt <span class="fu">=</span> <span class="dt">TCon</span> <span class="dt">NoLoc</span> <span class="st">&quot;Int&quot;</span>
+
+<span class="ot">setLoc ::</span> <span class="dt">Loc</span> <span class="ot">-&gt;</span> <span class="dt">Type</span> <span class="ot">-&gt;</span> <span class="dt">Type</span>
+setLoc l (<span class="dt">TVar</span> _ a)   <span class="fu">=</span> <span class="dt">TVar</span> l a
+setLoc l (<span class="dt">TCon</span> _ a)   <span class="fu">=</span> <span class="dt">TCon</span> l a
+setLoc l (<span class="dt">TArr</span> _ a b) <span class="fu">=</span> <span class="dt">TArr</span> l a b
+
+<span class="ot">getLoc ::</span> <span class="dt">Type</span> <span class="ot">-&gt;</span> <span class="dt">Loc</span>
+getLoc (<span class="dt">TVar</span> l _) <span class="fu">=</span> l
+getLoc (<span class="dt">TCon</span> l _) <span class="fu">=</span> l
+getLoc (<span class="dt">TArr</span> l _ _) <span class="fu">=</span> l</code></pre>
+<p>Our fresh variable supply now also takes a location field which is attached to the resulting type variable.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">fresh ::</span> <span class="dt">Loc</span> <span class="ot">-&gt;</span> <span class="dt">Check</span> <span class="dt">Type</span>
+fresh l <span class="fu">=</span> <span class="kw">do</span>
+  s <span class="ot">&lt;-</span> get
+  put s{count <span class="fu">=</span> count s <span class="fu">+</span> <span class="dv">1</span>}
+  return <span class="fu">$</span> <span class="dt">TVar</span> l (<span class="dt">TV</span> (letters <span class="fu">!!</span> count s))</code></pre>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">infer ::</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">Check</span> <span class="dt">Type</span>
+infer expr <span class="fu">=</span> <span class="kw">case</span> expr <span class="kw">of</span>
+  <span class="dt">Var</span> l n <span class="ot">-&gt;</span> <span class="kw">do</span>
+    t <span class="ot">&lt;-</span> lookupVar n
+    return <span class="fu">$</span> setLoc l t
+
+  <span class="dt">App</span> l a b <span class="ot">-&gt;</span> <span class="kw">do</span>
+    ta <span class="ot">&lt;-</span> infer a
+    tb <span class="ot">&lt;-</span> infer b
+    tr <span class="ot">&lt;-</span> fresh l
+    unify ta (<span class="dt">TArr</span> l tb tr)
+    return tr
+
+  <span class="dt">Lam</span> l n a <span class="ot">-&gt;</span> <span class="kw">do</span>
+    tv <span class="ot">&lt;-</span> fresh l
+    ty <span class="ot">&lt;-</span> inEnv (n, tv) (infer a)
+    return (<span class="dt">TArr</span> l (setLoc l ty) tv)
+
+  <span class="dt">Lit</span> l _ <span class="ot">-&gt;</span> return (setLoc l typeInt)</code></pre>
+<p>Now specifically at the call site of our unification solver, if we encounter a unification fail we simply pluck the location information off the two type terms and plug it into the type error fields.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">unifies t1 t2 <span class="fu">|</span> t1 <span class="fu">==</span> t2 <span class="fu">=</span> return emptyUnifer
+unifies (<span class="dt">TVar</span> _ v) t <span class="fu">=</span> v <span class="ot">`bind`</span> t
+unifies t (<span class="dt">TVar</span> _ v) <span class="fu">=</span> v <span class="ot">`bind`</span> t
+unifies (<span class="dt">TArr</span> _ t1 t2) (<span class="dt">TArr</span> _ t3 t4) <span class="fu">=</span> unifyMany [t1, t2] [t3, t4]
+unifies (<span class="dt">TCon</span> _ a) (<span class="dt">TCon</span> _ b) <span class="fu">|</span> a <span class="fu">==</span> b <span class="fu">=</span> return emptyUnifer
+unifies t1 t2 <span class="fu">=</span> throwError <span class="fu">$</span> <span class="dt">UnificationFail</span> t1 (getLoc t1) t2 (getLoc t2)
+
+<span class="ot">bind ::</span>  <span class="dt">TVar</span> <span class="ot">-&gt;</span> <span class="dt">Type</span> <span class="ot">-&gt;</span> <span class="dt">Solve</span> <span class="dt">Unifier</span>
+bind a t
+  <span class="fu">|</span> eqLoc t a        <span class="fu">=</span> return (emptySubst, [])
+  <span class="fu">|</span> occursCheck a t  <span class="fu">=</span> throwError <span class="fu">$</span> <span class="dt">InfiniteType</span> a (getLoc t) t
+  <span class="fu">|</span> otherwise        <span class="fu">=</span> return <span class="fu">$</span> (<span class="dt">Subst</span> <span class="fu">$</span> Map.singleton a t, [])</code></pre>
+<p>So now we can explicitly trace the provenance of the specific constraints that gave rise to a given type error all the way back to the source that generated them.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="dt">Cannot</span> unify types<span class="fu">:</span> 
+        <span class="dt">Int</span>
+        <span class="dt">Introduced</span> at line <span class="dv">27</span> column <span class="dv">5</span>
+
+          f <span class="dv">2</span> <span class="dv">3</span>
+
+with 
+        <span class="dt">Int</span> <span class="ot">-&gt;</span> c
+        <span class="dt">Introduced</span> at line <span class="dv">5</span> column <span class="dv">9</span>
+
+          <span class="kw">let</span> f x y <span class="fu">=</span> x y</code></pre>
+<p>This is of course the simplest implementation of the tracking method and could be further extended by giving a weighted ordering to the constraints based on their likelihood of importance and proximity and then choosing which location to report based on this information. This remains an open area of work.</p>
+<h2 id="indentation">Indentation</h2>
+<p>Haskell's syntax uses indentation blocks to delineated sections of code. This use of indentation sensitive layout to convey the structure of logic is sometimes called the <em>offside rule</em> in parsing literature. At the beginning of a &quot;laidout&quot; block the first declaration or definition can start in any column, and the parser marks that indentation level. Every subsequent declaration at the same logical level must have the same indentation.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- Start of layout ( Column: 0 )</span>
+<span class="ot">fib ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span>
+fib x <span class="fu">=</span> truncate <span class="fu">$</span> ( <span class="dv">1</span> <span class="fu">/</span> sqrt <span class="dv">5</span> ) <span class="fu">*</span> ( phi <span class="fu">^</span> x <span class="fu">-</span> psi <span class="fu">^</span> x ) <span class="co">-- (Column: &gt; 0)</span>
+  <span class="co">-- Start of new layout ( Column: 2 )</span>
+  <span class="kw">where</span>
+      <span class="co">-- Indented block ( Column: &gt; 2 )</span>
+      phi <span class="fu">=</span> ( <span class="dv">1</span> <span class="fu">+</span> sqrt <span class="dv">5</span> ) <span class="fu">/</span> <span class="dv">2</span>
+      psi <span class="fu">=</span> ( <span class="dv">1</span> <span class="fu">-</span> sqrt <span class="dv">5</span> ) <span class="fu">/</span> <span class="dv">2</span></code></pre>
+<p>The Parsec monad is parameterized over a type which stands for the State layer baked into the monad allowing us to embed custom parser state inside of our rules. To adopt our parser to handle sensitive whitespace we will use:</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- Indentation sensitive Parsec monad.</span>
+<span class="kw">type</span> <span class="dt">IParsec</span> a <span class="fu">=</span> <span class="dt">Parsec</span> <span class="dt">Text</span> <span class="dt">ParseState</span> a
+
+<span class="kw">data</span> <span class="dt">ParseState</span> <span class="fu">=</span> <span class="dt">ParseState</span>
+  {<span class="ot"> indents ::</span> <span class="dt">Column</span>
+  } <span class="kw">deriving</span> (<span class="dt">Show</span>)
+
+<span class="ot">initParseState ::</span> <span class="dt">ParseState</span>
+initParseState <span class="fu">=</span> <span class="dt">ParseState</span> <span class="dv">0</span></code></pre>
+<p>The parser stores the internal position state (SourcePos) during its traversal, and makes it accessible inside of rule logic via the <code>getPosition</code> function.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">SourcePos</span> <span class="fu">=</span> <span class="dt">SourcePos</span> <span class="dt">SourceName</span> <span class="fu">!</span><span class="dt">Line</span> <span class="fu">!</span><span class="dt">Column</span>
+<span class="ot">getPosition ::</span> <span class="dt">Monad</span> m <span class="ot">=&gt;</span> <span class="dt">ParsecT</span> s u m <span class="dt">SourcePos</span></code></pre>
+<p>In terms of this function we can write down a set of logic that will allow us to query the current column count and then either succeed or fail to match on a pattern based on the current indentation level. The <code>laidout</code> combinator will capture the current indentation state and push it into the <code>indents</code> field in the State monad.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">laidout ::</span> <span class="dt">Parsec</span> s <span class="dt">ParseState</span> a <span class="ot">-&gt;</span> <span class="dt">Parsec</span> s <span class="dt">ParseState</span> a
+laidout m <span class="fu">=</span> <span class="kw">do</span>
+  cur <span class="ot">&lt;-</span> indents <span class="fu">&lt;$&gt;</span> getState
+  pos <span class="ot">&lt;-</span> sourceColumn <span class="fu">&lt;$&gt;</span> getPosition
+  modifyState <span class="fu">$</span> \st <span class="ot">-&gt;</span> st { indents <span class="fu">=</span> pos }
+  res <span class="ot">&lt;-</span> m
+  modifyState <span class="fu">$</span> \st <span class="ot">-&gt;</span> st { indents <span class="fu">=</span> cur }
+  return res</code></pre>
+<p>And then have specific logic which guard the parser match based on comparing the current indentation level to the stored indentation level.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">indentCmp
+<span class="ot">  ::</span> (<span class="dt">Column</span> <span class="ot">-&gt;</span> <span class="dt">Column</span> <span class="ot">-&gt;</span> <span class="dt">Bool</span>)
+  <span class="ot">-&gt;</span> <span class="dt">Parsec</span> s <span class="dt">ParseState</span> ()
+indentCmp cmp <span class="fu">=</span> <span class="kw">do</span>
+  col <span class="ot">&lt;-</span> sourceColumn <span class="fu">&lt;$&gt;</span> getPosition
+  current <span class="ot">&lt;-</span> indents <span class="fu">&lt;$&gt;</span> getState
+  guard (col <span class="ot">`cmp`</span> current)</code></pre>
+<p>We can then write two combinators in terms of this function which match on either further or identical indentation.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">indented ::</span> <span class="dt">IParsec</span> ()
+indented <span class="fu">=</span> indentCmp (<span class="fu">&gt;</span>) <span class="fu">&lt;?&gt;</span> <span class="st">&quot;Block (indented)&quot;</span>
+
+<span class="ot">align ::</span> <span class="dt">IParsec</span> ()
+align <span class="fu">=</span> indentCmp (<span class="fu">==</span>) <span class="fu">&lt;?&gt;</span> <span class="st">&quot;Block (same indentation)&quot;</span></code></pre>
+<p>On top of these we write our two combinators for handling block syntax, which match a sequence of vertically aligned patterns as a list.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">block,<span class="ot"> block1 ::</span> <span class="dt">Parser</span> a <span class="ot">-&gt;</span> <span class="dt">Parser</span> [a]
+block  p <span class="fu">=</span> laidout (many (align <span class="fu">&gt;&gt;</span> p))
+block1 p <span class="fu">=</span> laidout (many1 (align <span class="fu">&gt;&gt;</span> p))</code></pre>
+<p>Haskell uses an optional layout rule for several constructs, allowing us to equivalently manually delimit indentation sensitive syntax with braces. The most common use is for do-notation. So for example:</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">example <span class="fu">=</span> <span class="kw">do</span> { a <span class="ot">&lt;-</span> m; b }
+
+example <span class="fu">=</span> <span class="kw">do</span>
+  a <span class="ot">&lt;-</span> m
+  b</code></pre>
+<p>To support this in Parsec style we implement a <code>maybeBraces</code> function.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">maybeBraces ::</span> <span class="dt">Parser</span> a <span class="ot">-&gt;</span> <span class="dt">Parser</span> [a]
+maybeBraces p <span class="fu">=</span> braces (endBy p semi) <span class="fu">&lt;|&gt;</span> block p
+
+<span class="ot">maybeBraces1 ::</span> <span class="dt">Parser</span> a <span class="ot">-&gt;</span> <span class="dt">Parser</span> [a]
+maybeBraces1 p <span class="fu">=</span> braces (endBy1 p semi) <span class="fu">&lt;|&gt;</span> block p</code></pre>
+<h2 id="extensible-operators">Extensible Operators</h2>
+<p>Haskell famously allows the definition of custom infix operators, an extremely useful language feature although this poses a bit of a challenge to parse! There are two ways to do this and both depend on two properties of the operators.</p>
+<ul>
+<li>Precedence</li>
+<li>Associativity</li>
+</ul>
+<ol style="list-style-type: decimal">
+<li><p>The first, the way that GHC does it, is to parse all operators as left associative and of the same precedence, and then before desugaring go back and &quot;fix&quot; the parse tree given all the information we collected after finishing parsing.</p></li>
+<li><p>The second method is a bit of a hack, and involves simply storing the collected operators inside of the Parsec state monad and then simply calling <code>buildExpressionParser</code> on the current state each time we want to parse an infix operator expression.</p></li>
+</ol>
+<p>To do the later method we set up the AST objects for our fixity definitions, which associate precedence and associativity annotations with a custom symbol.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">FixitySpec</span> <span class="fu">=</span> <span class="dt">FixitySpec</span>
+  {<span class="ot"> fixityFix ::</span> <span class="dt">Fixity</span>
+  ,<span class="ot"> fixityName ::</span> <span class="dt">String</span>
+  } <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Show</span>)
+
+<span class="kw">data</span> <span class="dt">Assoc</span>
+  <span class="fu">=</span> <span class="dt">L</span>
+  <span class="fu">|</span> <span class="dt">R</span>
+  <span class="fu">|</span> <span class="dt">N</span>
+  <span class="kw">deriving</span> (<span class="dt">Eq</span>,<span class="dt">Ord</span>,<span class="dt">Show</span>)
+
+<span class="kw">data</span> <span class="dt">Fixity</span>
+  <span class="fu">=</span> <span class="dt">Infix</span> <span class="dt">Assoc</span> <span class="dt">Int</span>
+  <span class="fu">|</span> <span class="dt">Prefix</span> <span class="dt">Int</span>
+  <span class="fu">|</span> <span class="dt">Postfix</span> <span class="dt">Int</span>
+  <span class="kw">deriving</span> (<span class="dt">Eq</span>,<span class="dt">Ord</span>,<span class="dt">Show</span>)</code></pre>
+<p>Our parser state monad will hold a list of the active fixity specifications and whenever a definition is encountered we will append to this list.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">ParseState</span> <span class="fu">=</span> <span class="dt">ParseState</span>
+  {<span class="ot"> indents ::</span> <span class="dt">Column</span>
+  ,<span class="ot"> fixities ::</span> [<span class="dt">FixitySpec</span>]
+  } <span class="kw">deriving</span> (<span class="dt">Show</span>)
+
+<span class="ot">initParseState ::</span> <span class="dt">ParseState</span>
+initParseState <span class="fu">=</span> <span class="dt">ParseState</span> <span class="dv">0</span> defaultOps
+
+<span class="ot">addOperator ::</span>  <span class="dt">FixitySpec</span> <span class="ot">-&gt;</span> <span class="dt">Parsec</span> s <span class="dt">ParseState</span> ()
+addOperator fixdecl <span class="fu">=</span> <span class="kw">do</span>
+  modifyState <span class="fu">$</span> \st <span class="ot">-&gt;</span> st { fixities <span class="fu">=</span> fixdecl <span class="fu">:</span> (fixities st) }</code></pre>
+<p>The initial state will consist of the default arithmetic and list operators defined with the same specification as the Haskell specification.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">defaultOps ::</span> [<span class="dt">FixitySpec</span>]
+defaultOps <span class="fu">=</span> [
+    <span class="dt">FixitySpec</span> (<span class="dt">Infix</span> <span class="dt">L</span> <span class="dv">4</span>) <span class="st">&quot;&gt;&quot;</span>
+  , <span class="dt">FixitySpec</span> (<span class="dt">Infix</span> <span class="dt">L</span> <span class="dv">4</span>) <span class="st">&quot;&lt;&quot;</span>
+  , <span class="dt">FixitySpec</span> (<span class="dt">Infix</span> <span class="dt">L</span> <span class="dv">4</span>) <span class="st">&quot;/=&quot;</span>
+  , <span class="dt">FixitySpec</span> (<span class="dt">Infix</span> <span class="dt">L</span> <span class="dv">4</span>) <span class="st">&quot;==&quot;</span>
+
+  , <span class="dt">FixitySpec</span> (<span class="dt">Infix</span> <span class="dt">R</span> <span class="dv">5</span>) <span class="st">&quot;:&quot;</span>
+
+  , <span class="dt">FixitySpec</span> (<span class="dt">Infix</span> <span class="dt">L</span> <span class="dv">6</span>) <span class="st">&quot;+&quot;</span>
+  , <span class="dt">FixitySpec</span> (<span class="dt">Infix</span> <span class="dt">L</span> <span class="dv">6</span>) <span class="st">&quot;-&quot;</span>
+
+  , <span class="dt">FixitySpec</span> (<span class="dt">Infix</span> <span class="dt">L</span> <span class="dv">5</span>) <span class="st">&quot;*&quot;</span>
+  , <span class="dt">FixitySpec</span> (<span class="dt">Infix</span> <span class="dt">L</span> <span class="dv">5</span>) <span class="st">&quot;/&quot;</span>
+  ]</code></pre>
+<p>Now in our parser we need to be able to transform the fixity specifications into Parsec operator definitions. This is a pretty straightforward sort and group operation on the list.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">fixityPrec ::</span> <span class="dt">FixitySpec</span> <span class="ot">-&gt;</span> <span class="dt">Int</span>
+fixityPrec (<span class="dt">FixitySpec</span> (<span class="dt">Infix</span> _ n) _) <span class="fu">=</span> n
+fixityPrec (<span class="dt">FixitySpec</span> _ _) <span class="fu">=</span> <span class="dv">0</span>
+
+toParser (<span class="dt">FixitySpec</span> ass tok) <span class="fu">=</span> <span class="kw">case</span> ass <span class="kw">of</span>
+    <span class="dt">Infix</span> <span class="dt">L</span> _ <span class="ot">-&gt;</span> infixOp tok (op (<span class="dt">Name</span> tok)) <span class="dt">Ex.AssocLeft</span>
+    <span class="dt">Infix</span> <span class="dt">R</span> _ <span class="ot">-&gt;</span> infixOp tok (op (<span class="dt">Name</span> tok)) <span class="dt">Ex.AssocRight</span>
+    <span class="dt">Infix</span> <span class="dt">N</span> _ <span class="ot">-&gt;</span> infixOp tok (op (<span class="dt">Name</span> tok)) <span class="dt">Ex.AssocNone</span>
+
+mkTable ops <span class="fu">=</span>
+  map (map toParser) <span class="fu">$</span>
+    groupBy ((<span class="fu">==</span>) <span class="ot">`on`</span> fixityPrec) <span class="fu">$</span>
+      reverse <span class="fu">$</span> sortBy (compare <span class="ot">`on`</span> fixityPrec) <span class="fu">$</span> ops</code></pre>
+<p>Now when parsing an infix operator declaration we simply do a state operation and add the operator to the parser state so that all subsequent definitions can use it. This differs from Haskell slightly in that operators must be defined before their usage in a module.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">fixityspec ::</span> <span class="dt">Parser</span> <span class="dt">FixitySpec</span>
+fixityspec <span class="fu">=</span> <span class="kw">do</span>
+  fix  <span class="ot">&lt;-</span> fixity
+  prec <span class="ot">&lt;-</span> precedence
+  op   <span class="ot">&lt;-</span> operator
+  semi
+  <span class="kw">let</span> spec <span class="fu">=</span> <span class="dt">FixitySpec</span> (fix prec) op
+  addOperator spec
+  return spec
+  <span class="kw">where</span>
+    fixity <span class="fu">=</span> <span class="dt">Infix</span> <span class="dt">L</span> <span class="fu">&lt;$</span> reserved <span class="st">&quot;infixl&quot;</span>
+         <span class="fu">&lt;|&gt;</span> <span class="dt">Infix</span> <span class="dt">R</span> <span class="fu">&lt;$</span> reserved <span class="st">&quot;infixr&quot;</span>
+         <span class="fu">&lt;|&gt;</span> <span class="dt">Infix</span> <span class="dt">N</span> <span class="fu">&lt;$</span> reserved <span class="st">&quot;infix&quot;</span>
+
+<span class="ot">precedence ::</span> <span class="dt">Parser</span> <span class="dt">Int</span>
+precedence <span class="fu">=</span> <span class="kw">do</span>
+  n <span class="ot">&lt;-</span> natural
+  <span class="kw">if</span> n <span class="fu">&lt;=</span> <span class="dv">10</span>
+  <span class="kw">then</span> return (fromInteger n)
+  <span class="kw">else</span> empty
+  <span class="fu">&lt;?&gt;</span> <span class="st">&quot;Invalid operator precedence&quot;</span>
+
+<span class="ot">fixitydecl ::</span> <span class="dt">Parser</span> <span class="dt">Decl</span>
+fixitydecl <span class="fu">=</span> <span class="kw">do</span>
+  spec <span class="ot">&lt;-</span> fixityspec
+  return <span class="fu">$</span> <span class="dt">FixityDecl</span> spec
+ <span class="fu">&lt;?&gt;</span> <span class="st">&quot;operator fixity definition&quot;</span></code></pre>
+<p>And now when we need to parse an infix expression term we simply pull our state out and build the custom operator table, and feed this to the build Expression Parser just as before.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">term ::</span> <span class="dt">Parser</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">Parser</span> <span class="dt">Expr</span>
+term a <span class="fu">=</span> <span class="kw">do</span>
+  st <span class="ot">&lt;-</span> getState
+  <span class="kw">let</span> customOps <span class="fu">=</span> mkTable (fixities st)
+  Ex.buildExpressionParser customOps a</code></pre>
+<h2 id="full-source">Full Source</h2>
+<ul>
+<li><a href="https://github.com/sdiehl/write-you-a-haskell/tree/master/chapter9/happy">Happy Parser</a></li>
+<li><a href="https://github.com/sdiehl/write-you-a-haskell/tree/master/chapter9/assign">Imperative Language (Happy)</a></li>
+<li><a href="https://github.com/sdiehl/write-you-a-haskell/tree/master/chapter9/layout">Layout Combinators</a></li>
+<li><a href="https://github.com/sdiehl/write-you-a-haskell/tree/master/chapter9/provenance">Type Provenance Tracking</a></li>
+</ul>
+<h2 id="resources">Resources</h2>
+<p>The tooling and documentation for Alex and Happy is well-developed as it is used extensively inside of GHC:</p>
+<ul>
+<li><a href="https://www.haskell.org/alex/doc">Alex User Guide</a></li>
+<li><a href="https://www.haskell.org/happy/doc/html/">Happy User Guide</a></li>
+<li><a href="http://www.benmedlock.co.uk/Functional_GLR_Parsing.pdf">A Tool for Generalized LR Parsing In Haskell</a></li>
+<li><a href="https://www.haskell.org/onlinereport/haskell2010/haskellch10.html#x17-17500010">Haskell Syntax Definition</a></li>
+</ul>
+<p>GHC itself uses Alex and Happy for its parser infastructure. The resulting parser is rather sophisicated.</p>
+<ul>
+<li><a href="https://github.com/ghc/ghc/blob/master/compiler/parser/Lexer.x">Lexer.x</a></li>
+<li><a href="https://github.com/ghc/ghc/blob/master/compiler/parser/Parser.y">Parser.y</a></li>
+</ul>
+<p>One of the few papers ever written in Type Error reporting gives some techniques for presentation and tracing provenance:</p>
+<ul>
+<li><a href="http://www.staff.science.uu.nl/~swier101/Papers/Theses/TopQuality.pdf">Top Quality Type Error Messages</a></li>
+</ul>
+<p></p>
+          </div>
+        </div>
+
+    </div>
+    <script src="https://code.jquery.com/jquery.js"></script>
+    <script src="js/nav.js"></script>
+  </body>
+
+<!-- Mirrored from dev.stephendiehl.com/fun/008_extended_parser.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:55:43 GMT -->
+</html>

@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+  
+<!-- Mirrored from dev.stephendiehl.com/fun/000_introduction.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:55:43 GMT -->
+<head>
+    <meta charset="utf-8">
+    <title>Write You a Haskell ( Stephen Diehl )</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <link href="http://fonts.googleapis.com/css?family=Inconsolata" rel="stylesheet">
+    <style type="text/css">
+      
+    </style>
+    <link href="css/bootstrap-responsive.min.css" rel="stylesheet">
+    <link href="css/colors.css" rel="stylesheet">
+    <link rel="alternate" type="application/atom+xml" title="Write You a Haskell" href="rss/atom.xml" />
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','http://www.google-analytics.com/analytics.js','ga');
+
+      ga('create', 'UA-49839533-1', 'stephendiehl.com');
+      ga('send', 'pageview');
+
+    </script>
+
+          <style type="text/css">
+    table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode {
+      margin: 0; padding: 0; vertical-align: baseline; border: none; }
+    table.sourceCode { width: 100%; line-height: 100%; }
+    td.lineNumbers { text-align: right; padding-right: 4px; padding-left: 4px; color: #aaaaaa; border-right: 1px solid #aaaaaa; }
+    td.sourceCode { padding-left: 5px; }
+    code > span.kw { color: #007020; font-weight: bold; }
+    code > span.dt { color: #902000; }
+    code > span.dv { color: #40a070; }
+    code > span.bn { color: #40a070; }
+    code > span.fl { color: #40a070; }
+    code > span.ch { color: #4070a0; }
+    code > span.st { color: #4070a0; }
+    code > span.co { color: #60a0b0; font-style: italic; }
+    code > span.ot { color: #007020; }
+    code > span.al { color: #ff0000; font-weight: bold; }
+    code > span.fu { color: #06287e; }
+    code > span.er { color: #ff0000; font-weight: bold; }
+      </style>
+            <link rel="stylesheet" href="css/style.css" type="text/css" />
+                  <script src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML" type="text/javascript"></script>
+              </head>
+
+  <body>
+
+    <div>
+
+        <div class="row">
+
+          <div class="span3 side toc">
+              <ul>
+              <li><a href="index-2.html">Index</a></li>
+              <li><a href="https://github.com/sdiehl/write-you-a-haskell">Github</a></li>
+              <li><a href="rss/atom.xml">RSS</a></li>
+              <li><a href="WYAH.pdf">PDF</a></li>
+              </ul>
+              <ul>
+              <li><a href="#introduction">Introduction</a><ul>
+              <li><a href="#goals">Goals</a></li>
+              <li><a href="#prerequisites">Prerequisites</a></li>
+              </ul></li>
+              <li><a href="#concepts">Concepts</a><ul>
+              <li><a href="#functional-languages">Functional Languages</a></li>
+              <li><a href="#static-typing">Static Typing</a></li>
+              <li><a href="#functional-compilers">Functional Compilers</a></li>
+              <li><a href="#parsing">Parsing</a></li>
+              <li><a href="#desugaring">Desugaring</a></li>
+              <li><a href="#type-inference">Type Inference</a></li>
+              <li><a href="#transformation">Transformation</a></li>
+              <li><a href="#code-generation">Code Generation</a></li>
+              </ul></li>
+              </ul>
+          </div>
+
+          <div class="span9 body">
+<!--<h1>Implementing a Functional Language in Haskell</h1>--!>
+<div style="display:none">
+<p><span class="math">\[\newcommand{\andalso}{\quad\quad}
+\newcommand{\infabbrev}[2]{\infax{#1 \quad\eqdef\quad #2}}
+\newcommand{\infrule}[2]{\displaystyle \dfrac{#1}{#2}}
+\newcommand{\ar}{\rightarrow}
+\newcommand{\Int}{\mathtt{Int}}
+\newcommand{\Bool}{\mathtt{Bool}}
+\newcommand{\becomes}{\Downarrow}
+\newcommand{\trule}[1]{(\textbf{#1})}
+\newcommand{\FV}[1]{\mathtt{fv}(#1)}
+\newcommand{\FTV}[1]{\mathtt{ftv}(#1)}
+\newcommand{\BV}[1]{\mathtt{bv}(#1)}
+\newcommand{\compiles}[1]{\text{C}\llbracket{#1}\rrbracket}
+\newcommand{\exec}[1]{\text{E}\llbracket{#1}\rrbracket}
+\renewcommand{\t}[1]{\mathtt{#1}}
+\newcommand{\ite}[3]{\text{if }#1\text{ then }#2\text{ else }#3}
+\]</span></p>
+</div>
+<div class="pagetitle">
+<div class="figure">
+<img src="img/titles/introduction.png" />
+
+</div>
+</div>
+<p class="halfbreak">
+</p>
+<!--
+> *When the limestone of imperative programming is worn away, the granite of
+> functional programming will be observed.*
+> 
+> <cite>— Simon Peyton Jones</cite>
+
+<p class="halfbreak">
+</p>
+-->
+<h1 id="introduction">Introduction</h1>
+<h2 id="goals">Goals</h2>
+<p>Off we go on our Adventure in Haskell Compilers! It will be intense, long, informative, and hopefully fun.</p>
+<p>It's important to stress several points about the goals before we start our discussion:</p>
+<ol style="list-style-type: lower-alpha">
+<li><p>This is not a rigorous introduction to type systems, it is a series of informal discussions of topics structured around a reference implementation with links provided to more complete and rigorous resources on the topic at hand. The goal is to give you an overview of the concepts and terminology as well as a simple reference implementation to play around with.</p></li>
+<li><p>None of the reference implementations are industrial strength, many of them gloss over fundamental issues that are left out for simplicity reasons. Writing an industrial strength programming language involves work on the order of hundreds of person-years and is an enormous engineering effort.</p></li>
+<li><p>You should not use the reference compiler for anything serious. It is intended for study and reference only.</p></li>
+</ol>
+<p>Throughout our discussion we will stress the importance of semantics and the construction of core calculi. The frontend language syntax will be in the ML-family syntax out of convenience rather than principle. Choice of lexical syntax is arbitrary, uninteresting, and quite often distracts from actual substance in comparative language discussion. If there is one central theme it is that the <em>design of the core calculus should drive development</em>, not the frontend language.</p>
+<h2 id="prerequisites">Prerequisites</h2>
+<p>An intermediate understanding at the level of the <em>Real World Haskell</em> book is recommended. We will avoid advanced type-level programming that is often present in modern Haskell, and instead will make heavy use of more value-level constructs. A strong familiarity with monads, monad transformers, applicatives, and the standard Haskell data structures is strongly recommended.</p>
+<p>Some familiarity with the standard 3rd party libraries will be useful. Many of these are briefly overviewed in <a href="http://dev.stephendiehl.com/hask/">What I Wish I Knew When Learning Haskell</a>.</p>
+<p>In particular we will use:</p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">Library</th>
+<th align="left">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left"><code>containers</code></td>
+<td align="left">Core data structures</td>
+</tr>
+<tr class="even">
+<td align="left"><code>unordered-containers</code></td>
+<td align="left">Core data structures</td>
+</tr>
+<tr class="odd">
+<td align="left"><code>text</code></td>
+<td align="left">Text datastructure</td>
+</tr>
+<tr class="even">
+<td align="left"><code>bytestring</code></td>
+<td align="left">Text datastructure</td>
+</tr>
+<tr class="odd">
+<td align="left"><code>transformers</code></td>
+<td align="left"></td>
+</tr>
+<tr class="even">
+<td align="left"><code>mtl</code></td>
+<td align="left"></td>
+</tr>
+<tr class="odd">
+<td align="left"><code>filepath</code></td>
+<td align="left"></td>
+</tr>
+<tr class="even">
+<td align="left"><code>directory</code></td>
+<td align="left"></td>
+</tr>
+<tr class="odd">
+<td align="left"><code>process</code></td>
+<td align="left"></td>
+</tr>
+<tr class="even">
+<td align="left"><code>parsec</code></td>
+<td align="left">Parser combinators</td>
+</tr>
+<tr class="odd">
+<td align="left"><code>happy</code></td>
+<td align="left">Parser generator</td>
+</tr>
+<tr class="even">
+<td align="left"><code>alex</code></td>
+<td align="left">Lexer generator</td>
+</tr>
+<tr class="odd">
+<td align="left"><code>pretty</code></td>
+<td align="left">Pretty print combinators</td>
+</tr>
+<tr class="even">
+<td align="left"><code>ansi-wl-pprint</code></td>
+<td align="left">Pretty print combinators</td>
+</tr>
+<tr class="odd">
+<td align="left"><code>pretty-show</code></td>
+<td align="left">Haskell pretty printer</td>
+</tr>
+<tr class="even">
+<td align="left"><code>graphscc</code></td>
+<td align="left">Topological sorting</td>
+</tr>
+<tr class="odd">
+<td align="left"><code>haskeline</code></td>
+<td align="left">GNU Readline integration</td>
+</tr>
+<tr class="even">
+<td align="left"><code>repline</code></td>
+<td align="left">Interactive shell builder</td>
+</tr>
+<tr class="odd">
+<td align="left"><code>cereal</code></td>
+<td align="left"></td>
+</tr>
+<tr class="even">
+<td align="left"><code>deepseq</code></td>
+<td align="left"></td>
+</tr>
+<tr class="odd">
+<td align="left"><code>uniqueid</code></td>
+<td align="left"></td>
+</tr>
+<tr class="even">
+<td align="left"><code>uniplate</code></td>
+<td align="left"></td>
+</tr>
+<tr class="odd">
+<td align="left"><code>optparse-applicative</code></td>
+<td align="left">Commandline argument</td>
+</tr>
+<tr class="even">
+<td align="left"><code>hoopl</code></td>
+<td align="left"></td>
+</tr>
+<tr class="odd">
+<td align="left"><code>fgl</code></td>
+<td align="left"></td>
+</tr>
+<tr class="even">
+<td align="left"><code>llvm-general</code></td>
+<td align="left">LLVM Codegen</td>
+</tr>
+<tr class="odd">
+<td align="left"><code>smtLib</code></td>
+<td align="left"></td>
+</tr>
+<tr class="even">
+<td align="left"><code>sbv</code></td>
+<td align="left"></td>
+</tr>
+</tbody>
+</table>
+<p>In later chapters some experience with C, LLVM and x86 Assembly will be very useful, although not strictly required.</p>
+<h1 id="concepts">Concepts</h1>
+<p>We are going to set out to build a <em>statically typed</em> <em>functional</em> programming language with a <em>native code generation</em> <em>backend</em>. What does all this mean?</p>
+<h2 id="functional-languages">Functional Languages</h2>
+<p>In mathematics a <em>function</em> is defined as a correspondence that assigns exactly one element of a set to each element in another set. If a function <span class="math">\(f(x) = a\)</span> then the function evaluated at <span class="math">\(x\)</span> will always have the value <span class="math">\(a\)</span>. Central to the notion of all mathematics is the notion of <em>equational reasoning</em>, where if <span class="math">\(a= f(x)\)</span> then for an expression <span class="math">\(g(f(x), f(x))\)</span>, this is always equivalent to <span class="math">\(g(a, a)\)</span>. In other words, the values computed by functions can always be substituted freely at all occurrences.</p>
+<p>The central idea of <em>pure functional programming</em> is to structure our programs in such a way that we can reason about them as a system of equations just like we can in mathematics. The evaluation of a pure function is one in which <em>side effects</em> are prohibited; a function may only return a result without altering the world in any <em>observable</em> way.</p>
+<p>The implementation may perform effects, but central to this definition is the unobservability of such effects. A function is said to be <em>referentially transparent</em> if replacing a function with its computed value output yields the same observable behavior.</p>
+<p>By contrast impure functions are ones which allow unrestricted and observable side effects. The invocation of an impure function always allows for the possibility of performing any functionality before yielding a value.</p>
+<pre class="sourceCode javascript"><code class="sourceCode javascript"><span class="co">// impure: mutation side effects</span>
+<span class="kw">function</span> <span class="fu">f</span>() {
+  x += <span class="dv">3</span>;
+  <span class="kw">return</span> <span class="dv">42</span>;
+}
+
+<span class="co">// impure: international side effects</span>
+<span class="kw">function</span> <span class="fu">f</span>() {
+  <span class="fu">launchMissiles</span>();
+  <span class="kw">return</span> <span class="dv">42</span>;
+}</code></pre>
+<p>The behavior of a pure function is independent of where and when it is evaluated, whereas the behavior of an impure function is intrinsically tied to its execution order.</p>
+<h2 id="static-typing">Static Typing</h2>
+<p><em>Types</em> are a formal language integrated with a programming language that refines the space of allowable behavior and degree of expressible programs for the language. Types are the world's most popular formal method for analyzing programs.</p>
+<p>In a language like Python all expressions have the same type at compile time, and all syntactically valid programs can be evaluated. In the case where the program is nonsensical the runtime will bubble up exceptions during evaluation. The Python interpreter makes no attempt to analyze the given program for soundness at all before running it.</p>
+<pre class="sourceCode bash"><code class="sourceCode bash"><span class="kw">&gt;&gt;&gt;</span> <span class="kw">True</span> <span class="kw">&amp;</span> <span class="st">&quot;false&quot;</span>
+<span class="kw">Traceback</span> (most recent call last)<span class="kw">:</span>
+  <span class="kw">File</span> <span class="st">&quot;&lt;stdin&gt;&quot;</span>, line 1, in <span class="kw">&lt;</span>module<span class="kw">&gt;</span>
+<span class="kw">TypeError</span>: unsupported operand type(s) <span class="kw">for</span> <span class="kw">&amp;:</span> <span class="st">&#39;bool&#39;</span> and <span class="st">&#39;str&#39;</span></code></pre>
+<p>By comparison Haskell will do quite a bit of work to try to ensure that the program is well-defined before running it. The language that we use to prescribe and analyze static semantics of the program is that of <em>static types</em>.</p>
+<pre class="sourceCode bash"><code class="sourceCode bash"><span class="kw">Prelude&gt;</span> True <span class="kw">&amp;&amp;</span> <span class="st">&quot;false&quot;</span>
+
+<span class="kw">&lt;interactive&gt;</span>:2:9:
+    <span class="kw">Couldn</span><span class="st">&#39;t match expected type `Bool&#39;</span> with actual type <span class="kw">`</span>[<span class="kw">Char</span>]<span class="st">&#39;</span>
+<span class="st">    In the second argument of `(&amp;&amp;)&#39;</span>, namely <span class="kw">`</span><span class="st">&quot;false&quot;&#39;</span>
+<span class="st">    In the expression: True &amp;&amp; &quot;false&quot;</span>
+<span class="st">    In an equation for `it&#39;</span>: it = True <span class="kw">&amp;&amp;</span> <span class="st">&quot;false&quot;</span></code></pre>
+<p>Catching minor type mismatch errors is the simplest example of usage, although they occur extremely frequently as we humans are quite fallible in our reasoning about even the simplest of program constructions! Although this is just the tip of the iceberg, the gradual trend over the last 20 years goes toward more <em>expressive types</em> in modern type systems which are capable of guaranteeing a large variety of program correctness properties.</p>
+<ul>
+<li>Preventing resource allocation errors.</li>
+<li>Enforcing security in communication protocols.</li>
+<li>Side effect management.</li>
+<li>Preventing buffer overruns.</li>
+<li>Ensuring cryptographic properties for network protocols.</li>
+<li>Modeling and verifying theorems in mathematics and logic.</li>
+<li>Preventing data races and deadlocks in concurrent systems.</li>
+</ul>
+<p>Even though type systems will never be able to capture all aspects of a program, more sophisticated type systems are increasingly able to model a large space of program behavior. They are one of the most exciting areas of modern computer science research. Put most bluntly, <strong>static types let you be dumb</strong> and offload the checking that you would otherwise have to do in your head to a system that can do the reasoning for you and work with you to interactively build your program.</p>
+<h2 id="functional-compilers">Functional Compilers</h2>
+<p>A <em>compiler</em> is a program for turning high-level representation of ideas in a human readable language into another form. A compiler is typically divided into parts, a <em>frontend</em> and a <em>backend</em>. These are loose terms but the frontend typically deals with converting the human representation of the code into some canonicalized form while the backend converts the canonicalized form into another form that is suitable for evaluation.</p>
+<p>The high level structure of our functional compiler is described by the following <em>block diagram</em>. Each describes a <em>phase</em> which is a sequence of transformations composed to transform the input program.</p>
+<div class="figure">
+<img src="http://dev.stephendiehl.com/fun/img/pipeline1.png" />
+
+</div>
+<table>
+<thead>
+<tr class="header">
+<th align="left">Phase</th>
+<th align="left"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left"><strong>Source</strong></td>
+<td align="left">The frontend textual source language.</td>
+</tr>
+<tr class="even">
+<td align="left"><strong>Parsing</strong></td>
+<td align="left">Source is parsed into an abstract syntax tree.</td>
+</tr>
+<tr class="odd">
+<td align="left"><strong>Desugar</strong></td>
+<td align="left">Redundant structure from the frontend language is removed and canonicalized.</td>
+</tr>
+<tr class="even">
+<td align="left"><strong>Type Checking</strong></td>
+<td align="left">The program is type-checked and/or type-inferred yielding an explicitly typed form.</td>
+</tr>
+<tr class="odd">
+<td align="left"><strong>Transformation</strong></td>
+<td align="left">The core language is transformed to prepare for compilation.</td>
+</tr>
+<tr class="even">
+<td align="left"><strong>Compilation</strong></td>
+<td align="left">The core language is lowered into a form to be compiled or interpreted.</td>
+</tr>
+<tr class="odd">
+<td align="left"><strong>(Code Generation)</strong></td>
+<td align="left">Platform specific code is generated, linked into a binary.</td>
+</tr>
+</tbody>
+</table>
+<p>A <em>pass</em> may transform the input program from one form into another or alter the internal state of the compiler context. The high level description of the forms our final compiler will go through is the following sequence:</p>
+<div class="figure">
+<img src="http://dev.stephendiehl.com/fun/img/pipeline2.png" />
+
+</div>
+<p>Internal forms used during compilation are <em>intermediate representations</em> and typically any non-trivial language will involve several.</p>
+<h2 id="parsing">Parsing</h2>
+<p>The source code is simply the raw sequence of text that specifies the program. Lexing splits the text stream into a sequence of <em>tokens</em>. Only the presence of invalid symbols is checked; programs that are meaningless in other ways are accepted. Whitespace is either ignored or represented as a unique token in the stream.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">let</span> f x <span class="fu">=</span> x <span class="fu">+</span> <span class="dv">1</span></code></pre>
+<p>For instance the previous program might generate a token stream like the following:</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">[
+  <span class="dt">TokenLet</span>,
+  <span class="dt">TokenSym</span> <span class="st">&quot;f&quot;</span>,
+  <span class="dt">TokenSym</span> <span class="st">&quot;x&quot;</span>,
+  <span class="dt">TokenEq</span>,
+  <span class="dt">TokenSym</span> <span class="st">&quot;x&quot;</span>,
+  <span class="dt">TokenAdd</span>,
+  <span class="dt">TokenNum</span> <span class="dv">1</span>
+]</code></pre>
+<p>We can then scan the token stream via dispatch on predefined patterns of tokens called <em>productions</em>, and recursively build up the syntax datatype for the <em>abstract syntax tree</em> (AST).</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">Name</span> <span class="fu">=</span> <span class="dt">String</span>
+
+<span class="kw">data</span> <span class="dt">Expr</span>
+  <span class="fu">=</span> <span class="dt">Var</span> <span class="dt">Name</span>
+  <span class="fu">|</span> <span class="dt">Lit</span> <span class="dt">Lit</span>
+  <span class="fu">|</span> <span class="dt">Op</span> <span class="dt">PrimOp</span> [<span class="dt">Expr</span>]
+  <span class="fu">|</span> <span class="dt">Let</span> <span class="dt">Name</span> [<span class="dt">Name</span>] <span class="dt">Expr</span>
+
+<span class="kw">data</span> <span class="dt">Lit</span>
+  <span class="fu">=</span> <span class="dt">LitInt</span> <span class="dt">Int</span>
+
+<span class="kw">data</span> <span class="dt">PrimOp</span>
+  <span class="fu">=</span> <span class="dt">Add</span></code></pre>
+<p>So for example the following string is parsed into the resulting <code>Expr</code> value.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">let</span> f x <span class="fu">=</span> x <span class="fu">+</span> <span class="dv">1</span></code></pre>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="dt">Let</span> <span class="st">&quot;f&quot;</span> [<span class="st">&quot;x&quot;</span>] (<span class="dt">Op</span> <span class="dt">Add</span> [<span class="dt">Var</span> <span class="st">&quot;x&quot;</span>, <span class="dt">Lit</span> (<span class="dt">LitInt</span> <span class="dv">1</span>)])</code></pre>
+<h2 id="desugaring">Desugaring</h2>
+<p>Desugaring is the process by which the frontend AST is transformed into a simpler form of itself by reducing the number of complex structures by expressing them in terms of a fixed set of simpler constructs.</p>
+<p>Haskell's frontend is very large and many constructs are simplified down. For example <code>where</code> clauses and operator sections are the most common examples. Where clauses are effectively syntactic sugar for let bindings and operator sections are desugared into lambdas with the left or right hand side argument assigned to a fresh variable.</p>
+<h2 id="type-inference">Type Inference</h2>
+<p>Type inference is the process by which the untyped syntax is endowed with type information by a process known as <em>type reconstruction</em> or <em>type inference</em>. The inference process may take into account explicit type annotations.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">let</span> f x <span class="fu">=</span> x <span class="fu">+</span> <span class="dv">1</span></code></pre>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="dt">Let</span> <span class="st">&quot;f&quot;</span> [] (<span class="dt">Lam</span> <span class="st">&quot;x&quot;</span> (<span class="dt">Op</span> <span class="dt">Add</span> [<span class="dt">Var</span> <span class="st">&quot;x&quot;</span>, <span class="dt">Lit</span> (<span class="dt">LitInt</span> <span class="dv">1</span>)]))</code></pre>
+<p>Inference will generate a system of constraints which are solved via a process known as <em>unification</em> to yield the type of the expression.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span>  <span class="fu">~</span>  a <span class="ot">-&gt;</span> b
+b  <span class="fu">~</span>  <span class="dt">Int</span> <span class="ot">-&gt;</span> c</code></pre>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">f ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span></code></pre>
+<p>In some cases this type will be incorporated directly into the AST and the inference will transform the frontend language into an explicitly typed <em>core language</em>.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="dt">Let</span> <span class="st">&quot;f&quot;</span> []
+  (<span class="dt">Lam</span> <span class="st">&quot;x&quot;</span>
+    (<span class="dt">TArr</span> <span class="dt">TInt</span> <span class="dt">TInt</span>)
+    (<span class="dt">App</span>
+      (<span class="dt">App</span>
+        (<span class="dt">Prim</span> <span class="st">&quot;primAdd&quot;</span>) (<span class="dt">Var</span> <span class="st">&quot;x&quot;</span>))
+      (<span class="dt">Lit</span> (<span class="dt">LitInt</span> <span class="dv">1</span>))))</code></pre>
+<h2 id="transformation">Transformation</h2>
+<p>The type core representation is often suitable for evaluation, but quite often different intermediate representations are more amenable to certain optimizations and make various semantic properties of the language explicit. These kind of intermediate forms will often attach information about free variables, allocations, and usage information directly in the AST structure.</p>
+<p>The most important form we will use is called the <em>Spineless Tagless G-Machine</em> ( STG ), an abstract machine that makes many of the properties of lazy evaluation explicit directly in the AST.</p>
+<h2 id="code-generation">Code Generation</h2>
+<p>After translating an expression to the core language we will either evaluate it with a high-level interpreter written in Haskell itself, or translate it to another intermediate language (such as LLVM IR or GHC's Cmm) which can be compiled into native code. This intermediate language abstracts over the process of assigning values to, and moving values between CPU registers and main memory.</p>
+<p>As an example, the <code>let</code> statement below would be compiled into some intermediate representation, like LLVM IR.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">let</span> f x <span class="fu">=</span> x <span class="fu">+</span> <span class="dv">1</span></code></pre>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">define i32 <span class="fu">@</span>f(i32 <span class="fu">%</span>x) {
+entry<span class="fu">:</span>
+  <span class="fu">%</span>add <span class="fu">=</span> add nsw i32 <span class="fu">%</span>x, <span class="dv">1</span>
+  ret i32 <span class="fu">%</span>add
+}</code></pre>
+<p>From the intermediate representation the code can be compiled into the system's assembly language. Any additional code that is required for evaluation is <em>linked</em> into the resulting module.</p>
+<pre class="sourceCode perl"><code class="sourceCode perl">f:
+        movl    <span class="dt">%edi</span>, -<span class="dv">4</span>(<span class="dt">%rsp</span>)
+        movl    -<span class="dv">4</span>(<span class="dt">%rsp</span>), <span class="dt">%edi</span>
+        addl    <span class="dt">$1</span>, <span class="dt">%edi</span>
+        movl    <span class="dt">%edi</span>, <span class="dt">%eax</span>
+        ret</code></pre>
+<p>And ultimately this code will be assembled into platform specific instructions by the <em>native code generator</em>, encoded as a predefined sequence of CPU instructions defined by the processor specification.</p>
+<pre class="sourceCode perl"><code class="sourceCode perl"><span class="dv">0000000000000000</span> &lt;f&gt;:
+   <span class="dv">0</span>:   <span class="dv">89</span> 7c <span class="dv">24</span> fc             mov    <span class="dt">%edi</span>,-<span class="bn">0x4</span>(<span class="dt">%rsp</span>)
+   <span class="dv">4</span>:   8b 7c <span class="dv">24</span> fc             mov    -<span class="bn">0x4</span>(<span class="dt">%rsp</span>),<span class="dt">%edi</span>
+   <span class="dv">8</span>:   <span class="dv">81</span> c7 <span class="bn">01</span> <span class="dv">00</span> <span class="dv">00</span> <span class="dv">00</span>       add    <span class="dt">$0x1</span>,<span class="dt">%edi</span>
+   e:   <span class="dv">89</span> f8                   mov    <span class="dt">%edi</span>,<span class="dt">%eax</span>
+  <span class="dv">10</span>:   c3                      retq</code></pre>
+<p></p>
+          </div>
+        </div>
+
+    </div>
+    <script src="https://code.jquery.com/jquery.js"></script>
+    <script src="js/nav.js"></script>
+  </body>
+
+<!-- Mirrored from dev.stephendiehl.com/fun/000_introduction.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:55:43 GMT -->
+</html>

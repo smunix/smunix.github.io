@@ -1,0 +1,281 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+    
+<!-- Mirrored from www.well-typed.com/blog/2014/12/simple-smt-solver/ by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:53:51 GMT -->
+<head>
+        <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+        <title>
+           
+           Well-Typed - The Haskell Consultants: Simple SMT solver for use in an optimizing compiler
+           
+        </title>
+        <link rel="Stylesheet" type="text/css" href="http://www.well-typed.com/css/wt.css" />
+        <link rel="shortcut icon" type="image/x-icon" href="http://www.well-typed.com/favicon.ico" />
+        
+    </head>
+    <body class="normal">
+
+<div class="pagelogo">
+<div class="smalllogo">
+  <a href="http://www.well-typed.com/"><img src="http://www.well-typed.com/img/wtlogo-small.png" width="243" height="70" alt="Well-Typed, The Haskell Consultants" /></a>
+</div>
+</div>
+
+<div class="bar">
+  <div class="smallmenu">
+<ul class="menu">
+  <li class="header"><a href="http://www.well-typed.com/services">Services</a>
+    <ul class="submenu">
+      <li class="subheader"><a href="http://www.well-typed.com/services_applications">Development</a></li>
+      <li class="subheader"><a href="http://www.well-typed.com/services_libraries">Maintenance</a></li>
+      <li class="subheader"><a href="http://www.well-typed.com/services_advice">Advice</a></li>
+      <li class="subheader"><a href="http://www.well-typed.com/services_training">Training</a></li>
+    </ul>
+  </li>
+  <li class="header"><a href="http://www.well-typed.com/about_welltyped">About</a>
+    <ul class="submenu">
+      <li class="subheader"><a href="http://www.well-typed.com/community">Community</a></li>
+      <li class="subheader"><a href="http://www.well-typed.com/who_we_are">Who We Are</a></li>
+      <li class="subheader"><a href="http://www.well-typed.com/contact">Contact</a></li>
+    </ul>
+  </li>
+  <li class="header"><a href="http://www.well-typed.com/press_releases">Press Releases</a></li>
+  <li class="header" id="active"><a href="http://www.well-typed.com/blog">Blog</a></li>
+</ul>
+</div>
+<div style="clear: both;"></div>
+
+
+</div>
+
+<div class="body">
+<div class="text">
+
+  <h1><a href="http://www.well-typed.com/blog/2014/12/simple-smt-solver">Simple SMT solver for use in an optimizing compiler</a></h1>
+
+<p style="text-align: right"><small>Wednesday, 31 December 2014, by <a href="http://www.well-typed.com/blog/people/edsko">Edsko de Vries</a>.<br />
+  Filed under <a href="http://www.well-typed.com/blog/tags/coding">coding</a>.</small></p>
+
+<p>This is a second blog post in a series about engineering optimizing compilers; the previous was <a href="../../10/quasi-quoting-dsls/index.html">Quasi-quoting DSLs for free</a>. In this blog we will see how we might write a very simple SMT solver that will allow us to write an optimization pass that can turn something like</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">if</span> a <span class="fu">==</span> <span class="dv">0</span> <span class="kw">then</span>
+  <span class="kw">if</span> <span class="fu">!</span>(a <span class="fu">==</span> <span class="dv">0</span>) <span class="fu">&amp;&amp;</span> b <span class="fu">==</span> <span class="dv">1</span> <span class="kw">then</span>
+    write <span class="dv">1</span>
+  <span class="kw">else</span>
+    write <span class="dv">2</span>
+<span class="kw">else</span>
+  write <span class="dv">3</span></code></pre></div>
+<p>into</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">if</span> a <span class="fu">==</span> <span class="dv">0</span> <span class="kw">then</span>
+  write <span class="dv">2</span>
+<span class="kw">else</span>
+  write <span class="dv">3</span></code></pre></div>
+<p>without much effort at all.</p>
+<h2 id="preliminaries">Preliminaries</h2>
+<p>For the sake of this blog post we will consider a very simple imperative object language, defined as</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Expr</span> <span class="fu">=</span>
+    <span class="co">-- Arithmetic expressions</span>
+    <span class="dt">ExprInt</span> <span class="dt">Integer</span>           <span class="co">-- ^ Integer constants</span>
+  <span class="fu">|</span> <span class="dt">ExprAdd</span> <span class="dt">Expr</span> <span class="dt">Expr</span>         <span class="co">-- ^ Addition</span>
+    <span class="co">-- Boolean expressions</span>
+  <span class="fu">|</span> <span class="dt">ExprBool</span> <span class="dt">Bool</span>             <span class="co">-- ^ Boolean constants</span>
+  <span class="fu">|</span> <span class="dt">ExprEq</span> <span class="dt">Expr</span> <span class="dt">Expr</span>          <span class="co">-- ^ Equality</span>
+  <span class="fu">|</span> <span class="dt">ExprNot</span> <span class="dt">Expr</span>              <span class="co">-- ^ Negation</span>
+  <span class="fu">|</span> <span class="dt">ExprAnd</span> <span class="dt">Expr</span> <span class="dt">Expr</span>         <span class="co">-- ^ Logical conjunction</span>
+  <span class="fu">|</span> <span class="dt">ExprOr</span> <span class="dt">Expr</span> <span class="dt">Expr</span>          <span class="co">-- ^ Logical disjunction</span>
+    <span class="co">-- Variables</span>
+  <span class="fu">|</span> <span class="dt">ExprVar</span> <span class="dt">VarName</span>           <span class="co">-- ^ Read from a variable</span>
+  <span class="fu">|</span> <span class="dt">ExprAssign</span> <span class="dt">VarName</span> <span class="dt">Expr</span>   <span class="co">-- ^ Write to a variable</span>
+    <span class="co">-- Control flow</span>
+  <span class="fu">|</span> <span class="dt">ExprSeq</span> <span class="dt">Expr</span> <span class="dt">Expr</span>         <span class="co">-- ^ Sequential composition</span>
+  <span class="fu">|</span> <span class="dt">ExprIf</span> <span class="dt">Expr</span> <span class="dt">Expr</span> <span class="dt">Expr</span>     <span class="co">-- ^ Conditional</span>
+    <span class="co">-- Input/output</span>
+  <span class="fu">|</span> <span class="dt">ExprRead</span>                  <span class="co">-- ^ Read an integer from the console</span>
+  <span class="fu">|</span> <span class="dt">ExprWrite</span> <span class="dt">Expr</span>            <span class="co">-- ^ Write an integer to the console</span></code></pre></div>
+<p>We will assume the existence of a quasi-quoter for this language so that we can write Haskell fragments such as</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">[expr<span class="fu">|</span> <span class="kw">if</span> a <span class="fu">==</span> <span class="dv">0</span> <span class="kw">then</span> read <span class="kw">else</span> write b <span class="fu">|</span>]</code></pre></div>
+<p>instead of</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="dt">ExprIf</span> (<span class="dt">ExprEq</span> (<span class="dt">ExprVar</span> a) (<span class="dt">ExprInt</span> <span class="dv">0</span>)) 
+       <span class="dt">ExprRead</span> 
+       (<span class="dt">ExprWrite</span> (<span class="dt">ExprVar</span> b))</code></pre></div>
+<p>How you can write such a quasi-quoter was the topic of the <a href="../../10/quasi-quoting-dsls/index.html">previous blog post</a>. You should however be able to read this blog post without having read the previous post; hopefully the mapping from the concrete syntax to the constructors of <code>Expr</code> is pretty obvious.</p>
+<h2 id="simplifying-assumption">Simplifying assumption</h2>
+<p>Our goal will be to write a function</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">provable ::</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">Bool</span></code></pre></div>
+<p>Let’s consider some examples:</p>
+<ul>
+<li><p>The expression <code>a || True</code> should be provable: no matter what value variable <code>a</code> has, <code>a || True</code> is always <code>True</code>.</p></li>
+<li><p>Likewise, the expression <code>a || !a</code> should be provable, for the same reason.</p></li>
+<li><p>However, expression <code>a</code> should <em>not</em> be provable (<code>a</code> might be <code>False</code>)</p></li>
+<li><p>Likewise, expression <code>!a</code> should also not be provable (<code>a</code> might be <code>True</code>)</p></li>
+</ul>
+<p>Note that this means that it’s perfectly possible for both an expression and the negation of that expression to be unprovable.</p>
+<p>What about an expression <code>!(n == 0 &amp;&amp; n == 1)</code>? Morally speaking, this expression should be provable. However, we will be making the following very important simplifying assumption:</p>
+<blockquote>
+<strong><code>provable</code> is allowed to give up</strong>: when <code>provable</code> returns <code>False</code>, this should be interpreted as “failed to prove”, rather than “there exist a counterexample”.
+</blockquote>
+<p>From a compiler perspective, if something is not statically provable, that simply means that an optimization may not be applied even though it could: that is, we miss an opportunity to make the program go faster, but we will not break the code.</p>
+<h2 id="an-evaluator">An evaluator</h2>
+<p>We don’t want (or need) to embed a full blown theorem prover into our compiler: ideally we write something simple that will still catch a lot of the common cases. Moreover, we would prefer to reuse as much of our existing compiler infrastructure as we can. Our optimizer is likely to contain an interpreter for the object language, so that we can attempt to statically evaluate expressions. We are going to adapt this interpreter so that we can also use it in our solver. In fact, as we shall see, the solver will be a one-liner.</p>
+<p>But we’re getting ahead of ourselves. Let’s consider how to write the interpreter first. The interpreter will be running in an <code>Eval</code> monad; for our first attempt, let’s define this monad as a a simple wrapper around the list monad:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">newtype</span> <span class="dt">Eval</span> a <span class="fu">=</span> <span class="dt">Eval</span> {<span class="ot"> unEval ::</span> [a] }
+  <span class="kw">deriving</span> ( <span class="dt">Functor</span>
+           , <span class="dt">Applicative</span>
+           , <span class="dt">Alternative</span>
+           , <span class="dt">Monad</span>
+           , <span class="dt">MonadPlus</span>
+           )
+
+<span class="ot">runEval ::</span> <span class="dt">Eval</span> a <span class="ot">-&gt;</span> [a]
+runEval act <span class="fu">=</span> unEval act</code></pre></div>
+<p>We will use the monad for failure:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">throwError ::</span> <span class="dt">Eval</span> a
+throwError <span class="fu">=</span> <span class="dt">Eval</span> []</code></pre></div>
+<p>We can provide error recovery through</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">onError ::</span> <span class="dt">Eval</span> a <span class="ot">-&gt;</span> <span class="dt">Eval</span> a <span class="ot">-&gt;</span> <span class="dt">Eval</span> a
+onError (<span class="dt">Eval</span> act) (<span class="dt">Eval</span> handler) <span class="fu">=</span> <span class="dt">Eval</span> <span class="fu">$</span>
+    <span class="kw">case</span> act <span class="kw">of</span>
+      [] <span class="ot">-&gt;</span> handler
+      rs <span class="ot">-&gt;</span> rs</code></pre></div>
+<p>We will see why we need the list monad when we discuss the evaluator for boolean expressions; but let’s consider the evaluator for integer expressions first:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">evalInt ::</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">Eval</span> <span class="dt">Integer</span>
+evalInt <span class="fu">=</span> go
+  <span class="kw">where</span>
+    go (<span class="dt">ExprInt</span> i)    <span class="fu">=</span> return i
+    go (<span class="dt">ExprAdd</span> a b)  <span class="fu">=</span> (<span class="fu">+</span>) <span class="fu">&lt;$&gt;</span> evalInt a <span class="fu">&lt;*&gt;</span> evalInt b
+    go (<span class="dt">ExprIf</span> c a b) <span class="fu">=</span> <span class="kw">do</span> cond <span class="ot">&lt;-</span> evalBool c
+                           evalInt (<span class="kw">if</span> cond <span class="kw">then</span> a <span class="kw">else</span> b)
+    go _              <span class="fu">=</span> throwError </code></pre></div>
+<p>Hopefully this should be pretty self explanatory; our toy language only has a few integer-valued expressions, so there isn’t much to do. The interpreter for boolean expressions is more interesting:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">evalBool ::</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">Eval</span> <span class="dt">Bool</span>
+evalBool <span class="fu">=</span> \e <span class="ot">-&gt;</span> go e <span class="ot">`onError`</span> guess e
+  <span class="kw">where</span>
+    go (<span class="dt">ExprBool</span> a)   <span class="fu">=</span> return a
+    go (<span class="dt">ExprEq</span>   a b) <span class="fu">=</span> (<span class="fu">==</span>) <span class="fu">&lt;$&gt;</span> evalInt a <span class="fu">&lt;*&gt;</span> evalInt b
+    go (<span class="dt">ExprNot</span>  a)   <span class="fu">=</span> not  <span class="fu">&lt;$&gt;</span> evalBool a
+    go (<span class="dt">ExprAnd</span>  a b) <span class="fu">=</span> (<span class="fu">&amp;&amp;</span>) <span class="fu">&lt;$&gt;</span> evalBool a <span class="fu">&lt;*&gt;</span> evalBool b
+    go (<span class="dt">ExprOr</span>   a b) <span class="fu">=</span> (<span class="fu">||</span>) <span class="fu">&lt;$&gt;</span> evalBool a <span class="fu">&lt;*&gt;</span> evalBool b
+    go (<span class="dt">ExprIf</span> c a b) <span class="fu">=</span> <span class="kw">do</span> cond <span class="ot">&lt;-</span> evalBool c
+                           evalBool (<span class="kw">if</span> cond <span class="kw">then</span> a <span class="kw">else</span> b)
+    go _              <span class="fu">=</span> throwError 
+
+    guess _e <span class="fu">=</span> return <span class="dt">True</span> <span class="fu">&lt;|&gt;</span> return <span class="dt">False</span></code></pre></div>
+<p>The definition of <code>go</code> contains no surprises, and follows the definition of <code>go</code> in <code>evalInt</code> very closely. However, the top-level definition</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">evalBool <span class="fu">=</span> \e <span class="ot">-&gt;</span> eval e <span class="ot">`onError`</span> guess e</code></pre></div>
+<p>is more interesting. If for some reason we fail to evaluate a boolean expression (for example, because it contains a variable) then <code>guess</code> returns <em>both</em> <code>True</code> and <code>False</code>. Let’s consider some examples:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">runEval <span class="fu">$</span> evalBool [expr<span class="fu">|</span> <span class="dt">True</span> <span class="fu">|</span>]</code></pre></div>
+<p>evalutes to <code>[True]</code>;</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">runEval <span class="fu">$</span> evalBool [expr<span class="fu">|</span> a <span class="fu">|</span>]</code></pre></div>
+<p>evaluates to <code>[True, False]</code> because we don’t know what value <code>a</code> has, but</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">runEval <span class="fu">$</span> evalBool [expr<span class="fu">|</span> a <span class="fu">||</span> <span class="dt">True</span> <span class="fu">|</span>]</code></pre></div>
+<p>evaluates to <code>[True, True]</code>: we still have two guesses for <code>a</code>, but no matter what we guess <code>a || True</code> always evaluates to <code>True</code>.</p>
+<h2 id="satisfiability">Satisfiability</h2>
+<p>We can now write our SMT solver; as promised, it will be a single line:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">satisfiable ::</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">Bool</span>
+satisfiable <span class="fu">=</span> or <span class="fu">.</span> runEval <span class="fu">.</span> evalBool</code></pre></div>
+<p>Function <code>satisfiable</code> (the “S” in SMT) checks if the expression is true for <em>some</em> values of the variables in the expression. How do we check this? Well, we just run our evaluator which, when it encounters a variable, will return both values for the variable. Hence, if any of the values returned by the evaluator is <code>True</code>, then the expression is true at least for one value for each variable.</p>
+<p>Once we have an implementation of satisfiability, we can implement <code>provable</code> very easily: an expression is provable if its negation is not satisfiable:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">provable ::</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">Bool</span>
+provable <span class="fu">=</span> not <span class="fu">.</span> satisfiable <span class="fu">.</span> <span class="dt">ExprNot</span></code></pre></div>
+<p>If we consider the three examples from the previous section, we will find that both <code>True</code> and <code>a || True</code> are provable, but <code>a</code> by itself is not, as expected.</p>
+<h2 id="inconsistent-guesses">Inconsistent guesses</h2>
+<p>The careful reader might at this point find his brow furrowed, because something is amiss:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">runEval <span class="fu">$</span> evalBool [expr<span class="fu">|</span> a <span class="fu">||</span> <span class="fu">!</span>a <span class="fu">|</span>]</code></pre></div>
+<p>evaluates to</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">[<span class="dt">True</span>, <span class="dt">True</span>, <span class="dt">False</span>, <span class="dt">True</span>]</code></pre></div>
+<p>This happens because the evaluator will make two separate <em>independent</em> guesses about the value of <code>a</code>. As a consequence, <code>a || !a</code> will be considered not provable.</p>
+<p>Is this a bug? No, it’s not. Recall that we made the simplifying assumption that <code>provable</code> is allowed to give up: it’s allowed to say that an expression is not provable even when it morally is. The corresponding (dual) simplifying assumption for satisfability, and hence the interpreter, is:</p>
+<blockquote>
+The interpreter, and hence satisfiability, is allowed to make inconsistent guesses.
+</blockquote>
+<p>Making an inconsistent guess is equivalent to assuming <code>False</code>: anything follows from <code>False</code> and hence any expression will be considered satisfiable once we make an inconsistent guess. As a consequence, this means that once we make inconsistent guesses, we will consider the expression as not provable.</p>
+<h2 id="more-precision">More precision</h2>
+<p>We can however do better: whenever we make a guess that a particular expression evaluates to <code>True</code> or <code>False</code>, then if we see that same expression again we can safely make the <em>same</em> guess, rather than making an independent guess. To implement this, we extend our <code>Eval</code> monad with some state to remember the guesses we made so far:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">newtype</span> <span class="dt">Eval</span> a <span class="fu">=</span> <span class="dt">Eval</span> {<span class="ot"> unEval ::</span> <span class="dt">StateT</span> [(<span class="dt">Expr</span>, <span class="dt">Bool</span>)] [] a }
+  <span class="kw">deriving</span> ( <span class="dt">Functor</span>
+           , <span class="dt">Applicative</span>
+           , <span class="dt">Alternative</span>
+           , <span class="dt">Monad</span>
+           , <span class="dt">MonadPlus</span>
+           , <span class="dt">MonadState</span> [(<span class="dt">Expr</span>, <span class="dt">Bool</span>)]
+           )
+           
+<span class="ot">runEval ::</span> <span class="dt">Eval</span> a <span class="ot">-&gt;</span> [a]
+runEval act <span class="fu">=</span> evalStateT (unEval act) []
+
+<span class="ot">throwError ::</span> <span class="dt">Eval</span> a
+throwError <span class="fu">=</span> <span class="dt">Eval</span> <span class="fu">$</span> <span class="dt">StateT</span> <span class="fu">$</span> \_st <span class="ot">-&gt;</span> []
+
+<span class="ot">onError ::</span> <span class="dt">Eval</span> a <span class="ot">-&gt;</span> <span class="dt">Eval</span> a <span class="ot">-&gt;</span> <span class="dt">Eval</span> a
+onError (<span class="dt">Eval</span> act) (<span class="dt">Eval</span> handler) <span class="fu">=</span> <span class="dt">Eval</span> <span class="fu">$</span> <span class="dt">StateT</span> <span class="fu">$</span> \st <span class="ot">-&gt;</span>
+    <span class="kw">case</span> runStateT act st <span class="kw">of</span>
+      [] <span class="ot">-&gt;</span> runStateT handler st
+      rs <span class="ot">-&gt;</span> rs</code></pre></div>
+<p>The implementation of <code>evalInt</code> does not change at all. The implementation of <code>evalBool</code> also stays almost the same; the only change is the definition of <code>guess</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">guess e <span class="fu">=</span> <span class="kw">do</span>
+  st <span class="ot">&lt;-</span> get
+  <span class="kw">case</span> lookup e st <span class="kw">of</span>
+    <span class="dt">Just</span> b  <span class="ot">-&gt;</span> return b
+    <span class="dt">Nothing</span> <span class="ot">-&gt;</span> (<span class="kw">do</span> put ((e, <span class="dt">True</span>)  <span class="fu">:</span> st) ; return <span class="dt">True</span>)
+           <span class="fu">&lt;|&gt;</span> (<span class="kw">do</span> put ((e, <span class="dt">False</span>) <span class="fu">:</span> st) ; return <span class="dt">False</span>)</code></pre></div>
+<p>This implements the logic we just described: when we guess the value for an expression <code>e</code>, we first look up if we already made a guess for this expression. If so, we return the previous guess; otherwise, we make a guess and record that guess.</p>
+<p>Once we make this change</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">runEval <span class="fu">$</span> evalBool [expr<span class="fu">|</span> a <span class="fu">||</span> <span class="fu">!</span>a <span class="fu">|</span>]</code></pre></div>
+<p>will evaluate to <code>[True,True]</code> and consequently <code>a || !a</code> will be considered provable.</p>
+<h2 id="example-folding-nested-conditionals">Example: folding nested conditionals</h2>
+<p>As an example of how one might use this infrastructure, we will consider a simple pass that simplifies nested conditionals (if-statements). We can use <code>provable</code> to check if one expression implies the other:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">(~&gt;) ::</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">Bool</span>
+(<span class="fu">~&gt;</span>) a b <span class="fu">=</span> provable [expr<span class="fu">|</span> <span class="fu">!</span> <span class="fu">$</span>a <span class="fu">||</span> <span class="fu">$</span>b <span class="fu">|</span>]</code></pre></div>
+<p>The simplifier is now very easy to write:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">simplifyNestedIf ::</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">Expr</span>
+simplifyNestedIf <span class="fu">=</span> everywhere (mkT go)
+  <span class="kw">where</span>
+    go [expr<span class="fu">|</span> <span class="kw">if</span> <span class="fu">$</span>c1 <span class="kw">then</span>
+                 <span class="kw">if</span> <span class="fu">$</span>c2 <span class="kw">then</span>
+                   <span class="fu">$</span>e1
+                 <span class="kw">else</span>
+                   <span class="fu">$</span>e2
+               <span class="kw">else</span>
+                 <span class="fu">$</span>e3 <span class="fu">|</span>]
+      <span class="fu">|</span> c1 <span class="fu">~&gt;</span> c2              <span class="fu">=</span> [expr<span class="fu">|</span> <span class="kw">if</span> <span class="fu">$</span>c1 <span class="kw">then</span> <span class="fu">$</span>e1 <span class="kw">else</span> <span class="fu">$</span>e3 <span class="fu">|</span>]
+      <span class="fu">|</span> c1 <span class="fu">~&gt;</span> [expr<span class="fu">|</span> <span class="fu">!</span> <span class="fu">$</span>c2 <span class="fu">|</span>] <span class="fu">=</span> [expr<span class="fu">|</span> <span class="kw">if</span> <span class="fu">$</span>c1 <span class="kw">then</span> <span class="fu">$</span>e2 <span class="kw">else</span> <span class="fu">$</span>e3 <span class="fu">|</span>]
+    go e <span class="fu">=</span> e</code></pre></div>
+<p>The auxiliary function <code>go</code> pattern matches against any if-statement that has another if-statement as its “then” branch. If we can prove that the condition of the outer if-statement implies the condition of the inner if-statement, we can collapse the inner if-statement to just its “then” branch. Similarly, if we can prove that the condition of the outer if-statement implies the <em>negation</em> of the condition of the inner if-statement, we can collapse the inner if-statement to just its “else” branch. In all other cases, we return the expression unchanged. Finally, we use the <a href="http://research.microsoft.com/en-us/um/people/simonpj/papers/hmap/">Scrap Your Boilerplate</a> operators <code>everywhere</code> and <code>mkT</code> to apply this transformation everywhere in an expression (rather than just applying it top-level). For example,</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">simplifyNestedIf [expr<span class="fu">|</span> 
+    <span class="kw">if</span> a <span class="fu">==</span> <span class="dv">0</span> <span class="kw">then</span> 
+      <span class="kw">if</span> <span class="fu">!</span>(a <span class="fu">==</span> <span class="dv">0</span>) <span class="fu">&amp;&amp;</span> b <span class="fu">==</span> <span class="dv">1</span> <span class="kw">then</span> 
+        write <span class="dv">1</span> 
+      <span class="kw">else</span> 
+        write <span class="dv">2</span> 
+    <span class="kw">else</span> 
+      write <span class="dv">3</span> 
+  <span class="fu">|</span>]</code></pre></div>
+<p>evaluates to</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">if</span> a <span class="fu">==</span> <span class="dv">0</span> <span class="kw">then</span>
+  write <span class="dv">2</span>
+<span class="kw">else</span>
+  write <span class="dv">3</span></code></pre></div>
+<p>as promised. Incidentally, perhaps you are wondering why such an optimization would be useful; after all, which self respecting programmer writes such code? However, code like the above may result from other compiler optimizations such as inlining: imagine that the inner if-statement came from a inlined function. A lot of compiler optimizations are designed to clean up <em>other</em> compiler optimizations.</p>
+<h2 id="conclusion">Conclusion</h2>
+<p>We can implement a very simple but useful SMT solver for use in an optimizing compiler by making a small change to the interpreter, which we need anyway.</p>
+<p>Note that the increase in precision gained from recording previous guesses is a gradual increase only; satisfiability may still make some inconsistent guesses. For example</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">runEval <span class="fu">$</span> evalBool [expr<span class="fu">|</span> <span class="fu">!</span>(n <span class="fu">==</span> <span class="dv">0</span> <span class="fu">&amp;&amp;</span> n <span class="fu">==</span> <span class="dv">1</span>) <span class="fu">|</span>]</code></pre></div>
+<p>will evaluate to</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">[<span class="dt">False</span>,<span class="dt">True</span>,<span class="dt">True</span>,<span class="dt">True</span>]</code></pre></div>
+<p>because it is making independent guesses about <code>n == 0</code> and <code>n == 1</code>; consequently <code>!(n == 0 &amp;&amp; n == 1)</code> will not be considered provable. We can increase the precision of our solver by making <code>guess</code> smarter (the “MT” or “modulo theories” part of SMT). For example, we could record some information about the guesses about integer valued variables.</p>
+<p>At the extreme end of the scale we would be implementing a full decision procedure for first order arithmetic, which is probably optimization gone too far. However, the approach we took above where we start from the basis that we are allowed to make inconsistent guesses gives us a way to implement a simple solver that addresses the most important cases, even if it misses a few—without requiring a lot of complicated infrastructure in the compiler. And as long as we make sure that our evaluator never returns too <em>few</em> values (even if it may return too <em>many</em>) we don’t have to worry that we might generate invalid code: the worst that can happen is that we miss an optimization.</p>
+
+
+</div>
+<div class="footer">
+            <div class="copyright">
+               <address>Copyright &copy; 2008-2016, Well-Typed LLP.</address>
+            </div>
+</div>
+</div>
+
+    </body>
+
+<!-- Mirrored from www.well-typed.com/blog/2014/12/simple-smt-solver/ by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:53:51 GMT -->
+</html>
+
