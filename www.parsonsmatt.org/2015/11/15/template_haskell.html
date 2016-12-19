@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<!-- Mirrored from www.parsonsmatt.org/2015/11/15/template_haskell.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:13:28 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>Template Haskell Is Not Scary</title>
+  <meta name="description" content="A Beginner Tutorial">
+
+  <link rel="canonical" href="template_haskell.html">
+  <link rel="alternate" type="application/rss+xml" title="To Overcome" href="http://www.parsonsmatt.org/feed.xml" />
+</head>
+
+  <link rel="stylesheet" href="http://fonts.googleapis.com/css?family=Source+Sans+Pro:300,300i,600">
+  <link rel="stylesheet" href="http://www.parsonsmatt.org/style.css">
+</head>
+<body>
+  <div class="container">
+    <header class="masthead">
+  <h1 class="masthead-title--small">
+    <a href="http://www.parsonsmatt.org/">To Overcome</a>
+  </h1>
+</header>
+<div class="content post">
+  <h1 class="post-title">Template Haskell Is Not Scary</h1>
+  <div class="post-date">
+    <time>15 Nov 2015</time>
+  </div>
+  <h2 id="a-beginner-tutorial">A Beginner Tutorial</h2>
+
+<p>This tutorial is aimed at people who are beginner-intermediate Haskellers looking to learn the basics of Template Haskell.</p>
+
+<p>I learned about the power and utility of metaprogramming in Ruby.
+Ruby metaprogramming is done by constructing source code with string concatenation and having the interpreter run it.
+There are also some methods that can be used to define methods, constants, variables, etc.</p>
+
+<p>In my <a href="https://github.com/parsonsmatt/squirrell/">Squirrell</a> Ruby library designed to make encapsulating SQL queries a bit easier,
+I have a few bits of metaprogramming to allow for some conveniences when defining classes.
+The idea is that you can define a query class like this:</p>
+
+<div class="language-ruby highlighter-rouge"><pre class="highlight"><code><span class="k">class</span> <span class="nc">PermissionExample</span>
+  <span class="kp">include</span> <span class="no">Squirrell</span>
+
+  <span class="n">requires</span> <span class="ss">:user_id</span>
+  <span class="n">permits</span> <span class="ss">:post_id</span>
+
+  <span class="k">def</span> <span class="nf">raw_sql</span>
+    <span class="o">&lt;&lt;</span><span class="no">SQL</span><span class="sh">
+SELECT *
+FROM users
+  INNER JOIN posts ON users.id = posts.user_id
+WHERE users.id = </span><span class="si">#{</span><span class="n">user_id</span><span class="si">}</span><span class="sh"> </span><span class="si">#{</span><span class="n">has_post?</span><span class="si">}</span><span class="sh">
+</span><span class="no">SQL</span>
+  <span class="k">end</span>
+
+  <span class="k">def</span> <span class="nf">has_post?</span>
+    <span class="n">post_id</span> <span class="p">?</span> <span class="s2">"AND posts.id = </span><span class="si">#{</span><span class="n">post_id</span><span class="si">}</span><span class="s2">"</span> <span class="p">:</span> <span class="s2">""</span>
+  <span class="k">end</span>
+<span class="k">end</span>
+</code></pre>
+</div>
+
+<p>and by specifying <code class="highlighter-rouge">requires</code> with the symbols you want to require, it will define an instance variable and an attribute reader for you, and raise errors if you don’t pass the required parameter.
+Accomplishing that was pretty easy.
+Calling <code class="highlighter-rouge">requires</code> does some bookkeeping with required parameters and then calls this method with the arguments passed:</p>
+
+<div class="language-ruby highlighter-rouge"><pre class="highlight"><code><span class="k">def</span> <span class="nf">define_readers</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+  <span class="n">args</span><span class="p">.</span><span class="nf">each</span> <span class="k">do</span> <span class="o">|</span><span class="n">arg</span><span class="o">|</span>
+    <span class="kp">attr_reader</span> <span class="n">arg</span>
+  <span class="k">end</span>
+<span class="k">end</span>
+</code></pre>
+</div>
+
+<p>Which you can kinda read like a macro: take the arguments, and call <code class="highlighter-rouge">attr_reader</code> with each.
+The magic happens later, where I overrode the <code class="highlighter-rouge">initialize</code> method:</p>
+
+<div class="language-ruby highlighter-rouge"><pre class="highlight"><code><span class="k">def</span> <span class="nf">initialize</span><span class="p">(</span><span class="n">args</span> <span class="o">=</span> <span class="p">{})</span>
+  <span class="k">return</span> <span class="nb">self</span> <span class="k">if</span> <span class="n">args</span><span class="p">.</span><span class="nf">empty?</span>
+
+  <span class="no">Squirrell</span><span class="p">.</span><span class="nf">requires</span><span class="p">[</span><span class="nb">self</span><span class="p">.</span><span class="nf">class</span><span class="p">].</span><span class="nf">each</span> <span class="k">do</span> <span class="o">|</span><span class="n">k</span><span class="o">|</span>
+
+    <span class="k">unless</span> <span class="n">args</span><span class="p">.</span><span class="nf">keys</span><span class="p">.</span><span class="nf">include?</span> <span class="n">k</span>
+      <span class="nb">fail</span> <span class="no">MissingParameterError</span><span class="p">,</span> <span class="s2">"Missing required parameter: </span><span class="si">#{</span><span class="n">k</span><span class="si">}</span><span class="s2">"</span>
+    <span class="k">end</span>
+
+    <span class="nb">instance_variable_set</span> <span class="s2">"@</span><span class="si">#{</span><span class="n">k</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="n">args</span><span class="p">.</span><span class="nf">delete</span><span class="p">(</span><span class="n">k</span><span class="p">)</span>
+  <span class="k">end</span>
+
+  <span class="nb">fail</span> <span class="no">UnusedParameter</span><span class="p">,</span> <span class="s2">"Unspecified parameters: </span><span class="si">#{</span><span class="n">args</span><span class="si">}</span><span class="s2">"</span> <span class="k">if</span> <span class="n">args</span><span class="p">.</span><span class="nf">any?</span>
+<span class="k">end</span>
+</code></pre>
+</div>
+
+<p>We loop over the arguments provided to <code class="highlighter-rouge">new</code>, and if any required ones are missing, error.
+Otherwise, we set the instance variable associated with the argument, and remove it from the hash.</p>
+
+<p>Another approach involves taking a string, and evaluating it in the context of whatever class you’re in:</p>
+
+<div class="language-ruby highlighter-rouge"><pre class="highlight"><code><span class="k">def</span> <span class="nf">lolwat</span><span class="p">(</span><span class="n">your_method</span><span class="p">,</span> <span class="n">your_string</span><span class="p">)</span>
+  <span class="nb">class_eval</span> <span class="s2">"def </span><span class="si">#{</span><span class="n">your_method</span><span class="si">}</span><span class="s2">; puts </span><span class="si">#{</span><span class="n">your_string</span><span class="si">}</span><span class="s2">; end"</span>
+<span class="k">end</span>
+</code></pre>
+</div>
+
+<p>This line of code defines a method with your choice of name and string to print in the context of whatever class is running.</p>
+
+<h2 id="wait-this-isnt-haskell-what-am-i-doing-here">wait this isn’t haskell what am i doing here</h2>
+
+<p>Metaprogramming in Ruby is mostly based on a textual approach to code.
+You use Ruby to generate a string of Ruby code, and then you have Ruby evaluate the code.</p>
+
+<p>If you’re coming from this sort of background (as I was), then Template Haskell will strike you as different and weird.
+You’ll think “Oh, I know, I’ll just use quasi quoters and it’ll all work just right.”
+Nope.
+You have to think very differently about metaprogramming in Template Haskell.
+You’re not going to be putting strings together that happen to make valid code.
+This is Haskell, we’re going to have some compile time checking!</p>
+
+<h2 id="constructing-an-ast">Constructing an AST</h2>
+
+<p>In Ruby, we built a string, which the Ruby interpreter then parsed, turned into an abstract syntax tree, and interpreted.
+In Haskell, we’ll skip the string step.
+We’ll build the abstract syntax tree directly using standard data constructors.
+GHC will verify that we’re doing everything OK in the construction of the syntax tree, and then it’ll print the syntax tree into our source code before compiling the whole thing.
+So we get two levels of compile time checking – that we built a correct template, and that we used the template correctly.</p>
+
+<p>One of the nastiest things about textual metaprogramming is that there’s no guarantee that your syntax is right – and it can be really hard to debug when doing more complicated stuff.
+Programming directly into an AST makes it a lot easier to verify the correctness of what we write.
+The quasiquoters are a convenience built around AST programming, but I’m of the opinion that you should learn the AST stuff first and then dive into the quoters when you have a good idea of how they work.</p>
+
+<p>Alright, so let’s get into our first example.
+We’ve written a function <code class="highlighter-rouge">bigBadMathProblem :: Int -&gt; Double</code> that takes a lot of time at runtime, and we want to write a lookup table for the most common values.
+Since we want to ensure that runtime speed is super fast, and we don’t mind waiting on the compiler, we’ll do this with Template Haskell.
+We’ll pass in a list of common numbers, run the function on each to precompute them, and then finally punt to the function if we didn’t cache the number.</p>
+
+<p>Since we want to do something like the <code class="highlighter-rouge">makeLenses</code> function to generate a bunch of declarations for us, we’ll first look at the type of that in the <code class="highlighter-rouge">lens</code> library.
+Jumping to <a href="https://hackage.haskell.org/package/lens-4.13/docs/Control-Lens-TH.html">the lens docs</a>, we can see that the type of <code class="highlighter-rouge">makesLenses</code> is <code class="highlighter-rouge">Name -&gt; DecsQ</code>.
+Jumping to <a href="https://hackage.haskell.org/package/template-haskell-2.10.0.0/docs/Language-Haskell-TH.html">the Template Haskell docs</a>, <code class="highlighter-rouge">DecsQ</code> is a type synonym for <code class="highlighter-rouge">Q [Dec]</code>.
+<code class="highlighter-rouge">Q</code> appears to be a monad for Template Haskell, and a <a href="https://hackage.haskell.org/package/template-haskell-2.10.0.0/docs/Language-Haskell-TH.html#t:Dec"><code class="highlighter-rouge">Dec</code></a> is the data type for a declaration.
+The constructor for making a function declaration is <code class="highlighter-rouge">FunD</code>.
+We can get started with this!</p>
+
+<p>We’ll start by defining our function.
+It’ll take a list of commonly used values, apply the function to each, and store the result.
+Finally, we’ll need a clause that passes the value to the math function in the event we don’t have it cached.</p>
+
+<div class="language-haskell highlighter-rouge"><pre class="highlight"><code><span class="n">precompute</span> <span class="o">::</span> <span class="p">[</span><span class="kt">Int</span><span class="p">]</span> <span class="o">-&gt;</span> <span class="kt">DecsQ</span>
+<span class="n">precompute</span> <span class="n">xs</span> <span class="o">=</span> <span class="kr">do</span>
+  <span class="c1">-- .......</span>
+  <span class="n">return</span> <span class="p">[</span><span class="kt">FunD</span> <span class="n">name</span> <span class="n">clauses</span><span class="p">]</span>
+</code></pre>
+</div>
+
+<p>Since <code class="highlighter-rouge">Q</code> is a monad, and <code class="highlighter-rouge">DecsQ</code> is a type synonym for it, we know we can start off with <code class="highlighter-rouge">do</code>.
+And we know we’re going to be returning a function definition, which, according to the <code class="highlighter-rouge">Dec</code> documentation, has a field for the name of the function and the list of clauses.
+Now it’s up to us to generate the name and clauses.
+Names are easy, so we’ll do that first.</p>
+
+<p>We can get a name from a string using <code class="highlighter-rouge">mkName</code>.
+This converts a string into an unqualified name.
+We’re going to choose <code class="highlighter-rouge">lookupTable</code> as the name of our lookup table, so we can just use that directly.</p>
+
+<div class="language-haskell highlighter-rouge"><pre class="highlight"><code><span class="n">precompute</span> <span class="n">xs</span> <span class="o">=</span> <span class="kr">do</span>
+  <span class="kr">let</span> <span class="n">name</span> <span class="o">=</span> <span class="n">mkName</span> <span class="s">"lookupTable"</span>
+  <span class="c1">-- ...</span>
+</code></pre>
+</div>
+
+<p>Now, we need to apply each variable in <code class="highlighter-rouge">xs</code> to the function named <code class="highlighter-rouge">bigBadMathProblem</code>.
+This will go in the <code class="highlighter-rouge">[Clause]</code> field, so let’s look at what makes up a <code class="highlighter-rouge">Clause</code>.
+According to <a href="https://hackage.haskell.org/package/template-haskell-2.10.0.0/docs/Language-Haskell-TH.html#t:Clause">the documentation</a>, a clause is a data constructor with three fields: a list of <code class="highlighter-rouge">Pat</code> patterns, a <code class="highlighter-rouge">Body</code>, and a list of <code class="highlighter-rouge">Dec</code> declarations.
+The body corresponds to the actual function definition, the <code class="highlighter-rouge">Pat</code> patterns correspond to the patterns we’re matching input arguments on, and the <code class="highlighter-rouge">Dec</code> declarations are what we might find in a <code class="highlighter-rouge">where</code> clause.</p>
+
+<p>Let’s identify our patterns first.
+We’re trying to match on the <code class="highlighter-rouge">Int</code>s directly. Our desired output is going to look something like:</p>
+
+<div class="language-haskell highlighter-rouge"><pre class="highlight"><code><span class="n">lookupTable</span> <span class="mi">0</span> <span class="o">=</span> <span class="mf">123.546</span>
+<span class="n">lookupTable</span> <span class="mi">12</span> <span class="o">=</span> <span class="mf">151626.4234</span>
+<span class="n">lookupTable</span> <span class="mi">42</span> <span class="o">=</span> <span class="mf">0.0</span>
+<span class="c1">-- ...</span>
+<span class="n">lookupTable</span> <span class="n">x</span> <span class="o">=</span> <span class="n">bigBadMathProblem</span> <span class="n">x</span>
+</code></pre>
+</div>
+
+<p>So we need a way to get those <code class="highlighter-rouge">Int</code>s in our <code class="highlighter-rouge">xs</code> variable into a <code class="highlighter-rouge">Pat</code> pattern.
+We need some function <code class="highlighter-rouge">Int -&gt; Pat</code>… Let’s check out <a href="https://hackage.haskell.org/package/template-haskell-2.10.0.0/docs/Language-Haskell-TH.html#t:Pat">the documentation</a> for <code class="highlighter-rouge">Pat</code> and see how it works.
+The very first pattern is <code class="highlighter-rouge">LitP</code>, which takes an argument of type <code class="highlighter-rouge">Lit</code>.
+A <code class="highlighter-rouge">Lit</code> is a sum type that has a constructor for the primitive Haskell types.
+There’s one for <code class="highlighter-rouge">IntegerL</code>, which we can use.</p>
+
+<p>So, we can get from <code class="highlighter-rouge">Int -&gt; Pat</code> with the following function:</p>
+
+<div class="language-haskell highlighter-rouge"><pre class="highlight"><code><span class="n">intToPat</span> <span class="o">::</span> <span class="kt">Int</span> <span class="o">-&gt;</span> <span class="kt">Pat</span>
+<span class="n">intToPat</span> <span class="o">=</span> <span class="kt">LitP</span> <span class="o">.</span> <span class="kt">IntegerL</span> <span class="o">.</span> <span class="n">toInteger</span>
+</code></pre>
+</div>
+
+<p>Which we can map over the initial list to get our <code class="highlighter-rouge">[Pat]</code>!</p>
+
+<div class="language-haskell highlighter-rouge"><pre class="highlight"><code><span class="n">precompute</span> <span class="n">xs</span> <span class="o">=</span> <span class="kr">do</span>
+  <span class="kr">let</span> <span class="n">name</span> <span class="o">=</span> <span class="n">mkName</span> <span class="s">"lookupTable"</span>
+      <span class="n">patterns</span> <span class="o">=</span> <span class="n">map</span> <span class="n">intToPat</span> <span class="n">xs</span>
+  <span class="c1">-- ...</span>
+  <span class="n">return</span> <span class="p">[</span><span class="kt">FunD</span> <span class="n">name</span> <span class="n">clauses</span><span class="p">]</span>
+</code></pre>
+</div>
+
+<p>Our <code class="highlighter-rouge">lookupTable</code> function is only going to take a single argument, so we’ll want to <code class="highlighter-rouge">map</code> our integer <code class="highlighter-rouge">Pat</code>s into <code class="highlighter-rouge">Clause</code>, going from our <code class="highlighter-rouge">[Pat] -&gt; [Clause]</code>.
+That will get use the <code class="highlighter-rouge">clauses</code> variable that we need.
+From above, a clause is defined like:</p>
+
+<div class="language-haskell highlighter-rouge"><pre class="highlight"><code><span class="kr">data</span> <span class="kt">Clause</span> <span class="o">=</span> <span class="kt">Clause</span> <span class="p">[</span><span class="kt">Pat</span><span class="p">]</span> <span class="kt">Body</span> <span class="p">[</span><span class="kt">Dec</span><span class="p">]</span>
+</code></pre>
+</div>
+
+<p>So, our <code class="highlighter-rouge">[Pat]</code> is simple – we only have one literal value we’re matching on.
+<code class="highlighter-rouge">Body</code> is defined to be either a <code class="highlighter-rouge">GuardedB</code> which uses pattern guards, or a <code class="highlighter-rouge">NormalB</code> which doesn’t.
+We could define our function in terms of a single clause with a <code class="highlighter-rouge">GuardedB</code> body, but that sounds like more work, so we’ll just use a <code class="highlighter-rouge">NormalB</code> body.
+The <code class="highlighter-rouge">NormalB</code> constructor takes an argument of type <code class="highlighter-rouge">Exp</code>.
+So let’s dig in to <a href="https://hackage.haskell.org/package/template-haskell-2.10.0.0/docs/Language-Haskell-TH.html#t:Exp">the <code class="highlighter-rouge">Exp</code> documentation!</a></p>
+
+<p>There’s a lot here.
+Looking above, we really just want to have a single thing – a literal!
+The precomputed value.
+There’s a <code class="highlighter-rouge">LitE</code> constructor which takes a <code class="highlighter-rouge">Lit</code> type.
+The <code class="highlighter-rouge">Lit</code> type has a constructor for <code class="highlighter-rouge">DoublePrimL</code> which takes a <code class="highlighter-rouge">Rational</code>, so we’ll have to do a bit of conversion.</p>
+
+<div class="language-haskell highlighter-rouge"><pre class="highlight"><code><span class="n">precomputeInteger</span> <span class="o">::</span> <span class="kt">Int</span> <span class="o">-&gt;</span> <span class="kt">Exp</span>
+<span class="n">precomputeInteger</span> <span class="o">=</span> <span class="kt">LitE</span> <span class="o">.</span> <span class="kt">DoublePrimL</span> <span class="o">.</span> <span class="n">toRational</span> <span class="o">.</span> <span class="n">bigBadMathProblem</span>
+</code></pre>
+</div>
+
+<p>We can get the <code class="highlighter-rouge">Body</code>s for the <code class="highlighter-rouge">Clause</code>s by mapping this function over the list of arguments.
+The declarations will just be blank, so we’re ready to create our <code class="highlighter-rouge">clauses</code>!</p>
+
+<div class="language-haskell highlighter-rouge"><pre class="highlight"><code><span class="n">precompute</span> <span class="n">xs</span> <span class="o">=</span> <span class="kr">do</span>
+  <span class="kr">let</span> <span class="n">name</span> <span class="o">=</span> <span class="n">mkName</span> <span class="s">"lookupTable"</span>
+      <span class="n">patterns</span> <span class="o">=</span> <span class="n">map</span> <span class="n">intToPat</span> <span class="n">xs</span>
+      <span class="n">fnBodies</span> <span class="o">=</span> <span class="n">map</span> <span class="n">precomputeInteger</span> <span class="n">xs</span>
+      <span class="n">precomputedClauses</span> <span class="o">=</span> 
+        <span class="n">zipWith</span> <span class="p">(</span><span class="nf">\</span><span class="n">body</span> <span class="n">pattern</span> <span class="o">-&gt;</span> <span class="kt">Clause</span> <span class="p">[</span><span class="n">pattern</span><span class="p">]</span> <span class="p">(</span><span class="kt">NormalB</span> <span class="n">body</span><span class="p">)</span> <span class="kt">[]</span><span class="p">)</span> <span class="n">fnBodies</span> <span class="n">patterns</span>
+  <span class="c1">-- ......</span>
+  <span class="n">return</span> <span class="p">[</span><span class="kt">FunD</span> <span class="n">name</span> <span class="n">clauses</span><span class="p">]</span>
+</code></pre>
+</div>
+
+<p>There’s one thing left to do here.
+We need to create another clause with a variable <code class="highlighter-rouge">x</code> that we delegate to the function.
+Since we’re introducing a local variable, we don’t need to worry about being hygienic with our naming, so we can use <code class="highlighter-rouge">mkName</code> again.
+We will have to get a bit more complicated with our <code class="highlighter-rouge">Body</code> expression, since we’ve got an application to a function going on.</p>
+
+<div class="language-haskell highlighter-rouge"><pre class="highlight"><code><span class="n">precompute</span> <span class="n">xs</span> <span class="o">=</span> <span class="kr">do</span>
+  <span class="kr">let</span> <span class="n">name</span> <span class="o">=</span> <span class="n">mkName</span> <span class="s">"lookupTable"</span>
+      <span class="n">patterns</span> <span class="o">=</span> <span class="n">map</span> <span class="n">intToPat</span> <span class="n">xs</span>
+      <span class="n">fnBodies</span> <span class="o">=</span> <span class="n">map</span> <span class="n">precomputeInteger</span> <span class="n">xs</span>
+      <span class="n">precomputedClauses</span> <span class="o">=</span>
+        <span class="n">zipWith</span> <span class="p">(</span><span class="nf">\</span><span class="n">body</span> <span class="n">pattern</span> <span class="o">-&gt;</span> <span class="kt">Clause</span> <span class="p">[</span><span class="n">pattern</span><span class="p">]</span> <span class="p">(</span><span class="kt">NormalB</span> <span class="n">body</span><span class="p">)</span> <span class="kt">[]</span><span class="p">)</span> <span class="n">fnBodies</span> <span class="n">patterns</span>
+      <span class="n">x'</span> <span class="o">=</span> <span class="n">mkName</span> <span class="s">"x"</span>
+      <span class="n">lastClause</span> <span class="o">=</span> <span class="p">[</span><span class="kt">Clause</span> <span class="p">[</span><span class="kt">VarP</span> <span class="n">x'</span><span class="p">]</span> <span class="p">(</span><span class="kt">NormalB</span> <span class="n">appBody</span><span class="p">)</span> <span class="kt">[]</span><span class="p">]</span>
+  <span class="c1">-- ...</span>
+      <span class="n">clauses</span> <span class="o">=</span> <span class="n">precomputedClauses</span> <span class="o">++</span> <span class="n">lastClause</span>
+  <span class="n">return</span> <span class="p">[</span><span class="kt">FunD</span> <span class="n">name</span> <span class="n">clauses</span><span class="p">]</span>
+</code></pre>
+</div>
+
+<p>Going back to the <code class="highlighter-rouge">Exp</code> type, we’re now looking for something that captures the idea of application.
+The <code class="highlighter-rouge">Exp</code> type has a data constructor <code class="highlighter-rouge">AppE</code> which takes two expressions and applies the second to the first.
+That’s precisely what we need!
+It also has a data constructor <code class="highlighter-rouge">VarE</code> which takes a <code class="highlighter-rouge">Name</code> argument.
+That’s all we need. Let’s do it.</p>
+
+<div class="language-haskell highlighter-rouge"><pre class="highlight"><code><span class="n">precompute</span> <span class="n">xs</span> <span class="o">=</span> <span class="kr">do</span>
+  <span class="kr">let</span> <span class="n">name</span> <span class="o">=</span> <span class="n">mkName</span> <span class="s">"lookupTable"</span>
+      <span class="n">patterns</span> <span class="o">=</span> <span class="n">map</span> <span class="n">intToPat</span> <span class="n">xs</span>
+      <span class="n">fnBodies</span> <span class="o">=</span> <span class="n">map</span> <span class="n">precomputeInteger</span> <span class="n">xs</span>
+      <span class="n">precomputedClauses</span> <span class="o">=</span> 
+        <span class="n">zipWith</span> <span class="p">(</span><span class="nf">\</span><span class="n">body</span> <span class="n">pattern</span> <span class="o">-&gt;</span> <span class="kt">Clause</span> <span class="p">[</span><span class="n">pattern</span><span class="p">]</span> <span class="n">body</span> <span class="kt">[]</span><span class="p">)</span> <span class="n">fnBodies</span> <span class="n">patterns</span>
+      <span class="n">x'</span> <span class="o">=</span> <span class="n">mkName</span> <span class="s">"x"</span>
+      <span class="n">lastClause</span> <span class="o">=</span> <span class="p">[</span><span class="kt">Clause</span> <span class="p">[</span><span class="kt">VarP</span> <span class="n">x'</span><span class="p">]</span> <span class="p">(</span><span class="kt">NormalB</span> <span class="n">appBody</span><span class="p">)</span> <span class="kt">[]</span><span class="p">]</span>
+      <span class="n">appBody</span> <span class="o">=</span> <span class="kt">AppE</span> <span class="p">(</span><span class="kt">VarE</span> <span class="p">(</span><span class="n">mkName</span> <span class="s">"bigBadMathProblem"</span><span class="p">))</span> <span class="p">(</span><span class="kt">VarE</span> <span class="n">x'</span><span class="p">)</span>
+      <span class="n">clauses</span> <span class="o">=</span> <span class="n">precomputedClauses</span> <span class="o">++</span> <span class="n">lastClause</span>
+  <span class="n">return</span> <span class="p">[</span><span class="kt">FunD</span> <span class="n">name</span> <span class="n">clauses</span><span class="p">]</span>
+</code></pre>
+</div>
+
+<p>We did it! We wrangled up some Template Haskell and wrote ourselves a lookup table.
+Now, we’ll want to splice it into the top level of our program with the <code class="highlighter-rouge">$()</code> splice syntax:</p>
+
+<div class="language-haskell highlighter-rouge"><pre class="highlight"><code><span class="o">$</span><span class="p">(</span><span class="n">precompute</span> <span class="p">[</span><span class="mi">1</span><span class="o">..</span><span class="mi">1000</span><span class="p">])</span>
+</code></pre>
+</div>
+
+<p>As it happens, GHC is smart enough to know that a top level expression with the type <code class="highlighter-rouge">Q [Dec]</code> can be spliced without the explicit splicing syntax.</p>
+
+<p>Creating Haskell expressions using the data constructors is really easy, if a little verbose.
+Let’s look at a little more complicated example.</p>
+
+<h2 id="boilerplate-be-gone">Boilerplate Be Gone!</h2>
+
+<p>We’re excited to be using the excellent <code class="highlighter-rouge">users</code> library with the <code class="highlighter-rouge">persistent</code> backend for the web application we’re working on (source code located <a href="https://github.com/parsonsmatt/QuickLift/">here, if you’re curious</a>).
+It handles all kinds of stuff for us, taking care of a bunch of boilerplate and user related code.
+It expects, as its first argument, a value that can be unwrapped and used to run a Persistent query.
+It also operates in the <code class="highlighter-rouge">IO</code> monad.
+Right now, our application is setup to use a custom monad <code class="highlighter-rouge">AppM</code> which is defined like:</p>
+
+<div class="language-haskell highlighter-rouge"><pre class="highlight"><code><span class="kr">type</span> <span class="kt">AppM</span> <span class="o">=</span> <span class="kt">ReaderT</span> <span class="kt">Config</span> <span class="p">(</span><span class="kt">EitherT</span> <span class="kt">ServantErr</span> <span class="kt">IO</span><span class="p">)</span>
+</code></pre>
+</div>
+
+<p>So, to actually use the functions in the <code class="highlighter-rouge">users</code> library, we have to do this bit of fun business:</p>
+
+<div class="language-haskell highlighter-rouge"><pre class="highlight"><code><span class="n">someFunc</span> <span class="o">::</span> <span class="kt">AppM</span> <span class="p">[</span><span class="kt">User</span><span class="p">]</span>
+<span class="n">someFunc</span> <span class="o">=</span> <span class="kr">do</span>
+  <span class="n">connPool</span> <span class="o">&lt;-</span> <span class="n">asks</span> <span class="n">getPool</span>
+  <span class="kr">let</span> <span class="n">conn</span> <span class="o">=</span> <span class="kt">Persistent</span> <span class="p">(`</span><span class="n">runSqlPool</span><span class="p">`</span> <span class="n">connPool</span><span class="p">)</span>
+  <span class="n">users</span> <span class="o">&lt;-</span> <span class="n">liftIO</span> <span class="p">(</span><span class="n">listUsers</span> <span class="n">conn</span> <span class="kt">Nothing</span><span class="p">)</span>
+  <span class="n">return</span> <span class="p">(</span><span class="n">map</span> <span class="n">snd</span> <span class="n">users</span><span class="p">)</span>
+</code></pre>
+</div>
+
+<p>That’s going to get annoying quickly, so we start writing functions specific to our monad that we can call instead of doing all that lifting and wrapping.</p>
+
+<div class="language-haskell highlighter-rouge"><pre class="highlight"><code><span class="n">backend</span> <span class="o">::</span> <span class="kt">AppM</span> <span class="kt">Persistent</span>
+<span class="n">backend</span> <span class="o">=</span> <span class="kr">do</span>
+  <span class="n">pool</span> <span class="o">&lt;-</span> <span class="n">asks</span> <span class="n">getPool</span>
+  <span class="n">return</span> <span class="p">(</span><span class="kt">Persistent</span> <span class="p">(`</span><span class="n">runSqlPool</span><span class="p">`</span> <span class="n">pool</span><span class="p">))</span>
+
+<span class="n">myListUsers</span> <span class="o">::</span> <span class="kt">Maybe</span> <span class="p">(</span><span class="kt">Int64</span><span class="p">,</span> <span class="kt">Int64</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kt">AppM</span> <span class="p">[(</span><span class="kt">LoginId</span><span class="p">,</span> <span class="kt">QLUser</span><span class="p">)]</span>
+<span class="n">myListUsers</span> <span class="n">m</span> <span class="o">=</span> <span class="kr">do</span>
+  <span class="n">b</span> <span class="o">&lt;-</span> <span class="n">backend</span>
+  <span class="n">liftIO</span> <span class="p">(</span><span class="n">listUsers</span> <span class="n">b</span> <span class="n">m</span><span class="p">)</span>
+
+<span class="n">myGetUserById</span> <span class="o">::</span> <span class="kt">LoginId</span> <span class="o">-&gt;</span> <span class="kt">AppM</span> <span class="p">(</span><span class="kt">Maybe</span> <span class="kt">QLUser</span><span class="p">)</span>
+<span class="n">myGetUserById</span> <span class="n">l</span> <span class="o">=</span> <span class="kr">do</span>
+  <span class="n">b</span> <span class="o">&lt;-</span> <span class="n">backend</span>
+  <span class="n">liftIO</span> <span class="p">(</span><span class="n">getUserById</span> <span class="n">b</span> <span class="n">l</span><span class="p">)</span>
+
+<span class="n">myUpdateUser</span> <span class="o">::</span> <span class="kt">LoginId</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="kt">QLUser</span> <span class="o">-&gt;</span> <span class="kt">QLUser</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kt">AppM</span> <span class="p">(</span><span class="kt">Either</span> <span class="kt">UpdateUserError</span> <span class="nb">()</span><span class="p">)</span>
+<span class="n">myUpdateUser</span> <span class="n">id</span> <span class="n">fn</span> <span class="o">=</span> <span class="kr">do</span>
+  <span class="n">b</span> <span class="o">&lt;-</span> <span class="n">backend</span>
+  <span class="n">liftIO</span> <span class="p">(</span><span class="n">updateUser</span> <span class="n">b</span> <span class="n">id</span> <span class="n">fn</span><span class="p">)</span>
+</code></pre>
+</div>
+
+<p>ahh, totally mechanical code.
+just straight up boiler plate.
+This is exactly the sort of thing I’d have metaprogrammed in Ruby.
+So let’s metaprogram it in Haskell!</p>
+
+<p>First, we’ll want to simplify the expression.
+Let’s use <code class="highlighter-rouge">listUsers</code> as the example.
+We’ll make it as simple as possible – no infix operators, no <code class="highlighter-rouge">do</code> notation, etc.</p>
+
+<div class="language-haskell highlighter-rouge"><pre class="highlight"><code><span class="n">listUsersSimple</span> <span class="n">m</span> <span class="o">=</span> <span class="p">(</span><span class="o">&gt;&gt;=</span><span class="p">)</span> <span class="n">backend</span> <span class="p">(</span><span class="nf">\</span><span class="n">b</span> <span class="o">-&gt;</span> <span class="n">liftIO</span> <span class="p">(</span><span class="n">listUsers</span> <span class="n">b</span> <span class="n">m</span><span class="p">))</span>
+</code></pre>
+</div>
+
+<p>Nice. To make it a little easier on seeing the AST, we can take it one step further.
+Let’s explicitly show all function application by adding parentheses to make everything as explicit as possible.</p>
+
+<div class="language-haskell highlighter-rouge"><pre class="highlight"><code><span class="n">listUsersExplicit</span> <span class="n">m</span> <span class="o">=</span>
+  <span class="p">((</span><span class="o">&gt;&gt;=</span><span class="p">)</span> <span class="n">backend</span><span class="p">)</span> <span class="p">(</span><span class="nf">\</span><span class="n">b</span> <span class="o">-&gt;</span> <span class="n">liftIO</span> <span class="p">((</span><span class="n">listUsers</span> <span class="n">b</span><span class="p">)</span> <span class="n">m</span><span class="p">))</span>
+</code></pre>
+</div>
+
+<p>The general formula that we’re going for is:</p>
+
+<div class="language-haskell highlighter-rouge"><pre class="highlight"><code><span class="n">derivedFunction</span> <span class="n">arg1</span> <span class="n">arg2</span> <span class="o">...</span> <span class="n">argn</span> <span class="o">=</span>
+  <span class="p">((</span><span class="o">&gt;&gt;=</span><span class="p">)</span> <span class="n">backend</span><span class="p">)</span> 
+    <span class="p">(</span><span class="nf">\</span><span class="n">b</span> <span class="o">-&gt;</span> <span class="n">liftIO</span> <span class="p">((</span><span class="o">...</span><span class="p">(((</span><span class="n">function</span> <span class="n">b</span><span class="p">)</span> <span class="n">arg1</span><span class="p">)</span> <span class="n">arg2</span><span class="p">)</span><span class="o">...</span><span class="p">)</span> <span class="n">argn</span><span class="p">))</span>
+</code></pre>
+</div>
+
+<p>We’ll start by creating our <code class="highlighter-rouge">deriveReader</code> function, which will take as its first argument the <code class="highlighter-rouge">backend</code> function name.</p>
+
+<div class="language-haskell highlighter-rouge"><pre class="highlight"><code><span class="n">deriveReader</span> <span class="o">::</span> <span class="kt">Name</span> <span class="o">-&gt;</span> <span class="kt">DecsQ</span>
+<span class="n">deriveReader</span> <span class="n">rd</span> <span class="o">=</span> 
+  <span class="n">mapM</span> <span class="p">(</span><span class="n">decForFunc</span> <span class="n">rd</span><span class="p">)</span>
+    <span class="p">[</span> <span class="sc">'d</span><span class="err">e</span><span class="n">stroyUserBackend</span>
+    <span class="p">,</span> <span class="sc">'h</span><span class="err">o</span><span class="n">usekeepBackend</span>
+    <span class="p">,</span> <span class="sc">'g</span><span class="err">e</span><span class="n">tUserIdByName</span>
+    <span class="p">,</span> <span class="sc">'g</span><span class="err">e</span><span class="n">tUserById</span>
+    <span class="p">,</span> <span class="sc">'l</span><span class="err">i</span><span class="n">stUsers</span>
+    <span class="p">,</span> <span class="sc">'c</span><span class="err">o</span><span class="n">untUsers</span>
+    <span class="p">,</span> <span class="sc">'c</span><span class="err">r</span><span class="n">eateUser</span>
+    <span class="p">,</span> <span class="sc">'u</span><span class="err">p</span><span class="n">dateUser</span>
+    <span class="p">,</span> <span class="sc">'u</span><span class="err">p</span><span class="n">dateUserDetails</span>
+    <span class="p">,</span> <span class="sc">'a</span><span class="err">u</span><span class="n">thUser</span>
+    <span class="p">,</span> <span class="sc">'d</span><span class="err">e</span><span class="n">leteUser</span>
+    <span class="p">]</span>
+</code></pre>
+</div>
+
+<p>This is our first bit of special syntax.
+The single quote in <code class="highlighter-rouge">'destroyUserBackend</code> is a shorthand way of saying <code class="highlighter-rouge">mkName "destroyUserBackend"</code>
+Now, what we need is a function <code class="highlighter-rouge">decForFunc</code>, which has the signature <code class="highlighter-rouge">Name -&gt; Name -&gt; Q Dec</code>.</p>
+
+<p>In order to do this, we’ll need to get some information about the function we’re trying to derive.
+Specifically, we need to know how many arguments the source function takes.
+There’s a whole section in the Template Haskell <a href="https://hackage.haskell.org/package/template-haskell-2.10.0.0/docs/Language-Haskell-TH.html#g:3">documentation about ‘Querying the Compiler’</a> which we can put to good use.</p>
+
+<p>The <code class="highlighter-rouge">reify</code> function returns a value of type <code class="highlighter-rouge">Info</code>.
+For type class operations, it has the data constructor <code class="highlighter-rouge">ClassOpI</code> with arguments <code class="highlighter-rouge">Name</code>, <code class="highlighter-rouge">Type</code>, <code class="highlighter-rouge">ParentName</code>, and <code class="highlighter-rouge">Fixity</code>.
+None of these have the arity of the function directly…</p>
+
+<p>I think it’s time to do a bit of exploratory coding in the REPL.
+We can fire up <code class="highlighter-rouge">GHCi</code> and start doing some Template Haskell with the following commands:</p>
+
+<div class="language-haskell highlighter-rouge"><pre class="highlight"><code><span class="err">λ</span><span class="o">:</span> <span class="o">:</span><span class="n">set</span> <span class="o">-</span><span class="kt">XTemplateHaskell</span> 
+<span class="err">λ</span><span class="o">:</span> <span class="kr">import</span> <span class="nn">Language.Haskell.TH</span>
+</code></pre>
+</div>
+
+<p>We can also do the following command, and it’ll print out all of the generated code that it makes:</p>
+
+<div class="language-haskell highlighter-rouge"><pre class="highlight"><code><span class="err">λ</span><span class="o">:</span> <span class="o">:</span><span class="n">set</span> <span class="o">-</span><span class="n">ddump</span><span class="o">-</span><span class="n">splices</span>
+</code></pre>
+</div>
+<p>Now, let’s run <code class="highlighter-rouge">reify</code> on something simple and see the output!</p>
+
+<div class="language-haskell highlighter-rouge"><pre class="highlight"><code><span class="err">λ</span><span class="o">:</span> <span class="n">reify</span> <span class="sc">'i</span><span class="err">d</span>
+
+<span class="o">&lt;</span><span class="n">interactive</span><span class="o">&gt;:</span><span class="mi">4</span><span class="o">:</span><span class="mi">1</span><span class="o">:</span>
+    <span class="kt">No</span> <span class="kr">instance</span> <span class="n">for</span> <span class="p">(</span><span class="kt">Show</span> <span class="p">(</span><span class="kt">Q</span> <span class="kt">Info</span><span class="p">))</span> <span class="n">arising</span> <span class="n">from</span> <span class="n">a</span> <span class="n">use</span> <span class="kr">of</span> <span class="err">‘</span><span class="n">print</span><span class="err">’</span>
+    <span class="kt">In</span> <span class="n">a</span> <span class="n">stmt</span> <span class="kr">of</span> <span class="n">an</span> <span class="n">interactive</span> <span class="kt">GHCi</span> <span class="n">command</span><span class="o">:</span> <span class="n">print</span> <span class="n">it</span>
+</code></pre>
+</div>
+
+<p>Hmm.. No show instance. Fortunately, there’s a workaround that can print out stuff in the <code class="highlighter-rouge">Q</code> monad:</p>
+
+<div class="language-haskell highlighter-rouge"><pre class="highlight"><code><span class="err">λ</span><span class="o">:</span> <span class="o">$</span><span class="p">(</span><span class="n">stringE</span> <span class="o">.</span> <span class="n">show</span> <span class="o">=&lt;&lt;</span> <span class="n">reify</span> <span class="sc">'i</span><span class="err">d</span><span class="p">)</span>
+<span class="s">"VarI 
+  GHC.Base.id 
+  (ForallT 
+    [KindedTV a_1627463132 StarT] 
+    [] 
+    (AppT 
+      (AppT ArrowT (VarT a_1627463132)) 
+      (VarT a_1627463132)
+    )
+  ) 
+  Nothing
+  (Fixity 9 InfixL)"</span>
+</code></pre>
+</div>
+
+<p>I’ve formatted it a bit to make it a bit more legible.
+We’ve got the <code class="highlighter-rouge">Name</code>, the <code class="highlighter-rouge">Type</code>, a <code class="highlighter-rouge">Nothing</code> value that is always <code class="highlighter-rouge">Nothing</code>, and the fixity of the function.
+The <code class="highlighter-rouge">Type</code> seems pretty useful… Let’s look at the <code class="highlighter-rouge">reify</code> output for one of the class methods we’re trying to work with:</p>
+
+<div class="language-haskell highlighter-rouge"><pre class="highlight"><code><span class="err">λ</span><span class="o">:</span> <span class="o">$</span><span class="p">(</span><span class="n">stringE</span> <span class="o">.</span> <span class="n">show</span> <span class="o">=&lt;&lt;</span> <span class="n">reify</span> <span class="sc">'W</span><span class="err">e</span><span class="n">b</span><span class="o">.</span><span class="kt">Users</span><span class="o">.</span><span class="kt">Types</span><span class="o">.</span><span class="n">getUserById</span><span class="p">)</span>
+<span class="s">"ClassOpI 
+  Web.Users.Types.getUserById 
+  (ForallT 
+    [KindedTV b_1627432398 StarT] 
+    [AppT (ConT Web.Users.Types.UserStorageBackend) (VarT b_1627432398)]
+    (ForallT 
+      [KindedTV a_1627482920 StarT]
+      [AppT (ConT Data.Aeson.Types.Class.FromJSON) (VarT a_1627482920),AppT (ConT Data.Aeson.Types.Class.ToJSON) (VarT a_1627482920)]
+      (AppT 
+        (AppT 
+          ArrowT 
+          (VarT b_1627432398)
+        )
+        (AppT 
+          (AppT
+            ArrowT 
+              (AppT 
+                (ConT Web.Users.Types.UserId)
+                (VarT b_1627432398)
+              )
+          )
+          (AppT 
+            (ConT GHC.Types.IO) 
+            (AppT 
+              (ConT GHC.Base.Maybe)
+              (AppT 
+                (ConT Web.Users.Types.User) 
+                (VarT a_1627482920)
+              )
+            )
+          )
+        )
+      )
+    )
+  ) 
+  Web.Users.Types.UserStorageBackend 
+  (Fixity 9 InfixL)"</span>
+</code></pre>
+</div>
+
+<p>WOOOOH. That is a ton of text!!
+We’re mainly interested in the <code class="highlighter-rouge">Type</code> declaration, and we can get a lot of information about what data constructors are used from <a href="https://hackage.haskell.org/package/template-haskell-2.10.0.0/docs/Language-Haskell-TH.html#t:Type">the rather nice documentation</a>.
+Just like <code class="highlighter-rouge">AppE</code> is how we applied an expression to an expression, <code class="highlighter-rouge">AppT</code> is how we apply a type to a type.
+<code class="highlighter-rouge">ArrowT</code> is the function arrow in the type signature.</p>
+
+<p>Just as an exercise, we’ll go through the following type signature and transform it into something a bit like the above:</p>
+
+<div class="language-haskell highlighter-rouge"><pre class="highlight"><code><span class="n">fmap</span> <span class="o">::</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="n">b</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">f</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="n">f</span> <span class="n">b</span>
+<span class="o">~</span> <span class="p">((</span><span class="o">-&gt;</span><span class="p">)</span> <span class="n">a</span> <span class="n">b</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">f</span> <span class="n">a</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">f</span> <span class="n">b</span><span class="p">)</span>
+<span class="o">~</span> <span class="p">(</span><span class="o">-&gt;</span><span class="p">)</span> <span class="p">((</span><span class="o">-&gt;</span><span class="p">)</span> <span class="n">a</span> <span class="n">b</span><span class="p">)</span> <span class="p">((</span><span class="n">f</span> <span class="n">a</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">f</span> <span class="n">b</span><span class="p">))</span>
+<span class="o">~</span> <span class="p">(</span><span class="o">-&gt;</span><span class="p">)</span> <span class="p">((</span><span class="o">-&gt;</span><span class="p">)</span> <span class="n">a</span> <span class="n">b</span><span class="p">)</span> <span class="p">((</span><span class="o">-&gt;</span><span class="p">)</span> <span class="p">(</span><span class="n">f</span> <span class="n">a</span><span class="p">)</span> <span class="p">(</span><span class="n">f</span> <span class="n">b</span><span class="p">))</span>
+</code></pre>
+</div>
+
+<p>Ok, now all of our <code class="highlighter-rouge">(-&gt;)</code>s are written in prefix form.
+We’ll replace the arrows with <code class="highlighter-rouge">ArrowT</code>, do explicit parentheses, and put in the <code class="highlighter-rouge">ApplyT</code> constructors working from the innermost expressions out.</p>
+
+<div class="language-haskell highlighter-rouge"><pre class="highlight"><code><span class="o">~</span> <span class="p">(</span><span class="kt">ArrowT</span> <span class="p">((</span><span class="kt">ArrowT</span> <span class="n">a</span><span class="p">)</span> <span class="n">b</span><span class="p">))</span> <span class="p">((</span><span class="kt">ArrowT</span> <span class="p">(</span><span class="n">f</span> <span class="n">a</span><span class="p">))</span> <span class="p">(</span><span class="n">f</span> <span class="n">b</span><span class="p">))</span>
+<span class="o">~</span> <span class="p">(</span><span class="kt">ArrowT</span> <span class="p">((</span><span class="kt">ApplyT</span> <span class="kt">ArrowT</span> <span class="n">a</span><span class="p">)</span> <span class="n">b</span><span class="p">))</span> <span class="p">((</span><span class="kt">ArrowT</span> <span class="p">(</span><span class="kt">ApplyT</span> <span class="n">f</span> <span class="n">a</span><span class="p">))</span> <span class="p">(</span><span class="kt">ApplyT</span> <span class="n">f</span> <span class="n">b</span><span class="p">))</span>
+<span class="o">~</span> <span class="p">(</span><span class="kt">ArrowT</span> <span class="p">(</span><span class="kt">ApplyT</span> <span class="p">(</span><span class="kt">ApplyT</span> <span class="kt">ArrowT</span> <span class="n">a</span><span class="p">)</span> <span class="n">b</span><span class="p">))</span> <span class="p">(</span><span class="kt">ApplyT</span> <span class="p">(</span><span class="kt">ApplyT</span> <span class="kt">ArrowT</span> <span class="p">(</span><span class="kt">ApplyT</span> <span class="n">f</span> <span class="n">a</span><span class="p">))</span> <span class="p">(</span><span class="kt">ApplyT</span> <span class="n">f</span> <span class="n">b</span><span class="p">))</span>
+<span class="o">~</span> <span class="kt">ApplyT</span> <span class="p">(</span><span class="kt">ArrowT</span> <span class="p">(</span><span class="kt">ApplyT</span> <span class="p">(</span><span class="kt">ApplyT</span> <span class="kt">ArrowT</span> <span class="n">a</span><span class="p">)</span> <span class="n">b</span><span class="p">))</span> <span class="p">(</span><span class="kt">ApplyT</span> <span class="p">(</span><span class="kt">ApplyT</span> <span class="kt">ArrowT</span> <span class="p">(</span><span class="kt">ApplyT</span> <span class="n">f</span> <span class="n">a</span><span class="p">))</span> <span class="p">(</span><span class="kt">ApplyT</span> <span class="n">f</span> <span class="n">b</span><span class="p">))</span>
+</code></pre>
+</div>
+
+<p>That got pretty out of hand and messy looking.
+But, we have a good idea now of how we can get from one representation to the other.</p>
+
+<p>So, going from our type signature, it looks like we can figure out how we can get the arguments we need from the type!
+We’ll pattern match on the type signature, and if we see something that looks like the continuation of a type signature, we’ll add one to a count and go deeper.
+Otherwise, we’ll skip out.</p>
+
+<p>The function definition looks like this:</p>
+
+<div class="language-haskell highlighter-rouge"><pre class="highlight"><code><span class="n">functionLevels</span> <span class="o">::</span> <span class="kt">Type</span> <span class="o">-&gt;</span> <span class="kt">Int</span>
+<span class="n">functionLevels</span> <span class="o">=</span> <span class="n">go</span> <span class="mi">0</span>
+  <span class="kr">where</span>
+    <span class="n">go</span> <span class="o">::</span> <span class="kt">Int</span> <span class="o">-&gt;</span> <span class="kt">Type</span> <span class="o">-&gt;</span> <span class="kt">Int</span>
+    <span class="n">go</span> <span class="n">n</span> <span class="p">(</span><span class="kt">AppT</span> <span class="p">(</span><span class="kt">AppT</span> <span class="kt">ArrowT</span> <span class="kr">_</span><span class="p">)</span> <span class="n">rest</span><span class="p">)</span> <span class="o">=</span>
+      <span class="n">go</span> <span class="p">(</span><span class="n">n</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span> <span class="n">rest</span>
+    <span class="n">go</span> <span class="n">n</span> <span class="p">(</span><span class="kt">ForallT</span> <span class="kr">_</span> <span class="kr">_</span> <span class="n">rest</span><span class="p">)</span> <span class="o">=</span>
+      <span class="n">go</span> <span class="n">n</span> <span class="n">rest</span>
+    <span class="n">go</span> <span class="n">n</span> <span class="kr">_</span> <span class="o">=</span>
+      <span class="n">n</span>
+</code></pre>
+</div>
+
+<p>Neat! We can pattern match on these just like ordinary Haskell values.
+Well, they <em>are</em> ordinary Haskell values, so that makes perfect sense.</p>
+
+<p>Lastly, we’ll need a function that gets the type from an <code class="highlighter-rouge">Info</code>.
+Not all <code class="highlighter-rouge">Info</code> have types, so we’ll encode that with <code class="highlighter-rouge">Maybe</code>.</p>
+
+<div class="language-haskell highlighter-rouge"><pre class="highlight"><code><span class="n">getType</span> <span class="o">::</span> <span class="kt">Info</span> <span class="o">-&gt;</span> <span class="kt">Maybe</span> <span class="kt">Type</span>
+<span class="n">getType</span> <span class="p">(</span><span class="kt">ClassOpI</span> <span class="kr">_</span> <span class="n">t</span> <span class="kr">_</span> <span class="kr">_</span><span class="p">)</span> <span class="o">=</span> <span class="kt">Just</span> <span class="n">t</span>
+<span class="n">getType</span> <span class="p">(</span><span class="kt">DataConI</span> <span class="kr">_</span> <span class="n">t</span> <span class="kr">_</span> <span class="kr">_</span><span class="p">)</span> <span class="o">=</span> <span class="kt">Just</span> <span class="n">t</span>
+<span class="n">getType</span> <span class="p">(</span><span class="kt">VarI</span> <span class="kr">_</span> <span class="n">t</span> <span class="kr">_</span> <span class="kr">_</span><span class="p">)</span>     <span class="o">=</span> <span class="kt">Just</span> <span class="n">t</span>
+<span class="n">getType</span> <span class="p">(</span><span class="kt">TyVarI</span> <span class="kr">_</span> <span class="n">t</span><span class="p">)</span>       <span class="o">=</span> <span class="kt">Just</span> <span class="n">t</span>
+<span class="n">getType</span> <span class="kr">_</span>                  <span class="o">=</span> <span class="kt">Nothing</span>
+</code></pre>
+</div>
+
+<p>Alright, we’re ready to get started on that <code class="highlighter-rouge">decForFunc</code> function!!
+We’ll go ahead and fill in what we know we need to do:</p>
+
+<div class="language-haskell highlighter-rouge"><pre class="highlight"><code><span class="n">decForFunc</span> <span class="o">::</span> <span class="kt">Name</span> <span class="o">-&gt;</span> <span class="kt">Name</span> <span class="o">-&gt;</span> <span class="kt">Q</span> <span class="kt">Dec</span>
+<span class="n">decForFunc</span> <span class="n">reader</span> <span class="n">fn</span> <span class="o">=</span> <span class="kr">do</span>
+  <span class="n">info</span> <span class="o">&lt;-</span> <span class="n">reify</span> <span class="n">fn</span>
+  <span class="n">arity</span> <span class="o">&lt;-</span> <span class="n">maybe</span> <span class="p">(</span><span class="n">reportError</span> <span class="s">"Unable to get arity of name"</span> <span class="o">&gt;&gt;</span> <span class="n">return</span> <span class="mi">0</span><span class="p">)</span>
+                 <span class="p">(</span><span class="n">return</span> <span class="o">.</span> <span class="n">functionLevels</span><span class="p">)</span>
+                 <span class="p">(</span><span class="n">getType</span> <span class="n">info</span><span class="p">)</span>
+  <span class="c1">-- ...</span>
+  <span class="n">return</span> <span class="p">(</span><span class="kt">FunD</span> <span class="n">fnName</span> <span class="p">[</span><span class="kt">Clause</span> <span class="n">varPat</span> <span class="p">(</span><span class="kt">NormalB</span> <span class="n">final</span><span class="p">)</span> <span class="kt">[]</span><span class="p">])</span>
+</code></pre>
+</div>
+
+<p>Arity acquired. Now, we’ll want to get a list of new variable names corresponding with the function arguments.
+When we want to be hygienic with our variable names, we use the function <code class="highlighter-rouge">newName</code> which creates a totally unique variable name with the string prepended to it.
+We want (arity - 1) new names, since we’ll be using the bound value from the reader function for the other one.
+We’ll also want a name for the value we’ll bind out of the lambda.</p>
+
+<div class="language-haskell highlighter-rouge"><pre class="highlight"><code><span class="n">varNames</span> <span class="o">&lt;-</span> <span class="n">replicateM</span> <span class="p">(</span><span class="n">arity</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="p">(</span><span class="n">newName</span> <span class="s">"arg"</span><span class="p">)</span>
+<span class="n">b</span> <span class="o">&lt;-</span> <span class="n">newName</span> <span class="s">"b"</span>
+
+</code></pre>
+</div>
+
+<p>Next up is the new function name.
+To keep a consistent API, we’ll use the same name as the one in the actual package.
+This will require us to import the other package qualified to avoid a name clash.</p>
+
+<div class="language-haskell highlighter-rouge"><pre class="highlight"><code><span class="kr">let</span> <span class="n">fnName</span> <span class="o">=</span> <span class="n">mkName</span> <span class="o">.</span> <span class="n">nameBase</span> <span class="o">$</span> <span class="n">fn</span>
+</code></pre>
+</div>
+
+<p><code class="highlighter-rouge">nameBase</code> has the type <code class="highlighter-rouge">Name -&gt; String</code>, and gets the non-qualified name string for a given <code class="highlighter-rouge">Name</code> value.
+Then we <code class="highlighter-rouge">mkName</code> with the string, giving us a new, non-qualified name with the same value as the original function.
+This might be a bad idea? You probably want to provide a unique identifier.
+Module namespacing does a fine job of that, imo.</p>
+
+<p>Next up, we’ll want to apply the <code class="highlighter-rouge">(&gt;&gt;=)</code> function to the <code class="highlighter-rouge">reader</code>.
+We’ll then want to create a function which applies the <code class="highlighter-rouge">bound</code> expression to a lambda.
+Lambdas have an <a href="https://hackage.haskell.org/package/template-haskell-2.10.0.0/docs/Language-Haskell-TH.html#v:LamE">LamE</a> constructor in the <code class="highlighter-rouge">Exp</code> type.
+They take a <code class="highlighter-rouge">[Pat]</code> to match on, and an <code class="highlighter-rouge">Exp</code> that represents the lambda body.</p>
+
+<div class="language-haskell highlighter-rouge"><pre class="highlight"><code><span class="n">bound</span>  <span class="o">=</span> <span class="kt">AppE</span> <span class="p">(</span><span class="kt">VarE</span> <span class="sc">'(</span><span class="err">&gt;</span><span class="o">&gt;=</span><span class="p">))</span> <span class="p">(</span><span class="kt">VarE</span> <span class="n">reader</span><span class="p">)</span>
+<span class="n">binder</span> <span class="o">=</span> <span class="kt">AppE</span> <span class="n">bound</span> <span class="o">.</span> <span class="kt">LamE</span> <span class="p">[</span><span class="kt">VarP</span> <span class="n">b</span><span class="p">]</span> 
+</code></pre>
+</div>
+
+<p>So <code class="highlighter-rouge">AppE bound . LamE [VarP b]</code> is the exact same thing as <code class="highlighter-rouge">(&gt;&gt;=) reader (\b -&gt; ...)</code>! Cool.</p>
+
+<p>Next up, we’ll need to create <code class="highlighter-rouge">VarE</code> values for all of the variables.
+Then, we’ll need to apply all of the values to the <code class="highlighter-rouge">VarE fn</code> expression.
+Function application binds to the left, so we’ll have:</p>
+
+<div class="language-haskell highlighter-rouge"><pre class="highlight"><code><span class="n">fn</span>       <span class="o">~</span>                   <span class="kt">VarE</span> <span class="n">fn</span>
+<span class="n">fn</span> <span class="n">a</span>     <span class="o">~</span>             <span class="kt">AppE</span> <span class="p">(</span><span class="kt">VarE</span> <span class="n">fn</span><span class="p">)</span> <span class="p">(</span><span class="kt">VarE</span> <span class="n">a</span><span class="p">)</span>
+<span class="n">fn</span> <span class="n">a</span> <span class="n">b</span>   <span class="o">~</span>       <span class="kt">AppE</span> <span class="p">(</span><span class="kt">AppE</span> <span class="p">(</span><span class="kt">VarE</span> <span class="n">fn</span><span class="p">)</span> <span class="p">(</span><span class="kt">VarE</span> <span class="n">a</span><span class="p">))</span> <span class="p">(</span><span class="kt">VarE</span> <span class="n">b</span><span class="p">)</span>
+<span class="n">fn</span> <span class="n">a</span> <span class="n">b</span> <span class="n">c</span> <span class="o">~</span> <span class="kt">AppE</span> <span class="p">(</span><span class="kt">AppE</span> <span class="p">(</span><span class="kt">AppE</span> <span class="p">(</span><span class="kt">VarE</span> <span class="n">fn</span><span class="p">)</span> <span class="p">(</span><span class="kt">VarE</span> <span class="n">a</span><span class="p">))</span> <span class="p">(</span><span class="kt">VarE</span> <span class="n">b</span><span class="p">))</span> <span class="p">(</span><span class="kt">VarE</span> <span class="n">c</span><span class="p">)</span>
+</code></pre>
+</div>
+
+<p>This looks just like a left fold!
+Once we have that, we’ll apply the fully applied <code class="highlighter-rouge">fn</code> expression to <code class="highlighter-rouge">VarE 'liftIO</code>, and finally bind it to the lambda.</p>
+
+<div class="language-haskell highlighter-rouge"><pre class="highlight"><code><span class="n">varExprs</span>   <span class="o">=</span> <span class="n">map</span> <span class="kt">VarE</span> <span class="p">(</span><span class="n">b</span> <span class="o">:</span> <span class="n">varNames</span><span class="p">)</span>
+<span class="n">fullExpr</span>   <span class="o">=</span> <span class="n">foldl</span> <span class="kt">AppE</span> <span class="p">(</span><span class="kt">VarE</span> <span class="n">fn</span><span class="p">)</span> <span class="n">varExprs</span>
+<span class="n">liftedExpr</span> <span class="o">=</span> <span class="kt">AppE</span> <span class="p">(</span><span class="kt">VarE</span> <span class="sc">'l</span><span class="err">i</span><span class="n">ftIO</span><span class="p">)</span> <span class="n">fullExpr</span>
+<span class="n">final</span>      <span class="o">=</span> <span class="n">binder</span> <span class="n">liftedExpr</span>
+</code></pre>
+</div>
+
+<p>This produces our <code class="highlighter-rouge">(&gt;&gt;=) reader (\b -&gt; fn b arg1 arg2 ... argn)</code> expression.</p>
+
+<p>The last thing we need to do is get our patterns.
+This is just the list of variables we generated earlier.</p>
+
+<div class="language-haskell highlighter-rouge"><pre class="highlight"><code><span class="n">varPat</span> <span class="o">=</span> <span class="n">map</span> <span class="kt">VarP</span> <span class="n">varNames</span>
+</code></pre>
+</div>
+
+<p>And now, the whole thing:</p>
+
+<div class="language-haskell highlighter-rouge"><pre class="highlight"><code><span class="n">deriveReader</span> <span class="o">::</span> <span class="kt">Name</span> <span class="o">-&gt;</span> <span class="kt">DecsQ</span>
+<span class="n">deriveReader</span> <span class="n">rd</span> <span class="o">=</span>
+  <span class="n">mapM</span> <span class="p">(</span><span class="n">decForFunc</span> <span class="n">rd</span><span class="p">)</span> 
+    <span class="p">[</span> <span class="sc">'d</span><span class="err">e</span><span class="n">stroyUserBackend</span>
+    <span class="p">,</span> <span class="sc">'h</span><span class="err">o</span><span class="n">usekeepBackend</span>
+    <span class="p">,</span> <span class="sc">'g</span><span class="err">e</span><span class="n">tUserIdByName</span>
+    <span class="p">,</span> <span class="sc">'g</span><span class="err">e</span><span class="n">tUserById</span>
+    <span class="p">,</span> <span class="sc">'l</span><span class="err">i</span><span class="n">stUsers</span>
+    <span class="p">,</span> <span class="sc">'c</span><span class="err">o</span><span class="n">untUsers</span>
+    <span class="p">,</span> <span class="sc">'c</span><span class="err">r</span><span class="n">eateUser</span>
+    <span class="p">,</span> <span class="sc">'u</span><span class="err">p</span><span class="n">dateUser</span>
+    <span class="p">,</span> <span class="sc">'u</span><span class="err">p</span><span class="n">dateUserDetails</span>
+    <span class="p">,</span> <span class="sc">'a</span><span class="err">u</span><span class="n">thUser</span>
+    <span class="p">,</span> <span class="sc">'d</span><span class="err">e</span><span class="n">leteUser</span>
+    <span class="p">]</span>
+
+<span class="n">decForFunc</span> <span class="o">::</span> <span class="kt">Name</span> <span class="o">-&gt;</span> <span class="kt">Name</span> <span class="o">-&gt;</span> <span class="kt">Q</span> <span class="kt">Dec</span>
+<span class="n">decForFunc</span> <span class="n">reader</span> <span class="n">fn</span> <span class="o">=</span> <span class="kr">do</span>
+  <span class="n">info</span> <span class="o">&lt;-</span> <span class="n">reify</span> <span class="n">fn</span>
+  <span class="n">arity</span> <span class="o">&lt;-</span> <span class="n">maybe</span> <span class="p">(</span><span class="n">reportError</span> <span class="s">"Unable to get arity of name"</span> <span class="o">&gt;&gt;</span> <span class="n">return</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="p">(</span><span class="n">return</span> <span class="o">.</span> <span class="n">functionLevels</span><span class="p">)</span> 
+        <span class="p">(</span><span class="n">getType</span> <span class="n">info</span><span class="p">)</span>
+  <span class="n">varNames</span> <span class="o">&lt;-</span> <span class="n">replicateM</span> <span class="p">(</span><span class="n">arity</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="p">(</span><span class="n">newName</span> <span class="s">"arg"</span><span class="p">)</span>
+  <span class="n">b</span> <span class="o">&lt;-</span> <span class="n">newName</span> <span class="s">"b"</span>
+  <span class="kr">let</span> <span class="n">fnName</span>     <span class="o">=</span> <span class="n">mkName</span> <span class="o">.</span> <span class="n">nameBase</span> <span class="o">$</span> <span class="n">fn</span>
+      <span class="n">bound</span>      <span class="o">=</span> <span class="kt">AppE</span> <span class="p">(</span><span class="kt">VarE</span> <span class="sc">'(</span><span class="err">&gt;</span><span class="o">&gt;=</span><span class="p">))</span> <span class="p">(</span><span class="kt">VarE</span> <span class="n">reader</span><span class="p">)</span>
+      <span class="n">binder</span>     <span class="o">=</span> <span class="kt">AppE</span> <span class="n">bound</span> <span class="o">.</span> <span class="kt">LamE</span> <span class="p">[</span><span class="kt">VarP</span> <span class="n">b</span><span class="p">]</span>
+      <span class="n">varExprs</span>   <span class="o">=</span> <span class="n">map</span> <span class="kt">VarE</span> <span class="p">(</span><span class="n">b</span> <span class="o">:</span> <span class="n">varNames</span><span class="p">)</span>
+      <span class="n">fullExpr</span>   <span class="o">=</span> <span class="n">foldl</span> <span class="kt">AppE</span> <span class="p">(</span><span class="kt">VarE</span> <span class="n">fn</span><span class="p">)</span> <span class="n">varExprs</span>
+      <span class="n">liftedExpr</span> <span class="o">=</span> <span class="kt">AppE</span> <span class="p">(</span><span class="kt">VarE</span> <span class="sc">'l</span><span class="err">i</span><span class="n">ftIO</span><span class="p">)</span> <span class="n">fullExpr</span>
+      <span class="n">final</span>      <span class="o">=</span> <span class="n">binder</span> <span class="n">liftedExpr</span>
+      <span class="n">varPat</span>     <span class="o">=</span> <span class="n">map</span> <span class="kt">VarP</span> <span class="n">varNames</span>
+  <span class="n">return</span> <span class="o">$</span> <span class="kt">FunD</span> <span class="n">fnName</span> <span class="p">[</span><span class="kt">Clause</span> <span class="n">varPat</span> <span class="p">(</span><span class="kt">NormalB</span> <span class="n">final</span><span class="p">)</span> <span class="kt">[]</span><span class="p">]</span>
+</code></pre>
+</div>
+
+<p>And we’ve now metaprogrammed a bunch of boilerplate away!</p>
+
+<p>We’ve looked at the docs for Template Haskell, figured out how to construct values in Haskell’s AST, and worked out how to do some work at compile time, as well as automate some boilerplate.
+I’m excited to learn more about the magic of defining quasiquoters and more advanced Template Haskell constructs, but even a super basic “build expressions and declarations using data constructors” approach is very useful.
+Hopefully, you’ll find this as useful as I did.</p>
+
+
+</div>
+
+  </div>
+<script type="text/javascript" async
+  src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-MML-AM_CHTML">
+</script>
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+  tex2jax: {inlineMath: [['$','$'], ['\\(','\\)']]}
+});
+</script>
+</body>
+
+<!-- Mirrored from www.parsonsmatt.org/2015/11/15/template_haskell.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 04:13:28 GMT -->
+</html>
