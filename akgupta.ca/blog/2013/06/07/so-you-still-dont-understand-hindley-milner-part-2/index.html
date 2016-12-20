@@ -1,0 +1,347 @@
+
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
+
+<!-- Mirrored from akgupta.ca/blog/2013/06/07/so-you-still-dont-understand-hindley-milner-part-2/ by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 22:29:10 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+  <meta charset="utf-8">
+  <title>So You Still Don't Understand Hindley-Milner?  Part 2 - Amit's Blog</title>
+  <meta property="og:title" content="So You Still Don't Understand Hindley-Milner?  Part 2 - Amit's Blog">
+  <meta name="author" content="Amit Kumar Gupta">
+
+  <meta property="og:site_name" content="Amit's Blog">
+  <meta property="og:image" content="http://akgupta.ca/imgaes/bigaleph.jpg">
+
+  
+  <meta name="description" content="In Part 1, we said what the building blocks of the Hindley-Milner formalization would be, and in this post we’ll thoroughly define them, and actually &hellip;">
+  <meta property="og:description" content="In Part 1, we said what the building blocks of the Hindley-Milner formalization would be, and in this post we’ll thoroughly define them, and actually &hellip;">
+  
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  
+  <link rel="canonical" href="http://akgupta.ca/blog/2013/06/07/so-you-still-dont-understand-hindley-milner-part-2">
+  <meta property="og:url" content="http://akgupta.ca/blog/2013/06/07/so-you-still-dont-understand-hindley-milner-part-2">
+  <link href="http://akgupta.ca/images/aleph.png" rel="icon">
+  <link href="http://akgupta.ca/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
+  <link href="http://akgupta.ca/atom.xml" rel="alternate" title="Amit's Blog" type="application/atom+xml">
+  <script src="http://akgupta.ca/javascripts/modernizr-2.0.js"></script>
+  <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+  <script>!window.jQuery && document.write(unescape('%3Cscript src="./javascripts/lib/jquery.min.js"%3E%3C/script%3E'))</script>
+  <script src="http://akgupta.ca/javascripts/octopress.js" type="text/javascript"></script>
+  <!--Fonts from Google"s Web font directory at http://google.com/webfonts -->
+<link href="http://fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+<link href="http://fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+<!--- MathJax Configuration -->
+<script type="text/javascript"
+src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML,http://drz.ac/javascripts/MathJaxLocal.js">
+</script>
+<!---Shadowbox Configuration -->
+<link rel="stylesheet" type="text/css" href="http://akgupta.ca/stylesheets/shadowbox.css">
+<script type="text/javascript" src="http://akgupta.ca/javascripts/shadowbox.js"></script>
+<script type="text/javascript">
+Shadowbox.init();
+</script>
+
+  
+  <script type="text/javascript">
+    var _gaq = _gaq || [];
+    _gaq.push(['_setAccount', 'UA-41581367-1']);
+    _gaq.push(['_trackPageview']);
+
+    (function() {
+      var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+      ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+      var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+    })();
+  </script>
+
+
+</head>
+
+<body   >
+  <header role="banner"><hgroup>
+  <h1><a href="http://akgupta.ca/">Amit's Blog</a></h1>
+  
+    <h2>Math, Code, etc.</h2>
+  
+</hgroup>
+
+</header>
+  <div id="main">
+    <div id="content">
+      <div>
+<article class="hentry" role="article">
+  
+  <header>
+    
+      <h1 class="entry-title">So You Still Don't Understand Hindley-Milner? Part 2</h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2013-06-07T00:19:00-07:00" pubdate data-updated="true">Jun 7<span>th</span>, 2013</time>
+        
+      </p>
+    
+  </header>
+
+
+<div class="entry-content"><p>In <a href="../../../05/14/so-you-still-dont-understand-hindley-milner/index.html">Part 1</a>, we said what the building blocks of the Hindley-Milner formalization would be, and in this post we’ll thoroughly define them, and actually formulate the formalization:</p>
+<h2 id="formalizing-the-concept-of-an-expression">Formalizing the concept of an expression</h2>
+<p>We’ll give a <a href="../../../../../../en.wikipedia.org/wiki/Recursive_definition.html">recursive definition</a> of what an expression is; in other words, we’ll state what the most basic kind of expression is, we’ll say how to create new, more complex expressions out of existing expressions, and we’ll say that only things made in this way are valid expressions.<br /><!--more--></p>
+<ol type="1">
+<li>Variables are valid expressions.<br /></li>
+<li>If <span class="math">\(e\)</span> is any expression, and <span class="math">\(x\)</span> is any variable, then <span class="math">\(\lambda x.e\)</span> is an expression. Here it helps to think of e as typically (thought not necessarily) a more complex expression involving <span class="math">\(x\)</span>, e.g. <span class="math">\(x^2+2\)</span>, and then <span class="math">\(\lambda x.e\)</span> as the anonymous function that takes an input <span class="math">\(x\)</span> and returns the result of evaluating the expression <span class="math">\(e\)</span> with the given value of <span class="math">\(x\)</span>. In other words, think of it like this:<br />
+<div class='bogus-wrapper'>
+<notextile>
+<figure class='code'><figcaption>
+<span></span>
+</figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='javascript'><span class='line'><span class="kd">function</span><span class="p">(</span><span class="nx">x</span><span class="p">)</span> <span class="p">{</span> <span class="k">return</span> <span class="nx">x</span><span class="o">^</span><span class="mi">2</span> <span class="o">+</span> <span class="mi">2</span><span class="p">;</span> <span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+</notextile>
+</div></li>
+<li>If <span class="math">\(f\)</span> and <span class="math">\(e\)</span> are valid expressions, then <span class="math">\(f(e)\)</span> is a valid expression. This is called Application, for obvious reasons.</li>
+<li>If <span class="math">\(x\)</span> is a variable, and <span class="math">\(e_1\)</span> and <span class="math">\(e_0\)</span> are valid expressions, then substituting every occurrence of <span class="math">\(x\)</span> in <span class="math">\(e_0\)</span> for <span class="math">\(e_1\)</span> yields a valid expression. So, for example, if <span class="math">\(e_1\)</span> is the expression <span class="math">\(x^2 + 2\)</span>, and <span class="math">\(e_0\)</span> is the expression <span class="math">\(y/3\)</span>, then if we let <span class="math">\(x = e_0\)</span> in <span class="math">\(e_1\)</span>, we get the expression <span class="math">\((y/3)^2 + 2\)</span>.<br />[NB: This last clause is redundant and not officially a part of the Lambda Calculus definition of an expression, as substituting <span class="math">\(e_0\)</span> for <span class="math">\(x\)</span> in <span class="math">\(e_1\)</span> is equivalent to applying the abstraction <span class="math">\(\lambda x.e_1\)</span> to <span class="math">\(e_0\)</span>. It’s added to support something called <a href="../../../../../../en.wikipedia.org/wiki/Hindley%e2%80%93Milner.html#Let-polymorphism">let-polymorphism</a>.]</li>
+</ol>
+<p>And nothing else is a valid expression.</p>
+<p>Aside: anyone paying close attention will wonder, wait, how can I make any useful expressions out of this? How do I even get <span class="math">\(x^2 + 2\)</span>, or in fact <span class="math">\(2\)</span> for that matter, out of the above? Heck, what about <span class="math">\(0\)</span>? There is nothing in the rules above which <em>obviously</em> yield the expression <span class="math">\(0\)</span>. The solution is to create expressions in the Lambda Calculus which behave like <span class="math">\(0, 1, \dots, +, \times, -, /\)</span> when interpreted correctly. In other words, we have to encode numbers, numerical operations, strings, etc. into patterns we can create with the Lambda syntax. <a href="http://palmstroem.blogspot.com/2012/05/lambda-calculus-for-absolute-dummies.html">This blog post</a> has a nice little section on numbers and numerical operations. This is a great feature of the Lambda Calculus: we have a simple syntax which we can define recursively in 4 simple clauses, and this therefore allows us to prove many things about it inductively in 4 main steps, yet the language itself has the expressive power to capture numbers, strings, and all the types and operations we could ever care about.</p>
+<h2 id="formalizing-statements-about-types">Formalizing statements about types</h2>
+<p>Let <span class="math">\(e\)</span> be any expression, that is, “<span class="math">\(e\)</span>” is a variable in our meta-language which stands for any expression in our base language, like any of the following:</p>
+<div class='bogus-wrapper'>
+<notextile>
+<figure class='code'><figcaption>
+<span></span>
+</figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class='javascript'><span class='line'><span class="nx">x</span>
+</span><span class='line'><span class="nb">Math</span><span class="p">.</span><span class="nx">pow</span><span class="p">(</span><span class="nx">x</span><span class="p">,</span><span class="mi">2</span><span class="p">)</span>
+</span><span class='line'><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">].</span><span class="nx">forEach</span> <span class="p">(</span> <span class="kd">function</span><span class="p">(</span><span class="nx">x</span><span class="p">)</span> <span class="p">{</span> <span class="nx">print</span><span class="p">(</span><span class="nx">x</span><span class="p">);</span> <span class="p">}</span> <span class="p">)</span>
+</span></code></pre></td></tr></table></div></figure>
+</notextile>
+</div>
+
+<p>Then if <span class="math">\(t\)</span> is any type, we can express “<span class="math">\(e\)</span> is of type <span class="math">\(t\)</span>” by</p>
+<p><span class="math">\[e:t\]</span></p>
+<p>Just like <span class="math">\(e\)</span>, <span class="math">\(t\)</span> is a variable in our meta-language, and it can stand for any type in the base language, like <span class="math">\(\mathrm{Int}\)</span>, <span class="math">\(\mathrm{String}\)</span>, etc. And just like <span class="math">\(e\)</span>, <span class="math">\(t\)</span> doesn’t necessarily need to stand for any one type in particular.</p>
+<p>One can give a formal definition for what counts as a type, just as we did for expressions above. However the abstraction gets fairly twisted, so we’ll leave it at that. I should just point out a few two key things to keep in mind:</p>
+<ol type="1">
+<li>If <span class="math">\(s\)</span> and <span class="math">\(t\)</span> are types, then so is <span class="math">\(t \rightarrow s\)</span>; it’s the type of a function with <span class="math">\(t\)</span> inputs and <span class="math">\(s\)</span> outputs.<br /></li>
+<li>If <span class="math">\(r\)</span> is a type, possibly made up of other types (just as <span class="math">\(t \rightarrow s\)</span> is made up of <span class="math">\(t\)</span> and <span class="math">\(s\)</span>, which could each potentially have been made up of other types), and <span class="math">\(\alpha\)</span> is a variable for a type, then <span class="math">\(\forall \alpha.r\)</span> is a type. That makes no sense without an example:</li>
+</ol>
+<div class='bogus-wrapper'>
+<notextile>
+<figure class='code'><figcaption>
+<span></span>
+</figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='javascript'><span class='line'><span class="kd">function</span> <span class="p">(</span><span class="nx">x</span><span class="p">)</span> <span class="p">{</span> <span class="k">return</span> <span class="nx">x</span><span class="p">;</span> <span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+</notextile>
+</div>
+
+<p>This function is type <span class="math">\(\mathrm{String} \rightarrow \mathrm{String}\)</span>. But it’s also <span class="math">\(\mathrm{Int} \rightarrow \mathrm{Int}\)</span>. In fact, for any type <span class="math">\(t\)</span>, it’s type <span class="math">\(t \rightarrow t\)</span>. We’re gonna say that it has type <span class="math">\(\forall t. t \rightarrow t\)</span>. Each of the types <span class="math">\(\mathrm{String} \rightarrow \mathrm{String}\)</span>, <span class="math">\(t \rightarrow t\)</span>, are “monotypes”. <span class="math">\(\forall t. t \rightarrow t\)</span> is a “polytype”. The identity function above has the abstract polytype <span class="math">\(\forall t. t \rightarrow t\)</span> which, in practice, means that for every real type <span class="math">\(t\)</span>, it has type <span class="math">\(t \rightarrow t\)</span>. If all of this has been sinking in, then we can compactly express this as:</p>
+<p><span class="math">\[\lambda x.x:\forall\alpha.\alpha \rightarrow \alpha\]</span></p>
+<h2 id="formalizing-statements-about-statements-about-types">Formalizing statements about statements about types</h2>
+<p>Now we’re going to want to formalize a bunch of rules for how we can go from some knowledge of expressions and their types to inferring types of more expressions. Remember how propositional calculus formalized Modus Ponens? We’re going to do something similar. For instance, say we want to formalize the following piece of reasoning:</p>
+<blockquote>
+<p>Suppose I’ve already been able to infer that a variable <code>duck</code> has type <code>Animal</code>.<br />Suppose furthermore that I’ve inferred that <code>speak</code> is a method of type <code>Animal -&gt; String</code>.<br />Then I can infer that <code>speak(duck)</code> has type String.</p>
+<p>And any reasoning of this form is valid type inference.</p>
+</blockquote>
+<p>We’ll formalize that as follows:</p>
+<p><span class="math">\[\underline{\Gamma\vdash e_0:\tau\rightarrow\tau &#39;\ \ \ \Gamma\vdash e_1:\tau}\]</span> <span class="math">\[\Gamma\vdash e_0(e_1):\tau &#39;\]</span></p>
+<p>That rule has the name [App] (for application), and it’s one of the ones pictured in <a href="http://stackoverflow.com/questions/12532552/what-part-of-milner-hindley-do-you-not-understand">that StackOverflow question</a>. We’ll talk about it and the rest of the rules in the next post. For now, let’s first get a handle on all the symbols you see above:</p>
+<ul>
+<li><span class="math">\(\Gamma\)</span>, this will stand for the collection of statements we already know, or perhaps, the statements we’re assuming. More generally, <span class="math">\(\Gamma\)</span> should just be thought of as some collection of statements (about expressions and their types). And of course, there’s nothing special about the letter <span class="math">\(\Gamma\)</span>; capital greek letters are commonly used for sets of statements however.<br /></li>
+<li><span class="math">\(\vdash\)</span>, the “turnstile”, denotes that something can be inferred. For instance, <span class="math">\(\Gamma \vdash x:t\)</span> says that if we take the statements in <span class="math">\(\Gamma\)</span> as our assumptions/axioms/current knowledge, then we can infer that <span class="math">\(x\)</span> has type <span class="math">\(t\)</span>.<br /></li>
+<li><span class="math">\(\in\)</span>, “epsilon”, denotes membership. <span class="math">\(x:t \in \Gamma\)</span> says that the statement <span class="math">\(x:t\)</span> is a member of <span class="math">\(\Gamma\)</span>.</li>
+<li>That long horizontal bar; this line tells us that we can make the conclusion below the line if the things above the line are taken as premises in the argument. It lets us express things like, “if we can infer such and such, then we can infer such and such”, e.g.</li>
+</ul>
+<p><span class="math">\[\underline{\Gamma \vdash y:\sigma}\]</span> <span class="math">\[\Gamma \vdash x:\tau\]</span></p>
+<p>If we can infer that <span class="math">\(y\)</span> has type <span class="math">\(\sigma\)</span> from <span class="math">\(\Gamma\)</span>, then we can infer <span class="math">\(x\)</span> has type <span class="math">\(\tau\)</span> from <span class="math">\(\Gamma\)</span>.</p>
+<p>Next up:</p>
+<ul>
+<li><a href="../so-you-still-dont-understand-hindley-milner-part-3/index.html">Part 3</a>, where we put this all together and make sense of the inference rules used by the HM algorithm.</li>
+</ul></div>
+
+
+  <footer>
+    <p class="meta">
+      
+  
+
+<span class="byline author vcard">Posted by <span class="fn">Amit Kumar Gupta</span></span>
+
+      
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2013-06-07T00:19:00-07:00" pubdate data-updated="true">Jun 7<span>th</span>, 2013</time>
+      
+
+
+    </p>
+    
+      <div class="sharing">
+  
+  <a href="http://twitter.com/share" class="twitter-share-button" data-url="http://akgupta.ca/blog/2013/06/07/so-you-still-dont-understand-hindley-milner-part-2/" data-via="" data-counturl="http://akgupta.ca/blog/2013/06/07/so-you-still-dont-understand-hindley-milner-part-2/" >Tweet</a>
+  
+  
+  
+</div>
+
+    
+    <p class="meta">
+      
+        <a class="basic-alignment left" href="http://akgupta.ca/blog/2013/06/06/entropy-how-password-strength-is-measured/" title="Previous Post: Entropy: How Password Strength is Measured">&laquo; Entropy: How Password Strength is Measured</a>
+      
+      
+        <a class="basic-alignment right" href="../so-you-still-dont-understand-hindley-milner-part-3/index.html" title="Next Post: So You Still Don't Understand Hindley-Milner?  Part 3">So You Still Don't Understand Hindley-Milner?  Part 3 &raquo;</a>
+      
+    </p>
+  </footer>
+</article>
+
+  <section>
+    <h1>Comments</h1>
+    <div id="disqus_thread" aria-live="polite"><noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+</div>
+  </section>
+
+</div>
+
+<aside class="sidebar">
+  
+    <section>
+  <h1>Contact</h1>
+  <p>Twitter: <a href="https://twitter.com/amitkgupta84/">@amitkgupta84</a><br>
+     LinkedIn: <a href="http://www.linkedin.com/pub/amit-gupta/1a/527/936">Amit Kumar Gupta</a></p>
+</section>
+<section>
+  <h1>Recent Posts</h1>
+  <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="http://akgupta.ca/blog/2014/07/19/is-math-programming-youre-asking-the-wrong-question-part-2/">Is Programming Math? You're Asking the Wrong Question. Part 2</a>
+      </li>
+    
+      <li class="post">
+        <a href="http://akgupta.ca/blog/2014/07/19/is-math-programming-youre-asking-the-wrong-question-part-1/">Is Programming Math? You're Asking the Wrong Question. Part 1</a>
+      </li>
+    
+      <li class="post">
+        <a href="../../../../2014/06/21/k-nn-algorithm-in-golang-and-haskell/index.html">k-NN Algorithm in Golang and Haskell</a>
+      </li>
+    
+      <li class="post">
+        <a href="../so-you-still-dont-understand-hindley-milner-part-3/index.html">So You Still Don't Understand Hindley-Milner? Part 3</a>
+      </li>
+    
+      <li class="post">
+        <a href="index.html">So You Still Don't Understand Hindley-Milner? Part 2</a>
+      </li>
+    
+      <li class="post">
+        <a href="http://akgupta.ca/blog/2013/06/06/entropy-how-password-strength-is-measured/">Entropy: How Password Strength Is Measured</a>
+      </li>
+    
+      <li class="post">
+        <a href="http://akgupta.ca/blog/2013/06/02/yo-dawg/">Yo Dawg, I Herd You Like Math</a>
+      </li>
+    
+      <li class="post">
+        <a href="http://akgupta.ca/blog/2013/05/19/is-it-possible-to-be-15-percent-swedish/">Is It Possible to Be 15% Swedish?</a>
+      </li>
+    
+      <li class="post">
+        <a href="../../../05/14/so-you-still-dont-understand-hindley-milner/index.html">So You Still Don't Understand Hindley-Milner? Part 1</a>
+      </li>
+    
+      <li class="post">
+        <a href="http://akgupta.ca/blog/2013/05/11/setting-up-postgresql-with-macports-for-ruby-on-rails-development/">Setting Up PostgreSQL With MacPorts for Ruby on Rails Development</a>
+      </li>
+    
+  </ul>
+</section>
+
+
+  
+</aside>
+
+
+    </div>
+  </div>
+  <footer role="contentinfo"><p>
+  Copyright &copy; 2016 - Amit Kumar Gupta -
+  <span class="credit">Powered by <a href="http://octopress.org/">Octopress</a></span>
+</p>
+
+</footer>
+  
+
+<script type="text/javascript">
+      var disqus_shortname = 'amitsblog-math-code';
+      
+        
+        // var disqus_developer = 1;
+        var disqus_identifier = 'index.html';
+        var disqus_url = 'index.html';
+        var disqus_script = 'embed.html';
+      
+    (function () {
+      var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+      dsq.src = 'http://' + disqus_shortname + '.disqus.com/' + disqus_script;
+      (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    }());
+</script>
+
+
+
+
+
+
+
+  <script type="text/javascript">
+    (function(){
+      var twitterWidgets = document.createElement('script');
+      twitterWidgets.type = 'text/javascript';
+      twitterWidgets.async = true;
+      twitterWidgets.src = 'http://platform.twitter.com/widgets.js';
+      document.getElementsByTagName('head')[0].appendChild(twitterWidgets);
+    })();
+  </script>
+
+
+
+
+
+</body>
+
+<!-- Mirrored from akgupta.ca/blog/2013/06/07/so-you-still-dont-understand-hindley-milner-part-2/ by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 22:29:11 GMT -->
+</html>

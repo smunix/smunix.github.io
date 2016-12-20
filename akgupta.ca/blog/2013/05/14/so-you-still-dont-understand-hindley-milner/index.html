@@ -1,0 +1,309 @@
+
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
+
+<!-- Mirrored from akgupta.ca/blog/2013/05/14/so-you-still-dont-understand-hindley-milner/ by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 22:29:09 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+  <meta charset="utf-8">
+  <title>So you still don't understand Hindley-Milner?  Part 1 - Amit's Blog</title>
+  <meta property="og:title" content="So you still don't understand Hindley-Milner?  Part 1 - Amit's Blog">
+  <meta name="author" content="Amit Kumar Gupta">
+
+  <meta property="og:site_name" content="Amit's Blog">
+  <meta property="og:image" content="http://akgupta.ca/imgaes/bigaleph.jpg">
+
+  
+  <meta name="description" content="I was out for drinks with Josh Long and some other friends from work, when he found out I “speak math.” He had come across this StackOverflow &hellip;">
+  <meta property="og:description" content="I was out for drinks with Josh Long and some other friends from work, when he found out I “speak math.” He had come across this StackOverflow &hellip;">
+  
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  
+  <link rel="canonical" href="http://akgupta.ca/blog/2013/05/14/so-you-still-dont-understand-hindley-milner">
+  <meta property="og:url" content="http://akgupta.ca/blog/2013/05/14/so-you-still-dont-understand-hindley-milner">
+  <link href="http://akgupta.ca/images/aleph.png" rel="icon">
+  <link href="http://akgupta.ca/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
+  <link href="http://akgupta.ca/atom.xml" rel="alternate" title="Amit's Blog" type="application/atom+xml">
+  <script src="http://akgupta.ca/javascripts/modernizr-2.0.js"></script>
+  <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+  <script>!window.jQuery && document.write(unescape('%3Cscript src="./javascripts/lib/jquery.min.js"%3E%3C/script%3E'))</script>
+  <script src="http://akgupta.ca/javascripts/octopress.js" type="text/javascript"></script>
+  <!--Fonts from Google"s Web font directory at http://google.com/webfonts -->
+<link href="http://fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+<link href="http://fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+<!--- MathJax Configuration -->
+<script type="text/javascript"
+src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML,http://drz.ac/javascripts/MathJaxLocal.js">
+</script>
+<!---Shadowbox Configuration -->
+<link rel="stylesheet" type="text/css" href="http://akgupta.ca/stylesheets/shadowbox.css">
+<script type="text/javascript" src="http://akgupta.ca/javascripts/shadowbox.js"></script>
+<script type="text/javascript">
+Shadowbox.init();
+</script>
+
+  
+  <script type="text/javascript">
+    var _gaq = _gaq || [];
+    _gaq.push(['_setAccount', 'UA-41581367-1']);
+    _gaq.push(['_trackPageview']);
+
+    (function() {
+      var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+      ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+      var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+    })();
+  </script>
+
+
+</head>
+
+<body   >
+  <header role="banner"><hgroup>
+  <h1><a href="http://akgupta.ca/">Amit's Blog</a></h1>
+  
+    <h2>Math, Code, etc.</h2>
+  
+</hgroup>
+
+</header>
+  <div id="main">
+    <div id="content">
+      <div>
+<article class="hentry" role="article">
+  
+  <header>
+    
+      <h1 class="entry-title">So You Still Don't Understand Hindley-Milner? Part 1</h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2013-05-14T01:12:00-07:00" pubdate data-updated="true">May 14<span>th</span>, 2013</time>
+        
+      </p>
+    
+  </header>
+
+
+<div class="entry-content"><p>I was out for drinks with <a href="https://twitter.com/starbuxman">Josh Long</a> and some other friends from work, when he found out I “speak math.” He had come across <a href="http://stackoverflow.com/questions/12532552/what-part-of-milner-hindley-do-you-not-understand">this StackOverflow question</a> and asked me what it meant:</p>
+<p><img src="http://i.stack.imgur.com/hZhjl.png" /><br /><br></p>
+<p>Before we figure out what it means, let’s get an idea for why we care in the first place. <a href="http://www.codecommit.com/blog/scala/what-is-hindley-milner-and-why-is-it-cool">Daniel Spiewak’s blog post</a> gives a really nice explanation of the purpose of the HM algorithm, in addition to an in-depth example of its application:</p>
+<blockquote>
+<p>Functionally speaking, Hindley-Milner (or “Damas-Milner”) is an algorithm for inferring value types based on use.  It literally formalizes the intuition that a type can be deduced by the functionality it supports.</p>
+</blockquote>
+<p>Okay, so we want to formalize an algorithm for inferring types of any given expression. In this post, I’m going to touch on what it means to formalize something, then describe the building blocks of the HM formalization. In <a href="../../../06/07/so-you-still-dont-understand-hindley-milner-part-2/index.html">Part 2</a>, I’ll flesh out the building blocks of the formalization. Finally in <a href="../../../06/07/so-you-still-dont-understand-hindley-milner-part-3/index.html">Part 3</a>, I’ll translate that StackOverflow question.<br /><!--more--></p>
+<h2 id="what-it-means-to-formalize">What it means to formalize</h2>
+<p>Okay, so we want to talk about expressions. Arbitrary expressions. In an arbitrary language. And we want to talk about inferring types of these expressions. And we want to figure out rules for how we can infer types. And then we’re going to want to make an algorithm that uses these rules to infer types. So we’re going to need a meta-language. A language to talk about expressions in an arbitrary programming language. This meta-language should:</p>
+<ul>
+<li>Be abstract and generic, so that it allows us to reason about statements of type inference purely based on their <em>form</em> (hence, <em>formalization</em>), without having to worry about their content.</li>
+<li>Give a precise, unambiguous, yet intuitive definition for what an expression is.</li>
+<li>Give those definitions in terms of a small number of uncontroversial primitive concepts.</li>
+<li>Similarly give definitions for types, the idea that an expression has a type, and the idea that we can infer that a given expression has a given type.</li>
+<li>Lend itself to a simple, terse symbolic representation, e.g. rather than saying “the expression formed by applying the first expression to the second expression has the type of a function from strings to some type we don’t care to specify in the current context” we could simply say “<span class="math">\(e_1(e_2):\mathrm{String} \rightarrow t\)</span>”.</li>
+<li>Be easily translated to something a computer can understand and implement, so we can ultimately automate type inference.</li>
+</ul>
+<p>To make all that a little more concrete, let’s look at a really quick example of a formalization. If, instead of formalizing a language for talking about inferring types of expressions in an arbitrary programming language, what if we wanted to formalize a language for talking about truths of sentences in arbitrary natural languages? Without formalization, we might say something like</p>
+<blockquote>
+<p>Suppose I know that if it’s raining, Bob will carry an umbrella.<br />And suppose I also know that it’s raining.<br />Then, I can conclude that Bob will carry an umbrella.</p>
+<p>And any argument that takes this form is a valid way to reason.</p>
+</blockquote>
+<p>Propositional Calculus formalizes that whole things as a rule known as Modus Ponens:</p>
+<p><span class="math">\[\underline{A,\ \ A \rightarrow B}\]</span> <span class="math">\[B\]</span></p>
+<p>where <span class="math">\(A\)</span> and <span class="math">\(B\)</span> are variables representing propositions (a.k.a. sentences or clauses) in an arbitrary natural language.</p>
+<p>Okay, so let’s enumerate the building blocks of the HM formalization:</p>
+<h2 id="building-blocks-of-the-formalization">Building blocks of the formalization</h2>
+<p>We will need:</p>
+<ol type="1">
+<li>A formal way to talk about expressions. This formalization should meet the criteria enumerated above; for this purpose we use the <strong>Lambda Calculus</strong>. I’ll be explaining that in a minute, but there’s nothing crazy going on here.</li>
+<li>A formal way to talk about types, and a formal way to talk about expressions and types together. After all, the purpose of the HM algorithm is to be able to deduce statements of the form “expression <span class="math">\(e\)</span> has type <span class="math">\(t\)</span>”.</li>
+<li>A formal set of rules for deriving statements about expression types from other such statements. Rules along the lines of: “if I can already demonstrate that some expression has this type, and another expression has that type, then this third expression has this other type”. <em>Such a set of rules is exactly what you’re seeing in that SO question</em>. I’ll be translating this in full detail.</li>
+<li>An algorithm that intelligently uses the deduction rules to get from a starting point to deducing/inferring a desired conclusion statement: “the expression <span class="math">\(e\)</span> that I’m interested in has type <span class="math">\(t\)</span>”. This is the “algorithm” part for the “HM algorithm”, and that’s not something I’ll be going into in these posts.</li>
+</ol>
+<p>Onward, ho!</p>
+<ul>
+<li><a href="../../../06/07/so-you-still-dont-understand-hindley-milner-part-2/index.html">Part 2</a>, wherein we thoroughly define points 1 and 2 above, and demystify the mathematical syntax.</li>
+<li><a href="../../../06/07/so-you-still-dont-understand-hindley-milner-part-3/index.html">Part 3</a>, wherein we translate the type inference rules in point 3 above.</li>
+</ul></div>
+
+
+  <footer>
+    <p class="meta">
+      
+  
+
+<span class="byline author vcard">Posted by <span class="fn">Amit Kumar Gupta</span></span>
+
+      
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2013-05-14T01:12:00-07:00" pubdate data-updated="true">May 14<span>th</span>, 2013</time>
+      
+
+
+    </p>
+    
+      <div class="sharing">
+  
+  <a href="http://twitter.com/share" class="twitter-share-button" data-url="http://akgupta.ca/blog/2013/05/14/so-you-still-dont-understand-hindley-milner/" data-via="" data-counturl="http://akgupta.ca/blog/2013/05/14/so-you-still-dont-understand-hindley-milner/" >Tweet</a>
+  
+  
+  
+</div>
+
+    
+    <p class="meta">
+      
+        <a class="basic-alignment left" href="http://akgupta.ca/blog/2013/05/11/setting-up-postgresql-with-macports-for-ruby-on-rails-development/" title="Previous Post: Setting up PostgreSQL with MacPorts for Ruby on Rails development">&laquo; Setting up PostgreSQL with MacPorts for Ruby on Rails development</a>
+      
+      
+        <a class="basic-alignment right" href="http://akgupta.ca/blog/2013/05/19/is-it-possible-to-be-15-percent-swedish/" title="Next Post: Is it possible to be 15% Swedish?">Is it possible to be 15% Swedish? &raquo;</a>
+      
+    </p>
+  </footer>
+</article>
+
+  <section>
+    <h1>Comments</h1>
+    <div id="disqus_thread" aria-live="polite"><noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+</div>
+  </section>
+
+</div>
+
+<aside class="sidebar">
+  
+    <section>
+  <h1>Contact</h1>
+  <p>Twitter: <a href="https://twitter.com/amitkgupta84/">@amitkgupta84</a><br>
+     LinkedIn: <a href="http://www.linkedin.com/pub/amit-gupta/1a/527/936">Amit Kumar Gupta</a></p>
+</section>
+<section>
+  <h1>Recent Posts</h1>
+  <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="http://akgupta.ca/blog/2014/07/19/is-math-programming-youre-asking-the-wrong-question-part-2/">Is Programming Math? You're Asking the Wrong Question. Part 2</a>
+      </li>
+    
+      <li class="post">
+        <a href="http://akgupta.ca/blog/2014/07/19/is-math-programming-youre-asking-the-wrong-question-part-1/">Is Programming Math? You're Asking the Wrong Question. Part 1</a>
+      </li>
+    
+      <li class="post">
+        <a href="../../../../2014/06/21/k-nn-algorithm-in-golang-and-haskell/index.html">k-NN Algorithm in Golang and Haskell</a>
+      </li>
+    
+      <li class="post">
+        <a href="../../../06/07/so-you-still-dont-understand-hindley-milner-part-3/index.html">So You Still Don't Understand Hindley-Milner? Part 3</a>
+      </li>
+    
+      <li class="post">
+        <a href="../../../06/07/so-you-still-dont-understand-hindley-milner-part-2/index.html">So You Still Don't Understand Hindley-Milner? Part 2</a>
+      </li>
+    
+      <li class="post">
+        <a href="http://akgupta.ca/blog/2013/06/06/entropy-how-password-strength-is-measured/">Entropy: How Password Strength Is Measured</a>
+      </li>
+    
+      <li class="post">
+        <a href="http://akgupta.ca/blog/2013/06/02/yo-dawg/">Yo Dawg, I Herd You Like Math</a>
+      </li>
+    
+      <li class="post">
+        <a href="http://akgupta.ca/blog/2013/05/19/is-it-possible-to-be-15-percent-swedish/">Is It Possible to Be 15% Swedish?</a>
+      </li>
+    
+      <li class="post">
+        <a href="index.html">So You Still Don't Understand Hindley-Milner? Part 1</a>
+      </li>
+    
+      <li class="post">
+        <a href="http://akgupta.ca/blog/2013/05/11/setting-up-postgresql-with-macports-for-ruby-on-rails-development/">Setting Up PostgreSQL With MacPorts for Ruby on Rails Development</a>
+      </li>
+    
+  </ul>
+</section>
+
+
+  
+</aside>
+
+
+    </div>
+  </div>
+  <footer role="contentinfo"><p>
+  Copyright &copy; 2016 - Amit Kumar Gupta -
+  <span class="credit">Powered by <a href="http://octopress.org/">Octopress</a></span>
+</p>
+
+</footer>
+  
+
+<script type="text/javascript">
+      var disqus_shortname = 'amitsblog-math-code';
+      
+        
+        // var disqus_developer = 1;
+        var disqus_identifier = 'index.html';
+        var disqus_url = 'index.html';
+        var disqus_script = 'embed.html';
+      
+    (function () {
+      var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+      dsq.src = 'http://' + disqus_shortname + '.disqus.com/' + disqus_script;
+      (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    }());
+</script>
+
+
+
+
+
+
+
+  <script type="text/javascript">
+    (function(){
+      var twitterWidgets = document.createElement('script');
+      twitterWidgets.type = 'text/javascript';
+      twitterWidgets.async = true;
+      twitterWidgets.src = 'http://platform.twitter.com/widgets.js';
+      document.getElementsByTagName('head')[0].appendChild(twitterWidgets);
+    })();
+  </script>
+
+
+
+
+
+</body>
+
+<!-- Mirrored from akgupta.ca/blog/2013/05/14/so-you-still-dont-understand-hindley-milner/ by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 22:29:10 GMT -->
+</html>

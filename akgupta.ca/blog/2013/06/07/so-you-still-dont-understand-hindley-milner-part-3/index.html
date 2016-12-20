@@ -1,0 +1,316 @@
+
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
+
+<!-- Mirrored from akgupta.ca/blog/2013/06/07/so-you-still-dont-understand-hindley-milner-part-3/ by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 22:29:18 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+  <meta charset="utf-8">
+  <title>So You Still Don't Understand Hindley-Milner?  Part 3 - Amit's Blog</title>
+  <meta property="og:title" content="So You Still Don't Understand Hindley-Milner?  Part 3 - Amit's Blog">
+  <meta name="author" content="Amit Kumar Gupta">
+
+  <meta property="og:site_name" content="Amit's Blog">
+  <meta property="og:image" content="http://akgupta.ca/imgaes/bigaleph.jpg">
+
+  
+  <meta name="description" content="In Part 2, we finished defining all the formal terms and symbols you see in the StackOverflow question on the Hindley-Milner algorithm, so now we’re &hellip;">
+  <meta property="og:description" content="In Part 2, we finished defining all the formal terms and symbols you see in the StackOverflow question on the Hindley-Milner algorithm, so now we’re &hellip;">
+  
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  
+  <link rel="canonical" href="http://akgupta.ca/blog/2013/06/07/so-you-still-dont-understand-hindley-milner-part-3">
+  <meta property="og:url" content="http://akgupta.ca/blog/2013/06/07/so-you-still-dont-understand-hindley-milner-part-3">
+  <link href="http://akgupta.ca/images/aleph.png" rel="icon">
+  <link href="http://akgupta.ca/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
+  <link href="http://akgupta.ca/atom.xml" rel="alternate" title="Amit's Blog" type="application/atom+xml">
+  <script src="http://akgupta.ca/javascripts/modernizr-2.0.js"></script>
+  <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+  <script>!window.jQuery && document.write(unescape('%3Cscript src="./javascripts/lib/jquery.min.js"%3E%3C/script%3E'))</script>
+  <script src="http://akgupta.ca/javascripts/octopress.js" type="text/javascript"></script>
+  <!--Fonts from Google"s Web font directory at http://google.com/webfonts -->
+<link href="http://fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+<link href="http://fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+<!--- MathJax Configuration -->
+<script type="text/javascript"
+src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML,http://drz.ac/javascripts/MathJaxLocal.js">
+</script>
+<!---Shadowbox Configuration -->
+<link rel="stylesheet" type="text/css" href="http://akgupta.ca/stylesheets/shadowbox.css">
+<script type="text/javascript" src="http://akgupta.ca/javascripts/shadowbox.js"></script>
+<script type="text/javascript">
+Shadowbox.init();
+</script>
+
+  
+  <script type="text/javascript">
+    var _gaq = _gaq || [];
+    _gaq.push(['_setAccount', 'UA-41581367-1']);
+    _gaq.push(['_trackPageview']);
+
+    (function() {
+      var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+      ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+      var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+    })();
+  </script>
+
+
+</head>
+
+<body   >
+  <header role="banner"><hgroup>
+  <h1><a href="http://akgupta.ca/">Amit's Blog</a></h1>
+  
+    <h2>Math, Code, etc.</h2>
+  
+</hgroup>
+
+</header>
+  <div id="main">
+    <div id="content">
+      <div>
+<article class="hentry" role="article">
+  
+  <header>
+    
+      <h1 class="entry-title">So You Still Don't Understand Hindley-Milner? Part 3</h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2013-06-07T00:22:00-07:00" pubdate data-updated="true">Jun 7<span>th</span>, 2013</time>
+        
+      </p>
+    
+  </header>
+
+
+<div class="entry-content"><p>In <a href="../so-you-still-dont-understand-hindley-milner-part-2/index.html">Part 2</a>, we finished defining all the formal terms and symbols you see in the <a href="http://stackoverflow.com/questions/12532552/what-part-of-milner-hindley-do-you-not-understand">StackOverflow question</a> on the Hindley-Milner algorithm, so now we’re ready to translate what that question was asking about, namely the rules for deducing statements about type inference. Let’s get down to it!</p>
+<h2 id="the-rules-for-deducing-statements-about-type-inference">The rules for deducing statements about type inference</h2>
+<p>[Var]</p>
+<p><span class="math">\[\underline{x:\sigma \in \Gamma}\]</span> <span class="math">\[\Gamma \vdash x:\sigma\]</span></p>
+<p>This translates to: If “<span class="math">\(x\)</span> has type <span class="math">\(\sigma\)</span>” is a statement in our collection of statements <span class="math">\(\Gamma\)</span>, then from <span class="math">\(\Gamma\)</span> you can infer that <span class="math">\(x\)</span> has type <span class="math">\(\sigma\)</span>. Here <span class="math">\(x\)</span> is a variable (hence the name of this rule of inference). Yes, it should sound that painfully obvious. The terse, cryptic way that [Var] is expressed isn’t that way because it contains some deep, difficult fact. It’s terse and succinct so that a machine can understand it and type inference can be automated.<br /><!--more--></p>
+<p>[App]</p>
+<p><span class="math">\[\underline{\Gamma\vdash e_0:\tau\rightarrow\tau &#39;\ \ \ \Gamma\vdash e_1:\tau}\]</span> <span class="math">\[\Gamma\vdash e_0(e_1):\tau &#39;\]</span></p>
+<p>This translates to: If we can infer that <span class="math">\(e_0\)</span> is an expression whose type is <span class="math">\(\tau \rightarrow \tau &#39;\)</span> (e.g. <span class="math">\(e_0\)</span> might be an anonymous function which, according to <span class="math">\(\Gamma\)</span>, takes input of type <span class="math">\(\tau\)</span> and returns output of type <span class="math">\(\tau &#39;\)</span>), and we can infer that <span class="math">\(e_1\)</span> has type <span class="math">\(\tau\)</span>, then we may deduce that we can infer that <span class="math">\(e_0(e_1)\)</span>, the expression obtained by applying <span class="math">\(e_0\)</span> to <span class="math">\(e_1\)</span>, has type <span class="math">\(\tau &#39;\)</span>. The intuitive gist is if we can infer the types of the input and output of a function, and we can infer some expression has the same type as the input of the function, then when we apply the function to that expression, we can infer the result expression has the type of the output of the function. Nothing bewildering here.</p>
+<p>[Abs]</p>
+<p><span class="math">\[\underline{\ \ \Gamma, x:\tau \vdash e:\tau &#39;\ \ }\]</span> <span class="math">\[\Gamma \vdash \lambda x.e:\tau \rightarrow \tau &#39;\]</span></p>
+<p>This translates to: If allowing us to assume that <span class="math">\(x\)</span> has type <span class="math">\(\tau\)</span> we were able to infer that <span class="math">\(e\)</span> has type <span class="math">\(\tau &#39;\)</span>, then we may deduce that we can infer that the abstraction/anonymization of <span class="math">\(e\)</span> with respect to the variable <span class="math">\(x\)</span>, <span class="math">\(\lambda x.e\)</span>, has type <span class="math">\(\tau \rightarrow \tau &#39;\)</span>. So, for example, we know that if <span class="math">\(x\)</span> has type <span class="math">\(\mathrm{String}\)</span>, then the expression <span class="math">\(x[0]\)</span> has type <span class="math">\(\mathrm{Char}\)</span>. Now [Abs] allows us to deduce that</p>
+<div class='bogus-wrapper'>
+<notextile>
+<figure class='code'><figcaption>
+<span></span>
+</figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='javascript'><span class='line'><span class="kd">function</span><span class="p">(</span><span class="nx">x</span><span class="p">)</span> <span class="p">{</span> <span class="k">return</span> <span class="nx">x</span><span class="p">[</span><span class="mi">0</span><span class="p">];</span> <span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+</notextile>
+</div>
+
+<p>has type <span class="math">\(\mathrm{String} \rightarrow \mathrm{Char}\)</span>.</p>
+<p>Aside. I mentioned polytypes earlier. Let’s revisit them it in this example, just to help hammer it home. So note that this function above also has type <span class="math">\(\mathrm{Array}[\mathrm{Int}] \rightarrow \mathrm{Int}\)</span>. In fact, for any type <span class="math">\(t\)</span>, the function has type <span class="math">\(\mathrm{Array}[t] \rightarrow t\)</span>. So it has many different types, <span class="math">\(\mathrm{String} \rightarrow \mathrm{Char}\)</span> being just one of them. <em>Each</em> of its types of the form <span class="math">\(\mathrm{Array}[t] \rightarrow t\)</span> is monotype. We can express that this function has <em>all</em> of these monotypes by saying that it has the polytype <span class="math">\(\forall t(\mathrm{Array}[t] \rightarrow t)\)</span>. We read that as “for all <span class="math">\(t\)</span>, the type <span class="math">\(\mathrm{Array}[t] \rightarrow t\)</span>” and we treat that whole thing as a single, yet more abstract, type. So note that when we infer the type of some expression, that doesn’t mean that said type is the <em>only</em> type of that expression. An expression can have many types, and some of these types can be specializations of more abstract types. The simplest kinds of types are monotypes: <span class="math">\(\mathrm{Int}\)</span>, <span class="math">\(\mathrm{String}\)</span>, <span class="math">\(\mathrm{String} \rightarrow \mathrm{Char}\)</span>, etc. but we can have more abstract/general types called polytypes.</p>
+<p>[Let]</p>
+<p><span class="math">\[\underline{\Gamma \vdash e_0:\sigma\ \ \ \ \Gamma , x:\sigma \vdash e_1 : \tau}\]</span> <span class="math">\[\Gamma \vdash \mbox{let } x = e_0 \mbox{ in } e_1:\tau\]</span></p>
+<p>Easy:</p>
+<p>If we can infer that <span class="math">\(e_0\)</span> has type <span class="math">\(\sigma\)</span>, and<br />If we were to assume <span class="math">\(x\)</span> had type <span class="math">\(\sigma\)</span> we could infer that <span class="math">\(e_1\)</span> has type <span class="math">\(t\)</span>,<br />Then we may deduce that we can infer that the result of letting <span class="math">\(x = e_0\)</span>, and substituting it into <span class="math">\(e_1\)</span>, has type <span class="math">\(t\)</span>.</p>
+<p>These last four rules do nothing more than formally capture our intuition about what type inferences we can make when we have variables and we do things like create anonymous functions, apply functions, and substitute expressions into other expressions. It’s something we as programmers can do intuitively, and here we’re just saying that this is something we can formally describe, what’s happening in our brains isn’t necessarily magical. It’s also worth noting that these last four rules correspond precisely with the four rules for defining what a valid expression is in the Lambda Calculus. This is not a coincidence.</p>
+<p>[Inst]</p>
+<p><span class="math">\[\underline{\Gamma \vdash e:\sigma &#39;\ \ \ \ \sigma &#39;\sqsubseteq \sigma}\]</span> <span class="math">\[\Gamma \vdash e:\sigma\]</span></p>
+<p>This is about instantiation. You can think of the monotype <span class="math">\(\mathrm{Array}[\mathrm{Int}] \rightarrow \mathrm{Int}\)</span> as an instantiation of the polytype <span class="math">\(\forall t. \mathrm{Array}[t] \rightarrow t\)</span>. Another word for this is “specialization”: <span class="math">\(\mathrm{Array}[\mathrm{Int}] \rightarrow \mathrm{Int}\)</span> is more specialized/specific than for <span class="math">\(\forall t.\mathrm{Array}[t] \rightarrow t\)</span>. Flipping it around, we denote the “less specialized/specific than” relation between types with <span class="math">\(\sqsubseteq\)</span>. So</p>
+<p><span class="math">\[\forall t. \mathrm{Array}[t] \rightarrow t \ \ \sqsubseteq\ \  \mathrm{Array}[t] \rightarrow t\]</span></p>
+<p>So the direct translation of [Inst] is: If we can infer <span class="math">\(e\)</span> has type <span class="math">\(\sigma &#39;\)</span>, and <span class="math">\(\sigma\)</span> is a specialization/instantiation of <span class="math">\(\sigma &#39;\)</span>, then we can deduce that we can infer that <span class="math">\(e\)</span> has type <span class="math">\(\sigma\)</span>. And you can think of <span class="math">\(\sigma\)</span> and <span class="math">\(\sigma &#39;\)</span> as being types like <span class="math">\(\mathrm{Array}[t] \rightarrow t\)</span> and <span class="math">\(\forall t. \mathrm{Array}[t] \rightarrow t\)</span> respectively.</p>
+<p>[Gen]</p>
+<p><span class="math">\[\underline{\Gamma \vdash e:\sigma\ \ \ \ \alpha \notin \mathrm{free}(\Gamma)}\]</span> <span class="math">\[\Gamma \vdash e:\forall \alpha.\sigma\]</span></p>
+<p>This is the hardest one to understand. It really only makes sense in the context of doing a type inference using these restricted set of rules we’re outlining. It doesn’t have a very concrete analogue since it heavily depends on the concept of a variable type, something that never occurs in any real programming language, but is an indispensable concept when we’re trying to work in a meta-language that talks about types in any arbitrary real programming language. The idea can sort of be captured in this “example”:</p>
+<p>Suppose you have some variables <span class="math">\(x\)</span> and <span class="math">\(y\)</span>, and for the time being you’re assuming they have type <span class="math">\(\alpha\)</span>, where <span class="math">\(\alpha\)</span> is a variable standing for a type. You later come across an expression that you somehow manage to infer has type <span class="math">\(\alpha \rightarrow \alpha\)</span> in <em>this</em> context (the context where you’re assuming <span class="math">\(x\)</span> and <span class="math">\(y\)</span> have type <span class="math">\(\alpha\)</span>). The question is, will this function have the polytype <span class="math">\(\forall \alpha. \alpha \rightarrow \alpha\)</span>? I.e. does this function generally map objects to things of the same type, or does that only appear to be the case because you assumed <span class="math">\(x\)</span> and <span class="math">\(y\)</span> had the same type <span class="math">\(\alpha\)</span>?</p>
+<p>Since <span class="math">\(\alpha\)</span> is a variable type, i.e. it could stand for any type, we might like to think that, since we’ve inferred that <span class="math">\(e\)</span> has type <span class="math">\(\alpha \rightarrow \alpha\)</span> that it has the polytype <span class="math">\(\forall \alpha. \alpha \rightarrow \alpha\)</span>. But we can’t necessarily make this generalization without more insight into how <span class="math">\(e\)</span> is related to <span class="math">\(x\)</span> and <span class="math">\(y\)</span>; In particular, if our inference that it has type <span class="math">\(\alpha \rightarrow \alpha\)</span> is tightly coupled to our prior assumptions involving <span class="math">\(\alpha\)</span>, then we shouldn’t conclude that it generally has the polytype <span class="math">\(\forall \alpha .\alpha \rightarrow \alpha\)</span>.</p>
+<p>Here’s the translation:</p>
+<p>If some variable type <span class="math">\(\alpha\)</span> hasn’t “freely” been mentioned in our current context/set of knowledge/assumptions, and we can infer that some expression <span class="math">\(e\)</span> has some type <span class="math">\(\sigma\)</span>, then we can infer that <span class="math">\(e\)</span> has type <span class="math">\(\sigma\)</span> independent of what <span class="math">\(\alpha\)</span> turns out to be. Slightly more technically, <span class="math">\(e\)</span> has the polytype <span class="math">\(\forall \alpha . \sigma\)</span>.</p>
+<p>Okay, but what does “freely mentioned” mean? In a polytype like <span class="math">\(\forall \alpha . \alpha \rightarrow \alpha\)</span>, <span class="math">\(\alpha\)</span> isn’t “really” being mentioned. That type is the exact same as this one: <span class="math">\(\forall \beta . \beta \rightarrow \beta\)</span>. An expression with either type is just that of a function that sends any type to itself. On the other hand, <span class="math">\(x:\alpha\)</span> “really” does mention <span class="math">\(\alpha\)</span>.</p>
+<p><span class="math">\[x:\alpha\]</span> <span class="math">\[y:\beta\]</span></p>
+<p>and</p>
+<p><span class="math">\[x:\alpha\]</span> <span class="math">\[y:\alpha\]</span></p>
+<p>mean different things. The latter means <span class="math">\(x\)</span> and <span class="math">\(y\)</span> definitely have the same type (even though what that type is may not have been pinned down). The former tells you nothing about how the types of <span class="math">\(x\)</span> and <span class="math">\(y\)</span> are related. The difference is, when <span class="math">\(\alpha\)</span> is mentioned inside the scope of a <span class="math">\(\forall\)</span>, as is the case in <span class="math">\(\forall \alpha . \alpha \rightarrow \alpha\)</span>, that <span class="math">\(\alpha\)</span> is just a dummy, and can be swapped out for any other type variable regardless of the rest of the context. So we can interpret the statement “<span class="math">\(\alpha\)</span> isn’t freely mentioned in the context <span class="math">\(\Gamma\)</span>” to say, “<span class="math">\(\alpha\)</span> is either never mentioned at all, or, if it is, it’s only ever mentioned as a dummy and could in principle be swapped out for something entirely different without changing the semantics of the assumptions/knowledge in our context.”</p>
+<p>And that’s it. Questions? Comments? Let me know.</p></div>
+
+
+  <footer>
+    <p class="meta">
+      
+  
+
+<span class="byline author vcard">Posted by <span class="fn">Amit Kumar Gupta</span></span>
+
+      
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2013-06-07T00:22:00-07:00" pubdate data-updated="true">Jun 7<span>th</span>, 2013</time>
+      
+
+
+    </p>
+    
+      <div class="sharing">
+  
+  <a href="http://twitter.com/share" class="twitter-share-button" data-url="http://akgupta.ca/blog/2013/06/07/so-you-still-dont-understand-hindley-milner-part-3/" data-via="" data-counturl="http://akgupta.ca/blog/2013/06/07/so-you-still-dont-understand-hindley-milner-part-3/" >Tweet</a>
+  
+  
+  
+</div>
+
+    
+    <p class="meta">
+      
+        <a class="basic-alignment left" href="../so-you-still-dont-understand-hindley-milner-part-2/index.html" title="Previous Post: So You Still Don't Understand Hindley-Milner?  Part 2">&laquo; So You Still Don't Understand Hindley-Milner?  Part 2</a>
+      
+      
+        <a class="basic-alignment right" href="../../../../2014/06/21/k-nn-algorithm-in-golang-and-haskell/index.html" title="Next Post: k-NN Algorithm in Golang and Haskell">k-NN Algorithm in Golang and Haskell &raquo;</a>
+      
+    </p>
+  </footer>
+</article>
+
+  <section>
+    <h1>Comments</h1>
+    <div id="disqus_thread" aria-live="polite"><noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+</div>
+  </section>
+
+</div>
+
+<aside class="sidebar">
+  
+    <section>
+  <h1>Contact</h1>
+  <p>Twitter: <a href="https://twitter.com/amitkgupta84/">@amitkgupta84</a><br>
+     LinkedIn: <a href="http://www.linkedin.com/pub/amit-gupta/1a/527/936">Amit Kumar Gupta</a></p>
+</section>
+<section>
+  <h1>Recent Posts</h1>
+  <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="http://akgupta.ca/blog/2014/07/19/is-math-programming-youre-asking-the-wrong-question-part-2/">Is Programming Math? You're Asking the Wrong Question. Part 2</a>
+      </li>
+    
+      <li class="post">
+        <a href="http://akgupta.ca/blog/2014/07/19/is-math-programming-youre-asking-the-wrong-question-part-1/">Is Programming Math? You're Asking the Wrong Question. Part 1</a>
+      </li>
+    
+      <li class="post">
+        <a href="../../../../2014/06/21/k-nn-algorithm-in-golang-and-haskell/index.html">k-NN Algorithm in Golang and Haskell</a>
+      </li>
+    
+      <li class="post">
+        <a href="index.html">So You Still Don't Understand Hindley-Milner? Part 3</a>
+      </li>
+    
+      <li class="post">
+        <a href="../so-you-still-dont-understand-hindley-milner-part-2/index.html">So You Still Don't Understand Hindley-Milner? Part 2</a>
+      </li>
+    
+      <li class="post">
+        <a href="http://akgupta.ca/blog/2013/06/06/entropy-how-password-strength-is-measured/">Entropy: How Password Strength Is Measured</a>
+      </li>
+    
+      <li class="post">
+        <a href="http://akgupta.ca/blog/2013/06/02/yo-dawg/">Yo Dawg, I Herd You Like Math</a>
+      </li>
+    
+      <li class="post">
+        <a href="http://akgupta.ca/blog/2013/05/19/is-it-possible-to-be-15-percent-swedish/">Is It Possible to Be 15% Swedish?</a>
+      </li>
+    
+      <li class="post">
+        <a href="../../../05/14/so-you-still-dont-understand-hindley-milner/index.html">So You Still Don't Understand Hindley-Milner? Part 1</a>
+      </li>
+    
+      <li class="post">
+        <a href="http://akgupta.ca/blog/2013/05/11/setting-up-postgresql-with-macports-for-ruby-on-rails-development/">Setting Up PostgreSQL With MacPorts for Ruby on Rails Development</a>
+      </li>
+    
+  </ul>
+</section>
+
+
+  
+</aside>
+
+
+    </div>
+  </div>
+  <footer role="contentinfo"><p>
+  Copyright &copy; 2016 - Amit Kumar Gupta -
+  <span class="credit">Powered by <a href="http://octopress.org/">Octopress</a></span>
+</p>
+
+</footer>
+  
+
+<script type="text/javascript">
+      var disqus_shortname = 'amitsblog-math-code';
+      
+        
+        // var disqus_developer = 1;
+        var disqus_identifier = 'index.html';
+        var disqus_url = 'index.html';
+        var disqus_script = 'embed.html';
+      
+    (function () {
+      var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+      dsq.src = 'http://' + disqus_shortname + '.disqus.com/' + disqus_script;
+      (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    }());
+</script>
+
+
+
+
+
+
+
+  <script type="text/javascript">
+    (function(){
+      var twitterWidgets = document.createElement('script');
+      twitterWidgets.type = 'text/javascript';
+      twitterWidgets.async = true;
+      twitterWidgets.src = 'http://platform.twitter.com/widgets.js';
+      document.getElementsByTagName('head')[0].appendChild(twitterWidgets);
+    })();
+  </script>
+
+
+
+
+
+</body>
+
+<!-- Mirrored from akgupta.ca/blog/2013/06/07/so-you-still-dont-understand-hindley-milner-part-3/ by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 22:29:18 GMT -->
+</html>

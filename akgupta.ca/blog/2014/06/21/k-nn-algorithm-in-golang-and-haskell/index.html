@@ -1,0 +1,1007 @@
+
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
+
+<!-- Mirrored from akgupta.ca/blog/2014/06/21/k-nn-algorithm-in-golang-and-haskell/ by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 22:29:07 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+  <meta charset="utf-8">
+  <title>k-NN Algorithm in Golang and Haskell - Amit's Blog</title>
+  <meta property="og:title" content="k-NN Algorithm in Golang and Haskell - Amit's Blog">
+  <meta name="author" content="Amit Kumar Gupta">
+
+  <meta property="og:site_name" content="Amit's Blog">
+  <meta property="og:image" content="http://akgupta.ca/imgaes/bigaleph.jpg">
+
+  
+  <meta name="description" content="There’s been a recent string of blog posts featuring implementations of the k-Nearest Neighbour algorithm in several languages (for k = 1), and it’s &hellip;">
+  <meta property="og:description" content="There’s been a recent string of blog posts featuring implementations of the k-Nearest Neighbour algorithm in several languages (for k = 1), and it’s &hellip;">
+  
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  
+  <link rel="canonical" href="http://akgupta.ca/blog/2014/06/21/k-nn-algorithm-in-golang-and-haskell">
+  <meta property="og:url" content="http://akgupta.ca/blog/2014/06/21/k-nn-algorithm-in-golang-and-haskell">
+  <link href="http://akgupta.ca/images/aleph.png" rel="icon">
+  <link href="http://akgupta.ca/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
+  <link href="http://akgupta.ca/atom.xml" rel="alternate" title="Amit's Blog" type="application/atom+xml">
+  <script src="http://akgupta.ca/javascripts/modernizr-2.0.js"></script>
+  <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+  <script>!window.jQuery && document.write(unescape('%3Cscript src="./javascripts/lib/jquery.min.js"%3E%3C/script%3E'))</script>
+  <script src="http://akgupta.ca/javascripts/octopress.js" type="text/javascript"></script>
+  <!--Fonts from Google"s Web font directory at http://google.com/webfonts -->
+<link href="http://fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+<link href="http://fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+<!--- MathJax Configuration -->
+<script type="text/javascript"
+src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML,http://drz.ac/javascripts/MathJaxLocal.js">
+</script>
+<!---Shadowbox Configuration -->
+<link rel="stylesheet" type="text/css" href="http://akgupta.ca/stylesheets/shadowbox.css">
+<script type="text/javascript" src="http://akgupta.ca/javascripts/shadowbox.js"></script>
+<script type="text/javascript">
+Shadowbox.init();
+</script>
+
+  
+  <script type="text/javascript">
+    var _gaq = _gaq || [];
+    _gaq.push(['_setAccount', 'UA-41581367-1']);
+    _gaq.push(['_trackPageview']);
+
+    (function() {
+      var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+      ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+      var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+    })();
+  </script>
+
+
+</head>
+
+<body   >
+  <header role="banner"><hgroup>
+  <h1><a href="http://akgupta.ca/">Amit's Blog</a></h1>
+  
+    <h2>Math, Code, etc.</h2>
+  
+</hgroup>
+
+</header>
+  <div id="main">
+    <div id="content">
+      <div>
+<article class="hentry" role="article">
+  
+  <header>
+    
+      <h1 class="entry-title">k-NN Algorithm in Golang and Haskell</h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2014-06-21T17:46:00-07:00" pubdate data-updated="true">Jun 21<span>st</span>, 2014</time>
+        
+      </p>
+    
+  </header>
+
+
+<div class="entry-content"><p>There’s been a recent string of blog posts featuring implementations of the <a href="../../../../../../en.wikipedia.org/wiki/K-nearest_neighbors_algorithm.html">k-Nearest Neighbour algorithm</a> in several languages (for k = 1), and it’s been cool to see how the solutions are expressed differently in different languages, as well as the vast differences in performance. The k-Nearest Neighbour algorithm is cool in itself, it’s a dead simple technique for classifying (or labelling) a collection of observed data by searching the previously observed collections of data whose classifications/labels are already known, and finding the one which most nearly resembles our not-yet-classified collection (for some definition of “nearly resembles”). It’s an example of a <a href="../../../../../../en.wikipedia.org/wiki/Machine_learning.html">machine learning</a> classification algorithm, one of those things that lives in the fun intersection of math and programming.</p>
+<p>We’re gonna take a look at a concrete application of the k-NN algorithm, compare the performance of the implementations from those aforementioned blog posts with new implementations in <a href="http://golang.org/">Golang</a> and <a href="http://www.haskell.org/">Haskell</a>, and take a look at an optimized version which takes a logical shortcut and also leverages Golang’s built-in support for <a href="http://www.golang-book.com/10/index.htm">concurrency</a>.</p>
+<p>All the code and datasets can be found on <a href="https://github.com/amitkgupta/nearest_neighbour">Github</a>. The Golang and Haskell code is also at the bottom of this post.</p>
+<p><strong>TL;DR</strong>: Golang wins, or, in honor of the World Cup: <strong><em>GOOOOOOOOOOLLLLLLLang!!!</em></strong></p>
+<!--more-->
+
+<h2 id="the-problem">The problem</h2>
+<p>In this particular example, we’ve got 5000 pixelated (28x28) greyscale (0-255) “drawings” of the digits 0 through 9. Some of them might look like this:</p>
+<figure>
+<img src="https://onlinecourses.science.psu.edu/stat857/sites/onlinecourses.science.psu.edu.stat857/files/image_01.png" />
+</figure>
+<p><em><sub><sup>Source: https://onlinecourses.science.psu.edu/stat857/node/186</sup></sub></em></p>
+<p>These 5000 digit drawings constitute our <strong>training set</strong>. We’re then given a bunch of new drawings where (let’s pretend for a moment) we don’t know what digits they’re supposed to represent, but we know the greyscale values at each pixel. Given any such unclassified drawing, our goal is to make a reasonable guess as to what digit it’s supposed to represent. The way this algorithm works is to find the drawing in the training set which most nearly resembles our unclassified drawing, then our reasonable guess is that the unclassified drawing in question represents the same digit as the nearest drawing in the training set. At this point, we can say that we’ve <strong>classified</strong> our previously unclassified drawing.</p>
+<p>But what does “nearly resemble” mean in this case? Roughly, we want to look at how different a pair of drawings is, pixel by pixel, and aggregate those differences for all the pixels. The smaller the aggregate pixel difference, the nearer the resemblance. The standard measure of distance here is the Euclidean metric: Given two vectors <span class="math">\(\vec{x}, \vec{y}\)</span> of length <span class="math">\(28 \times 28 = 784\)</span> consisting of 8-bit unsigned integers <span class="math">\(0\dots 255\)</span>, we define their distance to be:</p>
+<p><span class="math">\[d(\vec{x}, \vec{y}) = \sqrt{\sum_{i=0}^{783} (x_i - y_i)^2}\]</span></p>
+<p>In this problem we’re given 500 drawings to classify, and they form our <strong>validation set</strong>. After running the algorithm against all 500, we can see what percentage of them we classified correctly (because we actually are given their labels, we just pretend not to know them when doing the classification), and how long it took to do them all.</p>
+<p>The data is given to us as a couple of CSV files, one for the training set, one for the validation set. Each row corresponds to a drawing. The first column is the label (i.e. what digit the drawing represent), and the next 784 columns are the greyscale values of each pixel in the drawing.</p>
+<p>Note that the above describes the k-Nearest Neighbour classification in the case <span class="math">\(k=1\)</span>. If we wanted to do it for <span class="math">\(k &gt; 0\)</span>, we would take an unclassified drawing and find the <span class="math">\(k\)</span> nearest drawings in the training set, and then classify the drawing according to whichever digit is represented most amongst those <span class="math">\(k\)</span> nearest drawings.</p>
+<h2 id="blog-chain">Blog Chain</h2>
+<p>This post inspired by a chain of blog posts, each of which contains implementations of the algorithm in a different language (or two). All the implementations are <em>naive</em>, in that they pretty much do the simplest thing possible, and take hardly any shortcuts to speed up or skip calculations:</p>
+<ul>
+<li><a href="http://re-factor.blogspot.ca/2014/06/comparing-k-nn-in-factor.html">The most recent one</a> implemented it in <a href="http://factorcode.org/">Factor</a></li>
+<li><a href="http://huonw.github.io/2014/06/10/knn-rust.html">The one before that</a> did it in <a href="http://www.rust-lang.org/">Rust</a>.<br /></li>
+<li>That one was inspired by <a href="http://philtomson.github.io/blog/2014/05/29/comparing-a-machine-learning-algorithm-implemented-in-f-number-and-ocaml/">a blog post</a> which had it in <a href="http://fsharp.org/">F#</a> and <a href="http://ocaml.org/">OCaml</a>, and <a href="http://philtomson.github.io/blog/2014/05/30/stop-the-presses-ocaml-wins/">a follow-up</a> which improves the first OCaml implementation.</li>
+</ul>
+<p>I work for <a href="http://www.gopivotal.com/">Pivotal</a> on the <a href="http://cloudfoundry.org/index.html">Cloud Foundry</a> project and recently joined the <a href="https://www.youtube.com/watch?v=1OkmVTFhfLY">Diego</a> team where I was introduced to Golang. I thought it’d be fun to add naive and optimized implementations in Golang to the comparison. Then I came across an <a href="../../../../../../learnyouahaskell.com/index.html">awesome primer on Haskell</a> so the incomparable <a href="https://twitter.com/alexsuraci">@alexsuraci</a> and I paired on adding Haskell to the mix.</p>
+<h2 id="comparison">Comparison</h2>
+<p>Performance comparisons between the naive implementations in each language were performed on a freshly spun up c3.xlarge EC2 instance as follows:</p>
+<ol type="1">
+<li>Install Golang, Haskell, Rust, F#, and OCaml. Download Factor.</li>
+<li>Write the (naive) code for Golang and Haskell. Copy-paste the code for Rust, F#, OCaml, and Factor.</li>
+<li>Compile executables for Haskell, Rust, F#, and OCaml.</li>
+<li>Run and time the executables with <code>time ./&lt;executable-name&gt;</code>. Run the Golang code with <code>time go run golang-k-nn.go</code>. Run the Factor code in the <code>scratchpad</code> REPL with <code>[k-nn] time</code>.</li>
+</ol>
+<h3 id="results">Results</h3>
+<ol type="1">
+<li>Golang: 4.701s</li>
+<li>Factor: 6.358s</li>
+<li>OCaml: 12.757s</li>
+<li>F#: 23.507s</li>
+<li>Rust: 78.138s</li>
+<li>Haskell: 91.581s</li>
+</ol>
+<h4 id="golang">Golang</h4>
+<div class='bogus-wrapper'>
+<notextile>
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>$ time go run golang-k-nn.go
+</span><span class='line'>
+</span><span class='line'>0.944
+</span><span class='line'>
+</span><span class='line'>real  0m4.701s
+</span><span class='line'>user  0m4.582s
+</span><span class='line'>sys   0m0.136s</span></code></pre></td></tr></table></div></figure>
+</notextile>
+</div>
+
+<h4 id="haskell">Haskell</h4>
+<div class='bogus-wrapper'>
+<notextile>
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>$ time ./haskell-k-nn
+</span><span class='line'>
+</span><span class='line'>Percentage correct: 472
+</span><span class='line'>
+</span><span class='line'>real  1m31.581s
+</span><span class='line'>user  1m29.191s
+</span><span class='line'>sys   0m2.384s</span></code></pre></td></tr></table></div></figure>
+</notextile>
+</div>
+
+<h4 id="rust">Rust</h4>
+<div class='bogus-wrapper'>
+<notextile>
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>$ time ./rust-k-nn
+</span><span class='line'>
+</span><span class='line'>Percentage correct: 94.4%
+</span><span class='line'>
+</span><span class='line'>real  1m18.138s
+</span><span class='line'>user  1m17.980s
+</span><span class='line'>sys       0m0.155s</span></code></pre></td></tr></table></div></figure>
+</notextile>
+</div>
+
+<h4 id="f">F#</h4>
+<div class='bogus-wrapper'>
+<notextile>
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>$ time ./fsharp-k-nn.exe
+</span><span class='line'>
+</span><span class='line'>start...
+</span><span class='line'>Percentage correct:94.400000
+</span><span class='line'>
+</span><span class='line'>real  0m23.507s
+</span><span class='line'>user  0m22.751s
+</span><span class='line'>sys       0m0.798s</span></code></pre></td></tr></table></div></figure>
+</notextile>
+</div>
+
+<h4 id="ocaml">OCaml</h4>
+<div class='bogus-wrapper'>
+<notextile>
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>$ time ./ocaml-k-nn
+</span><span class='line'>
+</span><span class='line'>Percentage correct:94.400000
+</span><span class='line'>
+</span><span class='line'>real  0m12.757s
+</span><span class='line'>user  0m12.500s
+</span><span class='line'>sys       0m0.257s</span></code></pre></td></tr></table></div></figure>
+</notextile>
+</div>
+
+<h4 id="factor">Factor</h4>
+<div class='bogus-wrapper'>
+<notextile>
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>$ mkdir -p $FACTOR_HOME/work/k-nn
+</span><span class='line'>$ cp factor/factor-k-nn.factor $FACTOR_HOME/work/k-nn
+</span><span class='line'>$ cp *.csv $FACTOR_HOME/work/k-nn
+</span><span class='line'>$ $FACTOR_HOME/factor
+</span><span class='line'>
+</span><span class='line'>IN: scratchpad USE: factor-k-nn
+</span><span class='line'>Loading resource:work/k-nn/factor-k-nn.factor
+</span><span class='line'>Loading resource:basis/formatting/formatting.factor
+</span><span class='line'>Loading resource:basis/formatting/formatting-docs.factor
+</span><span class='line'>
+</span><span class='line'>IN: scratchpad gc [ k-nn ] time
+</span><span class='line'>Percentage correct: 94.400000
+</span><span class='line'>Running time: 6.357621145 seconds</span></code></pre></td></tr></table></div></figure>
+</notextile>
+</div>
+
+<h2 id="optimized-implementation-in-golang">Optimized implementation in Golang</h2>
+<p>The Golang implementation gets a major performance boost involves two optimizations:</p>
+<ol type="1">
+<li>Short-circuit distance calculations between a test case and a training case that are necessarily suboptimal. In other words, if you know the distance to one potential nearest neighbour is 100, and half-way through calculating the distance to another potential nearest neighbour you already have a distance-so-far of 105, stop calculating and move on to the next candidate for nearest neighbour.</li>
+<li>Use goroutines to parallelize the computations. The way this was done was not ideal, because the parallelism isn’t in the classification algorithm itself, instead it parellelizes the classification of the members of the validation sample. However, it’s is easy enough to “do it right”, and what’s currently there is good enough to see how significant the gains are when firing on all your cores.</li>
+</ol>
+<div class='bogus-wrapper'>
+<notextile>
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>$ time go run golang-k-nn-speedup.go
+</span><span class='line'>
+</span><span class='line'>0.944
+</span><span class='line'>
+</span><span class='line'>real  0m1.375s
+</span><span class='line'>user  0m3.314s
+</span><span class='line'>sys   0m0.117s</span></code></pre></td></tr></table></div></figure>
+</notextile>
+</div>
+
+<h2 id="code">Code</h2>
+<h4 id="golang-naive">Golang (naive)</h4>
+<div class='bogus-wrapper'>
+<notextile>
+<figure class='code'><figcaption>
+<span></span>
+</figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+<span class='line-number'>42</span>
+<span class='line-number'>43</span>
+<span class='line-number'>44</span>
+<span class='line-number'>45</span>
+<span class='line-number'>46</span>
+<span class='line-number'>47</span>
+<span class='line-number'>48</span>
+<span class='line-number'>49</span>
+<span class='line-number'>50</span>
+<span class='line-number'>51</span>
+<span class='line-number'>52</span>
+<span class='line-number'>53</span>
+<span class='line-number'>54</span>
+<span class='line-number'>55</span>
+<span class='line-number'>56</span>
+<span class='line-number'>57</span>
+<span class='line-number'>58</span>
+<span class='line-number'>59</span>
+<span class='line-number'>60</span>
+<span class='line-number'>61</span>
+<span class='line-number'>62</span>
+<span class='line-number'>63</span>
+<span class='line-number'>64</span>
+<span class='line-number'>65</span>
+<span class='line-number'>66</span>
+<span class='line-number'>67</span>
+<span class='line-number'>68</span>
+<span class='line-number'>69</span>
+<span class='line-number'>70</span>
+<span class='line-number'>71</span>
+<span class='line-number'>72</span>
+<span class='line-number'>73</span>
+<span class='line-number'>74</span>
+<span class='line-number'>75</span>
+<span class='line-number'>76</span>
+<span class='line-number'>77</span>
+<span class='line-number'>78</span>
+<span class='line-number'>79</span>
+<span class='line-number'>80</span>
+<span class='line-number'>81</span>
+<span class='line-number'>82</span>
+<span class='line-number'>83</span>
+<span class='line-number'>84</span>
+<span class='line-number'>85</span>
+<span class='line-number'>86</span>
+<span class='line-number'>87</span>
+<span class='line-number'>88</span>
+<span class='line-number'>89</span>
+<span class='line-number'>90</span>
+<span class='line-number'>91</span>
+<span class='line-number'>92</span>
+<span class='line-number'>93</span>
+<span class='line-number'>94</span>
+<span class='line-number'>95</span>
+</pre></td><td class='code'><pre><code class='go'><span class='line'><span class="kn">package</span> <span class="nx">main</span>
+</span><span class='line'>
+</span><span class='line'><span class="kn">import</span> <span class="p">(</span>
+</span><span class='line'>  <span class="s">&quot;bytes&quot;</span>
+</span><span class='line'>  <span class="s">&quot;fmt&quot;</span>
+</span><span class='line'>  <span class="s">&quot;io/ioutil&quot;</span>
+</span><span class='line'>  <span class="s">&quot;strconv&quot;</span>
+</span><span class='line'><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="kd">type</span> <span class="nx">LabelWithFeatures</span> <span class="kd">struct</span> <span class="p">{</span>
+</span><span class='line'>  <span class="nx">Label</span>    <span class="p">[]</span><span class="kt">byte</span>
+</span><span class='line'>  <span class="nx">Features</span> <span class="p">[]</span><span class="kt">float64</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="kd">func</span> <span class="nx">NewLabelWithFeatures</span><span class="p">(</span><span class="nx">parsedLine</span> <span class="p">[][]</span><span class="kt">byte</span><span class="p">)</span> <span class="nx">LabelWithFeatures</span> <span class="p">{</span>
+</span><span class='line'>  <span class="nx">label</span> <span class="o">:=</span> <span class="nx">parsedLine</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+</span><span class='line'>  <span class="nx">features</span> <span class="o">:=</span> <span class="nb">make</span><span class="p">([]</span><span class="kt">float64</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="nx">parsedLine</span><span class="p">)</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">for</span> <span class="nx">i</span><span class="p">,</span> <span class="nx">feature</span> <span class="o">:=</span> <span class="k">range</span> <span class="nx">parsedLine</span> <span class="p">{</span>
+</span><span class='line'>      <span class="c1">// skip label</span>
+</span><span class='line'>      <span class="k">if</span> <span class="nx">i</span> <span class="o">==</span> <span class="mi">0</span> <span class="p">{</span>
+</span><span class='line'>          <span class="k">continue</span>
+</span><span class='line'>      <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>      <span class="nx">features</span><span class="p">[</span><span class="nx">i</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="p">=</span> <span class="nx">byteSliceTofloat64</span><span class="p">(</span><span class="nx">feature</span><span class="p">)</span>
+</span><span class='line'>  <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">return</span> <span class="nx">LabelWithFeatures</span><span class="p">{</span><span class="nx">label</span><span class="p">,</span> <span class="nx">features</span><span class="p">}</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="kd">var</span> <span class="nx">newline</span> <span class="p">=</span> <span class="p">[]</span><span class="nb">byte</span><span class="p">(</span><span class="s">&quot;\n&quot;</span><span class="p">)</span>
+</span><span class='line'><span class="kd">var</span> <span class="nx">comma</span> <span class="p">=</span> <span class="p">[]</span><span class="nb">byte</span><span class="p">(</span><span class="s">&quot;,&quot;</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="kd">func</span> <span class="nx">byteSliceTofloat64</span><span class="p">(</span><span class="nx">b</span> <span class="p">[]</span><span class="kt">byte</span><span class="p">)</span> <span class="kt">float64</span> <span class="p">{</span>
+</span><span class='line'>  <span class="nx">x</span><span class="p">,</span> <span class="nx">_</span> <span class="o">:=</span> <span class="nx">strconv</span><span class="p">.</span><span class="nx">ParseFloat</span><span class="p">(</span><span class="nb">string</span><span class="p">(</span><span class="nx">b</span><span class="p">),</span> <span class="mi">32</span><span class="p">)</span>
+</span><span class='line'>  <span class="k">return</span> <span class="nx">x</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="kd">func</span> <span class="nx">parseCSVFile</span><span class="p">(</span><span class="nx">filePath</span> <span class="kt">string</span><span class="p">)</span> <span class="p">[]</span><span class="nx">LabelWithFeatures</span> <span class="p">{</span>
+</span><span class='line'>  <span class="nx">fileContent</span><span class="p">,</span> <span class="nx">_</span> <span class="o">:=</span> <span class="nx">ioutil</span><span class="p">.</span><span class="nx">ReadFile</span><span class="p">(</span><span class="nx">filePath</span><span class="p">)</span>
+</span><span class='line'>  <span class="nx">lines</span> <span class="o">:=</span> <span class="nx">bytes</span><span class="p">.</span><span class="nx">Split</span><span class="p">(</span><span class="nx">fileContent</span><span class="p">,</span> <span class="nx">newline</span><span class="p">)</span>
+</span><span class='line'>  <span class="nx">numRows</span> <span class="o">:=</span> <span class="nb">len</span><span class="p">(</span><span class="nx">lines</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="nx">labelsWithFeatures</span> <span class="o">:=</span> <span class="nb">make</span><span class="p">([]</span><span class="nx">LabelWithFeatures</span><span class="p">,</span> <span class="nx">numRows</span><span class="o">-</span><span class="mi">2</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">for</span> <span class="nx">i</span><span class="p">,</span> <span class="nx">line</span> <span class="o">:=</span> <span class="k">range</span> <span class="nx">lines</span> <span class="p">{</span>
+</span><span class='line'>      <span class="c1">// skip headers</span>
+</span><span class='line'>      <span class="k">if</span> <span class="nx">i</span> <span class="o">==</span> <span class="mi">0</span> <span class="o">||</span> <span class="nx">i</span> <span class="o">==</span> <span class="nx">numRows</span><span class="o">-</span><span class="mi">1</span> <span class="p">{</span>
+</span><span class='line'>          <span class="k">continue</span>
+</span><span class='line'>      <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>      <span class="nx">labelsWithFeatures</span><span class="p">[</span><span class="nx">i</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="p">=</span> <span class="nx">NewLabelWithFeatures</span><span class="p">(</span><span class="nx">bytes</span><span class="p">.</span><span class="nx">Split</span><span class="p">(</span><span class="nx">line</span><span class="p">,</span> <span class="nx">comma</span><span class="p">))</span>
+</span><span class='line'>  <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">return</span> <span class="nx">labelsWithFeatures</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="kd">func</span> <span class="nx">squareDistance</span><span class="p">(</span><span class="nx">features1</span><span class="p">,</span> <span class="nx">features2</span> <span class="p">[]</span><span class="kt">float64</span><span class="p">)</span> <span class="p">(</span><span class="nx">d</span> <span class="kt">float64</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>  <span class="k">for</span> <span class="nx">i</span> <span class="o">:=</span> <span class="mi">0</span><span class="p">;</span> <span class="nx">i</span> <span class="p">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="nx">features1</span><span class="p">);</span> <span class="nx">i</span><span class="o">++</span> <span class="p">{</span>
+</span><span class='line'>    <span class="nx">d</span> <span class="o">+=</span> <span class="p">(</span><span class="nx">features1</span><span class="p">[</span><span class="nx">i</span><span class="p">]</span> <span class="o">-</span> <span class="nx">features2</span><span class="p">[</span><span class="nx">i</span><span class="p">])</span> <span class="o">*</span> <span class="p">(</span><span class="nx">features1</span><span class="p">[</span><span class="nx">i</span><span class="p">]</span> <span class="o">-</span> <span class="nx">features2</span><span class="p">[</span><span class="nx">i</span><span class="p">])</span>
+</span><span class='line'>  <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">return</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="kd">var</span> <span class="nx">trainingSample</span> <span class="p">=</span> <span class="nx">parseCSVFile</span><span class="p">(</span><span class="s">&quot;trainingsample.csv&quot;</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="kd">func</span> <span class="nx">classify</span><span class="p">(</span><span class="nx">features</span> <span class="p">[]</span><span class="kt">float64</span><span class="p">)</span> <span class="p">(</span><span class="nx">label</span> <span class="p">[]</span><span class="kt">byte</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>  <span class="nx">label</span> <span class="p">=</span> <span class="nx">trainingSample</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="nx">Label</span>
+</span><span class='line'>  <span class="nx">d</span> <span class="o">:=</span> <span class="nx">squareDistance</span><span class="p">(</span><span class="nx">features</span><span class="p">,</span> <span class="nx">trainingSample</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="nx">Features</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">for</span> <span class="nx">_</span><span class="p">,</span> <span class="nx">row</span> <span class="o">:=</span> <span class="k">range</span> <span class="nx">trainingSample</span> <span class="p">{</span>
+</span><span class='line'>      <span class="nx">dNew</span> <span class="o">:=</span> <span class="nx">squareDistance</span><span class="p">(</span><span class="nx">features</span><span class="p">,</span> <span class="nx">row</span><span class="p">.</span><span class="nx">Features</span><span class="p">)</span>
+</span><span class='line'>      <span class="k">if</span> <span class="nx">dNew</span> <span class="p">&lt;</span> <span class="nx">d</span> <span class="p">{</span>
+</span><span class='line'>          <span class="nx">label</span> <span class="p">=</span> <span class="nx">row</span><span class="p">.</span><span class="nx">Label</span>
+</span><span class='line'>          <span class="nx">d</span> <span class="p">=</span> <span class="nx">dNew</span>
+</span><span class='line'>      <span class="p">}</span>
+</span><span class='line'>  <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">return</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="kd">func</span> <span class="nx">main</span><span class="p">()</span> <span class="p">{</span>
+</span><span class='line'>  <span class="nx">validationSample</span> <span class="o">:=</span> <span class="nx">parseCSVFile</span><span class="p">(</span><span class="s">&quot;validationsample.csv&quot;</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="nx">totalCorrect</span> <span class="o">:=</span> <span class="mi">0</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">for</span> <span class="nx">_</span><span class="p">,</span> <span class="nx">test</span> <span class="o">:=</span> <span class="k">range</span> <span class="nx">validationSample</span> <span class="p">{</span>
+</span><span class='line'>      <span class="k">if</span> <span class="nb">string</span><span class="p">(</span><span class="nx">test</span><span class="p">.</span><span class="nx">Label</span><span class="p">)</span> <span class="o">==</span> <span class="nb">string</span><span class="p">(</span><span class="nx">classify</span><span class="p">(</span><span class="nx">test</span><span class="p">.</span><span class="nx">Features</span><span class="p">))</span> <span class="p">{</span>
+</span><span class='line'>          <span class="nx">totalCorrect</span><span class="o">++</span>
+</span><span class='line'>      <span class="p">}</span>
+</span><span class='line'>  <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="nx">fmt</span><span class="p">.</span><span class="nx">Println</span><span class="p">(</span><span class="nb">float64</span><span class="p">(</span><span class="nx">totalCorrect</span><span class="p">)</span> <span class="o">/</span> <span class="nb">float64</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="nx">validationSample</span><span class="p">)))</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+</notextile>
+</div>
+
+<h4 id="golang-optimized">Golang (optimized)</h4>
+<div class='bogus-wrapper'>
+<notextile>
+<figure class='code'><figcaption>
+<span></span>
+</figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+<span class='line-number'>42</span>
+<span class='line-number'>43</span>
+<span class='line-number'>44</span>
+<span class='line-number'>45</span>
+<span class='line-number'>46</span>
+<span class='line-number'>47</span>
+<span class='line-number'>48</span>
+<span class='line-number'>49</span>
+<span class='line-number'>50</span>
+<span class='line-number'>51</span>
+<span class='line-number'>52</span>
+<span class='line-number'>53</span>
+<span class='line-number'>54</span>
+<span class='line-number'>55</span>
+<span class='line-number'>56</span>
+<span class='line-number'>57</span>
+<span class='line-number'>58</span>
+<span class='line-number'>59</span>
+<span class='line-number'>60</span>
+<span class='line-number'>61</span>
+<span class='line-number'>62</span>
+<span class='line-number'>63</span>
+<span class='line-number'>64</span>
+<span class='line-number'>65</span>
+<span class='line-number'>66</span>
+<span class='line-number'>67</span>
+<span class='line-number'>68</span>
+<span class='line-number'>69</span>
+<span class='line-number'>70</span>
+<span class='line-number'>71</span>
+<span class='line-number'>72</span>
+<span class='line-number'>73</span>
+<span class='line-number'>74</span>
+<span class='line-number'>75</span>
+<span class='line-number'>76</span>
+<span class='line-number'>77</span>
+<span class='line-number'>78</span>
+<span class='line-number'>79</span>
+<span class='line-number'>80</span>
+<span class='line-number'>81</span>
+<span class='line-number'>82</span>
+<span class='line-number'>83</span>
+<span class='line-number'>84</span>
+<span class='line-number'>85</span>
+<span class='line-number'>86</span>
+<span class='line-number'>87</span>
+<span class='line-number'>88</span>
+<span class='line-number'>89</span>
+<span class='line-number'>90</span>
+<span class='line-number'>91</span>
+<span class='line-number'>92</span>
+<span class='line-number'>93</span>
+<span class='line-number'>94</span>
+<span class='line-number'>95</span>
+<span class='line-number'>96</span>
+<span class='line-number'>97</span>
+<span class='line-number'>98</span>
+<span class='line-number'>99</span>
+<span class='line-number'>100</span>
+<span class='line-number'>101</span>
+<span class='line-number'>102</span>
+<span class='line-number'>103</span>
+<span class='line-number'>104</span>
+<span class='line-number'>105</span>
+<span class='line-number'>106</span>
+<span class='line-number'>107</span>
+<span class='line-number'>108</span>
+<span class='line-number'>109</span>
+<span class='line-number'>110</span>
+<span class='line-number'>111</span>
+<span class='line-number'>112</span>
+<span class='line-number'>113</span>
+<span class='line-number'>114</span>
+</pre></td><td class='code'><pre><code class='go'><span class='line'><span class="kn">package</span> <span class="nx">main</span>
+</span><span class='line'>
+</span><span class='line'><span class="kn">import</span> <span class="p">(</span>
+</span><span class='line'>  <span class="s">&quot;bytes&quot;</span>
+</span><span class='line'>  <span class="s">&quot;fmt&quot;</span>
+</span><span class='line'>  <span class="s">&quot;io/ioutil&quot;</span>
+</span><span class='line'>  <span class="s">&quot;math&quot;</span>
+</span><span class='line'>  <span class="s">&quot;runtime&quot;</span>
+</span><span class='line'>  <span class="s">&quot;strconv&quot;</span>
+</span><span class='line'><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="kd">type</span> <span class="nx">LabelWithFeatures</span> <span class="kd">struct</span> <span class="p">{</span>
+</span><span class='line'>  <span class="nx">Label</span>    <span class="p">[]</span><span class="kt">byte</span>
+</span><span class='line'>  <span class="nx">Features</span> <span class="p">[]</span><span class="kt">float32</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="kd">func</span> <span class="nx">NewLabelWithFeatures</span><span class="p">(</span><span class="nx">parsedLine</span> <span class="p">[][]</span><span class="kt">byte</span><span class="p">)</span> <span class="nx">LabelWithFeatures</span> <span class="p">{</span>
+</span><span class='line'>  <span class="nx">label</span> <span class="o">:=</span> <span class="nx">parsedLine</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+</span><span class='line'>  <span class="nx">features</span> <span class="o">:=</span> <span class="nb">make</span><span class="p">([]</span><span class="kt">float32</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="nx">parsedLine</span><span class="p">)</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">for</span> <span class="nx">i</span><span class="p">,</span> <span class="nx">feature</span> <span class="o">:=</span> <span class="k">range</span> <span class="nx">parsedLine</span> <span class="p">{</span>
+</span><span class='line'>      <span class="c1">// skip label</span>
+</span><span class='line'>      <span class="k">if</span> <span class="nx">i</span> <span class="o">==</span> <span class="mi">0</span> <span class="p">{</span>
+</span><span class='line'>          <span class="k">continue</span>
+</span><span class='line'>      <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>      <span class="nx">features</span><span class="p">[</span><span class="nx">i</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="p">=</span> <span class="nx">byteSliceTofloat32</span><span class="p">(</span><span class="nx">feature</span><span class="p">)</span>
+</span><span class='line'>  <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">return</span> <span class="nx">LabelWithFeatures</span><span class="p">{</span><span class="nx">label</span><span class="p">,</span> <span class="nx">features</span><span class="p">}</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="kd">var</span> <span class="nx">newline</span> <span class="p">=</span> <span class="p">[]</span><span class="nb">byte</span><span class="p">(</span><span class="s">&quot;\n&quot;</span><span class="p">)</span>
+</span><span class='line'><span class="kd">var</span> <span class="nx">comma</span> <span class="p">=</span> <span class="p">[]</span><span class="nb">byte</span><span class="p">(</span><span class="s">&quot;,&quot;</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="kd">func</span> <span class="nx">byteSliceTofloat32</span><span class="p">(</span><span class="nx">b</span> <span class="p">[]</span><span class="kt">byte</span><span class="p">)</span> <span class="kt">float32</span> <span class="p">{</span>
+</span><span class='line'>  <span class="nx">x</span><span class="p">,</span> <span class="nx">_</span> <span class="o">:=</span> <span class="nx">strconv</span><span class="p">.</span><span class="nx">ParseFloat</span><span class="p">(</span><span class="nb">string</span><span class="p">(</span><span class="nx">b</span><span class="p">),</span> <span class="mi">32</span><span class="p">)</span> <span class="c1">//10, 8)</span>
+</span><span class='line'>  <span class="k">return</span> <span class="nb">float32</span><span class="p">(</span><span class="nx">x</span><span class="p">)</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="kd">func</span> <span class="nx">parseCSVFile</span><span class="p">(</span><span class="nx">filePath</span> <span class="kt">string</span><span class="p">)</span> <span class="p">[]</span><span class="nx">LabelWithFeatures</span> <span class="p">{</span>
+</span><span class='line'>  <span class="nx">fileContent</span><span class="p">,</span> <span class="nx">_</span> <span class="o">:=</span> <span class="nx">ioutil</span><span class="p">.</span><span class="nx">ReadFile</span><span class="p">(</span><span class="nx">filePath</span><span class="p">)</span>
+</span><span class='line'>  <span class="nx">lines</span> <span class="o">:=</span> <span class="nx">bytes</span><span class="p">.</span><span class="nx">Split</span><span class="p">(</span><span class="nx">fileContent</span><span class="p">,</span> <span class="nx">newline</span><span class="p">)</span>
+</span><span class='line'>  <span class="nx">numRows</span> <span class="o">:=</span> <span class="nb">len</span><span class="p">(</span><span class="nx">lines</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="nx">labelsWithFeatures</span> <span class="o">:=</span> <span class="nb">make</span><span class="p">([]</span><span class="nx">LabelWithFeatures</span><span class="p">,</span> <span class="nx">numRows</span><span class="o">-</span><span class="mi">2</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">for</span> <span class="nx">i</span><span class="p">,</span> <span class="nx">line</span> <span class="o">:=</span> <span class="k">range</span> <span class="nx">lines</span> <span class="p">{</span>
+</span><span class='line'>      <span class="c1">// skip headers</span>
+</span><span class='line'>      <span class="k">if</span> <span class="nx">i</span> <span class="o">==</span> <span class="mi">0</span> <span class="o">||</span> <span class="nx">i</span> <span class="o">==</span> <span class="nx">numRows</span><span class="o">-</span><span class="mi">1</span> <span class="p">{</span>
+</span><span class='line'>          <span class="k">continue</span>
+</span><span class='line'>      <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>      <span class="nx">labelsWithFeatures</span><span class="p">[</span><span class="nx">i</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="p">=</span> <span class="nx">NewLabelWithFeatures</span><span class="p">(</span><span class="nx">bytes</span><span class="p">.</span><span class="nx">Split</span><span class="p">(</span><span class="nx">line</span><span class="p">,</span> <span class="nx">comma</span><span class="p">))</span>
+</span><span class='line'>  <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">return</span> <span class="nx">labelsWithFeatures</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="kd">func</span> <span class="nx">squareDistanceWithBailout</span><span class="p">(</span><span class="nx">features1</span><span class="p">,</span> <span class="nx">features2</span> <span class="p">[]</span><span class="kt">float32</span><span class="p">,</span> <span class="nx">bailout</span> <span class="kt">float32</span><span class="p">)</span> <span class="p">(</span><span class="nx">d</span> <span class="kt">float32</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>  <span class="k">for</span> <span class="nx">i</span> <span class="o">:=</span> <span class="mi">0</span><span class="p">;</span> <span class="nx">i</span> <span class="p">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="nx">features1</span><span class="p">);</span> <span class="nx">i</span><span class="o">++</span> <span class="p">{</span>
+</span><span class='line'>      <span class="nx">x</span> <span class="o">:=</span> <span class="nx">features1</span><span class="p">[</span><span class="nx">i</span><span class="p">]</span> <span class="o">-</span> <span class="nx">features2</span><span class="p">[</span><span class="nx">i</span><span class="p">]</span>
+</span><span class='line'>      <span class="nx">d</span> <span class="o">+=</span> <span class="nx">x</span> <span class="o">*</span> <span class="nx">x</span>
+</span><span class='line'>
+</span><span class='line'>      <span class="k">if</span> <span class="nx">d</span> <span class="p">&gt;</span> <span class="nx">bailout</span> <span class="p">{</span>
+</span><span class='line'>          <span class="k">break</span>
+</span><span class='line'>      <span class="p">}</span>
+</span><span class='line'>  <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">return</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="kd">var</span> <span class="nx">trainingSample</span> <span class="p">=</span> <span class="nx">parseCSVFile</span><span class="p">(</span><span class="s">&quot;trainingsample.csv&quot;</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="kd">func</span> <span class="nx">classify</span><span class="p">(</span><span class="nx">features</span> <span class="p">[]</span><span class="kt">float32</span><span class="p">)</span> <span class="p">(</span><span class="nx">label</span> <span class="p">[]</span><span class="kt">byte</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>  <span class="nx">label</span> <span class="p">=</span> <span class="nx">trainingSample</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="nx">Label</span>
+</span><span class='line'>  <span class="nx">d</span> <span class="o">:=</span> <span class="nx">squareDistanceWithBailout</span><span class="p">(</span><span class="nx">features</span><span class="p">,</span> <span class="nx">trainingSample</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="nx">Features</span><span class="p">,</span> <span class="nx">math</span><span class="p">.</span><span class="nx">MaxFloat32</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">for</span> <span class="nx">_</span><span class="p">,</span> <span class="nx">row</span> <span class="o">:=</span> <span class="k">range</span> <span class="nx">trainingSample</span> <span class="p">{</span>
+</span><span class='line'>      <span class="nx">dNew</span> <span class="o">:=</span> <span class="nx">squareDistanceWithBailout</span><span class="p">(</span><span class="nx">features</span><span class="p">,</span> <span class="nx">row</span><span class="p">.</span><span class="nx">Features</span><span class="p">,</span> <span class="nx">d</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'>      <span class="k">if</span> <span class="nx">dNew</span> <span class="p">&lt;</span> <span class="nx">d</span> <span class="p">{</span>
+</span><span class='line'>          <span class="nx">label</span> <span class="p">=</span> <span class="nx">row</span><span class="p">.</span><span class="nx">Label</span>
+</span><span class='line'>          <span class="nx">d</span> <span class="p">=</span> <span class="nx">dNew</span>
+</span><span class='line'>      <span class="p">}</span>
+</span><span class='line'>  <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">return</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="kd">func</span> <span class="nx">main</span><span class="p">()</span> <span class="p">{</span>
+</span><span class='line'>  <span class="nx">runtime</span><span class="p">.</span><span class="nx">GOMAXPROCS</span><span class="p">(</span><span class="nx">runtime</span><span class="p">.</span><span class="nx">NumCPU</span><span class="p">())</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="nx">validationSample</span> <span class="o">:=</span> <span class="nx">parseCSVFile</span><span class="p">(</span><span class="s">&quot;validationsample.csv&quot;</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="kd">var</span> <span class="nx">totalCorrect</span> <span class="kt">float32</span> <span class="p">=</span> <span class="mi">0</span>
+</span><span class='line'>  <span class="nx">successChannel</span> <span class="o">:=</span> <span class="nb">make</span><span class="p">(</span><span class="kd">chan</span> <span class="kt">float32</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">for</span> <span class="nx">_</span><span class="p">,</span> <span class="nx">test</span> <span class="o">:=</span> <span class="k">range</span> <span class="nx">validationSample</span> <span class="p">{</span>
+</span><span class='line'>      <span class="k">go</span> <span class="kd">func</span><span class="p">(</span><span class="nx">t</span> <span class="nx">LabelWithFeatures</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>          <span class="k">if</span> <span class="nb">string</span><span class="p">(</span><span class="nx">t</span><span class="p">.</span><span class="nx">Label</span><span class="p">)</span> <span class="o">==</span> <span class="nb">string</span><span class="p">(</span><span class="nx">classify</span><span class="p">(</span><span class="nx">t</span><span class="p">.</span><span class="nx">Features</span><span class="p">))</span> <span class="p">{</span>
+</span><span class='line'>              <span class="nx">successChannel</span> <span class="o">&lt;-</span> <span class="mi">1</span>
+</span><span class='line'>          <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+</span><span class='line'>              <span class="nx">successChannel</span> <span class="o">&lt;-</span> <span class="mi">0</span>
+</span><span class='line'>          <span class="p">}</span>
+</span><span class='line'>      <span class="p">}(</span><span class="nx">test</span><span class="p">)</span>
+</span><span class='line'>  <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">for</span> <span class="nx">i</span> <span class="o">:=</span> <span class="mi">0</span><span class="p">;</span> <span class="nx">i</span> <span class="p">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="nx">validationSample</span><span class="p">);</span> <span class="nx">i</span><span class="o">++</span> <span class="p">{</span>
+</span><span class='line'>      <span class="nx">totalCorrect</span> <span class="o">+=</span> <span class="o">&lt;-</span><span class="nx">successChannel</span>
+</span><span class='line'>  <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="nx">fmt</span><span class="p">.</span><span class="nx">Println</span><span class="p">(</span><span class="nb">float32</span><span class="p">(</span><span class="nx">totalCorrect</span><span class="p">)</span> <span class="o">/</span> <span class="nb">float32</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="nx">validationSample</span><span class="p">)))</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+</notextile>
+</div>
+
+<h4 id="haskell-naive">Haskell (naive)</h4>
+<div class='bogus-wrapper'>
+<notextile>
+<figure class='code'><figcaption>
+<span></span>
+</figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+<span class='line-number'>42</span>
+<span class='line-number'>43</span>
+<span class='line-number'>44</span>
+<span class='line-number'>45</span>
+</pre></td><td class='code'><pre><code class='haskell'><span class='line'><span class="cm">{-# LANGUAGE BangPatterns #-}</span>
+</span><span class='line'>
+</span><span class='line'><span class="kr">import</span> <span class="nn">Data.Csv</span>
+</span><span class='line'><span class="kr">import</span> <span class="k">qualified</span> <span class="nn">Data.ByteString.Lazy</span> <span class="k">as</span> <span class="n">BS</span>
+</span><span class='line'><span class="kr">import</span> <span class="k">qualified</span> <span class="nn">Data.Vector</span> <span class="k">as</span> <span class="n">V</span>
+</span><span class='line'>
+</span><span class='line'><span class="kr">type</span> <span class="kt">Label</span> <span class="ow">=</span> <span class="kt">Field</span>
+</span><span class='line'>
+</span><span class='line'><span class="kr">type</span> <span class="kt">Feature</span> <span class="ow">=</span> <span class="kt">Integer</span>
+</span><span class='line'>
+</span><span class='line'><span class="kr">data</span> <span class="kt">Observation</span> <span class="ow">=</span> <span class="kt">Observation</span> <span class="p">{</span> <span class="n">label</span> <span class="ow">::</span> <span class="o">!</span><span class="kt">Label</span>
+</span><span class='line'>                               <span class="p">,</span> <span class="n">features</span> <span class="ow">::</span> <span class="o">!</span><span class="p">(</span><span class="kt">V</span><span class="o">.</span><span class="kt">Vector</span> <span class="kt">Feature</span><span class="p">)</span>
+</span><span class='line'>                               <span class="p">}</span> <span class="kr">deriving</span> <span class="p">(</span><span class="kt">Show</span><span class="p">,</span> <span class="kt">Eq</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="kr">instance</span> <span class="kt">FromRecord</span> <span class="kt">Observation</span> <span class="kr">where</span>
+</span><span class='line'>  <span class="n">parseRecord</span> <span class="o">!</span><span class="n">v</span> <span class="ow">=</span> <span class="kr">do</span>
+</span><span class='line'>    <span class="kt">V</span><span class="o">.</span><span class="n">mapM</span> <span class="n">parseField</span> <span class="p">(</span><span class="kt">V</span><span class="o">.</span><span class="n">tail</span> <span class="n">v</span><span class="p">)</span> <span class="o">&gt;&gt;=</span>
+</span><span class='line'>      <span class="n">return</span> <span class="o">.</span> <span class="kt">Observation</span> <span class="p">(</span><span class="kt">V</span><span class="o">.</span><span class="n">head</span> <span class="n">v</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="nf">parseRecords</span> <span class="ow">::</span> <span class="kt">BS</span><span class="o">.</span><span class="kt">ByteString</span> <span class="ow">-&gt;</span> <span class="kt">Either</span> <span class="kt">String</span> <span class="p">(</span><span class="kt">V</span><span class="o">.</span><span class="kt">Vector</span> <span class="kt">Observation</span><span class="p">)</span>
+</span><span class='line'><span class="nf">parseRecords</span> <span class="ow">=</span> <span class="n">decode</span> <span class="kt">HasHeader</span>
+</span><span class='line'>
+</span><span class='line'><span class="nf">dist</span> <span class="ow">::</span> <span class="p">(</span><span class="kt">V</span><span class="o">.</span><span class="kt">Vector</span> <span class="kt">Feature</span><span class="p">)</span> <span class="ow">-&gt;</span> <span class="p">(</span><span class="kt">V</span><span class="o">.</span><span class="kt">Vector</span> <span class="kt">Feature</span><span class="p">)</span> <span class="ow">-&gt;</span> <span class="kt">Integer</span>
+</span><span class='line'><span class="nf">dist</span> <span class="o">!</span><span class="n">x</span> <span class="o">!</span><span class="n">y</span> <span class="ow">=</span> <span class="kt">V</span><span class="o">.</span><span class="n">sum</span> <span class="o">$</span> <span class="kt">V</span><span class="o">.</span><span class="n">map</span> <span class="p">(</span><span class="o">^</span><span class="mi">2</span><span class="p">)</span> <span class="o">$</span> <span class="kt">V</span><span class="o">.</span><span class="n">zipWith</span> <span class="p">(</span><span class="o">-</span><span class="p">)</span> <span class="n">x</span> <span class="n">y</span>
+</span><span class='line'>
+</span><span class='line'><span class="nf">closerTo</span> <span class="ow">::</span> <span class="p">(</span><span class="kt">V</span><span class="o">.</span><span class="kt">Vector</span> <span class="kt">Feature</span><span class="p">)</span> <span class="ow">-&gt;</span> <span class="kt">Observation</span> <span class="ow">-&gt;</span> <span class="kt">Observation</span> <span class="ow">-&gt;</span> <span class="kt">Ordering</span>
+</span><span class='line'><span class="nf">closerTo</span> <span class="o">!</span><span class="n">target</span> <span class="o">!</span><span class="n">o1</span> <span class="o">!</span><span class="n">o2</span> <span class="ow">=</span> <span class="n">compare</span> <span class="p">(</span><span class="n">dist</span> <span class="n">target</span> <span class="p">(</span><span class="n">features</span> <span class="n">o1</span><span class="p">))</span> <span class="p">(</span><span class="n">dist</span> <span class="n">target</span> <span class="p">(</span><span class="n">features</span> <span class="n">o2</span><span class="p">))</span>
+</span><span class='line'>
+</span><span class='line'><span class="nf">classify</span> <span class="ow">::</span> <span class="p">(</span><span class="kt">V</span><span class="o">.</span><span class="kt">Vector</span> <span class="kt">Observation</span><span class="p">)</span> <span class="ow">-&gt;</span> <span class="p">(</span><span class="kt">V</span><span class="o">.</span><span class="kt">Vector</span> <span class="kt">Feature</span><span class="p">)</span> <span class="ow">-&gt;</span> <span class="kt">Label</span>
+</span><span class='line'><span class="nf">classify</span> <span class="o">!</span><span class="n">os</span> <span class="o">!</span><span class="n">fs</span> <span class="ow">=</span> <span class="n">label</span> <span class="kr">where</span>
+</span><span class='line'>  <span class="p">(</span><span class="kt">Observation</span> <span class="n">label</span> <span class="kr">_</span><span class="p">)</span> <span class="ow">=</span> <span class="kt">V</span><span class="o">.</span><span class="n">minimumBy</span> <span class="p">(</span><span class="n">closerTo</span> <span class="n">fs</span><span class="p">)</span> <span class="n">os</span>
+</span><span class='line'>
+</span><span class='line'><span class="nf">checkCorrect</span> <span class="ow">::</span> <span class="p">(</span><span class="kt">V</span><span class="o">.</span><span class="kt">Vector</span> <span class="kt">Observation</span><span class="p">)</span> <span class="ow">-&gt;</span> <span class="kt">Observation</span> <span class="ow">-&gt;</span> <span class="kt">Int</span>
+</span><span class='line'><span class="nf">checkCorrect</span> <span class="o">!</span><span class="n">training</span> <span class="p">(</span><span class="kt">Observation</span> <span class="n">label</span> <span class="n">features</span><span class="p">)</span>
+</span><span class='line'>  <span class="o">|</span> <span class="n">label</span> <span class="o">==</span> <span class="n">classify</span> <span class="n">training</span> <span class="n">features</span> <span class="ow">=</span> <span class="mi">1</span>
+</span><span class='line'>  <span class="o">|</span> <span class="n">otherwise</span> <span class="ow">=</span> <span class="mi">0</span>
+</span><span class='line'>
+</span><span class='line'><span class="nf">main</span> <span class="ow">=</span> <span class="kr">do</span>
+</span><span class='line'>  <span class="n">validationSample</span> <span class="ow">&lt;-</span> <span class="kt">BS</span><span class="o">.</span><span class="n">readFile</span> <span class="s">&quot;validationsample.csv&quot;</span>
+</span><span class='line'>  <span class="n">trainingSample</span> <span class="ow">&lt;-</span> <span class="kt">BS</span><span class="o">.</span><span class="n">readFile</span> <span class="s">&quot;trainingsample.csv&quot;</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="kr">let</span> <span class="kt">Right</span> <span class="n">validation</span> <span class="ow">=</span> <span class="n">parseRecords</span> <span class="n">validationSample</span>
+</span><span class='line'>  <span class="kr">let</span> <span class="kt">Right</span> <span class="n">training</span> <span class="ow">=</span> <span class="n">parseRecords</span> <span class="n">trainingSample</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="n">print</span> <span class="p">(</span><span class="kt">V</span><span class="o">.</span><span class="n">sum</span> <span class="p">(</span><span class="kt">V</span><span class="o">.</span><span class="n">map</span> <span class="p">(</span><span class="n">checkCorrect</span> <span class="n">training</span><span class="p">)</span> <span class="n">validation</span><span class="p">))</span>
+</span></code></pre></td></tr></table></div></figure>
+</notextile>
+</div></div>
+
+
+  <footer>
+    <p class="meta">
+      
+  
+
+<span class="byline author vcard">Posted by <span class="fn">Amit Kumar Gupta</span></span>
+
+      
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2014-06-21T17:46:00-07:00" pubdate data-updated="true">Jun 21<span>st</span>, 2014</time>
+      
+
+
+    </p>
+    
+      <div class="sharing">
+  
+  <a href="http://twitter.com/share" class="twitter-share-button" data-url="http://akgupta.ca/blog/2014/06/21/k-nn-algorithm-in-golang-and-haskell/" data-via="" data-counturl="http://akgupta.ca/blog/2014/06/21/k-nn-algorithm-in-golang-and-haskell/" >Tweet</a>
+  
+  
+  
+</div>
+
+    
+    <p class="meta">
+      
+        <a class="basic-alignment left" href="../../../../2013/06/07/so-you-still-dont-understand-hindley-milner-part-3/index.html" title="Previous Post: So You Still Don't Understand Hindley-Milner?  Part 3">&laquo; So You Still Don't Understand Hindley-Milner?  Part 3</a>
+      
+      
+        <a class="basic-alignment right" href="http://akgupta.ca/blog/2014/07/19/is-math-programming-youre-asking-the-wrong-question-part-1/" title="Next Post: Is programming math? You're asking the wrong question. Part 1">Is programming math? You're asking the wrong question. Part 1 &raquo;</a>
+      
+    </p>
+  </footer>
+</article>
+
+  <section>
+    <h1>Comments</h1>
+    <div id="disqus_thread" aria-live="polite"><noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+</div>
+  </section>
+
+</div>
+
+<aside class="sidebar">
+  
+    <section>
+  <h1>Contact</h1>
+  <p>Twitter: <a href="https://twitter.com/amitkgupta84/">@amitkgupta84</a><br>
+     LinkedIn: <a href="http://www.linkedin.com/pub/amit-gupta/1a/527/936">Amit Kumar Gupta</a></p>
+</section>
+<section>
+  <h1>Recent Posts</h1>
+  <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="http://akgupta.ca/blog/2014/07/19/is-math-programming-youre-asking-the-wrong-question-part-2/">Is Programming Math? You're Asking the Wrong Question. Part 2</a>
+      </li>
+    
+      <li class="post">
+        <a href="http://akgupta.ca/blog/2014/07/19/is-math-programming-youre-asking-the-wrong-question-part-1/">Is Programming Math? You're Asking the Wrong Question. Part 1</a>
+      </li>
+    
+      <li class="post">
+        <a href="index.html">k-NN Algorithm in Golang and Haskell</a>
+      </li>
+    
+      <li class="post">
+        <a href="../../../../2013/06/07/so-you-still-dont-understand-hindley-milner-part-3/index.html">So You Still Don't Understand Hindley-Milner? Part 3</a>
+      </li>
+    
+      <li class="post">
+        <a href="../../../../2013/06/07/so-you-still-dont-understand-hindley-milner-part-2/index.html">So You Still Don't Understand Hindley-Milner? Part 2</a>
+      </li>
+    
+      <li class="post">
+        <a href="http://akgupta.ca/blog/2013/06/06/entropy-how-password-strength-is-measured/">Entropy: How Password Strength Is Measured</a>
+      </li>
+    
+      <li class="post">
+        <a href="http://akgupta.ca/blog/2013/06/02/yo-dawg/">Yo Dawg, I Herd You Like Math</a>
+      </li>
+    
+      <li class="post">
+        <a href="http://akgupta.ca/blog/2013/05/19/is-it-possible-to-be-15-percent-swedish/">Is It Possible to Be 15% Swedish?</a>
+      </li>
+    
+      <li class="post">
+        <a href="../../../../2013/05/14/so-you-still-dont-understand-hindley-milner/index.html">So You Still Don't Understand Hindley-Milner? Part 1</a>
+      </li>
+    
+      <li class="post">
+        <a href="http://akgupta.ca/blog/2013/05/11/setting-up-postgresql-with-macports-for-ruby-on-rails-development/">Setting Up PostgreSQL With MacPorts for Ruby on Rails Development</a>
+      </li>
+    
+  </ul>
+</section>
+
+
+  
+</aside>
+
+
+    </div>
+  </div>
+  <footer role="contentinfo"><p>
+  Copyright &copy; 2016 - Amit Kumar Gupta -
+  <span class="credit">Powered by <a href="http://octopress.org/">Octopress</a></span>
+</p>
+
+</footer>
+  
+
+<script type="text/javascript">
+      var disqus_shortname = 'amitsblog-math-code';
+      
+        
+        // var disqus_developer = 1;
+        var disqus_identifier = 'index.html';
+        var disqus_url = 'index.html';
+        var disqus_script = 'embed.html';
+      
+    (function () {
+      var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+      dsq.src = 'http://' + disqus_shortname + '.disqus.com/' + disqus_script;
+      (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    }());
+</script>
+
+
+
+
+
+
+
+  <script type="text/javascript">
+    (function(){
+      var twitterWidgets = document.createElement('script');
+      twitterWidgets.type = 'text/javascript';
+      twitterWidgets.async = true;
+      twitterWidgets.src = 'http://platform.twitter.com/widgets.js';
+      document.getElementsByTagName('head')[0].appendChild(twitterWidgets);
+    })();
+  </script>
+
+
+
+
+
+</body>
+
+<!-- Mirrored from akgupta.ca/blog/2014/06/21/k-nn-algorithm-in-golang-and-haskell/ by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 19 Dec 2016 22:29:09 GMT -->
+</html>
