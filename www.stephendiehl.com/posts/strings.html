@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+
+<!-- Mirrored from www.stephendiehl.com/posts/strings.html by HTTrack Website Copier/3.x [XR&CO'2014], Thu, 22 Dec 2016 03:10:27 GMT -->
+<head>
+
+    <!-- Basic Page Needs
+  ================================================== -->
+    <meta charset="utf-8">
+    <title>A Sticky Stringy Quandary</title>
+    <meta name="description" content="{{description}}">
+    <meta name="author" content="{{author}}">
+
+    <!-- Mobile Specific Metas
+  ================================================== -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+    <!-- CSS
+  ================================================== -->
+    <link rel="stylesheet" href="../css/base.css">
+    <link rel="stylesheet" href="../css/skeleton.css">
+    <link rel="stylesheet" href="../css/typography.css">
+    <link rel="stylesheet" href="../css/layout.css">
+    <link rel="stylesheet" href="../css/syntax.css">
+    <link rel="stylesheet" href="../css/custom.css">
+
+    <link href="http://fonts.googleapis.com/css?family=Droid+Sans:400,700|Droid+Serif:400,400italic|Inconsolata" rel="stylesheet">
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+    </script>
+    <script type="text/x-mathjax-config">
+    </script>
+
+    <!-- Google Analytics -->
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','http://www.google-analytics.com/analytics.js','ga');
+
+      ga('create', 'UA-49839533-1', 'stephendiehl.com');
+      ga('send', 'pageview');
+    </script>
+
+    <!--[if lt IE 9]>
+        <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <!-- Favicons
+    ================================================== -->
+    <link rel="shortcut icon" href="images/favicon.html">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.html">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.html">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.html">
+
+    <link rel="alternate" title="Stephen Diehl" type="application/atom+xml" href="feed.html">
+    <link rel="alternate" title="Stephen Diehl" type="application/rss+xml" href="feed-2.html">
+</head>
+<body>
+
+    <div class="container">
+        <div class="three columns sidebar">
+            <nav>
+                <h3 id="logo">Stephen Diehl</h3>
+                <ul>
+                    <li><a href="../index.html">Index</a></li>
+                    <li><a href="../posts.html">Blog</a></li>
+                    <li><a href="../pages/writings.html">Writings</a></li>
+                    <li><a href="../pages/hire.html">Contact Me</a></li>
+                    <li><a href="../pages/pgp.html">PGP Key</a></li>
+                    <li><a href="https://github.com/sdiehl">Github</a></li>
+                    <li><a href="https://twitter.com/#!/smdiehl">Twitter</a></li>
+                </ul>
+            </nav>
+            &nbsp;
+        </div>
+
+        <div class="twelve columns offset-by-one content">
+            <h3 id="a-sticky-stringy-quandary">A Sticky Stringy Quandary</h3>
+<p>Anyone who has used Haskell in a professional setting knows that the String situation is kind of a mess. While in many ways the language is progressing at a rapid pace and is only ever getting more compelling for commercial use, the String situation is still regarded by many people as the <a href="https://www.reddit.com/r/haskell/comments/4f47ou/why_does_haskell_in_your_opinion_suck/d25zq7t">largest problem in the langauge</a>. And for good reason, an efficient textual type is absolutely essential for most work and it’s use needs to be streamlined and language-integrated for a overall positive experience writing industrial Haskell.</p>
+<p>Let us a consider a logical assessment of why the <strong>String Situation</strong> exists, how far we can get with workarounds and what’s next. See the accompanying Git project for prototype code:</p>
+<p style="text-align:center">
+<strong><a href="https://github.com/sdiehl/print">Accompaying Source Code</a></strong>
+</p>
+<h3 id="string">String</h3>
+<p>The String type is very naive, it’s <a href="https://hackage.haskell.org/package/base-4.9.0.0/docs/Data-String.html#t:String">defined</a> as a linked-list of Char pointers.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">String</span> <span class="fu">=</span> [<span class="dt">Char</span>]</code></pre></div>
+<p>This is not only a bad representation, it’s quite possibly the least efficient (non-contrived) representation of text data possible and has horrible performance in both time and space. <em>And it’s used everywhere in Haskell.</em> Even posterchild libraries for Haskell (Pandoc, etc) use it extensively and have horrible performance because of it.</p>
+<p>Around 2005-2007 several more efficient libraries were written, that included <a href="https://hackage.haskell.org/package/bytestring">Bytestring</a> and <a href="https://hackage.haskell.org/package/text">Text</a> and both have different use-cases. Both are orders of magnitude more efficient and have become the ubiquitous in “Modern Haskell”. Combined with the recent <code>-XOverloadedStrings</code> language extension we have a partial solution for routing around the problem.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">{-# LANGUAGE OverloadedStrings #-}</span>
+
+<span class="kw">import qualified</span> <span class="dt">Data.Text</span> <span class="kw">as</span> <span class="dt">T</span>
+
+<span class="co">-- From overloaded string literal.</span>
+<span class="ot">foo ::</span> <span class="dt">T.Text</span>
+foo <span class="fu">=</span> <span class="st">&quot;bar&quot;</span></code></pre></div>
+<p>Unfortunately conversion between the efficient string types and String is <span class="math inline">\(O(n)\)</span> and involves a deep copy. They’re still not used ubiquitously, and every introductory book on the subject still uses String instead of the modern libraries because it’s provided by default.</p>
+<p>So why is String still used? Because it’s too convenient and it has special powers from being wired-in to the compiler.</p>
+<h3 id="banishing-string">Banishing String</h3>
+<p>You can get pretty far working in a subset of the Prelude and blessed libraries that have nearly removed old historical cruft like String and banished the ugly parts of the Prelude. However one will end up using String in few noticeable dark corners.</p>
+<ol style="list-style-type: decimal">
+<li>Show instances</li>
+<li>Read instances</li>
+<li>Pretty printers</li>
+<li>FilePath</li>
+<li>Third party libraries written before 2007.</li>
+</ol>
+<p>Older core libraries are getting slowly phased out, this is a social problem not a technology problem. This seems to be going in the right direction on it’s own.</p>
+<p>FilePaths are not hard to swap out and not a huge concern.</p>
+<p><code>Show</code> typeclasses and Pretty printers are the probably the singularly biggest source of continued [Char] usage and what we’ll concern ourselves with here.</p>
+<hr />
+<h3 id="show">Show</h3>
+<p>The Show class is really useful, and automatically deriving show much boilerplate is part of the reason Haskell is so much fun to write. However it’s current status poses a bit of a problem transitioning to modern types for several reasons:</p>
+<ol style="list-style-type: lower-alpha">
+<li>It’s abused to write custom pretty printers.</li>
+<li>It’s relation to the Read class is problematic.</li>
+<li>It’s constrained to use <code>[Char]</code> and forces that choice on downstream users, who end up forced to use it in places it shouldn’t be used.</li>
+</ol>
+<p>So what is Show class really, it’s so successful that a lot of people actually never look at it’s internals. The guts of it is a function called <code>showPrec</code> which is a overloaded CPS’d function which composes together a collection of string fragments for specific implementations of the Show typeclass.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">ShowS</span> <span class="fu">=</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">String</span>
+
+<span class="kw">class</span> <span class="dt">Show</span> a <span class="kw">where</span>
+<span class="ot">  showsPrec ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">ShowS</span>
+<span class="ot">  show ::</span> a <span class="ot">-&gt;</span> <span class="dt">String</span>
+<span class="ot">  showList ::</span> [a] <span class="ot">-&gt;</span> <span class="dt">ShowS</span>
+  <span class="ot">{-# MINIMAL showsPrec | show #-}</span></code></pre></div>
+<p>Together with the Read class we get a textual serializer and deserializer for free with the laws governing that relation being:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">read <span class="fu">.</span> show <span class="fu">=</span> id</code></pre></div>
+<p>GHC can almost always derive this automatically and the instance is pretty simple. Using <code>-ddump-deriv</code> we can ask GHC to dump it out for us.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">λ<span class="fu">&gt;</span> <span class="fu">:</span>set <span class="fu">-</span>ddump<span class="fu">-</span>deriv 
+λ<span class="fu">&gt;</span> <span class="kw">data</span> <span class="dt">List</span> a <span class="fu">=</span> <span class="dt">Nil</span> <span class="fu">|</span> <span class="dt">Cons</span> a (<span class="dt">List</span> a) <span class="kw">deriving</span> (<span class="dt">Show</span>)
+
+<span class="kw">instance</span> <span class="dt">Show</span> a <span class="ot">=&gt;</span> <span class="dt">Show</span> (<span class="dt">List</span> a) <span class="kw">where</span>
+  showsPrec _ <span class="dt">Nil</span> <span class="fu">=</span> showString <span class="st">&quot;Nil&quot;</span>
+  showsPrec a (<span class="dt">Cons</span> b1 b2)
+    <span class="fu">=</span> showParen (a <span class="fu">&gt;=</span> <span class="dv">11</span>) <span class="fu">$</span> 
+           showString <span class="st">&quot;Cons &quot;</span> 
+         <span class="fu">.</span> showsPrec <span class="dv">11</span> b1 
+         <span class="fu">.</span> showSpace
+         <span class="fu">.</span> showsPrec <span class="dv">11</span> b2
+
+  showList <span class="fu">=</span> showList__ (showsPrec <span class="dv">0</span>)</code></pre></div>
+<p>The emergant problem this is that there are an enormous number of pathological Show instances used in practice, and you don’t need to look even beyond the standard library to find law violations. This coupled with the fact that Read instance is really dangerous, it’s use of a very suboptimal String type means that it’s inefficient and opens up security holes and potential denial-of-service attacks in networked applications. Show should really only to be used for debugging the structure of internal types and used at the interactive shell. For serializing structures to text in a way that differs from Haskell’s internal representation we need a pretty printer.</p>
+<h3 id="pretty-printers">Pretty Printers</h3>
+<p>The correct way of writing custom textual serializes is through the various pretty-print combinator libraries that stem from Wadler’s original paper <a href="http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.19.635&amp;rep=rep1&amp;type=pdf">A prettier printer</a>. There are some degrees of freedom in this design space, but <a href="https://hackage.haskell.org/package/wl-pprint-text">wl-pprint-text</a> is a good choice for almost all use cases. Using the underlying <a href="https://hackage.haskell.org/package/text-1.2.2.1/docs/Data-Text-Lazy-Builder.html">Data.Text.Lazy.Builder</a> functions is also a sensible choice.</p>
+<p>So for example if we have a little λ-calculus…</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Expr</span>
+  <span class="fu">=</span> <span class="dt">Var</span> <span class="dt">Text</span>
+  <span class="fu">|</span> <span class="dt">Lit</span> <span class="dt">Lit</span>
+  <span class="fu">|</span> <span class="dt">App</span> <span class="dt">Expr</span> <span class="dt">Expr</span>
+  <span class="fu">|</span> <span class="dt">Lam</span> <span class="dt">Text</span> <span class="dt">Expr</span>
+
+<span class="kw">data</span> <span class="dt">Lit</span>
+  <span class="fu">=</span> <span class="dt">LInt</span> <span class="dt">Int</span>
+  <span class="fu">|</span> <span class="dt">LBool</span> <span class="dt">Bool</span></code></pre></div>
+<p>We can write down a pretty printer quite simply using the provided combinators. See the <a href="https://gist.github.com/sdiehl/d8eae8db0a9fa34c54c10cb46a0b2dc8">gist here</a> for the full example.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Pretty</span> a <span class="kw">where</span>
+<span class="ot">  pretty ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">Doc</span>
+
+<span class="kw">instance</span> <span class="dt">Pretty</span> <span class="dt">Lit</span> <span class="kw">where</span>
+  pretty _ (<span class="dt">LInt</span> n) <span class="fu">=</span> int n
+  pretty _ (<span class="dt">LBool</span> b) <span class="fu">=</span> bool b
+
+<span class="kw">instance</span> <span class="dt">Pretty</span> <span class="dt">Expr</span> <span class="kw">where</span>
+  pretty _ (<span class="dt">Var</span> x)  <span class="fu">=</span> text x
+  pretty p (<span class="dt">Lit</span> x)  <span class="fu">=</span> pretty p x
+
+  pretty p e<span class="fu">@</span>(<span class="dt">App</span> _ _) <span class="fu">=</span>
+    <span class="kw">let</span> (f, xs) <span class="fu">=</span> viewApp e <span class="kw">in</span>
+    <span class="kw">let</span> args <span class="fu">=</span> sep <span class="fu">$</span> map (pretty (p<span class="fu">+</span><span class="dv">1</span>)) xs <span class="kw">in</span>
+    parensIf (p<span class="fu">&gt;</span><span class="dv">0</span>) <span class="fu">$</span> pretty p f <span class="fu">&lt;+&gt;</span> args
+
+  pretty p e<span class="fu">@</span>(<span class="dt">Lam</span> _ _) <span class="fu">=</span>
+    <span class="kw">let</span> body <span class="fu">=</span> pretty (p<span class="fu">+</span><span class="dv">1</span>) (viewBody e) <span class="kw">in</span>
+    <span class="kw">let</span> vars <span class="fu">=</span> map text (viewVars e) <span class="kw">in</span>
+    parensIf (p<span class="fu">&gt;</span><span class="dv">0</span>) <span class="fu">$</span> <span class="st">&quot;\\&quot;</span> <span class="fu">&lt;&gt;</span> hsep vars <span class="fu">&lt;+&gt;</span> <span class="st">&quot;.&quot;</span> <span class="fu">&lt;+&gt;</span> body</code></pre></div>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">ppexpr ::</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">Text</span>
+ppexpr x <span class="fu">=</span> PP.displayT (PP.renderPretty <span class="fl">1.0</span> <span class="dv">70</span> (pretty <span class="dv">0</span> x))</code></pre></div>
+<p>So that’s how it <em>should</em> be done. In practice to do this you’d have to setup a cabal/stack project, install 11 dependencies, write a new typeclass, and write this little joy of a import preamble masking several functions that conflict in the Prelude namespace.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">import </span><span class="dt">Data.Monoid</span>
+<span class="kw">import </span><span class="dt">Data.Text.Lazy</span> (<span class="dt">Text</span>)
+<span class="kw">import </span><span class="dt">Data.Text.Lazy.IO</span> <span class="kw">as</span> <span class="dt">TL</span>
+<span class="kw">import </span><span class="dt">Text.PrettyPrint.Leijen.Text</span> <span class="kw">hiding</span> ((&lt;$&gt;), (&lt;&gt;), <span class="dt">Pretty</span>(..))
+<span class="kw">import qualified</span> <span class="dt">Text.PrettyPrint.Leijen.Text</span> <span class="kw">as</span> <span class="dt">PP</span></code></pre></div>
+<p>This kind of sucks. It’s the right thing to do, but it’s kind of painful and it’s certainly not intuitive for newcomers. Abusing Show and String is easier, <em>worst practices should be hard</em> but in this case they are much easier than doing the correct thing.</p>
+<h3 id="progress-string-text">Progress :: String → Text</h3>
+<p>GHC has had the capacity to support custom Preludes for a while and this is a very wise design choice. For all the historical brokenness of certain things, there are very few technological hurdles to replacing them with modern sensible defaults. The question then remains how close can we come to replacing Show with a Text-based equivalent. The answer is about 80% before surgery is required on GHC itself.</p>
+<p>The translation of a Text-based show prototype is just one module. Instead of concatenating Strings we use the Text.Builder object to build up a Text representation. The <code>ShowS</code> function now just becomes a Builder transformation.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">import </span><span class="dt">Data.Text.Buildable</span> (build)
+<span class="kw">import qualified</span> <span class="dt">Data.Text.Lazy</span> <span class="kw">as</span> <span class="dt">TL</span>
+<span class="kw">import qualified</span> <span class="dt">Data.Text.Lazy.Builder</span> <span class="kw">as</span> <span class="dt">TB</span>
+
+<span class="kw">type</span> <span class="dt">ShowS</span> <span class="fu">=</span> <span class="dt">TB.Builder</span> <span class="ot">-&gt;</span> <span class="dt">TB.Builder</span>
+
+<span class="kw">class</span> <span class="dt">Show</span> a <span class="kw">where</span>
+<span class="ot">  showsPrec ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">ShowS</span>
+<span class="ot">  show ::</span> a <span class="ot">-&gt;</span> <span class="dt">TL.Text</span>
+  show x <span class="fu">=</span> TB.toLazyText (shows x <span class="st">&quot;&quot;</span>)</code></pre></div>
+<p>The various builtin types have builder objects implemented by Buildable that efficiently render to Text.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Show</span> <span class="dt">Integer</span> <span class="kw">where</span>
+  showsPrec _ n f <span class="fu">=</span> build n <span class="fu">&lt;&gt;</span> f
+
+<span class="kw">instance</span> <span class="dt">Show</span> <span class="dt">Float</span> <span class="kw">where</span>
+  showsPrec _ n f <span class="fu">=</span> build n <span class="fu">&lt;&gt;</span> f
+
+<span class="kw">instance</span> <span class="dt">Show</span> <span class="dt">Double</span> <span class="kw">where</span>
+  showsPrec _ n f <span class="fu">=</span> build n <span class="fu">&lt;&gt;</span> f
+
+<span class="kw">instance</span> <span class="dt">Show</span> <span class="dt">Bool</span> <span class="kw">where</span>
+  showsPrec _ <span class="dt">True</span> <span class="fu">=</span> showText <span class="st">&quot;True&quot;</span>
+  showsPrec _ <span class="dt">False</span> <span class="fu">=</span> showText <span class="st">&quot;False&quot;</span></code></pre></div>
+<p>For constructors with parameters there is a very mechanical translation that is exactly like how <code>deriving Show</code> works for String.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">con0 ::</span> <span class="dt">Text</span> <span class="ot">-&gt;</span> <span class="dt">ShowS</span>
+con0 <span class="fu">=</span> showText
+
+<span class="ot">con1 ::</span> <span class="dt">Show</span> a <span class="ot">=&gt;</span> <span class="dt">Text</span> <span class="ot">-&gt;</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">ShowS</span>
+con1 con p x <span class="fu">=</span> 
+  showParen (p <span class="fu">&gt;</span> appPrec) <span class="fu">$</span>
+    showText con <span class="fu">.</span>
+    showsPrec appPrec1 x
+
+<span class="kw">instance</span> <span class="dt">Show</span> a <span class="ot">=&gt;</span> <span class="dt">Show</span> (<span class="dt">Maybe</span> a) <span class="kw">where</span>
+  showsPrec _  <span class="dt">Nothing</span> s <span class="fu">=</span> con0 <span class="st">&quot;Nothing&quot;</span> s
+  showsPrec p (<span class="dt">Just</span> x) s <span class="fu">=</span> con1 <span class="st">&quot;Just &quot;</span> p x s</code></pre></div>
+<p>Since it’s easy to generate the boilerplate instances, we can use Generics to auto-derive the instance for any sum/product type expressible in Haskell and have a DefaultSignature for <code>showsPrec</code>.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Show</span> a <span class="kw">where</span>
+<span class="ot">  showsPrec ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">ShowS</span>
+<span class="ot">  show ::</span> a <span class="ot">-&gt;</span> <span class="dt">TL.Text</span>
+
+  default<span class="ot"> showsPrec ::</span> (<span class="dt">Generic</span> a, <span class="dt">GShow</span> (<span class="dt">Rep</span> a)) <span class="ot">=&gt;</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">ShowS</span>
+  showsPrec i x <span class="fu">=</span> gshowsPrec <span class="dt">Pref</span> i (from x)
+
+  show x <span class="fu">=</span> TB.toLazyText (shows x <span class="st">&quot;&quot;</span>)</code></pre></div>
+<p>And then some ugly (but mechanical) builder munging gives us an exact copy of GHC’s show format. The little known <a href="https://downloads.haskell.org/~ghc/latest/docs/html/users_guide/glasgow_exts.html#deriving-any-other-class"><code>-XDeriveAnyClass</code></a> can be used to derive any other class that has an empty minimal set or uses DefaultSignatures and Generic instances to implement methods.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">GShow</span> f <span class="kw">where</span>
+<span class="ot">  gshowsPrec ::</span> <span class="dt">Type</span> <span class="ot">-&gt;</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> f a <span class="ot">-&gt;</span> <span class="dt">ShowS</span>
+<span class="ot">  basic ::</span> f a <span class="ot">-&gt;</span> <span class="dt">Bool</span>
+  basic _ <span class="fu">=</span> <span class="dt">False</span>
+
+<span class="kw">instance</span>  <span class="dt">GShow</span> <span class="dt">U1</span> <span class="kw">where</span>
+  gshowsPrec _ _ _ <span class="fu">=</span> id
+  basic _ <span class="fu">=</span> <span class="dt">True</span>
+
+<span class="kw">instance</span> <span class="dt">Show</span> c <span class="ot">=&gt;</span> <span class="dt">GShow</span> (<span class="dt">K1</span> i c) <span class="kw">where</span>
+  gshowsPrec _ i (<span class="dt">K1</span> fp) <span class="fu">=</span> showsPrec i fp
+
+<span class="kw">instance</span> (<span class="dt">GShow</span> f, <span class="dt">Constructor</span> c) <span class="ot">=&gt;</span> <span class="dt">GShow</span> (<span class="dt">M1</span> <span class="dt">C</span> c f) <span class="kw">where</span>
+  gshowsPrec t i c<span class="fu">@</span>(<span class="dt">M1</span> fp) 
+    <span class="fu">|</span> conIsRecord c <span class="fu">=</span> 
+          showString (conName c)
+        <span class="fu">.</span> showChar <span class="ch">' '</span>
+        <span class="fu">.</span> showBraces (gshowsPrec <span class="dt">Rec</span> i fp)
+
+    <span class="fu">|</span> otherwise <span class="fu">=</span> <span class="kw">case</span> conFixity c <span class="kw">of</span>
+      <span class="dt">Prefix</span> <span class="ot">-&gt;</span> showParen (i <span class="fu">&gt;</span> appPrec <span class="fu">&amp;&amp;</span> not (basic fp)) <span class="fu">$</span>
+          showString (conName c)
+        <span class="fu">.</span> <span class="kw">if</span> basic fp <span class="kw">then</span> id <span class="kw">else</span> showChar <span class="ch">' '</span>
+        <span class="fu">.</span> gshowsPrec t appPrec1 fp
+
+      <span class="dt">Infix</span> _ m <span class="ot">-&gt;</span> showParen (i <span class="fu">&gt;</span> m) <span class="fu">$</span> 
+        showBraces (gshowsPrec t m fp)
+
+<span class="kw">instance</span> (<span class="dt">GShow</span> f, <span class="dt">Selector</span> c) <span class="ot">=&gt;</span> <span class="dt">GShow</span> (<span class="dt">M1</span> <span class="dt">S</span> c f) <span class="kw">where</span>
+  gshowsPrec t i c<span class="fu">@</span>(<span class="dt">M1</span> fp) <span class="fu">=</span> <span class="kw">case</span> t <span class="kw">of</span>
+    <span class="dt">Pref</span>    <span class="ot">-&gt;</span> gshowsPrec t i fp
+    <span class="dt">Inf</span> _   <span class="ot">-&gt;</span> gshowsPrec t i fp
+    <span class="dt">Rec</span>     <span class="ot">-&gt;</span>
+        showString (selName c)
+      <span class="fu">.</span> showText <span class="st">&quot; = &quot;</span>
+      <span class="fu">.</span> gshowsPrec t i fp
+
+<span class="kw">instance</span> (<span class="dt">GShow</span> f) <span class="ot">=&gt;</span> <span class="dt">GShow</span> (<span class="dt">M1</span> <span class="dt">D</span> c f) <span class="kw">where</span>
+  gshowsPrec t i (<span class="dt">M1</span> fp) <span class="fu">=</span> gshowsPrec t i fp
+
+<span class="kw">instance</span> (<span class="dt">GShow</span> f, <span class="dt">GShow</span> g) <span class="ot">=&gt;</span> <span class="dt">GShow</span> (f <span class="fu">:+:</span> g) <span class="kw">where</span>
+  gshowsPrec t i (<span class="dt">L1</span> fp) <span class="fu">=</span> gshowsPrec t i fp
+  gshowsPrec t i (<span class="dt">R1</span> fp) <span class="fu">=</span> gshowsPrec t i fp
+
+<span class="kw">instance</span> (<span class="dt">GShow</span> a, <span class="dt">GShow</span> b) <span class="ot">=&gt;</span> <span class="dt">GShow</span> (a <span class="fu">:*:</span> b) <span class="kw">where</span>
+  gshowsPrec t<span class="fu">@</span><span class="dt">Rec</span> n (a <span class="fu">:*:</span> b) <span class="fu">=</span>
+      gshowsPrec t n a 
+    <span class="fu">.</span> showText <span class="st">&quot;, &quot;</span>
+    <span class="fu">.</span> gshowsPrec t n b
+
+  gshowsPrec t<span class="fu">@</span><span class="dt">Pref</span> n (a <span class="fu">:*:</span> b) <span class="fu">=</span>
+      gshowsPrec t (n<span class="fu">+</span><span class="dv">1</span>) a 
+    <span class="fu">.</span> showChar <span class="ch">' '</span>
+    <span class="fu">.</span> gshowsPrec t (n<span class="fu">+</span><span class="dv">1</span>) b
+
+  gshowsPrec t<span class="fu">@</span>(<span class="dt">Inf</span> s) n (a <span class="fu">:*:</span> b) <span class="fu">=</span>
+      gshowsPrec t n a 
+    <span class="fu">.</span> showText s 
+    <span class="fu">.</span> gshowsPrec t n b</code></pre></div>
+<p>And there we have it, a fixed show function that is drop-in compatible with the existing format but uses Text…</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">show<span class="ot"> ::</span> <span class="dt">Show</span> a <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">Text</span></code></pre></div>
+<p>… and has automatic deriving.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">List</span> a 
+  <span class="fu">=</span> <span class="dt">Nil</span>
+  <span class="fu">|</span> <span class="dt">Cons</span> a (<span class="dt">List</span> a)
+  <span class="kw">deriving</span> (<span class="dt">Generic</span>, <span class="dt">Print.Show</span>)</code></pre></div>
+<p>We can even go so far as to tell GHCi to use our custom function at the Repl by adding the following to our projects <code>.ghci</code> file.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">import </span><span class="dt">Print</span>
+<span class="fu">:</span>set <span class="fu">-</span>interactive<span class="fu">-</span>print<span class="fu">=</span>Print.print</code></pre></div>
+<p>However GHC’s defaulting mechanism has a bunch of ad-hoc specializations for wired-in classes that don’t work for user-defined clases. If we type in an under-specified expression for Show, GHC will just splice in a show dictionary for the unit type <code>Show ()</code> if it can’t figure out an appropriate dictionary.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">λ<span class="fu">&gt;</span> print <span class="dt">Nothing</span>
+
+<span class="fu">====================</span> <span class="dt">Simplified</span> expression <span class="fu">====================</span>
+bindIO
+  (ghciStepIO
+     <span class="fu">$</span>fGHCiSandboxIOIO (print (<span class="fu">$</span>fShowMaybe <span class="fu">$</span>fShow()) (<span class="dt">Nothing</span>)))
+  (\ (<span class="ot">it ::</span> ()) <span class="ot">-&gt;</span> returnIO (<span class="fu">:</span> it ([])))</code></pre></div>
+<p>For our implementation:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">λ<span class="fu">&gt;</span> print <span class="dt">Nothing</span>
+
+<span class="fu">&lt;</span>interactive<span class="fu">&gt;:</span><span class="dv">3</span><span class="fu">:</span><span class="dv">1</span><span class="fu">:</span>
+    <span class="dt">No</span> <span class="kw">instance</span> for (<span class="dt">Show</span> a0) arising from a use <span class="kw">of</span> ‘print’
+    <span class="dt">The</span> <span class="kw">type</span> variable ‘a0’ is ambiguous
+    <span class="dt">Note</span><span class="fu">:</span> there are several potential instances<span class="fu">:</span>
+      <span class="kw">instance</span> (<span class="dt">Show</span> a, <span class="dt">Show</span> b) <span class="ot">=&gt;</span> <span class="dt">Show</span> (<span class="dt">Either</span> a b)
+        <span class="co">-- Defined at Print.hs:233:10</span>
+      <span class="kw">instance</span> <span class="dt">Show</span> a <span class="ot">=&gt;</span> <span class="dt">Show</span> (<span class="dt">Maybe</span> a) <span class="co">-- Defined at Print.hs:229:10</span>
+      <span class="kw">instance</span> <span class="dt">Show</span> <span class="dt">Int16</span> <span class="co">-- Defined at Print.hs:160:10</span>
+      <span class="fu">...</span>plus <span class="dv">27</span> others
+    <span class="dt">In</span> the expression<span class="fu">:</span> print <span class="dt">Nothing</span>
+    <span class="dt">In</span> an equation for ‘it’<span class="fu">:</span> it <span class="fu">=</span> print <span class="dt">Nothing</span></code></pre></div>
+<p>There’s currently no way to do this for a custom Show type. This implementation also requires a <code>Generic</code> instance and several language extensions. This is the hard limit to how far we can go in “user space”.</p>
+<h3 id="implementation">Implementation</h3>
+<p>What we can prototype with Generics today is not hard to translate over into a builtin deriving mechanism inside the compiler tomorrow. In fact we can create a compatibility layer so close the existing Show class deriving that we reuse all of it’s logic sans the type changes.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">module</span> <span class="dt">Print</span> (
+  <span class="dt">Show</span>(showsPrec, show),
+  <span class="dt">ShowS</span>,
+  showChar,
+  showText,
+  showList,
+  showList__,
+  showParen,
+  shows,
+) <span class="kw">where</span></code></pre></div>
+<p>Right now in GHC there is a <code>hasBuiltinDeriving</code> that checks if the derived class is one of the blessed “builtins” that has a prescription for deriving a class instance for it. The blessed classes include:</p>
+<table>
+<thead>
+<tr class="header">
+<th align="left"><strong>Class</strong></th>
+<th align="left"><strong>GHC Function</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">Eq</td>
+<td align="left"><a href="https://github.com/ghc/ghc/blob/master/compiler/typecheck/TcGenDeriv.hs#L192">gen_Eq_binds</a></td>
+</tr>
+<tr class="even">
+<td align="left">Ord</td>
+<td align="left"><a href="https://github.com/ghc/ghc/blob/master/compiler/typecheck/TcGenDeriv.hs#L361">gen_Ord_binds</a></td>
+</tr>
+<tr class="odd">
+<td align="left">Enum</td>
+<td align="left"><a href="https://github.com/ghc/ghc/blob/master/compiler/typecheck/TcGenDeriv.hs#L587">gen_Enum_binds</a></td>
+</tr>
+<tr class="even">
+<td align="left">Bounded</td>
+<td align="left"><a href="https://github.com/ghc/ghc/blob/master/compiler/typecheck/TcGenDeriv.hs#L667">gen_Bounded_binds</a></td>
+</tr>
+<tr class="odd">
+<td align="left">Ix</td>
+<td align="left"><a href="https://github.com/ghc/ghc/blob/master/compiler/typecheck/TcGenDeriv.hs#L754">gen_Ix_binds</a></td>
+</tr>
+<tr class="even">
+<td align="left">Show</td>
+<td align="left"><a href="https://github.com/ghc/ghc/blob/master/compiler/typecheck/TcGenDeriv.hs#L1114">gen_Show_binds</a></td>
+</tr>
+<tr class="odd">
+<td align="left">Read</td>
+<td align="left"><a href="https://github.com/ghc/ghc/blob/master/compiler/typecheck/TcGenDeriv.hs#L946">gen_Read_binds</a></td>
+</tr>
+<tr class="even">
+<td align="left">Data</td>
+<td align="left"><a href="https://github.com/ghc/ghc/blob/master/compiler/typecheck/TcGenDeriv.hs#L1276">gen_Data_binds</a></td>
+</tr>
+<tr class="odd">
+<td align="left">Functor</td>
+<td align="left"><a href="https://github.com/ghc/ghc/blob/master/compiler/typecheck/TcGenDeriv.hs#L1553">gen_Functor_binds</a></td>
+</tr>
+<tr class="even">
+<td align="left">Foldable</td>
+<td align="left"><a href="https://github.com/ghc/ghc/blob/master/compiler/typecheck/TcGenDeriv.hs#L1870">gen_Foldable_binds</a></td>
+</tr>
+<tr class="odd">
+<td align="left">Traversable</td>
+<td align="left"><a href="https://github.com/ghc/ghc/blob/master/compiler/typecheck/TcGenDeriv.hs#L1994">gen_Traversable_binds</a></td>
+</tr>
+<tr class="even">
+<td align="left">Lift</td>
+<td align="left"><a href="https://github.com/ghc/ghc/blob/master/compiler/typecheck/TcGenDeriv.hs#L1994">gen_Lift_binds</a></td>
+</tr>
+<tr class="odd">
+<td align="left">Generic</td>
+<td align="left"><a href="https://github.com/ghc/ghc/blob/master/compiler/typecheck/TcGenGenerics.hs#L66">gen_Generic_binds</a></td>
+</tr>
+<tr class="even">
+<td align="left">Typeable</td>
+<td align="left"><a href="https://github.com/ghc/ghc/blob/master/compiler/typecheck/TcTypeable.hs#L95">mkTypeableBinds</a></td>
+</tr>
+</tbody>
+</table>
+<p>If the public interface for generating a Text-Show instance recycled the same structure as String version, we could very easily write <code>gen_ShowText_binds</code> and plug this into the compiler to derive a new (distinct) text Show that wouldn’t break compatibility.</p>
+<p>However, at the moment <code>text</code> isn’t in GHC’s boot libraries and can’t be made into <a href="https://downloads.haskell.org/~ghc/7.10.3/docs/html/libraries/ghc-7.10.3/TysWiredIn.html">wired-in type</a> which would be necessary to add the new deriving mechanism to <code>TcGenDeriv.hs</code>. So that’s as far as we can go in 2016, there’s probably a fairly clear path to removing Stringy-Show if <code>text</code> were to at some point become accessible to GHC internals.</p>
+<!--
+
+### The Future
+
+If one is working in industrial Haskell and plans to be in this space for
+several decades, there's a certain set of questions The Thoughtful Haskell
+programmer should consider.
+
+1. In the year 2027 do I still want to be writing hundreds of lines of
+   boilerplate Haskell in every module to route around decisions made in 1997?
+2. What time is better than now to diverge from these "worst practices" and remove them
+   entirely from our compiler and language instead of simply routing around the
+   problem?
+3. What's the minimal viable set of packages we need to move over to Modern
+   Haskell to satisfy the needs of industrial users?
+
+-->
+        </div>
+    </div>
+
+    <!-- JS
+    ================================================== -->
+    <script src="http://code.jquery.com/jquery-1.7.1.min.js"></script>
+
+<!-- End Document
+================================================== -->
+</body>

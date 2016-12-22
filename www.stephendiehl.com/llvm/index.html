@@ -1,0 +1,1934 @@
+<!DOCTYPE html>
+<html lang="en">
+  
+<!-- Mirrored from www.stephendiehl.com/llvm/ by HTTrack Website Copier/3.x [XR&CO'2014], Thu, 22 Dec 2016 02:54:04 GMT -->
+<head>
+    <meta charset="utf-8">
+    <title>Implementing a JIT Compiler with Haskell and LLVM ( Stephen Diehl )</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <link href="http://fonts.googleapis.com/css?family=Inconsolata" rel="stylesheet">
+    <style type="text/css">
+      
+    </style>
+    <link href="css/bootstrap-responsive.min.css" rel="stylesheet">
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','http://www.google-analytics.com/analytics.js','ga');
+
+      ga('create', 'UA-49839533-1', 'stephendiehl.com');
+      ga('send', 'pageview');
+    </script>
+
+          <style type="text/css">
+    div.sourceCode { overflow-x: auto; }
+    table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode {
+      margin: 0; padding: 0; vertical-align: baseline; border: none; }
+    table.sourceCode { width: 100%; line-height: 100%; }
+    td.lineNumbers { text-align: right; padding-right: 4px; padding-left: 4px; color: #aaaaaa; border-right: 1px solid #aaaaaa; }
+    td.sourceCode { padding-left: 5px; }
+    code > span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code > span.dt { color: #902000; } /* DataType */
+    code > span.dv { color: #40a070; } /* DecVal */
+    code > span.bn { color: #40a070; } /* BaseN */
+    code > span.fl { color: #40a070; } /* Float */
+    code > span.ch { color: #4070a0; } /* Char */
+    code > span.st { color: #4070a0; } /* String */
+    code > span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code > span.ot { color: #007020; } /* Other */
+    code > span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code > span.fu { color: #06287e; } /* Function */
+    code > span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code > span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+    code > span.cn { color: #880000; } /* Constant */
+    code > span.sc { color: #4070a0; } /* SpecialChar */
+    code > span.vs { color: #4070a0; } /* VerbatimString */
+    code > span.ss { color: #bb6688; } /* SpecialString */
+    code > span.im { } /* Import */
+    code > span.va { color: #19177c; } /* Variable */
+    code > span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code > span.op { color: #666666; } /* Operator */
+    code > span.bu { } /* BuiltIn */
+    code > span.ex { } /* Extension */
+    code > span.pp { color: #bc7a00; } /* Preprocessor */
+    code > span.at { color: #7d9029; } /* Attribute */
+    code > span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code > span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code > span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+      </style>
+            <link rel="stylesheet" href="css/style.css" type="text/css" />
+              </head>
+
+  <body>
+    <div>
+
+        <div class="row">
+
+          <div class="span3 side">
+              <div class="toc">
+                <ul>
+                <li><a href="#chapter-1-introduction">Chapter 1 ( Introduction )</a><ul>
+                <li><a href="#setup">Setup</a></li>
+                <li><a href="#the-basic-language">The Basic Language</a></li>
+                <li><a href="#llvm-introduction">LLVM Introduction</a></li>
+                <li><a href="#full-source">Full Source</a></li>
+                </ul></li>
+                <li><a href="#chapter-2-parser-and-ast">Chapter 2 (Parser and AST)</a><ul>
+                <li><a href="#parser-combinators">Parser Combinators</a></li>
+                <li><a href="#the-lexer">The Lexer</a></li>
+                <li><a href="#the-parser">The Parser</a></li>
+                <li><a href="#the-repl">The REPL</a></li>
+                <li><a href="#full-source-1">Full Source</a></li>
+                </ul></li>
+                <li><a href="#chapter-3-code-generation">Chapter 3 ( Code Generation )</a><ul>
+                <li><a href="#haskell-llvm-bindings">Haskell LLVM Bindings</a></li>
+                <li><a href="#code-generation-setup">Code Generation Setup</a></li>
+                <li><a href="#blocks">Blocks</a></li>
+                <li><a href="#instructions">Instructions</a></li>
+                <li><a href="#from-ast-to-ir">From AST to IR</a></li>
+                <li><a href="#full-source-2">Full Source</a></li>
+                </ul></li>
+                <li><a href="#chapter-4-jit-and-optimizer-support">Chapter 4 ( JIT and Optimizer Support )</a><ul>
+                <li><a href="#asts-and-modules">ASTs and Modules</a></li>
+                <li><a href="#constant-folding">Constant Folding</a></li>
+                <li><a href="#optimization-passes">Optimization Passes</a></li>
+                <li><a href="#adding-a-jit-compiler">Adding a JIT Compiler</a></li>
+                <li><a href="#external-functions">External Functions</a></li>
+                <li><a href="#full-source-3">Full Source</a></li>
+                </ul></li>
+                <li><a href="#chapter-5-control-flow">Chapter 5 ( Control Flow )</a><ul>
+                <li><a href="#if-expressions">‘if' Expressions</a></li>
+                <li><a href="#for-loop-expressions">‘for' Loop Expressions</a></li>
+                <li><a href="#full-source-4">Full Source</a></li>
+                </ul></li>
+                <li><a href="#chapter-6-operators">Chapter 6 ( Operators )</a><ul>
+                <li><a href="#user-defined-operators">User-defined Operators</a></li>
+                <li><a href="#binary-operators">Binary Operators</a></li>
+                <li><a href="#unary-operators">Unary Operators</a></li>
+                <li><a href="#kicking-the-tires">Kicking the Tires</a></li>
+                <li><a href="#full-source-5">Full Source</a></li>
+                </ul></li>
+                <li><a href="#chapter-7-mutable-variables">Chapter 7 ( Mutable Variables )</a><ul>
+                <li><a href="#why-is-this-a-hard-problem">Why is this a hard problem?</a></li>
+                <li><a href="#memory-in-llvm">Memory in LLVM</a></li>
+                <li><a href="#mutable-variables">Mutable Variables</a></li>
+                <li><a href="#assignment">Assignment</a></li>
+                <li><a href="#full-source-6">Full Source</a></li>
+                </ul></li>
+                <li><a href="#chapter-8-conclusion">Chapter 8 ( Conclusion )</a><ul>
+                <li><a href="#tutorial-conclusion">Tutorial Conclusion</a></li>
+                </ul></li>
+                <li><a href="#chapter-9-appendix">Chapter 9 ( Appendix )</a><ul>
+                <li><a href="#command-line-tools">Command Line Tools</a></li>
+                </ul></li>
+                </ul>
+              </div>
+          </div>
+
+          <div class="span9 body">
+<h1>Implementing a JIT Compiled Language with Haskell and LLVM</h1>
+<p>Adapted by Stephen Diehl ( <a class="author" href="https://twitter.com/smdiehl"> <span class="citation">@smdiehl</span></a> )</p>
+<p>This is an <a href="https://github.com/sdiehl/kaleidoscope">open source project</a> hosted on Github. Corrections and feedback always welcome.</p>
+<p>The written text licensed under the <a href="http://llvm.org/releases/2.8/LICENSE.TXT">LLVM License</a> and is adapted from the original <a href="http://llvm.org/docs/tutorial/index.html">LLVM documentation</a>. The new Haskell source is released under the MIT license.</p>
+<h1 id="chapter-1-introduction">Chapter 1 ( Introduction )</h1>
+<p>Welcome to the Haskell version of &quot;Implementing a language with LLVM&quot; tutorial. This tutorial runs through the implementation of a simple language, and the basics of how to build a compiler in Haskell, showing how fun and easy it can be. This tutorial will get you up and started as well as help to build a framework you can extend to other languages. The code in this tutorial can also be used as a playground to hack on other LLVM specific things. This tutorial is the Haskell port of the C++, Python and OCaml Kaleidoscope tutorials. Although most of the original meaning of the tutorial is preserved, most of the text has been rewritten to incorporate Haskell.</p>
+<p>An intermediate knowledge of Haskell is required. We will make heavy use of monads and transformers without pause for exposition. If you are not familiar with monads, applicatives and transformers then it is best to learn these topics before proceeding. Conversely if you are an advanced Haskeller you may notice the lack of modern techniques which could drastically simplify our code. Instead we will shy away from advanced patterns since the purpose is to instruct in LLVM and not Haskell programming. Whenever possible we will avoid cleverness and just do the &quot;stupid thing&quot;.</p>
+<p>The overall goal of this tutorial is to progressively unveil our language, describing how it is built up over time. This will let us cover a fairly broad range of language design and LLVM-specific usage issues, showing and explaining the code for it all along the way, without overwhelming you with tons of details up front.</p>
+<p>It is useful to point out ahead of time that this tutorial is really about teaching compiler techniques and LLVM specifically, not about teaching modern and sane software engineering principles. In practice, this means that we'll take a number of shortcuts to simplify the exposition. If you dig in and use the code as a basis for future projects, fixing these deficiencies shouldn't be hard.</p>
+<p>I've tried to put this tutorial together in a way that makes chapters easy to skip over if you are already familiar with or are uninterested in the various pieces. The structure of the tutorial is:</p>
+<ul>
+<li><p><strong>Chapter #1</strong>: Introduction to the Kaleidoscope language, and the definition of its Lexer - This shows where we are going and the basic functionality that we want it to do. LLVM obviously works just fine with such tools, feel free to use one if you prefer.</p></li>
+<li><p><strong>Chapter #2</strong>: Implementing a Parser and AST - With the lexer in place, we can talk about parsing techniques and basic AST construction. This tutorial describes recursive descent parsing and operator precedence parsing. Nothing in Chapters 1 or 2 is LLVM-specific, the code doesn't even link in LLVM at this point. :)</p></li>
+<li><p><strong>Chapter #3</strong>: Code generation to LLVM IR - With the AST ready, we can show off how easy generation of LLVM IR really is.</p></li>
+<li><p><strong>Chapter #4</strong>: Adding JIT and Optimizer Support - Because a lot of people are interested in using LLVM as a JIT, we'll dive right into it and show you the 3 lines it takes to add JIT support. LLVM is also useful in many other ways, but this is one simple and &quot;sexy&quot; way to show off its power. :)</p></li>
+<li><p><strong>Chapter #5</strong>: Extending the Language: Control Flow - With the language up and running, we show how to extend it with control flow operations (if/then/else and a ‘for' loop). This gives us a chance to talk about simple SSA construction and control flow.</p></li>
+<li><p><strong>Chapter #6</strong>: Extending the Language: User-defined Operators - This is a silly but fun chapter that talks about extending the language to let the user program define their own arbitrary unary and binary operators (with assignable precedence!). This lets us build a significant piece of the &quot;language&quot; as library routines.</p></li>
+<li><p><strong>Chapter #7</strong>: Extending the Language: Mutable Variables - This chapter talks about adding user-defined local variables along with an assignment operator. The interesting part about this is how easy and trivial it is to construct SSA form in LLVM: no, LLVM does not require your front-end to construct SSA form!</p></li>
+<li><p><strong>Chapter #8</strong>: Conclusion and other useful LLVM tidbits - This chapter wraps up the series by talking about potential ways to extend the language.</p></li>
+</ul>
+<p>This tutorial will be illustrated with a toy language that we'll call <strong>Kaleidoscope</strong> (derived from &quot;meaning beautiful, form, and view&quot; or &quot;observer of beautiful forms&quot;). Kaleidoscope is a procedural language that allows you to define functions, use conditionals, math, etc. Over the course of the tutorial, we'll extend Kaleidoscope to support the if/then/else construct, a for loop, user defined operators, JIT compilation with a simple command line interface, etc.</p>
+<h2 id="setup">Setup</h2>
+<p>You will need either GHC 7.8 or GHC 7.10.</p>
+<p>You will of course also need LLVM 3.3 or 3.4 (not 3.2 or earlier) installed on your system. Run the command for your Linux distribution:</p>
+<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash">$ <span class="kw">pacman</span> -S llvm        <span class="co"># Arch Linux</span>
+$ <span class="kw">apt-get</span> install llvm  <span class="co"># Debian/Ubuntu</span>
+$ <span class="kw">emerge</span> llvm           <span class="co"># Gentoo</span>
+$ <span class="kw">yum</span> install llvm      <span class="co"># SuSE Linux</span></code></pre></div>
+<p>The included &quot;kaleidoscope.cabal&quot; will install the necessary Haskell bindings. It is recommended that you work within a sandbox:</p>
+<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash">$ <span class="kw">cabal</span> sandbox init
+$ <span class="kw">cabal</span> configure
+$ <span class="kw">cabal</span> install --only-dependencies</code></pre></div>
+<p>Alternatively the Nix package manager ( or NixOS ) can be used to provision the entire environment including llvm, llvm-general and ghc.</p>
+<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash">$ <span class="kw">nix</span> shell</code></pre></div>
+<h2 id="the-basic-language">The Basic Language</h2>
+<p>Because we want to keep things simple, the only datatype in Kaleidoscope is a 64-bit floating point type (aka ‘double' in C parlance). As such, all values are implicitly double precision and the language doesn't require type declarations. This gives the language a very nice and simple syntax. For example, the following simple example computes Fibonacci numbers:</p>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="co"># Compute the x&#39;th fibonacci number.</span>
+<span class="kw">def</span> fib(x)
+  <span class="cf">if</span> x <span class="op">&lt;</span> <span class="dv">3</span> then
+    <span class="dv">1</span>
+  <span class="cf">else</span>
+    fib(x<span class="dv">-1</span>)<span class="op">+</span>fib(x<span class="dv">-2</span>)
+
+<span class="co"># This expression will compute the 40th number.</span>
+fib(<span class="dv">40</span>)</code></pre></div>
+<p>We also allow Kaleidoscope to call into standard library functions (the LLVM JIT makes this completely trivial). This means that we can use the ‘extern' keyword to define a function before we use it (this is also useful for mutually recursive functions). For example:</p>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python">extern sin(arg)<span class="op">;</span>
+extern cos(arg)<span class="op">;</span>
+extern atan2(arg1 arg2)<span class="op">;</span>
+
+atan2(sin(.<span class="dv">4</span>), cos(<span class="dv">42</span>))</code></pre></div>
+<p>A more interesting example is included in Chapter 6 where we write a little Kaleidoscope application that displays a Mandelbrot Set at various levels of magnification.</p>
+<p>Lets dive into the implementation of this language!</p>
+<h2 id="llvm-introduction">LLVM Introduction</h2>
+<p>A typical compiler pipeline will consist of several stages. The middle phase will often consist of several representations of the code to be generated known as <em>intermediate representations</em>.</p>
+<div class="figure">
+<img src="img/compiler.png" alt="" />
+
+</div>
+<p>LLVM is a statically typed intermediate representation and an associated toolchain for manipulating, optimizing and converting this intermediate form into native code. LLVM code comes in two flavors, a binary bitcode format (<code>.bc</code>) and assembly (<code>.ll</code>). The command line tools <code>llvm-dis</code> and <code>llvm-as</code> can be used to convert between the two forms. We'll mostly be working with the human readable LLVM assembly and will just refer to it casually as <em>IR</em> and reserve the word <em>assembly</em> to mean the native assembly that is the result of compilation. An important note is that the <a href="http://llvm.org/docs/BitCodeFormat.html">binary format</a> for LLVM bitcode starts with the magic two byte sequence ( 0x42 0x43 ) or &quot;BC&quot;.</p>
+<p>An LLVM <em>module</em> consists of a sequence of toplevel mutually scoped definitions of functions, globals, type declarations, and external declarations.</p>
+<p>Symbols used in an LLVM module are either global or local. Global symbols begin with <code>@</code> and local symbols begin with <code>%</code>. All symbols must be defined or forward declared.</p>
+<div class="sourceCode"><pre class="sourceCode perl"><code class="sourceCode perl">declare i32 <span class="dt">@putchar</span>(i32)
+
+define i32 <span class="dt">@add</span>(i32 <span class="dt">%a</span>, i32 <span class="dt">%b</span>) {
+  <span class="dt">%1</span> = add i32 <span class="dt">%a</span>, <span class="dt">%b</span>
+  ret i32 <span class="dt">%1</span>
+}
+
+define void <span class="dt">@main</span>() {
+  <span class="dt">%1</span> = call i32 <span class="dt">@add</span>(i32 <span class="dv">0</span>, i32 <span class="dv">97</span>)
+  call i32 <span class="dt">@putchar</span>(i32 <span class="dt">%1</span>)
+  ret void
+}</code></pre></div>
+<p>A LLVM function consists of a sequence of <em>basic blocks</em> containing a sequence of instructions and assignment to local values. During compilation basic blocks will roughly correspond to labels in the native assembly output.</p>
+<div class="sourceCode"><pre class="sourceCode perl"><code class="sourceCode perl">define double <span class="dt">@main</span>(double <span class="dt">%x</span>) {
+entry:
+  <span class="dt">%0</span> = alloca double
+  br body
+
+body:
+  store double <span class="dt">%x</span>, double<span class="kw">*</span> <span class="dt">%0</span>
+  <span class="dt">%1</span> = load double<span class="kw">*</span> <span class="dt">%0</span>
+  <span class="dt">%2</span> = fadd double <span class="dt">%1</span>, <span class="fl">1.000000</span>e<span class="dv">+00</span>
+  ret double <span class="dt">%2</span>
+}</code></pre></div>
+<p>First class types in LLVM align very closely with machine types. Alignment and platform specific sizes are detached from the type specification in the <a href="http://llvm.org/docs/LangRef.html#data-layout">data layout</a> for a module.</p>
+<table>
+<thead>
+<tr class="header">
+<th align="left"></th>
+<th align="left">Type</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left"><code>i1</code></td>
+<td align="left">A unsigned 1 bit integer</td>
+</tr>
+<tr class="even">
+<td align="left"><code>i32</code></td>
+<td align="left">A unsigned 32 bit integer</td>
+</tr>
+<tr class="odd">
+<td align="left"><code>i32*</code></td>
+<td align="left">A pointer to a 32 bit integer</td>
+</tr>
+<tr class="even">
+<td align="left"><code>i32**</code></td>
+<td align="left">A pointer to a pointer to a 32 bit integer</td>
+</tr>
+<tr class="odd">
+<td align="left"><code>double</code></td>
+<td align="left">A 64-bit floating point value</td>
+</tr>
+<tr class="even">
+<td align="left"><code>float (i32)</code></td>
+<td align="left">A function taking a <code>i32</code> and returning a 32-bit floating point <code>float</code></td>
+</tr>
+<tr class="odd">
+<td align="left"><code>&lt;4 x i32&gt;</code></td>
+<td align="left">A width 4 vector of 32-bit integer values.</td>
+</tr>
+<tr class="even">
+<td align="left"><code>{i32, double}</code></td>
+<td align="left">A struct of a 32-bit integer and a double.</td>
+</tr>
+<tr class="odd">
+<td align="left"><code>&lt;{i8*, i32}&gt;</code></td>
+<td align="left">A packed structure of a integer pointer and 32-bit integer.</td>
+</tr>
+<tr class="even">
+<td align="left"><code>[4 x i32]</code></td>
+<td align="left">An array of four i32 values.</td>
+</tr>
+</tbody>
+</table>
+<p>While LLVM is normally generated procedurally we can also write it by hand. For example consider the following minimal LLVM IR example.</p>
+<div class="sourceCode"><pre class="sourceCode perl"><code class="sourceCode perl">declare i32 <span class="dt">@putchar</span>(i32)
+
+define void <span class="dt">@main</span>() {
+  call i32 <span class="dt">@putchar</span>(i32 <span class="dv">42</span>)
+  ret void
+}</code></pre></div>
+<p>This will compile (using <code>llc</code>) into the following platform specific assembly. For example <code>march=x86-64</code> on a Linux system we generate output like following:</p>
+<div class="sourceCode"><pre class="sourceCode perl"><code class="sourceCode perl">    .file   <span class="kw">&quot;</span><span class="st">minimal.ll</span><span class="kw">&quot;</span>
+    .text
+    .globl  main
+    .align  <span class="dv">16</span>, <span class="bn">0x90</span>
+    .type   main,<span class="dt">@function</span>
+main:
+    movl    <span class="dt">$42</span>, <span class="dt">%edi</span>
+    jmp putchar                 
+.Ltmp0:
+    .size   main, .Ltmp0-main
+    .section    <span class="kw">&quot;</span><span class="st">.note.GNU-stack</span><span class="kw">&quot;</span>,<span class="kw">&quot;&quot;</span>,<span class="dt">@progbits</span></code></pre></div>
+<p>What makes LLVM so compelling is it lets us write our assembly-like IR as if we had an infinite number of CPU registers and abstracts away the register allocation and instruction selection. LLVM IR also has the advantage of being mostly platform independent and retargatable, although there are some details about calling conventions, vectors, and pointer sizes which make it not entirely independent.</p>
+<p>As an integral part of Clang, LLVM is very well suited for compiling C-like languages, but it is nonetheless a very adequate toolchain for compiling both imperative and functional languages. Some notable languages using LLVM include:</p>
+<p>GHC has a LLVM compilation path that is enabled with the <code>-fllvm</code> flag. The library <code>ghc-core</code> can be used to view the IR compilation artifacts.</p>
+<h2 id="full-source">Full Source</h2>
+<p>See <a href="https://github.com/sdiehl/kaleidoscope/tree/master/src/chapter1"><strong>src/chapter1</strong></a> for the full source from this chapter.</p>
+<hr />
+<h1 id="chapter-2-parser-and-ast">Chapter 2 (Parser and AST)</h1>
+<h2 id="parser-combinators">Parser Combinators</h2>
+<p>For parsing in Haskell it is quite common to use a family of libraries known as <em>Parser Combinators</em> which let us write code to generate parsers which itself looks very similar to the BNF ( <a href="../../en.wikipedia.org/wiki/Backus%e2%80%93Naur_Form.html">Backus–Naur Form</a> ) of the parser grammar itself!</p>
+<p>Structurally a parser combinator is a collection of higher-order functions which composes with other parsing functions as input and returns a new parser as its output. Our lexer will consist of functions which operate directly on matching string inputs and are composed with a variety of common combinators yielding the full parser. The <em>Parsec</em> library exposes a collection of combinators:</p>
+<table>
+<thead>
+<tr class="header">
+<th align="left"></th>
+<th align="left">Combinators</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left"><code>&lt;|&gt;</code></td>
+<td align="left">The choice operator tries to parse the first argument before proceeding to the second. Can be chained sequentially to a generate a sequence of options.</td>
+</tr>
+<tr class="even">
+<td align="left"><code>many</code></td>
+<td align="left">Consumes an arbitrary number of patterns matching the given pattern and returns them as a list.</td>
+</tr>
+<tr class="odd">
+<td align="left"><code>many1</code></td>
+<td align="left">Like many but requires at least one match.</td>
+</tr>
+<tr class="even">
+<td align="left"><code>optional</code></td>
+<td align="left">Optionally parses a given pattern returning it's value as a Maybe.</td>
+</tr>
+<tr class="odd">
+<td align="left"><code>try</code></td>
+<td align="left">Backtracking operator will let us parse ambiguous matching expressions and restart with a different pattern.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-lexer">The Lexer</h2>
+<p>Our initial language has very simple lexical syntax.</p>
+<p><strong>integer</strong>: <code>1</code>, <code>-2</code>, <code>42</code></p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">integer ::</span> <span class="dt">Parser</span> <span class="dt">Integer</span>
+integer <span class="fu">=</span> Tok.integer lexer</code></pre></div>
+<p><strong>float</strong>: <code>3.14</code>, <code>2.71</code>, <code>0.0</code></p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">float ::</span> <span class="dt">Parser</span> <span class="dt">Double</span>
+float <span class="fu">=</span> Tok.float lexer</code></pre></div>
+<p><strong>identifier</strong>: <code>a</code>, <code>b</code>, <code>foo</code>, <code>ncc1701d</code></p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">identifier ::</span> <span class="dt">Parser</span> <span class="dt">String</span>
+identifier <span class="fu">=</span> Tok.identifier lexer</code></pre></div>
+<p>And several tokens which enclose other token(s) returning a compose expression.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">parens ::</span> <span class="dt">Parser</span> a <span class="ot">-&gt;</span> <span class="dt">Parser</span> a
+parens <span class="fu">=</span> Tok.parens lexer
+
+<span class="ot">semiSep ::</span> <span class="dt">Parser</span> a <span class="ot">-&gt;</span> <span class="dt">Parser</span> [a]
+semiSep <span class="fu">=</span> Tok.semiSep lexer
+
+<span class="ot">commaSep ::</span> <span class="dt">Parser</span> a <span class="ot">-&gt;</span> <span class="dt">Parser</span> [a]
+commaSep <span class="fu">=</span> Tok.commaSep lexer</code></pre></div>
+<p>Lastly our lexer requires that several tokens be reserved and not used identifiers, we reference these as separately.</p>
+<p><strong>reserved</strong>: <code>def</code>, <code>extern</code></p>
+<p><strong>reservedOp</strong>: <code>+</code>, <code>*</code>, <code>-</code>, <code>;</code></p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">reserved ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Parser</span> ()
+reserved <span class="fu">=</span> Tok.reserved lexer</code></pre></div>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">reservedOp ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Parser</span> ()
+reservedOp <span class="fu">=</span> Tok.reservedOp lexer</code></pre></div>
+<p>Putting it all together we have our <code>Lexer.hs</code> module.</p>
+<div class="sourceCode" include="src/chapter2/Lexer.hs"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">module</span> <span class="dt">Lexer</span> <span class="kw">where</span>
+
+<span class="kw">import </span><span class="dt">Text.Parsec.String</span> (<span class="dt">Parser</span>)
+<span class="kw">import </span><span class="dt">Text.Parsec.Language</span> (emptyDef)
+
+<span class="kw">import qualified</span> <span class="dt">Text.Parsec.Token</span> <span class="kw">as</span> <span class="dt">Tok</span>
+
+<span class="ot">lexer ::</span> <span class="dt">Tok.TokenParser</span> ()
+lexer <span class="fu">=</span> Tok.makeTokenParser style
+  <span class="kw">where</span>
+    ops <span class="fu">=</span> [<span class="st">&quot;+&quot;</span>,<span class="st">&quot;*&quot;</span>,<span class="st">&quot;-&quot;</span>,<span class="st">&quot;;&quot;</span>]
+    names <span class="fu">=</span> [<span class="st">&quot;def&quot;</span>,<span class="st">&quot;extern&quot;</span>]
+    style <span class="fu">=</span> emptyDef {
+               Tok.commentLine <span class="fu">=</span> <span class="st">&quot;#&quot;</span>
+             , Tok.reservedOpNames <span class="fu">=</span> ops
+             , Tok.reservedNames <span class="fu">=</span> names
+             }
+
+<span class="ot">integer ::</span> <span class="dt">Parser</span> <span class="dt">Integer</span>
+integer <span class="fu">=</span> Tok.integer lexer
+
+<span class="ot">float ::</span> <span class="dt">Parser</span> <span class="dt">Double</span>
+float <span class="fu">=</span> Tok.float lexer
+
+<span class="ot">parens ::</span> <span class="dt">Parser</span> a <span class="ot">-&gt;</span> <span class="dt">Parser</span> a
+parens <span class="fu">=</span> Tok.parens lexer
+
+<span class="ot">commaSep ::</span> <span class="dt">Parser</span> a <span class="ot">-&gt;</span> <span class="dt">Parser</span> [a]
+commaSep <span class="fu">=</span> Tok.commaSep lexer
+
+<span class="ot">semiSep ::</span> <span class="dt">Parser</span> a <span class="ot">-&gt;</span> <span class="dt">Parser</span> [a]
+semiSep <span class="fu">=</span> Tok.semiSep lexer
+
+<span class="ot">identifier ::</span> <span class="dt">Parser</span> <span class="dt">String</span>
+identifier <span class="fu">=</span> Tok.identifier lexer
+
+<span class="ot">reserved ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Parser</span> ()
+reserved <span class="fu">=</span> Tok.reserved lexer
+
+<span class="ot">reservedOp ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Parser</span> ()
+reservedOp <span class="fu">=</span> Tok.reservedOp lexer</code></pre></div>
+<h2 id="the-parser">The Parser</h2>
+<p>The AST for a program captures its behavior in such a way that it is easy for later stages of the compiler (e.g. code generation) to interpret. We basically want one object for each construct in the language, and the AST should closely model the language. In Kaleidoscope, we have expressions, and a function object. When parsing with Parsec we will unpack tokens straight into our AST which we define as the <code>Expr</code> algebraic data type:</p>
+<div class="sourceCode" include="src/chapter2/Syntax.hs"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">module</span> <span class="dt">Syntax</span> <span class="kw">where</span>
+
+<span class="kw">type</span> <span class="dt">Name</span> <span class="fu">=</span> <span class="dt">String</span>
+
+<span class="kw">data</span> <span class="dt">Expr</span>
+  <span class="fu">=</span> <span class="dt">Float</span> <span class="dt">Double</span>
+  <span class="fu">|</span> <span class="dt">BinOp</span> <span class="dt">Op</span> <span class="dt">Expr</span> <span class="dt">Expr</span>
+  <span class="fu">|</span> <span class="dt">Var</span> <span class="dt">String</span>
+  <span class="fu">|</span> <span class="dt">Call</span> <span class="dt">Name</span> [<span class="dt">Expr</span>]
+  <span class="fu">|</span> <span class="dt">Function</span> <span class="dt">Name</span> [<span class="dt">Expr</span>] <span class="dt">Expr</span>
+  <span class="fu">|</span> <span class="dt">Extern</span> <span class="dt">Name</span> [<span class="dt">Expr</span>]
+  <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Ord</span>, <span class="dt">Show</span>)
+
+<span class="kw">data</span> <span class="dt">Op</span>
+  <span class="fu">=</span> <span class="dt">Plus</span>
+  <span class="fu">|</span> <span class="dt">Minus</span>
+  <span class="fu">|</span> <span class="dt">Times</span>
+  <span class="fu">|</span> <span class="dt">Divide</span>
+  <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Ord</span>, <span class="dt">Show</span>)</code></pre></div>
+<p>This is all (intentionally) rather straight-forward: variables capture the variable name, binary operators capture their operation (e.g. <code>Plus</code>, <code>Minus</code>, ...), and calls capture a function name as well as a list of any argument expressions.</p>
+<p>We create Parsec parser which will scan a input source and unpack it into our <code>Expr</code> type. The code composes within the <code>Parser</code> to generate the resulting parser which is then executed using the <code>parse</code> function.</p>
+<div class="sourceCode" include="src/chapter2/Parser.hs"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">module</span> <span class="dt">Parser</span> <span class="kw">where</span>
+
+<span class="kw">import </span><span class="dt">Text.Parsec</span>
+<span class="kw">import </span><span class="dt">Text.Parsec.String</span> (<span class="dt">Parser</span>)
+
+<span class="kw">import qualified</span> <span class="dt">Text.Parsec.Expr</span> <span class="kw">as</span> <span class="dt">Ex</span>
+<span class="kw">import qualified</span> <span class="dt">Text.Parsec.Token</span> <span class="kw">as</span> <span class="dt">Tok</span>
+
+<span class="kw">import </span><span class="dt">Lexer</span>
+<span class="kw">import </span><span class="dt">Syntax</span>
+
+binary s f assoc <span class="fu">=</span> <span class="dt">Ex.Infix</span> (reservedOp s <span class="fu">&gt;&gt;</span> return (<span class="dt">BinOp</span> f)) assoc
+
+table <span class="fu">=</span> [[binary <span class="st">&quot;*&quot;</span> <span class="dt">Times</span> <span class="dt">Ex.AssocLeft</span>,
+          binary <span class="st">&quot;/&quot;</span> <span class="dt">Divide</span> <span class="dt">Ex.AssocLeft</span>]
+        ,[binary <span class="st">&quot;+&quot;</span> <span class="dt">Plus</span> <span class="dt">Ex.AssocLeft</span>,
+          binary <span class="st">&quot;-&quot;</span> <span class="dt">Minus</span> <span class="dt">Ex.AssocLeft</span>]]
+
+<span class="ot">int ::</span> <span class="dt">Parser</span> <span class="dt">Expr</span>
+int <span class="fu">=</span> <span class="kw">do</span>
+  n <span class="ot">&lt;-</span> integer
+  return <span class="fu">$</span> <span class="dt">Float</span> (fromInteger n)
+
+<span class="ot">floating ::</span> <span class="dt">Parser</span> <span class="dt">Expr</span>
+floating <span class="fu">=</span> <span class="kw">do</span>
+  n <span class="ot">&lt;-</span> float
+  return <span class="fu">$</span> <span class="dt">Float</span> n
+
+<span class="ot">expr ::</span> <span class="dt">Parser</span> <span class="dt">Expr</span>
+expr <span class="fu">=</span> Ex.buildExpressionParser table factor
+
+<span class="ot">variable ::</span> <span class="dt">Parser</span> <span class="dt">Expr</span>
+variable <span class="fu">=</span> <span class="kw">do</span>
+  var <span class="ot">&lt;-</span> identifier
+  return <span class="fu">$</span> <span class="dt">Var</span> var
+
+<span class="ot">function ::</span> <span class="dt">Parser</span> <span class="dt">Expr</span>
+function <span class="fu">=</span> <span class="kw">do</span>
+  reserved <span class="st">&quot;def&quot;</span>
+  name <span class="ot">&lt;-</span> identifier
+  args <span class="ot">&lt;-</span> parens <span class="fu">$</span> many variable
+  body <span class="ot">&lt;-</span> expr
+  return <span class="fu">$</span> <span class="dt">Function</span> name args body
+
+<span class="ot">extern ::</span> <span class="dt">Parser</span> <span class="dt">Expr</span>
+extern <span class="fu">=</span> <span class="kw">do</span>
+  reserved <span class="st">&quot;extern&quot;</span>
+  name <span class="ot">&lt;-</span> identifier
+  args <span class="ot">&lt;-</span> parens <span class="fu">$</span> many variable
+  return <span class="fu">$</span> <span class="dt">Extern</span> name args
+
+<span class="ot">call ::</span> <span class="dt">Parser</span> <span class="dt">Expr</span>
+call <span class="fu">=</span> <span class="kw">do</span>
+  name <span class="ot">&lt;-</span> identifier
+  args <span class="ot">&lt;-</span> parens <span class="fu">$</span> commaSep expr
+  return <span class="fu">$</span> <span class="dt">Call</span> name args
+
+<span class="ot">factor ::</span> <span class="dt">Parser</span> <span class="dt">Expr</span>
+factor <span class="fu">=</span> try floating
+      <span class="fu">&lt;|&gt;</span> try int
+      <span class="fu">&lt;|&gt;</span> try extern
+      <span class="fu">&lt;|&gt;</span> try function
+      <span class="fu">&lt;|&gt;</span> try call
+      <span class="fu">&lt;|&gt;</span> variable
+      <span class="fu">&lt;|&gt;</span> parens expr
+
+<span class="ot">defn ::</span> <span class="dt">Parser</span> <span class="dt">Expr</span>
+defn <span class="fu">=</span> try extern
+    <span class="fu">&lt;|&gt;</span> try function
+    <span class="fu">&lt;|&gt;</span> expr
+
+<span class="ot">contents ::</span> <span class="dt">Parser</span> a <span class="ot">-&gt;</span> <span class="dt">Parser</span> a
+contents p <span class="fu">=</span> <span class="kw">do</span>
+  Tok.whiteSpace lexer
+  r <span class="ot">&lt;-</span> p
+  eof
+  return r
+
+<span class="ot">toplevel ::</span> <span class="dt">Parser</span> [<span class="dt">Expr</span>]
+toplevel <span class="fu">=</span> many <span class="fu">$</span> <span class="kw">do</span>
+    def <span class="ot">&lt;-</span> defn
+    reservedOp <span class="st">&quot;;&quot;</span>
+    return def
+
+<span class="ot">parseExpr ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Either</span> <span class="dt">ParseError</span> <span class="dt">Expr</span>
+parseExpr s <span class="fu">=</span> parse (contents expr) <span class="st">&quot;&lt;stdin&gt;&quot;</span> s
+
+<span class="ot">parseToplevel ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Either</span> <span class="dt">ParseError</span> [<span class="dt">Expr</span>]
+parseToplevel s <span class="fu">=</span> parse (contents toplevel) <span class="st">&quot;&lt;stdin&gt;&quot;</span> s</code></pre></div>
+<h2 id="the-repl">The REPL</h2>
+<p>The driver for this simply invokes all of the compiler in a loop feeding the resulting artifacts to the next iteration. We will use the <a href="http://hackage.haskell.org/package/haskeline">haskeline</a> library to give us readline interactions for the small REPL.</p>
+<div class="sourceCode" include="src/chapter2/Main.hs"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">module</span> <span class="dt">Main</span> <span class="kw">where</span>
+
+<span class="kw">import </span><span class="dt">Parser</span>
+
+<span class="kw">import </span><span class="dt">Control.Monad.Trans</span>
+<span class="kw">import </span><span class="dt">System.Console.Haskeline</span>
+
+<span class="ot">process ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
+process line <span class="fu">=</span> <span class="kw">do</span>
+  <span class="kw">let</span> res <span class="fu">=</span> parseToplevel line
+  <span class="kw">case</span> res <span class="kw">of</span>
+    <span class="dt">Left</span> err <span class="ot">-&gt;</span> print err
+    <span class="dt">Right</span> ex <span class="ot">-&gt;</span> mapM_ print ex
+
+<span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> runInputT defaultSettings loop
+  <span class="kw">where</span>
+  loop <span class="fu">=</span> <span class="kw">do</span>
+    minput <span class="ot">&lt;-</span> getInputLine <span class="st">&quot;ready&gt; &quot;</span>
+    <span class="kw">case</span> minput <span class="kw">of</span>
+      <span class="dt">Nothing</span> <span class="ot">-&gt;</span> outputStrLn <span class="st">&quot;Goodbye.&quot;</span>
+      <span class="dt">Just</span> input <span class="ot">-&gt;</span> (liftIO <span class="fu">$</span> process input) <span class="fu">&gt;&gt;</span> loop</code></pre></div>
+<p>In under 100 lines of code, we fully defined our minimal language, including a lexer, parser, and AST builder. With this done, the executable will validate Kaleidoscope code, print out the Haskell representation of the AST, and tell us the position information for any syntax errors. For example, here is a sample interaction:</p>
+<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash"><span class="kw">ready&gt;</span> def foo(x y) <span class="kw">x+foo</span>(y, 4.0);
+<span class="kw">Function</span> <span class="st">&quot;foo&quot;</span> [Var <span class="st">&quot;x&quot;</span>,Var <span class="st">&quot;y&quot;</span>] (BinOp Plus (Var <span class="st">&quot;x&quot;</span>) <span class="kw">(Call</span> <span class="st">&quot;foo&quot;</span> [Var <span class="st">&quot;y&quot;</span>,Float 4.0]<span class="kw">)</span>)
+
+<span class="kw">ready&gt;</span> def foo(x y) <span class="kw">x+y</span> y<span class="kw">;</span>
+<span class="kw">Function</span> <span class="st">&quot;foo&quot;</span> [Var <span class="st">&quot;x&quot;</span>,Var <span class="st">&quot;y&quot;</span>] (BinOp Plus (Var <span class="st">&quot;x&quot;</span>) <span class="kw">(Var</span> <span class="st">&quot;y&quot;</span><span class="kw">)</span>)
+<span class="kw">Var</span> <span class="st">&quot;y&quot;</span>
+
+<span class="kw">ready&gt;</span> def foo(x y) <span class="kw">x+y</span> );
+<span class="st">&quot;&lt;stdin&gt;&quot;</span> <span class="kw">(line</span> 1, column 18<span class="kw">):</span>
+<span class="kw">unexpected</span> <span class="st">&quot;)&quot;</span>
+<span class="kw">expecting</span> float, natural, <span class="st">&quot;extern&quot;</span>, <span class="st">&quot;def&quot;</span>, identifier, <span class="st">&quot;(&quot;</span> or <span class="st">&quot;;&quot;</span>
+
+<span class="kw">ready&gt;</span> extern sin(a);
+<span class="kw">Extern</span> <span class="st">&quot;sin&quot;</span> [Var <span class="st">&quot;a&quot;</span>]
+
+<span class="kw">ready&gt;</span> ^D
+<span class="kw">Goodbye.</span></code></pre></div>
+<p>There is a lot of room for extension here. You can define new AST nodes, extend the language in many ways, etc. In the next installment, we will describe how to generate LLVM Intermediate Representation (IR) from the AST.</p>
+<h2 id="full-source-1">Full Source</h2>
+<p>See <a href="https://github.com/sdiehl/kaleidoscope/tree/master/src/chapter2"><strong>src/chapter2</strong></a> for the full source from this chapter.</p>
+<hr />
+<h1 id="chapter-3-code-generation">Chapter 3 ( Code Generation )</h1>
+<p>This chapter illustrates how to transform the Abstract Syntax Tree, built in Chapter 2, into LLVM IR. This will demonstrate a little bit about how LLVM does things, as well as demonstrate how easy it is to use.</p>
+<h2 id="haskell-llvm-bindings">Haskell LLVM Bindings</h2>
+<p>The LLVM bindings for Haskell are split across two packages:</p>
+<ul>
+<li><p><strong>llvm-general-pure</strong> is a pure Haskell representation of the LLVM IR.</p></li>
+<li><p><strong>llvm-general</strong> is the FFI bindings to LLVM required for constructing the C representation of the LLVM IR and performing optimization and compilation.</p></li>
+</ul>
+<p>llvm-general-pure does not require the LLVM libraries be available on the system.</p>
+<p>On Hackage there is an older version of llvm bindings named <code>llvm</code> and <code>llvm-base</code> which should likely be avoided since they has not been updated since it's development a few years ago.</p>
+<p>As an aside the GHCi can have issues with the FFI and can lead to errors when working with <code>llvm-general</code>. If you end up with errors like the following, then you are likely trying to use <code>GHCi</code> or <code>runhaskell</code> and it is unable to link against your LLVM library. Instead compile with standalone <code>ghc</code>.</p>
+<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash"><span class="kw">Loading</span> package llvm-general-3.3.8.2 
+<span class="kw">...</span> linking 
+<span class="kw">...</span> ghc: /usr/lib/llvm-3.3/lib/libLLVMSupport.a: unknown symbol <span class="kw">`_ZTVN4llvm14error_categoryE</span><span class="st">&#39;</span>
+<span class="st">ghc: unable to load package `llvm-general-3.3.8.2&#39;</span></code></pre></div>
+<h2 id="code-generation-setup">Code Generation Setup</h2>
+<p>We start with a new Haskell module <code>Codegen.hs</code> which will hold the pure code generation logic that we'll use to drive building llvm-general's AST. For simplicity's sake we'll insist that all variables be of a single type, the <code>double</code> type.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">double ::</span> <span class="dt">Type</span>
+double <span class="fu">=</span> <span class="dt">FloatingPointType</span> <span class="dv">64</span> <span class="dt">IEEE</span></code></pre></div>
+<p>To start we create a new record type to hold the internal state of our code generator as we walk the AST. We'll use two records, one for the toplevel module code generation and one for basic blocks inside of function definitions.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">SymbolTable</span> <span class="fu">=</span> [(<span class="dt">String</span>, <span class="dt">Operand</span>)]
+
+<span class="kw">data</span> <span class="dt">CodegenState</span>
+  <span class="fu">=</span> <span class="dt">CodegenState</span> {
+<span class="ot">    currentBlock ::</span> <span class="dt">Name</span>                     <span class="co">-- Name of the active block to append to</span>
+  ,<span class="ot"> blocks       ::</span> <span class="dt">Map.Map</span> <span class="dt">Name</span> <span class="dt">BlockState</span>  <span class="co">-- Blocks for function</span>
+  ,<span class="ot"> symtab       ::</span> <span class="dt">SymbolTable</span>              <span class="co">-- Function scope symbol table</span>
+  ,<span class="ot"> blockCount   ::</span> <span class="dt">Int</span>                      <span class="co">-- Count of basic blocks</span>
+  ,<span class="ot"> count        ::</span> <span class="dt">Word</span>                     <span class="co">-- Count of unnamed instructions</span>
+  ,<span class="ot"> names        ::</span> <span class="dt">Names</span>                    <span class="co">-- Name Supply</span>
+  } <span class="kw">deriving</span> <span class="dt">Show</span>
+
+<span class="kw">data</span> <span class="dt">BlockState</span>
+  <span class="fu">=</span> <span class="dt">BlockState</span> {
+<span class="ot">    idx   ::</span> <span class="dt">Int</span>                            <span class="co">-- Block index</span>
+  ,<span class="ot"> stack ::</span> [<span class="dt">Named</span> <span class="dt">Instruction</span>]            <span class="co">-- Stack of instructions</span>
+  ,<span class="ot"> term  ::</span> <span class="dt">Maybe</span> (<span class="dt">Named</span> <span class="dt">Terminator</span>)       <span class="co">-- Block terminator</span>
+  } <span class="kw">deriving</span> <span class="dt">Show</span></code></pre></div>
+<p>We'll hold the state of the code generator inside of <code>Codegen</code> State monad, the Codegen monad contains a map of block names to their <code>BlockState</code> representation.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">newtype</span> <span class="dt">Codegen</span> a <span class="fu">=</span> <span class="dt">Codegen</span> {<span class="ot"> runCodegen ::</span> <span class="dt">State</span> <span class="dt">CodegenState</span> a }
+  <span class="kw">deriving</span> (<span class="dt">Functor</span>, <span class="dt">Applicative</span>, <span class="dt">Monad</span>, <span class="dt">MonadState</span> <span class="dt">CodegenState</span> )</code></pre></div>
+<p>At the top level we'll create a <code>LLVM</code> State monad which will hold all code a for the LLVM module and upon evaluation will emit llvm-general Module containing the AST. We'll append to the list of definitions in the <code>AST.Module</code> field <code>moduleDefinitions</code>.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">newtype</span> <span class="dt">LLVM</span> a <span class="fu">=</span> <span class="dt">LLVM</span> {<span class="ot"> unLLVM ::</span> <span class="dt">State</span> <span class="dt">AST.Module</span> a }
+  <span class="kw">deriving</span> (<span class="dt">Functor</span>, <span class="dt">Applicative</span>, <span class="dt">Monad</span>, <span class="dt">MonadState</span> <span class="dt">AST.Module</span> )
+
+<span class="ot">runLLVM ::</span> <span class="dt">AST.Module</span> <span class="ot">-&gt;</span> <span class="dt">LLVM</span> a <span class="ot">-&gt;</span> <span class="dt">AST.Module</span>
+runLLVM <span class="fu">=</span> flip (execState <span class="fu">.</span> unLLVM)
+
+<span class="ot">emptyModule ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">AST.Module</span>
+emptyModule label <span class="fu">=</span> defaultModule { moduleName <span class="fu">=</span> label }
+
+<span class="ot">addDefn ::</span> <span class="dt">Definition</span> <span class="ot">-&gt;</span> <span class="dt">LLVM</span> ()
+addDefn d <span class="fu">=</span> <span class="kw">do</span>
+  defs <span class="ot">&lt;-</span> gets moduleDefinitions
+  modify <span class="fu">$</span> \s <span class="ot">-&gt;</span> s { moduleDefinitions <span class="fu">=</span> defs <span class="fu">++</span> [d] }</code></pre></div>
+<p>Inside of our module we'll need to insert our toplevel definitions. For our purposes this will consist entirely of local functions and external function declarations.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">define ::</span>  <span class="dt">Type</span> <span class="ot">-&gt;</span> <span class="dt">String</span> <span class="ot">-&gt;</span> [(<span class="dt">Type</span>, <span class="dt">Name</span>)] <span class="ot">-&gt;</span> [<span class="dt">BasicBlock</span>] <span class="ot">-&gt;</span> <span class="dt">LLVM</span> ()
+define retty label argtys body <span class="fu">=</span> addDefn <span class="fu">$</span>
+  <span class="dt">GlobalDefinition</span> <span class="fu">$</span> functionDefaults {
+    name        <span class="fu">=</span> <span class="dt">Name</span> label
+  , parameters  <span class="fu">=</span> ([<span class="dt">Parameter</span> ty nm [] <span class="fu">|</span> (ty, nm) <span class="ot">&lt;-</span> argtys], <span class="dt">False</span>)
+  , returnType  <span class="fu">=</span> retty
+  , basicBlocks <span class="fu">=</span> body
+  }
+
+<span class="ot">external ::</span>  <span class="dt">Type</span> <span class="ot">-&gt;</span> <span class="dt">String</span> <span class="ot">-&gt;</span> [(<span class="dt">Type</span>, <span class="dt">Name</span>)] <span class="ot">-&gt;</span> <span class="dt">LLVM</span> ()
+external retty label argtys <span class="fu">=</span> addDefn <span class="fu">$</span>
+  <span class="dt">GlobalDefinition</span> <span class="fu">$</span> functionDefaults {
+    name        <span class="fu">=</span> <span class="dt">Name</span> label
+  , parameters  <span class="fu">=</span> ([<span class="dt">Parameter</span> ty nm [] <span class="fu">|</span> (ty, nm) <span class="ot">&lt;-</span> argtys], <span class="dt">False</span>)
+  , returnType  <span class="fu">=</span> retty
+  , basicBlocks <span class="fu">=</span> []
+  }</code></pre></div>
+<h2 id="blocks">Blocks</h2>
+<p>With our monad we'll create several functions to manipulate the current block state so that we can push and pop the block &quot;cursor&quot; and append instructions into the current block.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">entry ::</span> <span class="dt">Codegen</span> <span class="dt">Name</span>
+entry <span class="fu">=</span> gets currentBlock
+
+<span class="ot">addBlock ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Codegen</span> <span class="dt">Name</span>
+addBlock bname <span class="fu">=</span> <span class="kw">do</span>
+  bls <span class="ot">&lt;-</span> gets blocks
+  ix  <span class="ot">&lt;-</span> gets blockCount
+  nms <span class="ot">&lt;-</span> gets names
+
+  <span class="kw">let</span> new <span class="fu">=</span> emptyBlock ix
+      (qname, supply) <span class="fu">=</span> uniqueName bname nms
+
+  modify <span class="fu">$</span> \s <span class="ot">-&gt;</span> s { blocks <span class="fu">=</span> Map.insert (<span class="dt">Name</span> qname) new bls
+                   , blockCount <span class="fu">=</span> ix <span class="fu">+</span> <span class="dv">1</span>
+                   , names <span class="fu">=</span> supply
+                   }
+  return (<span class="dt">Name</span> qname)
+
+<span class="ot">setBlock ::</span> <span class="dt">Name</span> <span class="ot">-&gt;</span> <span class="dt">Codegen</span> <span class="dt">Name</span>
+setBlock bname <span class="fu">=</span> <span class="kw">do</span>
+  modify <span class="fu">$</span> \s <span class="ot">-&gt;</span> s { currentBlock <span class="fu">=</span> bname }
+  return bname
+
+<span class="ot">getBlock ::</span> <span class="dt">Codegen</span> <span class="dt">Name</span>
+getBlock <span class="fu">=</span> gets currentBlock
+
+<span class="ot">modifyBlock ::</span> <span class="dt">BlockState</span> <span class="ot">-&gt;</span> <span class="dt">Codegen</span> ()
+modifyBlock new <span class="fu">=</span> <span class="kw">do</span>
+  active <span class="ot">&lt;-</span> gets currentBlock
+  modify <span class="fu">$</span> \s <span class="ot">-&gt;</span> s { blocks <span class="fu">=</span> Map.insert active new (blocks s) }
+
+<span class="ot">current ::</span> <span class="dt">Codegen</span> <span class="dt">BlockState</span>
+current <span class="fu">=</span> <span class="kw">do</span>
+  c <span class="ot">&lt;-</span> gets currentBlock
+  blks <span class="ot">&lt;-</span> gets blocks
+  <span class="kw">case</span> Map.lookup c blks <span class="kw">of</span>
+    <span class="dt">Just</span> x <span class="ot">-&gt;</span> return x
+    <span class="dt">Nothing</span> <span class="ot">-&gt;</span> error <span class="fu">$</span> <span class="st">&quot;No such block: &quot;</span> <span class="fu">++</span> show c</code></pre></div>
+<h2 id="instructions">Instructions</h2>
+<p>Now that we have the basic infrastructure in place we'll wrap the raw llvm-general AST nodes inside a collection of helper functions to push instructions onto the stack held within our monad.</p>
+<p>Instructions in LLVM are either numbered sequentially (<code>%0</code>, <code>%1</code>, ...) or given explicit variable names (<code>%a</code>, <code>%foo</code>, ..). For example the arguments to the following function are named values, while the result of the add instructions unnamed.</p>
+<div class="sourceCode"><pre class="sourceCode perl"><code class="sourceCode perl">define i32 <span class="dt">@add</span>(i32 <span class="dt">%a</span>, i32 <span class="dt">%b</span>) {
+  <span class="dt">%1</span> = add i32 <span class="dt">%a</span>, <span class="dt">%b</span>
+  ret i32 <span class="dt">%1</span>
+}</code></pre></div>
+<p>In the implementation of llvm-general both these types are represented in a sum type containing the constructors <code>UnName</code> and <code>Name</code>. For most of our purpose we will simply use numbered expressions and map them numbers to identifiers with in our symbol table. Every instruction added will increment the internal counter, to accomplish we add a fresh name supply.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">fresh ::</span> <span class="dt">Codegen</span> <span class="dt">Word</span>
+fresh <span class="fu">=</span> <span class="kw">do</span>
+  i <span class="ot">&lt;-</span> gets count
+  modify <span class="fu">$</span> \s <span class="ot">-&gt;</span> s { count <span class="fu">=</span> <span class="dv">1</span> <span class="fu">+</span> i }
+  return <span class="fu">$</span> i <span class="fu">+</span> <span class="dv">1</span></code></pre></div>
+<p>Throughout our code we will however refer named values within the module, these have a special data type <code>Name</code> for which we'll create a second name supply map which guarantees that our block names are unique. We'll also instantiate a <code>IsString</code> instance for this type so that Haskell can automatically perform the boilerplate coercions between String types.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">Names</span> <span class="fu">=</span> <span class="dt">Map.Map</span> <span class="dt">String</span> <span class="dt">Int</span>
+
+<span class="ot">uniqueName ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Names</span> <span class="ot">-&gt;</span> (<span class="dt">String</span>, <span class="dt">Names</span>)
+uniqueName nm ns <span class="fu">=</span>
+  <span class="kw">case</span> Map.lookup nm ns <span class="kw">of</span>
+    <span class="dt">Nothing</span> <span class="ot">-&gt;</span> (nm,  Map.insert nm <span class="dv">1</span> ns)
+    <span class="dt">Just</span> ix <span class="ot">-&gt;</span> (nm <span class="fu">++</span> show ix, Map.insert nm (ix<span class="fu">+</span><span class="dv">1</span>) ns)
+
+<span class="kw">instance</span> <span class="dt">IsString</span> <span class="dt">Name</span> <span class="kw">where</span>
+  fromString <span class="fu">=</span> <span class="dt">Name</span> <span class="fu">.</span> fromString</code></pre></div>
+<p>Since we can now work with named LLVM values we need to create several functions for referring to references of values.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">local ::</span>  <span class="dt">Name</span> <span class="ot">-&gt;</span> <span class="dt">Operand</span>
+local <span class="fu">=</span> <span class="dt">LocalReference</span> double
+
+<span class="ot">externf ::</span> <span class="dt">Name</span> <span class="ot">-&gt;</span> <span class="dt">Operand</span>
+externf <span class="fu">=</span> <span class="dt">ConstantOperand</span> <span class="fu">.</span> <span class="dt">C.GlobalReference</span> double</code></pre></div>
+<p>Our function <code>externf</code> will emit a named value which refers to a toplevel function (<code>@add</code>) in our module or will refer to an externally declared function (<code>@putchar</code>). For instance:</p>
+<div class="sourceCode"><pre class="sourceCode perl"><code class="sourceCode perl">declare i32 <span class="dt">@putchar</span>(i32)
+
+define i32 <span class="dt">@add</span>(i32 <span class="dt">%a</span>, i32 <span class="dt">%b</span>) {
+  <span class="dt">%1</span> = add i32 <span class="dt">%a</span>, <span class="dt">%b</span>
+  ret i32 <span class="dt">%1</span>
+}
+
+define void <span class="dt">@main</span>() {
+  <span class="dt">%1</span> = call i32 <span class="dt">@add</span>(i32 <span class="dv">0</span>, i32 <span class="dv">97</span>)
+  call i32 <span class="dt">@putchar</span>(i32 <span class="dt">%1</span>)
+  ret void
+}</code></pre></div>
+<p>Since we'd like to refer to values on the stack by named quantities we'll implement a simple symbol table as an association list letting us assign variable names to operand quantities and subsequently look them up when used.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">assign ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Operand</span> <span class="ot">-&gt;</span> <span class="dt">Codegen</span> ()
+assign var x <span class="fu">=</span> <span class="kw">do</span>
+  lcls <span class="ot">&lt;-</span> gets symtab
+  modify <span class="fu">$</span> \s <span class="ot">-&gt;</span> s { symtab <span class="fu">=</span> [(var, x)] <span class="fu">++</span> lcls }
+
+<span class="ot">getvar ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Codegen</span> <span class="dt">Operand</span>
+getvar var <span class="fu">=</span> <span class="kw">do</span>
+  syms <span class="ot">&lt;-</span> gets symtab
+  <span class="kw">case</span> lookup var syms <span class="kw">of</span>
+    <span class="dt">Just</span> x  <span class="ot">-&gt;</span> return x
+    <span class="dt">Nothing</span> <span class="ot">-&gt;</span> error <span class="fu">$</span> <span class="st">&quot;Local variable not in scope: &quot;</span> <span class="fu">++</span> show var</code></pre></div>
+<p>Now that we have a way of naming instructions we'll create a internal function to take a llvm -general AST node and push it on the current basic block stack. We'll return the left hand side reference of the instruction. Instructions will come in two flavors, <em>instructions</em> and <em>terminators</em>. Every basic block has a unique terminator and every last basic block in a function must terminate in a <code>ret</code>.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">instr ::</span> <span class="dt">Instruction</span> <span class="ot">-&gt;</span> <span class="dt">Codegen</span> <span class="dt">Operand</span>
+instr ins <span class="fu">=</span> <span class="kw">do</span>
+  n   <span class="ot">&lt;-</span> fresh
+  blk <span class="ot">&lt;-</span> current
+  <span class="kw">let</span> i <span class="fu">=</span> stack blk
+  <span class="kw">let</span> ref <span class="fu">=</span> (<span class="dt">UnName</span> n)
+  modifyBlock <span class="fu">$</span> blk { stack <span class="fu">=</span> i <span class="fu">++</span> [ref <span class="fu">:=</span> ins] }
+  return <span class="fu">$</span> local ref
+
+<span class="ot">terminator ::</span> <span class="dt">Named</span> <span class="dt">Terminator</span> <span class="ot">-&gt;</span> <span class="dt">Codegen</span> (<span class="dt">Named</span> <span class="dt">Terminator</span>)
+terminator trm <span class="fu">=</span> <span class="kw">do</span>
+  blk <span class="ot">&lt;-</span> current
+  modifyBlock <span class="fu">$</span> blk { term <span class="fu">=</span> <span class="dt">Just</span> trm }
+  return trm</code></pre></div>
+<p>Using the <code>instr</code> function we now wrap the AST nodes for basic arithmetic operations of floating point values.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">fadd ::</span> <span class="dt">Operand</span> <span class="ot">-&gt;</span> <span class="dt">Operand</span> <span class="ot">-&gt;</span> <span class="dt">Codegen</span> <span class="dt">Operand</span>
+fadd a b <span class="fu">=</span> instr <span class="fu">$</span> <span class="dt">FAdd</span> <span class="dt">NoFastMathFlags</span> a b []
+
+<span class="ot">fsub ::</span> <span class="dt">Operand</span> <span class="ot">-&gt;</span> <span class="dt">Operand</span> <span class="ot">-&gt;</span> <span class="dt">Codegen</span> <span class="dt">Operand</span>
+fsub a b <span class="fu">=</span> instr <span class="fu">$</span> <span class="dt">FSub</span> <span class="dt">NoFastMathFlags</span> a b []
+
+<span class="ot">fmul ::</span> <span class="dt">Operand</span> <span class="ot">-&gt;</span> <span class="dt">Operand</span> <span class="ot">-&gt;</span> <span class="dt">Codegen</span> <span class="dt">Operand</span>
+fmul a b <span class="fu">=</span> instr <span class="fu">$</span> <span class="dt">FMul</span> <span class="dt">NoFastMathFlags</span> a b []
+
+<span class="ot">fdiv ::</span> <span class="dt">Operand</span> <span class="ot">-&gt;</span> <span class="dt">Operand</span> <span class="ot">-&gt;</span> <span class="dt">Codegen</span> <span class="dt">Operand</span>
+fdiv a b <span class="fu">=</span> instr <span class="fu">$</span> <span class="dt">FDiv</span> <span class="dt">NoFastMathFlags</span> a b []</code></pre></div>
+<p>On top of the basic arithmetic functions we'll add the basic control flow operations which will allow us to direct the control flow between basic blocks and return values.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">br ::</span> <span class="dt">Name</span> <span class="ot">-&gt;</span> <span class="dt">Codegen</span> (<span class="dt">Named</span> <span class="dt">Terminator</span>)
+br val <span class="fu">=</span> terminator <span class="fu">$</span> <span class="dt">Do</span> <span class="fu">$</span> <span class="dt">Br</span> val []
+
+<span class="ot">cbr ::</span> <span class="dt">Operand</span> <span class="ot">-&gt;</span> <span class="dt">Name</span> <span class="ot">-&gt;</span> <span class="dt">Name</span> <span class="ot">-&gt;</span> <span class="dt">Codegen</span> (<span class="dt">Named</span> <span class="dt">Terminator</span>)
+cbr cond tr fl <span class="fu">=</span> terminator <span class="fu">$</span> <span class="dt">Do</span> <span class="fu">$</span> <span class="dt">CondBr</span> cond tr fl []
+
+<span class="ot">ret ::</span> <span class="dt">Operand</span> <span class="ot">-&gt;</span> <span class="dt">Codegen</span> (<span class="dt">Named</span> <span class="dt">Terminator</span>)
+ret val <span class="fu">=</span> terminator <span class="fu">$</span> <span class="dt">Do</span> <span class="fu">$</span> <span class="dt">Ret</span> (<span class="dt">Just</span> val) []</code></pre></div>
+<p>Finally we'll add several &quot;effect&quot; instructions which will invoke memory and evaluation side-effects. The <code>call</code> instruction will simply take a named function reference and a list of arguments and evaluate it and simply invoke it at the current position. The <code>alloca</code> instruction will create a pointer to a stack allocated uninitialized value of the given type.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">call ::</span> <span class="dt">Operand</span> <span class="ot">-&gt;</span> [<span class="dt">Operand</span>] <span class="ot">-&gt;</span> <span class="dt">Codegen</span> <span class="dt">Operand</span>
+call fn args <span class="fu">=</span> instr <span class="fu">$</span> <span class="dt">Call</span> <span class="dt">Nothing</span> <span class="dt">CC.C</span> [] (<span class="dt">Right</span> fn) (toArgs args) [] []
+
+<span class="ot">alloca ::</span> <span class="dt">Type</span> <span class="ot">-&gt;</span> <span class="dt">Codegen</span> <span class="dt">Operand</span>
+alloca ty <span class="fu">=</span> instr <span class="fu">$</span> <span class="dt">Alloca</span> ty <span class="dt">Nothing</span> <span class="dv">0</span> []
+
+<span class="ot">store ::</span> <span class="dt">Operand</span> <span class="ot">-&gt;</span> <span class="dt">Operand</span> <span class="ot">-&gt;</span> <span class="dt">Codegen</span> <span class="dt">Operand</span>
+store ptr val <span class="fu">=</span> instr <span class="fu">$</span> <span class="dt">Store</span> <span class="dt">False</span> ptr val <span class="dt">Nothing</span> <span class="dv">0</span> []
+
+<span class="ot">load ::</span> <span class="dt">Operand</span> <span class="ot">-&gt;</span> <span class="dt">Codegen</span> <span class="dt">Operand</span>
+load ptr <span class="fu">=</span> instr <span class="fu">$</span> <span class="dt">Load</span> <span class="dt">False</span> ptr <span class="dt">Nothing</span> <span class="dv">0</span> []</code></pre></div>
+<h2 id="from-ast-to-ir">From AST to IR</h2>
+<p>Now that we have the infrastructure in place we can begin ingest our AST from <code>Syntax.hs</code> and construct a LLVM module from it. We will create a new <code>Emit.hs</code> module and spread the logic across two functions. The first <code>codegenTop</code> will emit toplevel constructions in modules ( functions and external definitions ) and will return a <code>LLVM</code> monad. The last instruction on the stack we'll bind into the <code>ret</code> instruction to ensure and emit as the return value of the function. We'll also sequentially <code>assign</code> each of the named arguments from the function to a stack allocated value with a reference in our symbol table.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">codegenTop ::</span> <span class="dt">S.Expr</span> <span class="ot">-&gt;</span> <span class="dt">LLVM</span> ()
+codegenTop (<span class="dt">S.Function</span> name args body) <span class="fu">=</span> <span class="kw">do</span>
+  define double name fnargs bls
+  <span class="kw">where</span>
+    fnargs <span class="fu">=</span> toSig args
+    bls <span class="fu">=</span> createBlocks <span class="fu">$</span> execCodegen <span class="fu">$</span> <span class="kw">do</span>
+      entry <span class="ot">&lt;-</span> addBlock entryBlockName
+      setBlock entry
+      forM args <span class="fu">$</span> \a <span class="ot">-&gt;</span> <span class="kw">do</span>
+        var <span class="ot">&lt;-</span> alloca double
+        store var (local (<span class="dt">AST.Name</span> a))
+        assign a var
+      cgen body <span class="fu">&gt;&gt;=</span> ret
+
+codegenTop (<span class="dt">S.Extern</span> name args) <span class="fu">=</span> <span class="kw">do</span>
+  external double name fnargs []
+  <span class="kw">where</span> fnargs <span class="fu">=</span> toSig args
+
+codegenTop exp <span class="fu">=</span> <span class="kw">do</span>
+  define double <span class="st">&quot;main&quot;</span> [] blks
+  <span class="kw">where</span>
+    blks <span class="fu">=</span> createBlocks <span class="fu">$</span> execCodegen <span class="fu">$</span> <span class="kw">do</span>
+      entry <span class="ot">&lt;-</span> addBlock entryBlockName
+      setBlock entry
+      cgen exp <span class="fu">&gt;&gt;=</span> ret
+
+<span class="ot">toSig ::</span> [<span class="dt">String</span>] <span class="ot">-&gt;</span> [(<span class="dt">AST.Type</span>, <span class="dt">AST.Name</span>)]
+toSig <span class="fu">=</span> map (\x <span class="ot">-&gt;</span> (double, <span class="dt">AST.Name</span> x))</code></pre></div>
+<p>The second is the expression level code generation (<code>cgen</code>) which will recursively walk the AST pushing instructions on the stack and changing the current block as needed. The simplest AST node is constant integers and floating point values which simply return constant values in LLVM IR.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">cgen ::</span> <span class="dt">S.Expr</span> <span class="ot">-&gt;</span> <span class="dt">Codegen</span> <span class="dt">AST.Operand</span>
+cgen (<span class="dt">S.Float</span> n) <span class="fu">=</span> return <span class="fu">$</span> cons <span class="fu">$</span> <span class="dt">C.Float</span> (<span class="dt">F.Double</span> n)</code></pre></div>
+<p>We need to reference local variables so we'll invoke our <code>getvar</code> function in conjunction with a <code>load</code> use values. The conscious reader will intuit that this might result in an excessive amount of extraneous instructions pushing temporary values on the stack, something that we'll address later with a simple optimization pass.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">cgen (<span class="dt">S.Var</span> x) <span class="fu">=</span> getvar x <span class="fu">&gt;&gt;=</span> load</code></pre></div>
+<p>For <code>Call</code> we'll first evaluate each argument and then invoke the function with the values. Since our language only has double type values, this is trivial and we don't need to worry too much.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">cgen (<span class="dt">S.Call</span> fn args) <span class="fu">=</span> <span class="kw">do</span>
+  largs <span class="ot">&lt;-</span> mapM cgen args
+  call (externf (<span class="dt">AST.Name</span> fn)) largs</code></pre></div>
+<p>Finally for our operators we'll construct a predefined association map of symbol strings to implementations of functions with the corresponding logic for the operation.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">binops <span class="fu">=</span> Map.fromList [
+      (<span class="st">&quot;+&quot;</span>, fadd)
+    , (<span class="st">&quot;-&quot;</span>, fsub)
+    , (<span class="st">&quot;*&quot;</span>, fmul)
+    , (<span class="st">&quot;/&quot;</span>, fdiv)
+    , (<span class="st">&quot;&lt;&quot;</span>, lt)
+  ]</code></pre></div>
+<p>For the comparison operator we'll invoke the <code>uitofp</code> which will convert a unsigned integer quantity to a floating point value. LLVM requires the unsigned single bit types as the values for comparison and test operations but we prefer to work entirely with doubles where possible.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">lt ::</span> <span class="dt">AST.Operand</span> <span class="ot">-&gt;</span> <span class="dt">AST.Operand</span> <span class="ot">-&gt;</span> <span class="dt">Codegen</span> <span class="dt">AST.Operand</span>
+lt a b <span class="fu">=</span> <span class="kw">do</span>
+  test <span class="ot">&lt;-</span> fcmp <span class="dt">FP.ULT</span> a b
+  uitofp double test</code></pre></div>
+<p>Just like the <code>call</code> instruction above we simply generate the code for operands and invoke the function we just looked up for the symbol.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">cgen (<span class="dt">S.BinaryOp</span> op a b) <span class="fu">=</span> <span class="kw">do</span>
+  <span class="kw">case</span> Map.lookup op binops <span class="kw">of</span>
+    <span class="dt">Just</span> f <span class="ot">-&gt;</span> <span class="kw">do</span>
+      ca <span class="ot">&lt;-</span> cgen a
+      cb <span class="ot">&lt;-</span> cgen b
+      f ca cb
+    <span class="dt">Nothing</span> <span class="ot">-&gt;</span> error <span class="st">&quot;No such operator&quot;</span></code></pre></div>
+<p>Putting everything together we find that we nice little minimal language that supports both function abstraction and basic arithmetic. The final step is to hook into LLVM bindings to generate a string representation of the LLVM IR which we'll print our the string on each action in the REPL. We'll discuss these functions in more depth in the next chapter.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">codegen ::</span> <span class="dt">AST.Module</span> <span class="ot">-&gt;</span> [<span class="dt">S.Expr</span>] <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">AST.Module</span>
+codegen mod fns <span class="fu">=</span> withContext <span class="fu">$</span> \context <span class="ot">-&gt;</span>
+  liftError <span class="fu">$</span> withModuleFromAST context newast <span class="fu">$</span> \m <span class="ot">-&gt;</span> <span class="kw">do</span>
+    llstr <span class="ot">&lt;-</span> moduleLLVMAssembly m
+    putStrLn llstr
+    return newast
+  <span class="kw">where</span>
+    modn <span class="fu">=</span> mapM codegenTop fns
+    newast <span class="fu">=</span> runLLVM mod modn</code></pre></div>
+<p>Running <code>Main.hs</code> we can observe our code generator in action.</p>
+<div class="sourceCode"><pre class="sourceCode perl"><code class="sourceCode perl">ready&gt; def foo(a b) a<span class="dt">*a</span> + <span class="dv">2</span><span class="dt">*a*b</span> + b<span class="dt">*b</span>
+; ModuleID = <span class="kw">&#39;</span><span class="st">my cool jit</span><span class="kw">&#39;</span>
+
+define double <span class="dt">@foo</span>(double <span class="dt">%a</span>, double <span class="dt">%b</span>)  {
+entry:
+  <span class="dt">%0</span> = fmul double <span class="dt">%a</span>, <span class="dt">%a</span>
+  <span class="dt">%1</span> = fmul double <span class="dt">%a</span>, <span class="fl">2.000000</span>e<span class="dv">+00</span>
+  <span class="dt">%2</span> = fmul double <span class="dt">%1</span>, <span class="dt">%b</span>
+  <span class="dt">%3</span> = fadd double <span class="dt">%0</span>, <span class="dt">%2</span>
+  <span class="dt">%4</span> = fmul double <span class="dt">%b</span>, <span class="dt">%b</span>
+  <span class="dt">%5</span> = fadd double <span class="dt">%4</span>, <span class="dt">%3</span>
+  ret double <span class="dt">%5</span>
+}
+
+ready&gt; def bar(a) foo(a, <span class="fl">4.0</span>) + bar(<span class="dv">31337</span>)
+define double <span class="dt">@bar</span>(double <span class="dt">%a</span>) {
+entry:
+  <span class="dt">%0</span> = alloca double
+  store double <span class="dt">%a</span>, double<span class="kw">*</span> <span class="dt">%0</span>
+  <span class="dt">%1</span> = load double<span class="kw">*</span> <span class="dt">%0</span>
+  <span class="dt">%2</span> = call double <span class="dt">@foo</span>(double <span class="dt">%1</span>, double <span class="fl">4.000000</span>e<span class="dv">+00</span>)
+  <span class="dt">%3</span> = call double <span class="dt">@bar</span>(double <span class="fl">3.133700</span>e<span class="dv">+04</span>)
+  <span class="dt">%4</span> = fadd double <span class="dt">%2</span>, <span class="dt">%3</span>
+  ret double <span class="dt">%4</span>
+}</code></pre></div>
+<h2 id="full-source-2">Full Source</h2>
+<p>See <a href="https://github.com/sdiehl/kaleidoscope/tree/master/src/chapter3"><strong>src/chapter3</strong></a> for the full source from this chapter.</p>
+<hr />
+<h1 id="chapter-4-jit-and-optimizer-support">Chapter 4 ( JIT and Optimizer Support )</h1>
+<p>In the previous chapter we were able to map our language Syntax into the LLVM IR and print it out to the screen. This chapter describes two new techniques: adding optimizer support to our language, and adding JIT compiler support. These additions will demonstrate how to get nice, efficient code for the Kaleidoscope language.</p>
+<h2 id="asts-and-modules">ASTs and Modules</h2>
+<p>We'll refer to a Module as holding the internal representation of the LLVM IR. Modules can be generated from the Haskell LLVM AST or from strings containing bitcode.</p>
+<p>Both data types have the same name ( Module ), so as convention we will call qualify the imports of the libraries to distinguish between the two.</p>
+<ul>
+<li><code>AST.Module</code> : Haskell AST Module</li>
+<li><code>Module</code> : Internal LLVM Module</li>
+</ul>
+<p>llvm-general provides two important functions for converting between them. <code>withModuleFromAST</code> has type <code>ErrorT</code> since it may fail if given a malformed expression, it is important to handle both cases of the resulting Either value.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">withModuleFromAST ::</span> <span class="dt">Context</span> <span class="ot">-&gt;</span> <span class="dt">AST.Module</span> <span class="ot">-&gt;</span> (<span class="dt">Module</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> a) <span class="ot">-&gt;</span> <span class="dt">ErrorT</span> <span class="dt">String</span> <span class="dt">IO</span> a
+<span class="ot">moduleAST ::</span> <span class="dt">Module</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">AST.Module</span></code></pre></div>
+<p>We can also generate the assembly code for our given module by passing a specification of the CPU and platform information we wish to target, called the <code>TargetMachine</code>.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">moduleAssembly ::</span> <span class="dt">TargetMachine</span> <span class="ot">-&gt;</span> <span class="dt">Module</span> <span class="ot">-&gt;</span> <span class="dt">ErrorT</span> <span class="dt">String</span> <span class="dt">IO</span> <span class="dt">String</span></code></pre></div>
+<p>Recall the so called &quot;Bracket&quot; pattern in Haskell for managing IO resources. llvm-general makes heavy use this pattern to manage the life-cycle of certain LLVM resources. It is very important to remember not to pass or attempt to use resources outside of the bracket as this will lead to undefined behavior and/or segfaults.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">bracket ::</span> <span class="dt">IO</span> a        <span class="co">-- computation to run first (&quot;acquire resource&quot;)</span>
+        <span class="ot">-&gt;</span> (a <span class="ot">-&gt;</span> <span class="dt">IO</span> b) <span class="co">-- computation to run last (&quot;release resource&quot;)</span>
+        <span class="ot">-&gt;</span> (a <span class="ot">-&gt;</span> <span class="dt">IO</span> c) <span class="co">-- computation to run in-between</span>
+        <span class="ot">-&gt;</span> <span class="dt">IO</span> c</code></pre></div>
+<p>In addition to this we'll often be dealing with operations which can fail in an <code>EitherT</code> monad if given bad code. We'll often want to lift this error up the monad transformer stack with the pattern:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">liftError ::</span> <span class="dt">ErrorT</span> <span class="dt">String</span> <span class="dt">IO</span> a <span class="ot">-&gt;</span> <span class="dt">IO</span> a
+liftError <span class="fu">=</span> runErrorT <span class="fu">&gt;=&gt;</span> either fail return</code></pre></div>
+<p>To start we'll create a <code>runJIT</code> function which will start with a stack of brackets. We'll then simply generate the IR and print it out to the screen.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">runJIT ::</span> <span class="dt">AST.Module</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> (<span class="dt">Either</span> <span class="dt">String</span> ())
+runJIT mod <span class="fu">=</span> <span class="kw">do</span>
+  withContext <span class="fu">$</span> \context <span class="ot">-&gt;</span>
+    runErrorT <span class="fu">$</span> withModuleFromAST context mod <span class="fu">$</span> \m <span class="ot">-&gt;</span>
+      s <span class="ot">&lt;-</span> moduleString m
+      putStrLn s</code></pre></div>
+<h2 id="constant-folding">Constant Folding</h2>
+<p>Our demonstration for Chapter 3 is elegant and easy to extend. Unfortunately, it does not produce wonderful code. However the naive construction of the LLVM module will perform some minimal transformations to generate a module which not a literal transcription of the AST but preserves the same semantics.</p>
+<p>The &quot;dumb&quot; transcription would look like:</p>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python">ready<span class="op">&gt;</span> <span class="kw">def</span> test(x) <span class="dv">1+2</span><span class="op">+</span>x
+define double @test(double <span class="op">%</span>x) {
+entry:
+  <span class="op">%</span>addtmp <span class="op">=</span> fadd double <span class="fl">2.000000e+00</span>, <span class="fl">1.000000e+00</span>
+  <span class="op">%</span>addtmp1 <span class="op">=</span> fadd double <span class="op">%</span>addtmp, <span class="op">%</span>x
+  ret double <span class="op">%</span>addtmp1
+}</code></pre></div>
+<p>The &quot;smarter&quot; transcription would eliminate the first line since it contains a simple constant that can be computed at compile-time.</p>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python">ready<span class="op">&gt;</span> <span class="kw">def</span> test(x) <span class="dv">1+2</span><span class="op">+</span>x
+define double @test(double <span class="op">%</span>x) {
+entry:
+  <span class="op">%</span>addtmp <span class="op">=</span> fadd double <span class="fl">3.000000e+00</span>, <span class="op">%</span>x
+  ret double <span class="op">%</span>addtmp
+}</code></pre></div>
+<p>Constant folding, as seen above, in particular, is a very common and very important optimization: so much so that many language implementors implement constant folding support in their AST representation. This technique is limited by the fact that it does all of its analysis inline with the code as it is built. If you take a slightly more complex example:</p>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python">ready<span class="op">&gt;</span> <span class="kw">def</span> test(x) (<span class="dv">1+2</span><span class="op">+</span>x)<span class="op">*</span>(x<span class="op">+</span>(<span class="dv">1+2</span>))
+define double @test(double <span class="op">%</span>x) {
+entry:
+  <span class="op">%</span>addtmp <span class="op">=</span> fadd double <span class="fl">3.000000e+00</span>, <span class="op">%</span>x
+  <span class="op">%</span>addtmp1 <span class="op">=</span> fadd double <span class="op">%</span>x, <span class="fl">3.000000e+00</span>
+  <span class="op">%</span>multmp <span class="op">=</span> fmul double <span class="op">%</span>addtmp, <span class="op">%</span>addtmp1
+  ret double <span class="op">%</span>multmp
+}</code></pre></div>
+<p>In this case, the left and right hand sides of the multiplication are the same value. We'd really like to see this generate <code>tmp = x+3; result = tmp*tmp</code> instead of computing <code>x+3</code> twice.</p>
+<p>Unfortunately, no amount of local analysis will be able to detect and correct this. This requires two transformations: reassociation of expressions (to make the <code>add</code>s lexically identical) and Common Subexpression Elimination (CSE) to delete the redundant add instruction. Fortunately, LLVM provides a broad range of optimizations that we can use, in the form of “passes”.</p>
+<h2 id="optimization-passes">Optimization Passes</h2>
+<p>LLVM provides many optimization passes, which do many different sorts of things and have different trade-offs. Unlike other systems, LLVM doesn't hold to the mistaken notion that one set of optimizations is right for all languages and for all situations. LLVM allows a compiler implementor to make complete decisions about what optimizations to use, in which order, and in what situation.</p>
+<p>As a concrete example, LLVM supports both “whole module” passes, which look across as large of body of code as they can (often a whole file, but if run at link time, this can be a substantial portion of the whole program). It also supports and includes “per-function” passes which just operate on a single function at a time, without looking at other functions. For more information on passes and how they are run, see the <a href="http://llvm.org/docs/WritingAnLLVMPass.html">How to Write a Pass</a> document and the <a href="http://llvm.org/docs/Passes.html">List of LLVM Passes</a>.</p>
+<p>For Kaleidoscope, we are currently generating functions on the fly, one at a time, as the user types them in. We aren't shooting for the ultimate optimization experience in this setting, but we also want to catch the easy and quick stuff where possible.</p>
+<p>We won't delve too much into the details of the passes since they are better described elsewhere. We will instead just invoke the default &quot;curated passes&quot; with an optimization level which will perform most of the common clean-ups and a few non-trivial optimizations.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">passes ::</span> <span class="dt">PassSetSpec</span>
+passes <span class="fu">=</span> defaultCuratedPassSetSpec { optLevel <span class="fu">=</span> <span class="dt">Just</span> <span class="dv">3</span> }</code></pre></div>
+<p>To apply the passes we create a bracket for a PassManager and invoke <code>runPassManager</code> on our working module. Note that this modifies the module in-place.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">runJIT ::</span> <span class="dt">AST.Module</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> (<span class="dt">Either</span> <span class="dt">String</span> <span class="dt">AST.Module</span>)
+runJIT mod <span class="fu">=</span> <span class="kw">do</span>
+  withContext <span class="fu">$</span> \context <span class="ot">-&gt;</span>
+    runErrorT <span class="fu">$</span> withModuleFromAST context mod <span class="fu">$</span> \m <span class="ot">-&gt;</span>
+      withPassManager passes <span class="fu">$</span> \pm <span class="ot">-&gt;</span> <span class="kw">do</span>
+        runPassManager pm m
+        optmod <span class="ot">&lt;-</span> moduleAST m
+        s <span class="ot">&lt;-</span> moduleString m
+        putStrLn s
+        return optmod</code></pre></div>
+<p>With this in place, we can try our test above again:</p>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python">ready<span class="op">&gt;</span> <span class="kw">def</span> test(x) (<span class="dv">1+2</span><span class="op">+</span>x)<span class="op">*</span>(x<span class="op">+</span>(<span class="dv">1+2</span>))
+<span class="op">;</span> ModuleID <span class="op">=</span> <span class="st">&#39;my cool jit&#39;</span>
+
+<span class="op">;</span> Function Attrs: nounwind readnone
+define double @test(double <span class="op">%</span>x) <span class="co">#0 {</span>
+entry:
+  <span class="op">%</span><span class="dv">0</span> <span class="op">=</span> fadd double <span class="op">%</span>x, <span class="fl">3.000000e+00</span>
+  <span class="op">%</span><span class="dv">1</span> <span class="op">=</span> fmul double <span class="op">%</span><span class="dv">0</span>, <span class="op">%</span><span class="dv">0</span>
+  ret double <span class="op">%</span><span class="dv">1</span>
+}
+
+attributes <span class="co">#0 = { nounwind readnone }</span></code></pre></div>
+<p>As expected, we now get our nicely optimized code, saving a floating point add instruction from every execution of this function. We also see some extra metadata attached to our function, which we can ignore for now, but is indicating certain properties of the function that aid in later optimization.</p>
+<p>LLVM provides a wide variety of optimizations that can be used in certain circumstances. Some documentation about the various passes is available, but it isn't very complete. Another good source of ideas can come from looking at the passes that Clang runs to get started. The “opt” tool allows us to experiment with passes from the command line, so we can see if they do anything.</p>
+<p>One important optimization pass is a &quot;analysis pass&quot; which will validate that the internal IR is well-formed. Since it quite possible (even easy!) to construct nonsensical or unsafe IR it is very good practice to validate our IR before attempting to optimize or execute it. To do we simply invoke the verify function with our active module.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">
+<span class="ot">runJIT ::</span> <span class="dt">AST.Module</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> (<span class="dt">Either</span> <span class="dt">String</span> <span class="dt">AST.Module</span>)
+runJIT mod <span class="fu">=</span> <span class="kw">do</span>
+  <span class="fu">...</span>
+
+  withPassManager passes <span class="fu">$</span> \pm <span class="ot">-&gt;</span> <span class="kw">do</span>
+    runErrorT <span class="fu">$</span> verify m</code></pre></div>
+<p>Now that we have reasonable code coming out of our front-end, lets talk about executing it!</p>
+<h2 id="adding-a-jit-compiler">Adding a JIT Compiler</h2>
+<p>Code that is available in LLVM IR can have a wide variety of tools applied to it. For example, we can run optimizations on it (as we did above), we can dump it out in textual or binary forms, we can compile the code to an assembly file (.s) for some target, or we can JIT compile it. The nice thing about the LLVM IR representation is that it is the “common currency” between many different parts of the compiler.</p>
+<p>In this section, we'll add JIT compiler support to our interpreter. The basic idea that we want for Kaleidoscope is to have the user enter function bodies as they do now, but immediately evaluate the top-level expressions they type in. For example, if they type in “1 + 2;”, we should evaluate and print out 3. If they define a function, they should be able to call it from the command line.</p>
+<p>In order to do this, we add another function to bracket the creation of the JIT <em>Execution Engine</em>. There are two provided engines: jit and mcjit. The distinction is not important for us but we will opt to use the newer mcjit.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">import qualified</span> <span class="dt">LLVM.General.ExecutionEngine</span> <span class="kw">as</span> <span class="dt">EE</span>
+
+<span class="ot">jit ::</span> <span class="dt">Context</span> <span class="ot">-&gt;</span> (<span class="dt">EE.MCJIT</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> a) <span class="ot">-&gt;</span> <span class="dt">IO</span> a
+jit c <span class="fu">=</span> EE.withMCJIT c optlevel model ptrelim fastins
+  <span class="kw">where</span>
+    optlevel <span class="fu">=</span> <span class="dt">Just</span> <span class="dv">2</span>  <span class="co">-- optimization level</span>
+    model    <span class="fu">=</span> <span class="dt">Nothing</span> <span class="co">-- code model ( Default )</span>
+    ptrelim  <span class="fu">=</span> <span class="dt">Nothing</span> <span class="co">-- frame pointer elimination</span>
+    fastins  <span class="fu">=</span> <span class="dt">Nothing</span> <span class="co">-- fast instruction selection</span></code></pre></div>
+<p>The result of the JIT compiling our function will be a C function pointer which we can call from within the JIT's process space. We need some (unsafe!) plumbing to coerce our foreign C function into a callable object from Haskell. Some care must be taken when performing these operations since we're telling Haskell to &quot;trust us&quot; that the pointer we hand it is actually typed as we describe it. If we don't take care with the casts we can expect undefined behavior.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">foreign <span class="kw">import </span>ccall &quot;dynamic&quot; haskFun :: <span class="dt">FunPtr</span> (<span class="dt">IO</span> <span class="dt">Double</span>) -&gt; (<span class="dt">IO</span> <span class="dt">Double</span>)
+
+<span class="ot">run ::</span> <span class="dt">FunPtr</span> a <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">Double</span>
+run fn <span class="fu">=</span> haskFun (castFunPtr<span class="ot"> fn ::</span> <span class="dt">FunPtr</span> (<span class="dt">IO</span> <span class="dt">Double</span>))</code></pre></div>
+<p>Integrating this with our function from above we can now manifest our IR as executable code inside the <code>ExecutionEngine</code> and pass the resulting native types to and from the Haskell runtime.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">runJIT ::</span> <span class="dt">AST.Module</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> (<span class="dt">Either</span> <span class="dt">String</span> ())
+runJIT mod <span class="fu">=</span> <span class="kw">do</span>
+    <span class="fu">...</span>
+    jit context <span class="fu">$</span> \executionEngine <span class="ot">-&gt;</span>
+        <span class="fu">...</span>
+        EE.withModuleInEngine executionEngine m <span class="fu">$</span> \ee <span class="ot">-&gt;</span> <span class="kw">do</span>
+          mainfn <span class="ot">&lt;-</span> EE.getFunction ee (<span class="dt">AST.Name</span> <span class="st">&quot;main&quot;</span>)
+          <span class="kw">case</span> mainfn <span class="kw">of</span>
+            <span class="dt">Just</span> fn <span class="ot">-&gt;</span> <span class="kw">do</span>
+              res <span class="ot">&lt;-</span> run fn
+              putStrLn <span class="fu">$</span> <span class="st">&quot;Evaluated to: &quot;</span> <span class="fu">++</span> show res
+            <span class="dt">Nothing</span> <span class="ot">-&gt;</span> return ()</code></pre></div>
+<p>Having to statically declare our function pointer type is rather inflexible, if we wish to extend to this to be more flexible a library like <em>libffi</em> is very useful for calling functions with argument types that can be determined at runtime.</p>
+<h2 id="external-functions">External Functions</h2>
+<p>The JIT provides a number of other more advanced interfaces for things like freeing allocated machine code, rejit'ing functions to update them, etc. However, even with this simple code, we get some surprisingly powerful capabilities - check this out:</p>
+<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash"><span class="kw">ready&gt;</span> extern sin(x)
+; <span class="kw">ModuleID</span> = <span class="st">&#39;my cool jit&#39;</span>
+
+<span class="kw">declare</span> <span class="ot">double</span> @<span class="ot">sin</span>(<span class="ot">double</span>)
+
+<span class="kw">ready&gt;</span> extern cos(x)
+; <span class="kw">ModuleID</span> = <span class="st">&#39;my cool jit&#39;</span>
+
+<span class="kw">declare</span> <span class="ot">double</span> @<span class="ot">sin</span>(<span class="ot">double</span>)
+
+<span class="kw">declare</span> <span class="ot">double</span> @<span class="ot">cos</span>(<span class="ot">double</span>)
+
+<span class="kw">ready&gt;</span> sin(1.0)
+; <span class="kw">ModuleID</span> = <span class="st">&#39;my cool jit&#39;</span>
+
+<span class="kw">declare</span> <span class="ot">double</span> @<span class="ot">sin</span>(<span class="ot">double</span>)
+
+<span class="kw">declare</span> <span class="ot">double</span> @<span class="ot">cos</span>(<span class="ot">double</span>)
+
+<span class="kw">define</span> double @main() <span class="kw">{</span>
+<span class="kw">entry</span>:
+  <span class="kw">%0</span> = call double @sin(double 1.000000e+00)
+  <span class="kw">ret</span> double %0
+<span class="kw">}</span>
+
+<span class="kw">Evaluated</span> to: 0.8414709848078965</code></pre></div>
+<p>Whoa, how does the JIT know about sin and cos? The answer is surprisingly simple: in this example, the JIT started execution of a function and got to a function call. It realized that the function was not yet JIT compiled and invoked the standard set of routines to resolve the function. In this case, there is no body defined for the function, so the JIT ended up calling <code>dlsym(&quot;sin&quot;)</code> on the Kaleidoscope process itself. Since &quot;sin&quot; is defined within the JIT's address space, it simply patches up calls in the module to call the libm version of sin directly.</p>
+<p>The LLVM JIT provides a number of interfaces for controlling how unknown functions get resolved. It allows us to establish explicit mappings between IR objects and addresses (useful for LLVM global variables that we want to map to static tables, for example), allows us to dynamically decide on the fly based on the function name, and even allows us JIT compile functions lazily the first time they're called.</p>
+<p>One interesting application of this is that we can now extend the language by writing arbitrary C code to implement operations. For example, if create a shared library <code>cbits.so</code>:</p>
+<div class="sourceCode" include="src/chapter4/cbits.c"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span class="co">/* cbits</span>
+<span class="co">$ gcc -fPIC -shared cbits.c -o cbits.so</span>
+<span class="co">$ clang -fPIC -shared cbits.c -o cbits.so</span>
+<span class="co">*/</span>
+
+<span class="ot">#include &quot;stdio.h&quot;</span>
+
+<span class="co">// putchard - putchar that takes a double and returns 0.</span>
+<span class="dt">double</span> putchard(<span class="dt">double</span> X) {
+  putchar((<span class="dt">char</span>)X);
+  fflush(stdout);
+  <span class="kw">return</span> <span class="dv">0</span>;
+}</code></pre></div>
+<p>Compile this with your favorite C compiler. We can then link this into our Haskell binary by simply including it along side the rest of the Haskell source files</p>
+<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash">$ <span class="kw">ghc</span> cbits.so --make Main.hs -o Main</code></pre></div>
+<p>Now we can produce simple output to the console by using things like: <code>extern putchard(x); putchard(120);</code>, which prints a lowercase 'x' on the console (120 is the ASCII code for 'x'). Similar code could be used to implement file I/O, console input, and many other capabilities in Kaleidoscope.</p>
+<p>To bring external shared objects into the process address space we can call Haskell's bindings to the system dynamic linking loader to load external libraries. In addition if we are statically compiling our interpreter we can tell GHC to link against the shared objects explicitly by passing them in with the <code>-l</code> flag.</p>
+<p>This completes the JIT and optimizer chapter of the Kaleidoscope tutorial. At this point, we can compile a non-Turing-complete programming language, optimize and JIT compile it in a user-driven way. Next up we'll look into extending the language with control flow constructs, tackling some interesting LLVM IR issues along the way.</p>
+<h2 id="full-source-3">Full Source</h2>
+<p>See <a href="https://github.com/sdiehl/kaleidoscope/tree/master/src/chapter4"><strong>src/chapter4</strong></a> for the full source from this chapter.</p>
+<hr />
+<h1 id="chapter-5-control-flow">Chapter 5 ( Control Flow )</h1>
+<p>Welcome to Chapter 5 of the Implementing a language with LLVM tutorial. Parts 1-4 described the implementation of the simple Kaleidoscope language and included support for generating LLVM IR, followed by optimizations and a JIT compiler. Unfortunately, as presented, Kaleidoscope is mostly useless: it has no control flow other than call and return. This means that we can't have conditional branches in the code, significantly limiting its power. In this episode of &quot;build that compiler&quot;, we'll extend Kaleidoscope to have an if/then/else expression plus a simple 'for' loop.</p>
+<h2 id="if-expressions">‘if' Expressions</h2>
+<p>Extending Kaleidoscope to support if/then/else is quite straightforward. It basically requires adding lexer support for this &quot;new&quot; concept to the lexer, parser, AST, and LLVM code emitter. This example is nice, because it shows how easy it is to &quot;grow&quot; a language over time, incrementally extending it as new ideas are discovered.</p>
+<p>Before we get going on &quot;how&quot; we add this extension, lets talk about &quot;what&quot; we want. The basic idea is that we want to be able to write this sort of thing:</p>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="kw">def</span> fib(x)
+   <span class="cf">if</span> x <span class="op">&lt;</span> <span class="dv">3</span> then
+      <span class="dv">1</span>
+   <span class="cf">else</span>
+      fib(x<span class="dv">-1</span>) <span class="op">+</span> fib(x<span class="dv">-2</span>)</code></pre></div>
+<p>In Kaleidoscope, every construct is an expression: there are no statements. As such, the if/then/else expression needs to return a value like any other. Since we're using a mostly functional form, we'll have it evaluate its conditional, then return the ‘then' or ‘else' value based on how the condition was resolved. This is very similar to the C &quot;?:&quot; expression.</p>
+<p>The semantics of the if/then/else expression is that it evaluates the condition to a boolean equality value: <code>0.0</code> is considered to be false and everything else is considered to be true. If the condition is true, the first subexpression is evaluated and returned, if the condition is false, the second subexpression is evaluated and returned. Since Kaleidoscope allows side-effects, this behavior is important to nail down.</p>
+<p>Now that we know what we &quot;want&quot;, let's break this down into its constituent pieces.</p>
+<p>To represent the new expression we add a new AST node for it:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Expr</span>
+  <span class="fu">...</span>
+  <span class="fu">|</span> <span class="dt">If</span> <span class="dt">Expr</span> <span class="dt">Expr</span> <span class="dt">Expr</span>
+  <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Ord</span>, <span class="dt">Show</span>)</code></pre></div>
+<p>We also extend our lexer definition with the new reserved names.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">lexer ::</span> <span class="dt">Tok.TokenParser</span> ()
+lexer <span class="fu">=</span> Tok.makeTokenParser style
+  <span class="kw">where</span>
+    ops <span class="fu">=</span> [<span class="st">&quot;+&quot;</span>,<span class="st">&quot;*&quot;</span>,<span class="st">&quot;-&quot;</span>,<span class="st">&quot;/&quot;</span>,<span class="st">&quot;;&quot;</span>,<span class="st">&quot;,&quot;</span>,<span class="st">&quot;&lt;&quot;</span>]
+    names <span class="fu">=</span> [<span class="st">&quot;def&quot;</span>,<span class="st">&quot;extern&quot;</span>,<span class="st">&quot;if&quot;</span>,<span class="st">&quot;then&quot;</span>,<span class="st">&quot;else]</span>
+<span class="st">    style = emptyDef {</span>
+<span class="st">               Tok.commentLine = &quot;</span><span class="fu">#</span><span class="st">&quot;</span>
+<span class="st">             , Tok.reservedOpNames = ops</span>
+<span class="st">             , Tok.reservedNames = names</span>
+<span class="st">             }</span></code></pre></div>
+<p>Now that we have the relevant tokens coming from the lexer and we have the AST node to build, our parsing logic is relatively straightforward. First we define a new parsing function:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">ifthen ::</span> <span class="dt">Parser</span> <span class="dt">Expr</span>
+ifthen <span class="fu">=</span> <span class="kw">do</span>
+  reserved <span class="st">&quot;if&quot;</span>
+  cond <span class="ot">&lt;-</span> expr
+  reserved <span class="st">&quot;then&quot;</span>
+  tr <span class="ot">&lt;-</span> expr
+  reserved <span class="st">&quot;else&quot;</span>
+  fl <span class="ot">&lt;-</span> expr
+  return <span class="fu">$</span> <span class="dt">If</span> cond tr fl</code></pre></div>
+<p>Now that we have it parsing and building the AST, the final piece is adding LLVM code generation support. This is the most interesting part of the if/then/else example, because this is where it starts to introduce new concepts. All of the code above has been thoroughly described in previous chapters.</p>
+<p>To motivate the code we want to produce, lets take a look at a simple example. Consider:</p>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python">extern foo()<span class="op">;</span>
+extern bar()<span class="op">;</span>
+<span class="kw">def</span> baz(x) <span class="cf">if</span> x then foo() <span class="cf">else</span> bar()<span class="op">;</span></code></pre></div>
+<div class="sourceCode"><pre class="sourceCode perl"><code class="sourceCode perl">declare double <span class="dt">@foo</span>()
+
+declare double <span class="dt">@bar</span>()
+
+define double <span class="dt">@baz</span>(double <span class="dt">%x</span>) {
+entry:
+  <span class="dt">%ifcond</span> = fcmp one double <span class="dt">%x</span>, <span class="fl">0.000000</span>e<span class="dv">+00</span>
+  br i1 <span class="dt">%ifcond</span>, label <span class="dt">%then</span>, label <span class="dt">%else</span>
+
+then:       ; preds = <span class="dt">%entry</span>
+  <span class="dt">%calltmp</span> = call double <span class="dt">@foo</span>()
+  br label <span class="dt">%ifcont</span>
+
+<span class="kw">else</span>:       ; preds = <span class="dt">%entry</span>
+  <span class="dt">%calltmp1</span> = call double <span class="dt">@bar</span>()
+  br label <span class="dt">%ifcont</span>
+
+ifcont:     ; preds = <span class="dt">%else</span>, <span class="dt">%then</span>
+  <span class="dt">%iftmp</span> = phi double [ <span class="dt">%calltmp</span>, <span class="dt">%then</span> ], [ <span class="dt">%calltmp1</span>, <span class="dt">%else</span> ]
+  ret double <span class="dt">%iftmp</span>
+}</code></pre></div>
+<p>To visualize the control flow graph, we can use a nifty feature of the LLVM opt tool. If we put this LLVM IR into &quot;t.ll&quot; and run</p>
+<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash">$ <span class="kw">llvm-as</span> <span class="kw">&lt;</span> t.ll <span class="kw">|</span> <span class="kw">opt</span> -analyze -view-cfg</code></pre></div>
+<p>A window will pop up and we'll see this graph:</p>
+<div class="figure">
+<img src="img/ifthencfg.png" alt="" />
+
+</div>
+<p>LLVM has many nice features for visualizing various graphs, but note that these are available only if your LLVM was built with Graphviz support (accomplished by having Graphviz and Ghostview installed when building LLVM).</p>
+<p>Getting back to the generated code, it is fairly simple: the entry block evaluates the conditional expression (&quot;x&quot; in our case here) and compares the result to 0.0 with the <code>fcmp</code> one instruction (<code>one</code> is &quot;Ordered and Not Equal&quot;). Based on the result of this expression, the code jumps to either the &quot;then&quot; or &quot;else&quot; blocks, which contain the expressions for the true/false cases.</p>
+<p>Once the then/else blocks are finished executing, they both branch back to the <code>if.exit</code> block to execute the code that happens after the if/then/else. In this case the only thing left to do is to return to the caller of the function. The question then becomes: how does the code know which expression to return?</p>
+<p>The answer to this question involves an important SSA operation: the Phi operation. If you're not familiar with SSA, the <a href="../../en.wikipedia.org/wiki/Static_single_assignment_form.html">Wikipedia article</a> is a good introduction and there are various other introductions to it available on your favorite search engine. The short version is that &quot;execution&quot; of the Phi operation requires &quot;remembering&quot; which block control came from. The Phi operation takes on the value corresponding to the input control block. In this case, if control comes in from the <code>if.then</code> block, it gets the value of <code>calltmp</code>. If control comes from the <code>if.else</code> block, it gets the value of <code>calltmp1</code>.</p>
+<p>At this point, you are probably starting to think &quot;Oh no! This means my simple and elegant front-end will have to start generating SSA form in order to use LLVM!&quot;. Fortunately, this is not the case, and we strongly advise not implementing an SSA construction algorithm in your front-end unless there is an amazingly good reason to do so. In practice, there are two sorts of values that float around in code written for your average imperative programming language that might need Phi nodes:</p>
+<ul>
+<li>Code that involves user variables: x = 1; x = x + 1;</li>
+<li>Values that are implicit in the structure of your AST, such as the Phi node in this case.</li>
+</ul>
+<p>In Chapter 7 of this tutorial (&quot;mutable variables&quot;), we'll talk about #1 in depth. For now, just believe and accept that you don't need SSA construction to handle this case. For #2, you have the choice of using the techniques that we will describe for #1, or you can insert Phi nodes directly, if convenient. In this case, it is really really easy to generate the Phi node, so we choose to do it directly.</p>
+<p>Okay, enough of the motivation and overview, lets generate code!</p>
+<p>In order to generate code for this, we implement the Codegen method for <code>If</code> node:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">cgen (<span class="dt">S.If</span> cond tr fl) <span class="fu">=</span> <span class="kw">do</span>
+  ifthen <span class="ot">&lt;-</span> addBlock <span class="st">&quot;if.then&quot;</span>
+  ifelse <span class="ot">&lt;-</span> addBlock <span class="st">&quot;if.else&quot;</span>
+  ifexit <span class="ot">&lt;-</span> addBlock <span class="st">&quot;if.exit&quot;</span>
+
+  <span class="co">-- %entry</span>
+  <span class="fu">------------------</span>
+  cond <span class="ot">&lt;-</span> cgen cond
+  test <span class="ot">&lt;-</span> fcmp <span class="dt">FP.ONE</span> false cond
+  cbr test ifthen ifelse <span class="co">-- Branch based on the condition</span>
+
+  <span class="co">-- if.then</span>
+  <span class="fu">------------------</span>
+  setBlock ifthen
+  trval <span class="ot">&lt;-</span> cgen tr       <span class="co">-- Generate code for the true branch</span>
+  br ifexit              <span class="co">-- Branch to the merge block</span>
+  ifthen <span class="ot">&lt;-</span> getBlock
+
+  <span class="co">-- if.else</span>
+  <span class="fu">------------------</span>
+  setBlock ifelse
+  flval <span class="ot">&lt;-</span> cgen fl       <span class="co">-- Generate code for the false branch</span>
+  br ifexit              <span class="co">-- Branch to the merge block</span>
+  ifelse <span class="ot">&lt;-</span> getBlock
+
+  <span class="co">-- if.exit</span>
+  <span class="fu">------------------</span>
+  setBlock ifexit
+  phi double [(trval, ifthen), (flval, ifelse)]</code></pre></div>
+<p>We start by creating three blocks.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">  ifthen <span class="ot">&lt;-</span> addBlock <span class="st">&quot;if.then&quot;</span>
+  ifelse <span class="ot">&lt;-</span> addBlock <span class="st">&quot;if.else&quot;</span>
+  ifexit <span class="ot">&lt;-</span> addBlock <span class="st">&quot;if.exit&quot;</span></code></pre></div>
+<p>Next emit the expression for the condition, then compare that value to zero to get a truth value as a 1-bit (i.e. bool) value. We end this entry block by emitting the conditional branch that chooses between them the two cases.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">  test <span class="ot">&lt;-</span> fcmp <span class="dt">FP.ONE</span> false cond
+  cbr test ifthen ifelse <span class="co">-- Branch based on the condition</span></code></pre></div>
+<p>After the conditional branch is inserted, we move switch blocks to start inserting into the <code>if.then</code> block.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">  setBlock ifthen</code></pre></div>
+<p>We recursively codegen the <code>tr</code> expression from the AST. To finish off the <code>if.then</code> block, we create an unconditional branch to the merge block. One interesting (and very important) aspect of the LLVM IR is that it requires all basic blocks to be &quot;terminated&quot; with a control flow instruction such as return or branch. This means that all control flow, including fallthroughs must be made explicit in the LLVM IR. If we violate this rule, the verifier will emit an error.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">  trval <span class="ot">&lt;-</span> cgen tr       <span class="co">-- Generate code for the true branch</span>
+  br ifexit              <span class="co">-- Branch to the merge block</span>
+  ifthen <span class="ot">&lt;-</span> getBlock     <span class="co">-- Get the current block</span></code></pre></div>
+<p>The final line here is quite subtle, but is very important. The basic issue is that when we create the Phi node in the merge block, we need to set up the block/value pairs that indicate how the Phi will work. Importantly, the Phi node expects to have an entry for each predecessor of the block in the CFG. Why then, are we getting the current block when we just set it block 3 lines above? The problem is that the<code>ifthen</code> expression may actually itself change the block that the Builder is emitting into if, for example, it contains a nested &quot;if/then/else&quot; expression. Because calling <code>cgen</code> recursively could arbitrarily change the notion of the current block, we are required to get an up-to-date value for code that will set up the Phi node.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">  setBlock ifelse
+  flval <span class="ot">&lt;-</span> cgen fl       <span class="co">-- Generate code for the false branch</span>
+  br ifexit              <span class="co">-- Branch to the merge block</span>
+  ifelse <span class="ot">&lt;-</span> getBlock</code></pre></div>
+<p>Code generation for the <code>if.else</code> block is basically identical to codegen for the <code>if.then</code> block.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">  setBlock ifexit
+  phi double [(trval, ifthen), (flval, ifelse)]</code></pre></div>
+<p>The first line changes the insertion point so that newly created code will go into the <code>if.exit</code> block. Once that is done, we need to create the Phi node and set up the block/value pairs for the Phi.</p>
+<p>Finally, the <code>cgen</code> function returns the phi node as the value computed by the if/then/else expression. In our example above, this returned value will feed into the code for the top-level function, which will create the return instruction.</p>
+<p>Overall, we now have the ability to execute conditional code in Kaleidoscope. With this extension, Kaleidoscope is a fairly complete language that can calculate a wide variety of numeric functions. Next up we'll add another useful expression that is familiar from non-functional languages...</p>
+<h2 id="for-loop-expressions">‘for' Loop Expressions</h2>
+<p>Now that we know how to add basic control flow constructs to the language, we have the tools to add more powerful things. Lets add something more aggressive, a ‘for' expression:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">extern putchard(char)
+
+def printstar(n)
+  for i <span class="fu">=</span> <span class="dv">1</span>, i <span class="fu">&lt;</span> n, <span class="fl">1.0</span> <span class="kw">in</span>
+    putchard(<span class="dv">42</span>);  <span class="fu">#</span> ascii <span class="dv">42</span> <span class="fu">=</span> <span class="ch">&#39;*&#39;</span>
+
+<span class="st"># print 100 &#39;*&#39; characters</span>
+printstar(<span class="dv">100</span>);</code></pre></div>
+<p>This expression defines a new variable (<code>i</code> in this case) which iterates from a starting value, while the condition (<code>i &lt; n</code> in this case) is true, incrementing by an optional step value (<code>1.0</code> in this case). While the loop is true, it executes its body expression. Because we don't have anything better to return, we'll just define the loop as always returning <code>0.0</code>. In the future when we have mutable variables, it will get more useful.</p>
+<p>To get started, we again extend our lexer with new reserved names &quot;for&quot; and &quot;in&quot;.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">lexer ::</span> <span class="dt">Tok.TokenParser</span> ()
+lexer <span class="fu">=</span> Tok.makeTokenParser style
+  <span class="kw">where</span>
+    ops <span class="fu">=</span> [<span class="st">&quot;+&quot;</span>,<span class="st">&quot;*&quot;</span>,<span class="st">&quot;-&quot;</span>,<span class="st">&quot;/&quot;</span>,<span class="st">&quot;;&quot;</span>,<span class="st">&quot;,&quot;</span>,<span class="st">&quot;&lt;&quot;</span>]
+    names <span class="fu">=</span> [<span class="st">&quot;def&quot;</span>,<span class="st">&quot;extern&quot;</span>,<span class="st">&quot;if&quot;</span>,<span class="st">&quot;then&quot;</span>,<span class="st">&quot;else&quot;</span>,<span class="st">&quot;in&quot;</span>,<span class="st">&quot;for&quot;</span>]
+    style <span class="fu">=</span> emptyDef {
+               Tok.commentLine <span class="fu">=</span> <span class="st">&quot;#&quot;</span>
+             , Tok.reservedOpNames <span class="fu">=</span> ops
+             , Tok.reservedNames <span class="fu">=</span> names
+             }</code></pre></div>
+<p>As before, lets talk about the changes that we need to Kaleidoscope to support this. The AST node is just as simple. It basically boils down to capturing the variable name and the constituent expressions in the node.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Expr</span>
+  <span class="fu">...</span>
+  <span class="fu">|</span> <span class="dt">For</span> <span class="dt">Name</span> <span class="dt">Expr</span> <span class="dt">Expr</span> <span class="dt">Expr</span> <span class="dt">Expr</span>
+  <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Ord</span>, <span class="dt">Show</span>)</code></pre></div>
+<p>The parser code captures a named value for the iterator variable and the four expressions objects for the parameters of the loop parameters.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">for ::</span> <span class="dt">Parser</span> <span class="dt">Expr</span>
+for <span class="fu">=</span> <span class="kw">do</span>
+  reserved <span class="st">&quot;for&quot;</span>
+  var <span class="ot">&lt;-</span> identifier
+  reservedOp <span class="st">&quot;=&quot;</span>
+  start <span class="ot">&lt;-</span> expr
+  reservedOp <span class="st">&quot;,&quot;</span>
+  cond <span class="ot">&lt;-</span> expr
+  reservedOp <span class="st">&quot;,&quot;</span>
+  step <span class="ot">&lt;-</span> expr
+  reserved <span class="st">&quot;in&quot;</span>
+  body <span class="ot">&lt;-</span> expr
+  return <span class="fu">$</span> <span class="dt">For</span> var start cond step body</code></pre></div>
+<p>Now we get to the good part: the LLVM IR we want to generate for this thing. With the simple example above, we get this LLVM IR (note that this dump is generated with optimizations disabled for clarity):</p>
+<div class="sourceCode"><pre class="sourceCode perl"><code class="sourceCode perl">declare double <span class="dt">@putchard</span>(double)
+
+define double <span class="dt">@printstar</span>(double <span class="dt">%n</span>) {
+entry:
+   br label <span class="dt">%loop</span>
+
+loop:
+   <span class="dt">%i</span> = phi double [ <span class="fl">1.000000</span>e<span class="dv">+00</span>, <span class="dt">%entry</span> ], [ <span class="dt">%nextvar</span>, <span class="dt">%loop</span> ]
+   <span class="dt">%calltmp</span> = call double <span class="dt">@putchard</span>(double <span class="fl">4.200000</span>e<span class="dv">+01</span>)
+   <span class="dt">%nextvar</span> = fadd double <span class="dt">%i</span>, <span class="fl">1.000000</span>e<span class="dv">+00</span>
+
+   <span class="dt">%cmptmp</span> = fcmp ult double <span class="dt">%i</span>, <span class="dt">%n</span>
+   <span class="dt">%booltmp</span> = uitofp i1 <span class="dt">%cmptmp</span> to double
+   <span class="dt">%loopcond</span> = fcmp one double <span class="dt">%booltmp</span>, <span class="fl">0.000000</span>e<span class="dv">+00</span>
+
+   br i1 <span class="dt">%loopcond</span>, label <span class="dt">%loop</span>, label <span class="dt">%afterloop</span>
+
+afterloop:
+   ret double <span class="fl">0.000000</span>e<span class="dv">+00</span> 
+}</code></pre></div>
+<div class="figure">
+<img src="img/forloop.png" alt="" />
+
+</div>
+<p>The code to generate this is only slightly more complicated than the above &quot;if&quot; statement.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">cgen (<span class="dt">S.For</span> ivar start cond step body) <span class="fu">=</span> <span class="kw">do</span>
+  forloop <span class="ot">&lt;-</span> addBlock <span class="st">&quot;for.loop&quot;</span>
+  forexit <span class="ot">&lt;-</span> addBlock <span class="st">&quot;for.exit&quot;</span>
+
+  <span class="co">-- %entry</span>
+  <span class="fu">------------------</span>
+  i <span class="ot">&lt;-</span> alloca double
+  istart <span class="ot">&lt;-</span> cgen start           <span class="co">-- Generate loop variable initial value</span>
+  stepval <span class="ot">&lt;-</span> cgen step           <span class="co">-- Generate loop variable step</span>
+
+  store i istart                 <span class="co">-- Store the loop variable initial value</span>
+  assign ivar i                  <span class="co">-- Assign loop variable to the variable name</span>
+  br forloop                     <span class="co">-- Branch to the loop body block</span>
+
+  <span class="co">-- for.loop</span>
+  <span class="fu">------------------</span>
+  setBlock forloop
+  cgen body                      <span class="co">-- Generate the loop body</span>
+  ival <span class="ot">&lt;-</span> load i                 <span class="co">-- Load the current loop iteration</span>
+  inext <span class="ot">&lt;-</span> fadd ival stepval     <span class="co">-- Increment loop variable</span>
+  store i inext
+
+  cond <span class="ot">&lt;-</span> cgen cond              <span class="co">-- Generate the loop condition</span>
+  test <span class="ot">&lt;-</span> fcmp <span class="dt">FP.ONE</span> false cond <span class="co">-- Test if the loop condition is True ( 1.0 )</span>
+  cbr test forloop forexit       <span class="co">-- Generate the loop condition</span></code></pre></div>
+<p>The first step is to set up the LLVM basic block for the start of the loop body. In the case above, the whole loop body is one block, but remember that the generating code for the body of the loop could consist of multiple blocks (e.g. if it contains an if/then/else or a for/in expression).</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">  forloop <span class="ot">&lt;-</span> addBlock <span class="st">&quot;for.loop&quot;</span>
+  forexit <span class="ot">&lt;-</span> addBlock <span class="st">&quot;for.exit&quot;</span></code></pre></div>
+<p>Next we allocate the iteration variable and generate the code for the constant initial value and step.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">  i <span class="ot">&lt;-</span> alloca double
+  istart <span class="ot">&lt;-</span> cgen start           <span class="co">-- Generate loop variable initial value</span>
+  stepval <span class="ot">&lt;-</span> cgen step           <span class="co">-- Generate loop variable step</span></code></pre></div>
+<p>Now the code starts to get more interesting. Our ‘for' loop introduces a new variable to the symbol table. This means that our symbol table can now contain either function arguments or loop variables. Once the loop variable is set into the symbol table, the code recursively codegen's the body. This allows the body to use the loop variable: any references to it will naturally find it in the symbol table.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">  store i istart                 <span class="co">-- Store the loop variable initial value</span>
+  assign ivar i                  <span class="co">-- Assign loop variable to the variable name</span>
+  br forloop                     <span class="co">-- Branch to the loop body block</span></code></pre></div>
+<p>Now that the &quot;preheader&quot; for the loop is set up, we switch to emitting code for the loop body.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">  setBlock forloop
+  cgen body                      <span class="co">-- Generate the loop body</span></code></pre></div>
+<p>The body will contain the iteration variable scoped with it's code generation. After loading it's current state we increment it by the step value and store the value.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">  ival <span class="ot">&lt;-</span> load i                 <span class="co">-- Load the current loop iteration</span>
+  inext <span class="ot">&lt;-</span> fadd ival stepval     <span class="co">-- Increment loop variable</span>
+  store i inext</code></pre></div>
+<p>Finally, we evaluate the exit test of the loop, and conditionally either branch back to the same block or exit the loop.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">  cond <span class="ot">&lt;-</span> cgen cond              <span class="co">-- Generate the loop condition</span>
+  test <span class="ot">&lt;-</span> fcmp <span class="dt">FP.ONE</span> false cond <span class="co">-- Test if the loop condition is True ( 1.0 )</span>
+  cbr test forloop forexit       <span class="co">-- Generate the loop condition</span></code></pre></div>
+<p>Finally, code generation of the for loop always returns 0.0. Also note that the loop variable remains in scope even after the function exits.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">  setBlock forexit
+  return zero</code></pre></div>
+<p>We can now generate the assembly for our <code>printstar</code> function, for example the body of our function will generate code like the following on x86.</p>
+<div class="sourceCode"><pre class="sourceCode perl"><code class="sourceCode perl">printstar:                              <span class="co"># @printstar</span>
+    .cfi_startproc
+<span class="co"># BB#0:                                 # %entry</span>
+    subq    <span class="dt">$24</span>, <span class="dt">%rsp</span>
+.Ltmp1:
+    .cfi_def_cfa_offset <span class="dv">32</span>
+    vmovsd  <span class="dt">%xmm0</span>, <span class="dv">8</span>(<span class="dt">%rsp</span>)          <span class="co"># 8-byte Spill</span>
+    vmovsd  .LCPI0_0(<span class="dt">%rip</span>), <span class="dt">%xmm0</span>
+    vmovapd <span class="dt">%xmm0</span>, <span class="dt">%xmm1</span>
+    .align  <span class="dv">16</span>, <span class="bn">0x90</span>
+.LBB0_1:                                <span class="co"># %loop</span>
+                                        <span class="co"># =&gt;This Inner Loop Header: Depth=1</span>
+    vmovsd  <span class="dt">%xmm1</span>, <span class="dv">16</span>(<span class="dt">%rsp</span>)         <span class="co"># 8-byte Spill</span>
+    vmovsd  .LCPI0_1(<span class="dt">%rip</span>), <span class="dt">%xmm0</span>
+    callq   putchard
+    vmovsd  <span class="dv">16</span>(<span class="dt">%rsp</span>), <span class="dt">%xmm1</span>         <span class="co"># 8-byte Reload</span>
+    vucomisd    <span class="dv">8</span>(<span class="dt">%rsp</span>), <span class="dt">%xmm1</span>  <span class="co"># 8-byte Folded Reload</span>
+    sbbl    <span class="dt">%eax</span>, <span class="dt">%eax</span>
+    andl    <span class="dt">$1</span>, <span class="dt">%eax</span>
+    vcvtsi2sd   <span class="dt">%eax</span>, <span class="dt">%xmm0</span>, <span class="dt">%xmm0</span>
+    vaddsd  .LCPI0_0(<span class="dt">%rip</span>), <span class="dt">%xmm1</span>, <span class="dt">%xmm1</span>
+    vucomisd    .LCPI0_2, <span class="dt">%xmm0</span>
+    jne .LBB0_1
+<span class="co"># BB#2:                                 # %afterloop</span>
+    vxorpd  <span class="dt">%xmm0</span>, <span class="dt">%xmm0</span>, <span class="dt">%xmm0</span>
+    addq    <span class="dt">$24</span>, <span class="dt">%rsp</span>
+    ret</code></pre></div>
+<h2 id="full-source-4">Full Source</h2>
+<p>See <a href="https://github.com/sdiehl/kaleidoscope/tree/master/src/chapter5"><strong>src/chapter5</strong></a> for the full source from this chapter.</p>
+<hr />
+<h1 id="chapter-6-operators">Chapter 6 ( Operators )</h1>
+<p>Welcome to Chapter 6 of the &quot;Implementing a language with LLVM&quot; tutorial. At this point in our tutorial, we now have a fully functional language that is fairly minimal, but also useful. There is still one big problem with it, however. Our language doesn't have many useful operators (like division, logical negation, or even any comparisons besides less-than).</p>
+<p>This chapter of the tutorial takes a wild digression into adding user-defined operators to the simple and beautiful Kaleidoscope language. This digression now gives us a simple and ugly language in some ways, but also a powerful one at the same time. One of the great things about creating our own language is that we get to decide what is good or bad. In this tutorial we'll assume that it is okay to use this as a way to show some interesting parsing techniques.</p>
+<p>At the end of this tutorial, we'll run through an example Kaleidoscope application that renders the Mandelbrot set. This gives an example of what we can build with Kaleidoscope and its feature set.</p>
+<h2 id="user-defined-operators">User-defined Operators</h2>
+<p>The &quot;operator overloading&quot; that we will add to Kaleidoscope is more general than languages like C++. In C++, we are only allowed to redefine existing operators: we can't programatically change the grammar, introduce new operators, change precedence levels, etc. In this chapter, we will add this capability to Kaleidoscope, which will let the user round out the set of operators that are supported.</p>
+<p>The two specific features we'll add are programmable unary operators (right now, Kaleidoscope has no unary operators at all) as well as binary operators. An example of this is:</p>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="co"># Logical unary not.</span>
+<span class="kw">def</span> unary<span class="op">!</span>(v)
+  <span class="cf">if</span> v then
+    <span class="dv">0</span>
+  <span class="cf">else</span>
+    <span class="dv">1</span><span class="op">;</span>
+
+<span class="co"># Define &gt; with the same precedence as &lt;.</span>
+<span class="kw">def</span> binary<span class="op">&gt;</span> <span class="dv">10</span> (LHS RHS)
+  RHS <span class="op">&lt;</span> LHS<span class="op">;</span>
+
+<span class="co"># Binary &quot;logical or&quot;, (note that it does not &quot;short circuit&quot;)</span>
+<span class="kw">def</span> binary<span class="op">|</span> <span class="dv">5</span> (LHS RHS)
+  <span class="cf">if</span> LHS then
+    <span class="dv">1</span>
+  <span class="cf">else</span> <span class="cf">if</span> RHS then
+    <span class="dv">1</span>
+  <span class="cf">else</span>
+    <span class="dv">0</span><span class="op">;</span>
+
+<span class="co"># Define = with slightly lower precedence than relationals.</span>
+<span class="kw">def</span> binary<span class="op">=</span> <span class="dv">9</span> (LHS RHS)
+  <span class="op">!</span>(LHS <span class="op">&lt;</span> RHS <span class="op">|</span> LHS <span class="op">&gt;</span> RHS)<span class="op">;</span></code></pre></div>
+<p>Many languages aspire to being able to implement their standard runtime library in the language itself. In Kaleidoscope, we can implement significant parts of the language in the library!</p>
+<p>We will break down implementation of these features into two parts: implementing support for user-defined binary operators and adding unary operators.</p>
+<h2 id="binary-operators">Binary Operators</h2>
+<p>We extend the lexer with two new keywords for &quot;binary&quot; and &quot;unary&quot; toplevel definitions.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">lexer ::</span> <span class="dt">Tok.TokenParser</span> ()
+lexer <span class="fu">=</span> Tok.makeTokenParser style
+  <span class="kw">where</span>
+    ops <span class="fu">=</span> [<span class="st">&quot;+&quot;</span>,<span class="st">&quot;*&quot;</span>,<span class="st">&quot;-&quot;</span>,<span class="st">&quot;/&quot;</span>,<span class="st">&quot;;&quot;</span>,<span class="st">&quot;=&quot;</span>,<span class="st">&quot;,&quot;</span>,<span class="st">&quot;&lt;&quot;</span>,<span class="st">&quot;&gt;&quot;</span>,<span class="st">&quot;|&quot;</span>,<span class="st">&quot;:&quot;</span>]
+    names <span class="fu">=</span> [<span class="st">&quot;def&quot;</span>,<span class="st">&quot;extern&quot;</span>,<span class="st">&quot;if&quot;</span>,<span class="st">&quot;then&quot;</span>,<span class="st">&quot;else&quot;</span>,<span class="st">&quot;in&quot;</span>,<span class="st">&quot;for&quot;</span>
+            ,<span class="st">&quot;binary&quot;</span>, <span class="st">&quot;unary&quot;</span>]
+    style <span class="fu">=</span> emptyDef {
+               Tok.commentLine <span class="fu">=</span> <span class="st">&quot;#&quot;</span>
+             , Tok.reservedOpNames <span class="fu">=</span> ops
+             , Tok.reservedNames <span class="fu">=</span> names
+             }</code></pre></div>
+<p>Parsec has no default function to parse &quot;any symbolic&quot; string, but it can be added simply by defining an operator new token.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">operator ::</span> <span class="dt">Parser</span> <span class="dt">String</span>
+operator <span class="fu">=</span> <span class="kw">do</span>
+  c <span class="ot">&lt;-</span> Tok.opStart emptyDef
+  cs <span class="ot">&lt;-</span> many <span class="fu">$</span> Tok.opLetter emptyDef
+  return (c<span class="fu">:</span>cs)</code></pre></div>
+<p>Using this we can then parse any binary expression. By default all our operators will be left-associative and have equal precedence, except for the bulletins we provide. A more general system would allow the parser to have internal state about the known precedences of operators before parsing. Without predefined precedence values we'll need to disambiguate expressions with parentheses.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">binop <span class="fu">=</span> <span class="dt">Ex.Infix</span> (<span class="dt">BinaryOp</span> <span class="fu">&lt;$&gt;</span> op) <span class="dt">Ex.AssocLeft</span></code></pre></div>
+<p>Using the expression parser we can extend our table of operators with the &quot;binop&quot; class of custom operators. Note that this will match any and all operators even at parse-time, even if there is no corresponding definition.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">binops <span class="fu">=</span> [[binary <span class="st">&quot;*&quot;</span> <span class="dt">Ex.AssocLeft</span>,
+          binary <span class="st">&quot;/&quot;</span> <span class="dt">Ex.AssocLeft</span>]
+        ,[binary <span class="st">&quot;+&quot;</span> <span class="dt">Ex.AssocLeft</span>,
+          binary <span class="st">&quot;-&quot;</span> <span class="dt">Ex.AssocLeft</span>]
+        ,[binary <span class="st">&quot;&lt;&quot;</span> <span class="dt">Ex.AssocLeft</span>]]
+
+<span class="ot">expr ::</span> <span class="dt">Parser</span> <span class="dt">Expr</span>
+expr <span class="fu">=</span>  Ex.buildExpressionParser (binops <span class="fu">++</span> [[binop]]) factor</code></pre></div>
+<p>The extensions to the AST consist of adding new toplevel declarations for the operator definitions.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Expr</span> <span class="fu">=</span>
+  <span class="fu">...</span>
+  <span class="fu">|</span> <span class="dt">BinaryOp</span> <span class="dt">Name</span> <span class="dt">Expr</span> <span class="dt">Expr</span>
+  <span class="fu">|</span> <span class="dt">UnaryOp</span> <span class="dt">Name</span> <span class="dt">Expr</span>
+  <span class="fu">|</span> <span class="dt">BinaryDef</span> <span class="dt">Name</span> [<span class="dt">Name</span>] <span class="dt">Expr</span>
+  <span class="fu">|</span> <span class="dt">UnaryDef</span> <span class="dt">Name</span> [<span class="dt">Name</span>] <span class="dt">Expr</span></code></pre></div>
+<p>The parser extension is straightforward and essentially a function definition with a few slight change. Note that we capture the string value of the operator as given to us by the parser.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">binarydef ::</span> <span class="dt">Parser</span> <span class="dt">Expr</span>
+binarydef <span class="fu">=</span> <span class="kw">do</span>
+  reserved <span class="st">&quot;def&quot;</span>
+  reserved <span class="st">&quot;binary&quot;</span>
+  o <span class="ot">&lt;-</span> op
+  prec <span class="ot">&lt;-</span> int
+  args <span class="ot">&lt;-</span> parens <span class="fu">$</span> many identifier
+  body <span class="ot">&lt;-</span> expr
+  return <span class="fu">$</span> <span class="dt">BinaryDef</span> o args body</code></pre></div>
+<p>To generate code we'll implement two extensions to our existing code generator. At the toplevel we'll emit the <code>BinaryDef</code> declarations as simply create a normal function with the name &quot;binary&quot; suffixed with the operator.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">codegenTop (<span class="dt">S.BinaryDef</span> name args body) <span class="fu">=</span>
+  codegenTop <span class="fu">$</span> <span class="dt">S.Function</span> (<span class="st">&quot;binary&quot;</span> <span class="fu">++</span> name) args body</code></pre></div>
+<p>Now for our binary operator instead of failing with the presence of a binary operator not declared in our <code>binops</code> list, we instead create a call to a named &quot;binary&quot; function with the operator name.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">cgen (<span class="dt">S.BinaryOp</span> op a b) <span class="fu">=</span> <span class="kw">do</span>
+  <span class="kw">case</span> Map.lookup op binops <span class="kw">of</span>
+    <span class="dt">Just</span> f  <span class="ot">-&gt;</span> <span class="kw">do</span>
+      ca <span class="ot">&lt;-</span> cgen a
+      cb <span class="ot">&lt;-</span> cgen b
+      f ca cb
+    <span class="dt">Nothing</span> <span class="ot">-&gt;</span> cgen (<span class="dt">S.Call</span> (<span class="st">&quot;binary&quot;</span> <span class="fu">++</span> op) [a,b])</code></pre></div>
+<h2 id="unary-operators">Unary Operators</h2>
+<p>For unary operators we implement the same strategy as binary operators. We add a parser for unary operators simply as a Prefix operator matching any symbol.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">unop <span class="fu">=</span> <span class="dt">Ex.Prefix</span> (<span class="dt">UnaryOp</span> <span class="fu">&lt;$&gt;</span> op)</code></pre></div>
+<p>We add this to the expression parser like above.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">expr ::</span> <span class="dt">Parser</span> <span class="dt">Expr</span>
+expr <span class="fu">=</span>  Ex.buildExpressionParser (binops <span class="fu">++</span> [[unop], [binop]]) factor</code></pre></div>
+<p>The parser extension for the toplevel unary definition is precisely the same as function syntax except prefixed with the &quot;unary&quot; keyword.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">unarydef ::</span> <span class="dt">Parser</span> <span class="dt">Expr</span>
+unarydef <span class="fu">=</span> <span class="kw">do</span>
+  reserved <span class="st">&quot;def&quot;</span>
+  reserved <span class="st">&quot;unary&quot;</span>
+  o <span class="ot">&lt;-</span> op
+  args <span class="ot">&lt;-</span> parens <span class="fu">$</span> many identifier
+  body <span class="ot">&lt;-</span> expr
+  return <span class="fu">$</span> <span class="dt">UnaryDef</span> o args body</code></pre></div>
+<p>For toplevel declarations we'll simply emit a function with the convention that the name is prefixed with the word &quot;unary&quot;. For example (&quot;unary!&quot;, &quot;unary-&quot;).</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">codegenTop (<span class="dt">S.UnaryDef</span> name args body) <span class="fu">=</span>
+  codegenTop <span class="fu">$</span> <span class="dt">S.Function</span> (<span class="st">&quot;unary&quot;</span> <span class="fu">++</span> name) args body</code></pre></div>
+<p>Up until now we have not have had any unary operators so code generation we will simply always search for an implementation as a function.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">cgen (<span class="dt">S.UnaryOp</span> op a) <span class="fu">=</span> <span class="kw">do</span>
+  cgen <span class="fu">$</span> <span class="dt">S.Call</span> (<span class="st">&quot;unary&quot;</span> <span class="fu">++</span> op) [a]</code></pre></div>
+<p>That's it for unary operators, quite easy indeed!</p>
+<h2 id="kicking-the-tires">Kicking the Tires</h2>
+<p>It is somewhat hard to believe, but with a few simple extensions we’ve covered in the last chapters, we have grown a real-ish language. With this, we can do a lot of interesting things, including I/O, math, and a bunch of other things. For example, we can now add a nice sequencing operator (<code>printd</code> is defined to print out the specified value and a newline):</p>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python">ready<span class="op">&gt;</span> extern printd(x)
+declare double @printd(double)
+
+ready<span class="op">&gt;</span> <span class="kw">def</span> binary : <span class="dv">1</span> (x y) <span class="dv">0</span><span class="op">;</span>
+..
+ready<span class="op">&gt;</span> printd(<span class="dv">123</span>) : printd(<span class="dv">456</span>) : printd(<span class="dv">789</span>)<span class="op">;</span>
+<span class="fl">123.000000</span>
+<span class="fl">456.000000</span>
+<span class="fl">789.000000</span>
+Evaluated to <span class="fl">0.000000</span></code></pre></div>
+<p>We can also define a bunch of other &quot;primitive&quot; operations, such as:</p>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="co"># Logical unary not.</span>
+<span class="kw">def</span> unary<span class="op">!</span>(v)
+  <span class="cf">if</span> v then
+    <span class="dv">0</span>
+  <span class="cf">else</span>
+    <span class="dv">1</span><span class="op">;</span>
+
+<span class="co"># Unary negate.</span>
+<span class="kw">def</span> unary<span class="op">-</span>(v)
+  <span class="dv">0</span><span class="op">-</span>v<span class="op">;</span>
+
+<span class="co"># Define &gt; with the same precedence as &lt;.</span>
+<span class="kw">def</span> binary<span class="op">&gt;</span> <span class="dv">10</span> (LHS RHS)
+  RHS <span class="op">&lt;</span> LHS<span class="op">;</span>
+
+<span class="co"># Binary logical or, which does not short circuit.</span>
+<span class="kw">def</span> binary<span class="op">|</span> <span class="dv">5</span> (LHS RHS)
+  <span class="cf">if</span> LHS then
+    <span class="dv">1</span>
+  <span class="cf">else</span> <span class="cf">if</span> RHS then
+    <span class="dv">1</span>
+  <span class="cf">else</span>
+    <span class="dv">0</span><span class="op">;</span>
+
+<span class="co"># Binary logical and, which does not short circuit.</span>
+<span class="kw">def</span> binary<span class="op">&amp;</span> <span class="dv">6</span> (LHS RHS)
+  <span class="cf">if</span> <span class="op">!</span>LHS then
+    <span class="dv">0</span>
+  <span class="cf">else</span>
+    <span class="op">!!</span>RHS<span class="op">;</span>
+
+<span class="co"># Define = with slightly lower precedence than relationals.</span>
+<span class="kw">def</span> binary <span class="op">=</span> <span class="dv">9</span> (LHS RHS)
+  <span class="op">!</span>(LHS <span class="op">&lt;</span> RHS <span class="op">|</span> LHS <span class="op">&gt;</span> RHS)<span class="op">;</span>
+
+<span class="co"># Define &#39;:&#39; for sequencing: as a low-precedence operator that ignores operands</span>
+<span class="co"># and just returns the RHS.</span>
+<span class="kw">def</span> binary : <span class="dv">1</span> (x y) y<span class="op">;</span></code></pre></div>
+<p>Given the previous if/then/else support, we can also define interesting functions for I/O. For example, the following prints out a character whose &quot;density&quot; reflects the value passed in: the lower the value, the denser the character:</p>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python">ready<span class="op">&gt;</span>
+
+extern putchard(char)
+<span class="kw">def</span> printdensity(d)
+  <span class="cf">if</span> d <span class="op">&gt;</span> <span class="dv">8</span> then
+    putchard(<span class="dv">32</span>)  <span class="co"># &#39; &#39;</span>
+  <span class="cf">else</span> <span class="cf">if</span> d <span class="op">&gt;</span> <span class="dv">4</span> then
+    putchard(<span class="dv">46</span>)  <span class="co"># &#39;.&#39;</span>
+  <span class="cf">else</span> <span class="cf">if</span> d <span class="op">&gt;</span> <span class="dv">2</span> then
+    putchard(<span class="dv">43</span>)  <span class="co"># &#39;+&#39;</span>
+  <span class="cf">else</span>
+    putchard(<span class="dv">42</span>)<span class="op">;</span> <span class="co"># &#39;*&#39;</span>
+...
+ready<span class="op">&gt;</span> printdensity(<span class="dv">1</span>): printdensity(<span class="dv">2</span>): printdensity(<span class="dv">3</span>):
+       printdensity(<span class="dv">4</span>): printdensity(<span class="dv">5</span>): printdensity(<span class="dv">9</span>):
+       putchard(<span class="dv">10</span>)<span class="op">;</span>
+<span class="op">**++</span>.
+Evaluated to <span class="fl">0.000000</span></code></pre></div>
+<p>The Mandelbrot set is a set of two dimensional points generated by the complex function z = z<sup>2</sup> + c whose boundary forms a fractal.</p>
+<div class="figure">
+<img src="img/mandelbrot.png" alt="" />
+
+</div>
+<p>Based on our simple primitive operations defined above, we can start to define more interesting things. For example, here's a little function that solves for the number of iterations it takes a function in the complex plane to converge:</p>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="co"># Determine whether the specific location diverges.</span>
+<span class="co"># Solve for z = z^2 + c in the complex plane.</span>
+<span class="kw">def</span> mandelconverger(real imag iters creal cimag)
+  <span class="cf">if</span> iters <span class="op">&gt;</span> <span class="dv">255</span> <span class="op">|</span> (real<span class="op">*</span>real <span class="op">+</span> imag<span class="op">*</span>imag <span class="op">&gt;</span> <span class="dv">4</span>) then
+    iters
+  <span class="cf">else</span>
+    mandelconverger(real<span class="op">*</span>real <span class="op">-</span> imag<span class="op">*</span>imag <span class="op">+</span> creal,
+                    <span class="dv">2</span><span class="op">*</span>real<span class="op">*</span>imag <span class="op">+</span> cimag,
+                    iters<span class="dv">+1</span>, creal, cimag)<span class="op">;</span>
+
+<span class="co"># Return the number of iterations required for the iteration to escape</span>
+<span class="kw">def</span> mandelconverge(real imag)
+  mandelconverger(real, imag, <span class="dv">0</span>, real, imag)<span class="op">;</span></code></pre></div>
+<p>Our <code>mandelconverge</code> function returns the number of iterations that it takes for a complex orbit to escape, saturating to 255. This is not a very useful function by itself, but if we plot its value over a two-dimensional plane, we can see the Mandelbrot set. Given that we are limited to using putchard here, our amazing graphical output is limited, but we can whip together something using the density plotter above:</p>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="co"># Compute and plot the mandelbrot set with the specified 2 dimensional range</span>
+<span class="co"># info.</span>
+<span class="kw">def</span> mandelhelp(xmin xmax xstep   ymin ymax ystep)
+  <span class="cf">for</span> y <span class="op">=</span> ymin, y <span class="op">&lt;</span> ymax, ystep <span class="op">in</span> (
+    (<span class="cf">for</span> x <span class="op">=</span> xmin, x <span class="op">&lt;</span> xmax, xstep <span class="op">in</span>
+       printdensity(mandelconverge(x,y)))
+    : putchard(<span class="dv">10</span>)
+  )<span class="op">;</span>
+
+<span class="co"># mandel - This is a convenient helper function for plotting the mandelbrot set</span>
+<span class="co"># from the specified position with the specified Magnification.</span>
+<span class="kw">def</span> mandel(realstart imagstart realmag imagmag)
+  mandelhelp(realstart, realstart<span class="op">+</span>realmag<span class="op">*</span><span class="dv">78</span>, realmag,
+             imagstart, imagstart<span class="op">+</span>imagmag<span class="op">*</span><span class="dv">40</span>, imagmag)<span class="op">;</span></code></pre></div>
+<p>Given this, we can try plotting out the mandelbrot set! Lets try it out:</p>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python">
+<span class="op">******************************************************************************</span>
+<span class="op">******************************************************************************</span>
+<span class="op">****************************************++++++********************************</span>
+<span class="op">************************************+++++</span>...<span class="op">++++++****************************</span>
+<span class="op">*********************************++++++++</span>.. ...<span class="op">+++++**************************</span>
+<span class="op">*******************************++++++++++</span>..   ..<span class="op">+++++*************************</span>
+<span class="op">******************************++++++++++</span>.     ..<span class="op">++++++************************</span>
+<span class="op">****************************+++++++++</span>....      ..<span class="op">++++++***********************</span>
+<span class="op">**************************++++++++</span>.......      .....<span class="op">++++**********************</span>
+<span class="op">*************************++++++++</span>.   .            ... .<span class="op">++*********************</span>
+<span class="op">***********************++++++++</span>...                     <span class="op">++*********************</span>
+<span class="op">*********************+++++++++</span>....                    .<span class="op">+++********************</span>
+<span class="op">******************+++</span>..<span class="op">+++++</span>....                      ..<span class="op">+++*******************</span>
+<span class="op">**************++++++</span>. ..........                        <span class="op">+++*******************</span>
+<span class="op">***********++++++++</span>..        ..                         .<span class="op">++*******************</span>
+<span class="op">*********++++++++++</span>...                                 .<span class="op">++++******************</span>
+<span class="op">********++++++++++</span>..                                   .<span class="op">++++******************</span>
+<span class="op">*******++++++</span>.....                                    ..<span class="op">++++******************</span>
+<span class="op">*******+</span>........                                     ...<span class="op">++++******************</span>
+<span class="op">*******+</span>... ....                                     ...<span class="op">++++******************</span>
+<span class="op">*******+++++</span>......                                    ..<span class="op">++++******************</span>
+<span class="op">*******++++++++++</span>...                                   .<span class="op">++++******************</span>
+<span class="op">*********++++++++++</span>...                                  <span class="op">++++******************</span>
+<span class="op">**********+++++++++</span>..        ..                        ..<span class="op">++*******************</span>
+<span class="op">*************++++++</span>.. ..........                        <span class="op">+++*******************</span>
+<span class="op">******************+++</span>...<span class="op">+++</span>.....                      ..<span class="op">+++*******************</span>
+<span class="op">*********************+++++++++</span>....                    ..<span class="op">++********************</span>
+<span class="op">***********************++++++++</span>...                     <span class="op">+++********************</span>
+<span class="op">*************************+++++++</span>..   .            ... .<span class="op">++*********************</span>
+<span class="op">**************************++++++++</span>.......      ......<span class="op">+++**********************</span>
+<span class="op">****************************+++++++++</span>....      ..<span class="op">++++++***********************</span>
+<span class="op">*****************************++++++++++</span>..     ..<span class="op">++++++************************</span>
+<span class="op">*******************************++++++++++</span>..  ...<span class="op">+++++*************************</span>
+<span class="op">*********************************++++++++</span>.. ...<span class="op">+++++**************************</span>
+<span class="op">***********************************++++++</span>....<span class="op">+++++****************************</span>
+<span class="op">***************************************++++++++*******************************</span>
+<span class="op">******************************************************************************</span>
+<span class="op">******************************************************************************</span>
+<span class="op">******************************************************************************</span>
+<span class="op">******************************************************************************</span></code></pre></div>
+<p>At this point, you may be starting to realize that Kaleidoscope is a real and powerful language. It may not be self-similar :), but it can be used to plot things that are!</p>
+<p>With this, we conclude the &quot;adding user-defined operators&quot; chapter of the tutorial. We have successfully augmented our language, adding the ability to extend the language in the library, and we have shown how this can be used to build a simple but interesting end-user application in Kaleidoscope. At this point, Kaleidoscope can build a variety of applications that are functional and can call functions with side-effects, but it can't actually define and mutate a variable itself.</p>
+<p>Strikingly, variable mutation is an important feature of imperative languages, and it is not at all obvious how to add support for mutable variables without having to add an &quot;SSA construction&quot; phase to our front-end. In the next chapter, we will describe how we can add variable mutation without building SSA in our front-end.</p>
+<h2 id="full-source-5">Full Source</h2>
+<p>See <a href="https://github.com/sdiehl/kaleidoscope/tree/master/src/chapter6"><strong>src/chapter6</strong></a> for the full source from this chapter.</p>
+<hr />
+<h1 id="chapter-7-mutable-variables">Chapter 7 ( Mutable Variables )</h1>
+<p>Welcome to Chapter 7 of the &quot;Implementing a language with LLVM&quot; tutorial. In chapters 1 through 6, we've built a very respectable, albeit simple, functional programming language. In our journey, we learned some parsing techniques, how to build and represent an AST, how to build LLVM IR, and how to optimize the resultant code as well as JIT compile it.</p>
+<p>While Kaleidoscope is interesting as a functional language, the fact that it is functional makes it &quot;too easy&quot; to generate LLVM IR for it. In particular, a functional language makes it very easy to build LLVM IR directly in SSA form. Since LLVM requires that the input code be in SSA form, this is a very nice property and it is often unclear to newcomers how to generate code for an imperative language with mutable variables.</p>
+<p>The short (and happy) summary of this chapter is that there is no need for our front-end to build SSA form: LLVM provides highly tuned and well tested support for this, though the way it works is a bit unexpected for some.</p>
+<h2 id="why-is-this-a-hard-problem">Why is this a hard problem?</h2>
+<p>To understand why mutable variables cause complexities in SSA construction, consider this extremely simple C example:</p>
+<div class="sourceCode"><pre class="sourceCode c"><code class="sourceCode c"><span class="dt">int</span> G, H;
+<span class="dt">int</span> test(<span class="dt">_Bool</span> Condition) {
+  <span class="dt">int</span> X;
+  <span class="kw">if</span> (Condition)
+    X = G;
+  <span class="kw">else</span>
+    X = H;
+  <span class="kw">return</span> X;
+}</code></pre></div>
+<p>In this case, we have the variable &quot;X&quot;, whose value depends on the path executed in the program. Because there are two different possible values for X before the return instruction, a Phi node is inserted to merge the two values. The LLVM IR that we want for this example looks like this:</p>
+<div class="sourceCode"><pre class="sourceCode perl"><code class="sourceCode perl"><span class="dt">@G</span> = weak global i32 <span class="dv">0</span>   ; type of <span class="dt">@G</span> is i32*
+<span class="dt">@H</span> = weak global i32 <span class="dv">0</span>   ; type of <span class="dt">@H</span> is i32*
+
+define i32 <span class="dt">@test</span>(i1 <span class="dt">%Condition</span>) {
+entry:
+  br i1 <span class="dt">%Condition</span>, label <span class="dt">%cond_true</span>, label <span class="dt">%cond_false</span>
+
+cond_true:
+  <span class="dt">%X</span>.<span class="dv">0</span> = load i32<span class="kw">*</span> <span class="dt">@G</span>
+  br label <span class="dt">%cond_next</span>
+
+cond_false:
+  <span class="dt">%X</span>.<span class="dv">1</span> = load i32<span class="kw">*</span> <span class="dt">@H</span>
+  br label <span class="dt">%cond_next</span>
+
+cond_next:
+  <span class="dt">%X</span>.<span class="dv">2</span> = phi i32 [ <span class="dt">%X</span>.<span class="dv">1</span>, <span class="dt">%cond_false</span> ], [ <span class="dt">%X</span>.<span class="dv">0</span>, <span class="dt">%cond_true</span> ]
+  ret i32 <span class="dt">%X</span>.<span class="dv">2</span>
+}</code></pre></div>
+<p>The control flow graph for the above IR:</p>
+<div class="figure">
+<img src="img/cfg.png" alt="" />
+
+</div>
+<p>In this example, the loads from the G and H global variables are explicit in the LLVM IR, and they live in the then/else branches of the if statement (cond_true/cond_false). In order to merge the incoming values, the X.2 phi node in the cond_next block selects the right value to use based on where control flow is coming from: if control flow comes from the cond_false block, X.2 gets the value of X.1. Alternatively, if control flow comes from cond_true, it gets the value of X.0. The intent of this chapter is not to explain the details of SSA form. For more information, see one of the many online references.</p>
+<p>The question for this article is &quot;who places the phi nodes when lowering assignments to mutable variables?&quot;. The issue here is that LLVM requires that its IR be in SSA form: there is no &quot;non-SSA&quot; mode for it. However, SSA construction requires non-trivial algorithms and data structures, so it is inconvenient and wasteful for every front-end to have to reproduce this logic.</p>
+<h2 id="memory-in-llvm">Memory in LLVM</h2>
+<p>The ‘trick' here is that while LLVM does require all register values to be in SSA form, it does not require (or permit) memory objects to be in SSA form. In the example above, note that the loads from G and H are direct accesses to G and H: they are not renamed or versioned. This differs from some other compiler systems, which do try to version memory objects. In LLVM, instead of encoding dataflow analysis of memory into the LLVM IR, it is handled with Analysis Passes which are computed on demand.</p>
+<p>With this in mind, the high-level idea is that we want to make a stack variable (which lives in memory, because it is on the stack) for each mutable object in a function. To take advantage of this trick, we need to talk about how LLVM represents stack variables.</p>
+<p>In LLVM, all memory accesses are explicit with load/store instructions, and it is carefully designed not to have (or need) an &quot;address-of&quot; operator. Notice how the type of the <code>@G</code>/<code>@H</code> global variables is actually <code>i32*</code> even though the variable is defined as <code>i32</code>. What this means is that <code>@G</code> defines space for an <code>i32</code> in the global data area, but its name actually refers to the address for that space. Stack variables work the same way, except that instead of being declared with global variable definitions, they are declared with the LLVM <code>alloca</code> instruction:</p>
+<div class="sourceCode"><pre class="sourceCode perl"><code class="sourceCode perl">define i32 <span class="dt">@example</span>() {
+entry:
+  <span class="dt">%X</span> = alloca i32           ; type of <span class="dt">%X</span> is i32<span class="dt">*.</span>
+  ...
+  <span class="dt">%tmp</span> = load i32<span class="kw">*</span> <span class="dt">%X</span>       ; load the stack value <span class="dt">%X</span> from the stack.
+  <span class="dt">%tmp2</span> = add i32 <span class="dt">%tmp</span>, <span class="dv">1</span>   ; increment it
+  store i32 <span class="dt">%tmp2</span>, i32<span class="kw">*</span> <span class="dt">%X</span>  ; store it back
+  ...</code></pre></div>
+<p>This code shows an example of how we can declare and manipulate a stack variable in the LLVM IR. Stack memory allocated with the alloca instruction is fully general: we can pass the address of the stack slot to functions, we can store it in other variables, etc. In our example above, we could rewrite the example to use the alloca technique to avoid using a Phi node:</p>
+<div class="sourceCode"><pre class="sourceCode perl"><code class="sourceCode perl"><span class="dt">@G</span> = weak global i32 <span class="dv">0</span>   ; type of <span class="dt">@G</span> is i32*
+<span class="dt">@H</span> = weak global i32 <span class="dv">0</span>   ; type of <span class="dt">@H</span> is i32*
+
+define i32 <span class="dt">@test</span>(i1 <span class="dt">%Condition</span>) {
+entry:
+  <span class="dt">%X</span> = alloca i32
+  br i1 <span class="dt">%Condition</span>, label <span class="dt">%cond_true</span>, label <span class="dt">%cond_false</span>
+
+cond_true:
+  <span class="dt">%X</span>.<span class="dv">0</span> = load i32<span class="kw">*</span> <span class="dt">@G</span>
+  store i32 <span class="dt">%X</span>.<span class="dv">0</span>, i32<span class="kw">*</span> <span class="dt">%X</span>
+  br label <span class="dt">%cond_next</span>
+
+cond_false:
+  <span class="dt">%X</span>.<span class="dv">1</span> = load i32<span class="kw">*</span> <span class="dt">@H</span>
+  store i32 <span class="dt">%X</span>.<span class="dv">1</span>, i32<span class="kw">*</span> <span class="dt">%X</span>
+  br label <span class="dt">%cond_next</span>
+
+cond_next:
+  <span class="dt">%X</span>.<span class="dv">2</span> = load i32<span class="kw">*</span> <span class="dt">%X</span>
+  ret i32 <span class="dt">%X</span>.<span class="dv">2</span>
+}</code></pre></div>
+<p>With this, we have discovered a way to handle arbitrary mutable variables without the need to create Phi nodes at all:</p>
+<ul>
+<li>Each mutable variable becomes a stack allocation.</li>
+<li>Each read of the variable becomes a load from the stack.</li>
+<li>Each update of the variable becomes a store to the stack.</li>
+<li>Taking the address of a variable just uses the stack address directly.</li>
+</ul>
+<p>While this solution has solved our immediate problem, it introduced another one: we have now apparently introduced a lot of stack traffic for very simple and common operations, a major performance problem. Fortunately for us, the LLVM optimizer has a highly-tuned optimization pass named &quot;mem2reg&quot; that handles this case, promoting allocas like this into SSA registers, inserting Phi nodes as appropriate. If we run this example through the pass, for example, we'll get:</p>
+<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash">$ <span class="kw">llvm-as</span> <span class="kw">&lt;</span> example.ll <span class="kw">|</span> <span class="kw">opt</span> -mem2reg <span class="kw">|</span> <span class="kw">llvm-dis</span>
+<span class="kw">@G</span> = weak global i32 0
+<span class="kw">@H</span> = weak global i32 0
+
+<span class="kw">define</span> i32 @test(i1 %Condition) <span class="kw">{</span>
+<span class="kw">entry</span>:
+  <span class="kw">br</span> i1 %Condition, label %cond_true, label %cond_false
+
+<span class="kw">cond_true</span>:
+  <span class="kw">%X.0</span> = load i32* @G
+  <span class="kw">br</span> label %cond_next
+
+<span class="kw">cond_false</span>:
+  <span class="kw">%X.1</span> = load i32* @H
+  <span class="kw">br</span> label %cond_next
+
+<span class="kw">cond_next</span>:
+  <span class="kw">%X.01</span> = phi i32 [ %X.1, %cond_false ], [ %X.0, %cond_true ]
+  <span class="kw">ret</span> i32 %X.01
+<span class="kw">}</span></code></pre></div>
+<p>We say a block &quot;A&quot; <em>dominates</em> a different block &quot;B&quot; in the control flow graph if it's impossible to reach &quot;B&quot; without passing through &quot;A&quot;, equivalently &quot;A&quot; is the <em>dominator</em> of &quot;B&quot;. The <code>mem2reg</code> pass implements the standard &quot;iterated dominance frontier&quot; algorithm for constructing SSA form and has a number of optimizations that speed up (very common) degenerate cases.</p>
+<p>The <strong>mem2reg</strong> optimization pass is the answer to dealing with mutable variables, and we highly recommend that you depend on it. Note that mem2reg only works on variables in certain circumstances:</p>
+<ul>
+<li>mem2reg is alloca-driven: it looks for allocas and if it can handle them, it promotes them. It does not apply to global variables or heap allocations.</li>
+<li>mem2reg only looks for alloca instructions in the entry block of the function. Being in the entry block guarantees that the alloca is only executed once, which makes analysis simpler.</li>
+<li>mem2reg only promotes allocas whose uses are direct loads and stores. If the address of the stack object is passed to a function, or if any funny pointer arithmetic is involved, the alloca will not be promoted.</li>
+<li>mem2reg only works on allocas of first class values (such as pointers, scalars and vectors), and only if the array size of the allocation is 1 (or missing in the .ll file).</li>
+<li>mem2reg is not capable of promoting structs or arrays to registers. Note that the &quot;scalarrepl&quot; pass is more powerful and can promote structs, &quot;unions&quot;, and arrays in many cases.</li>
+</ul>
+<p>All of these properties are easy to satisfy for most imperative languages, and we'll illustrate it below with Kaleidoscope. The final question you may be asking is: should I bother with this nonsense for my front-end? Wouldn't it be better if I just did SSA construction directly, avoiding use of the mem2reg optimization pass? In short, we strongly recommend that you use this technique for building SSA form, unless there is an extremely good reason not to. Using this technique is:</p>
+<ul>
+<li>Proven and well tested: clang uses this technique for local mutable variables. As such, the most common clients of LLVM are using this to handle a bulk of their variables. You can be sure that bugs are found fast and fixed early.</li>
+<li>Extremely Fast: mem2reg has a number of special cases that make it fast in common cases as well as fully general. For example, it has fast-paths for variables that are only used in a single block, variables that only have one assignment point, good heuristics to avoid insertion of unneeded phi nodes, etc.</li>
+<li>Needed for debug info generation: Debug information in LLVM relies on having the address of the variable exposed so that debug info can be attached to it. This technique dovetails very naturally with this style of debug info.</li>
+</ul>
+<p>If nothing else, this makes it much easier to get our front-end up and running, and is very simple to implement. Lets extend Kaleidoscope with mutable variables now!</p>
+<h2 id="mutable-variables">Mutable Variables</h2>
+<p>Now that we know the sort of problem we want to tackle, lets see what this looks like in the context of our little Kaleidoscope language. We're going to add two features:</p>
+<ul>
+<li>The ability to mutate variables with the ‘=' operator.</li>
+<li>The ability to define new variables.</li>
+</ul>
+<p>While the first item is really what this is about, we only have variables for incoming arguments as well as for induction variables, and redefining those only goes so far :). Also, the ability to define new variables is a useful thing regardless of whether we will be mutating them. Here's a motivating example that shows how we could use these:</p>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="co"># Define &#39;:&#39; for sequencing: as a low-precedence operator that ignores operands</span>
+<span class="co"># and just returns the RHS.</span>
+<span class="kw">def</span> binary : <span class="dv">1</span> (x y) y<span class="op">;</span>
+
+<span class="co"># Recursive fib, we could do this before.</span>
+<span class="kw">def</span> fib(x)
+  <span class="cf">if</span> (x <span class="op">&lt;</span> <span class="dv">3</span>) then
+    <span class="dv">1</span>
+  <span class="cf">else</span>
+    fib(x<span class="dv">-1</span>)<span class="op">+</span>fib(x<span class="dv">-2</span>)<span class="op">;</span>
+
+<span class="co"># Iterative fib.</span>
+<span class="kw">def</span> fibi(x)
+  var a <span class="op">=</span> <span class="dv">1</span>, b <span class="op">=</span> <span class="dv">1</span>, c <span class="op">=</span> <span class="dv">0</span> <span class="op">in</span>
+  (<span class="cf">for</span> i <span class="op">=</span> <span class="dv">3</span>, i <span class="op">&lt;</span> x <span class="op">in</span>
+     c <span class="op">=</span> (a <span class="op">+</span> b) :
+     a <span class="op">=</span> b :
+     b <span class="op">=</span> c) :
+  b<span class="op">;</span>
+
+<span class="co"># Call it.</span>
+fibi(<span class="dv">10</span>)<span class="op">;</span></code></pre></div>
+<p>At this point in Kaleidoscope’s development, it only supports variables for two things: incoming arguments to functions and the induction variable of ‘for’ loops. For consistency, we’ll allow mutation of these variables in addition to other user-defined variables. This means that these will both need memory locations.</p>
+<p>We introduce a new <code>var</code> syntax which behaves much like the <code>let</code> notation in Haskell. We will let the user define a sequence of new variable names and inject these new variables into the symbol table.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Expr</span>
+  <span class="fu">...</span>
+  <span class="fu">|</span> <span class="dt">Let</span> <span class="dt">Name</span> <span class="dt">Expr</span> <span class="dt">Expr</span>
+  <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Ord</span>, <span class="dt">Show</span>)</code></pre></div>
+<p>The parser for it will allow for multiple declarations on a single and right fold the AST node bodies, allowing us to use variables declared earlier in the list in subsequent declarations (i.e. <code>var x = 3, y = x + 1</code>).</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">letins ::</span> <span class="dt">Parser</span> <span class="dt">Expr</span>
+letins <span class="fu">=</span> <span class="kw">do</span>
+  reserved <span class="st">&quot;var&quot;</span>
+  defs <span class="ot">&lt;-</span> commaSep <span class="fu">$</span> <span class="kw">do</span>
+    var <span class="ot">&lt;-</span> identifier
+    reservedOp <span class="st">&quot;=&quot;</span>
+    val <span class="ot">&lt;-</span> expr
+    return (var, val)
+  reserved <span class="st">&quot;in&quot;</span>
+  body <span class="ot">&lt;-</span> expr
+  return <span class="fu">$</span> foldr (uncurry <span class="dt">Let</span>) body defs</code></pre></div>
+<p>The code generation for this new syntax is very straight forward, we simply allocate a new reference and assign it to the name given then return the assigned value.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">cgen (<span class="dt">S.Let</span> a b c) <span class="fu">=</span> <span class="kw">do</span>
+  i <span class="ot">&lt;-</span> alloca double
+  val <span class="ot">&lt;-</span> cgen b
+  store i val
+  assign a i
+  cgen c</code></pre></div>
+<p>We can test out this new functionality. Note that code below is unoptimized and involves several extranous instructions that would normally be optimized away by mem2reg.</p>
+<div class="sourceCode"><pre class="sourceCode perl"><code class="sourceCode perl">ready&gt; def main(x) var <span class="kw">y </span>= x + <span class="dv">1</span> in <span class="kw">y</span>;
+; ModuleID = <span class="kw">&#39;</span><span class="st">my cool jit</span><span class="kw">&#39;</span>
+
+define double <span class="dt">@main</span>(double <span class="dt">%x</span>) {
+entry:
+  <span class="dt">%0</span> = alloca double
+  store double <span class="dt">%x</span>, double<span class="kw">*</span> <span class="dt">%0</span>
+  <span class="dt">%1</span> = alloca double
+  <span class="dt">%2</span> = load double<span class="kw">*</span> <span class="dt">%0</span>
+  <span class="dt">%3</span> = fadd double <span class="dt">%2</span>, <span class="fl">1.000000</span>e<span class="dv">+00</span>
+  store double <span class="dt">%3</span>, double<span class="kw">*</span> <span class="dt">%1</span>
+  <span class="dt">%4</span> = load double<span class="kw">*</span> <span class="dt">%1</span>
+  ret double <span class="dt">%4</span>
+}
+
+Evaluated to: <span class="fl">1.0</span></code></pre></div>
+<h2 id="assignment">Assignment</h2>
+<p>Mutation of existing variables is also quite simple. We'll add a special case to our code generator for the &quot;=&quot; operator to add internal logic for looking up the LHS variable and assign it the right hand side using the <code>store</code> operation.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">cgen (<span class="dt">S.BinaryOp</span> <span class="st">&quot;=&quot;</span> (<span class="dt">S.Var</span> var) val) <span class="fu">=</span> <span class="kw">do</span>
+  a <span class="ot">&lt;-</span> getvar var
+  cval <span class="ot">&lt;-</span> cgen val
+  store a cval
+  return cval</code></pre></div>
+<p>Testing this out for a trivial example we find that we can now update variables.</p>
+<div class="sourceCode"><pre class="sourceCode perl"><code class="sourceCode perl">ready&gt; def main(x) x = <span class="dv">1</span>;
+; ModuleID = <span class="kw">&#39;</span><span class="st">my cool jit</span><span class="kw">&#39;</span>
+
+define double <span class="dt">@main</span>(double <span class="dt">%x</span>) {
+entry:
+  <span class="dt">%0</span> = alloca double
+  store double <span class="dt">%x</span>, double<span class="kw">*</span> <span class="dt">%0</span>
+  store double <span class="fl">1.000000</span>e<span class="dv">+00</span>, double<span class="kw">*</span> <span class="dt">%0</span>
+  ret double <span class="fl">1.000000</span>e<span class="dv">+00</span>
+}
+
+Evaluated to: <span class="fl">1.0</span></code></pre></div>
+<p>Finally we can write down our Fibonacci example using mutable updates.</p>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="kw">def</span> fibi(x)
+  var a <span class="op">=</span> <span class="dv">1</span>, b <span class="op">=</span> <span class="dv">1</span>, c <span class="op">=</span> <span class="dv">0</span> <span class="op">in</span>
+  (<span class="cf">for</span> i <span class="op">=</span> <span class="dv">3</span>, i <span class="op">&lt;</span> x, <span class="fl">1.0</span> <span class="op">in</span> 
+    c <span class="op">=</span> (a <span class="op">+</span> b) : 
+    a <span class="op">=</span> b : 
+    b <span class="op">=</span> c
+  ): b<span class="op">;</span>
+
+fibi(<span class="dv">10</span>)<span class="op">;</span></code></pre></div>
+<p>With this, we completed what we set out to do. Our nice iterative fib example from the intro compiles and runs just fine. The mem2reg pass optimizes all of our stack variables into SSA registers, inserting PHI nodes where needed, and our front-end remains simple: no “iterated dominance frontier” computation anywhere in sight.</p>
+<div class="sourceCode"><pre class="sourceCode perl"><code class="sourceCode perl">define double <span class="dt">@fibi</span>(double <span class="dt">%x</span>) <span class="co">#0 {</span>
+entry:
+  br label <span class="dt">%for</span>.loop
+
+<span class="kw">for</span>.loop:                        ; preds = <span class="dt">%for</span>.loop, <span class="dt">%entry</span>
+  <span class="dt">%0</span> = phi double [ <span class="dt">%4</span>, <span class="dt">%for</span>.loop ], [ <span class="fl">3.000000</span>e<span class="dv">+00</span>, <span class="dt">%entry</span> ]
+  <span class="dt">%1</span> = phi double [ <span class="dt">%3</span>, <span class="dt">%for</span>.loop ], [ <span class="fl">1.000000</span>e<span class="dv">+00</span>, <span class="dt">%entry</span> ]
+  <span class="dt">%2</span> = phi double [ <span class="dt">%1</span>, <span class="dt">%for</span>.loop ], [ <span class="fl">1.000000</span>e<span class="dv">+00</span>, <span class="dt">%entry</span> ]
+  <span class="dt">%3</span> = fadd double <span class="dt">%2</span>, <span class="dt">%1</span>
+  <span class="dt">%4</span> = fadd double <span class="dt">%0</span>, <span class="fl">1.000000</span>e<span class="dv">+00</span>
+  <span class="dt">%5</span> = fcmp ult double <span class="dt">%4</span>, <span class="dt">%x</span>
+  br i1 <span class="dt">%5</span>, label <span class="dt">%for</span>.loop, label <span class="dt">%for</span>.<span class="fu">exit</span>
+
+<span class="kw">for</span>.<span class="fu">exit</span>:                        ; preds = <span class="dt">%for</span>.loop
+  <span class="dt">%6</span> = call double <span class="dt">@</span><span class="kw">&quot;</span><span class="st">binary:</span><span class="kw">&quot;</span>(double <span class="fl">0.000000</span>e<span class="dv">+00</span>, double <span class="dt">%3</span>)
+  ret double <span class="dt">%6</span>
+}</code></pre></div>
+<p>Running the optimizations we see that we get nicely optimal assembly code for our loop. The auto-vectorizer pass has also rewriten our naive code to used <a href="../../en.wikipedia.org/wiki/Advanced_Vector_Extensions.html">SIMD instructions</a> which yield much faster execution.</p>
+<div class="sourceCode"><pre class="sourceCode perl"><code class="sourceCode perl">fibi:                                   <span class="co"># @fibi</span>
+<span class="co"># BB#0:                                 # %entry</span>
+    vmovsd  .LCPI2_0(<span class="dt">%rip</span>), <span class="dt">%xmm2</span>
+    vmovsd  .LCPI2_1(<span class="dt">%rip</span>), <span class="dt">%xmm3</span>
+    vmovaps <span class="dt">%xmm2</span>, <span class="dt">%xmm1</span>
+    vmovaps <span class="dt">%xmm2</span>, <span class="dt">%xmm4</span>
+    .align  <span class="dv">16</span>, <span class="bn">0x90</span>
+.LBB2_1:                                <span class="co"># %for.loop</span>
+    vmovaps <span class="dt">%xmm1</span>, <span class="dt">%xmm5</span>
+    vaddsd  <span class="dt">%xmm4</span>, <span class="dt">%xmm5</span>, <span class="dt">%xmm1</span>
+    vaddsd  <span class="dt">%xmm2</span>, <span class="dt">%xmm3</span>, <span class="dt">%xmm3</span>
+    vucomisd    <span class="dt">%xmm0</span>, <span class="dt">%xmm3</span>
+    vmovaps <span class="dt">%xmm5</span>, <span class="dt">%xmm4</span>
+    jb  .LBB2_1
+<span class="co"># BB#2:                                 # %for.exit</span>
+    vmovaps <span class="dt">%xmm1</span>, <span class="dt">%xmm0</span>
+    ret</code></pre></div>
+<h2 id="full-source-6">Full Source</h2>
+<p>See <a href="https://github.com/sdiehl/kaleidoscope/tree/master/src/chapter7"><strong>src/chapter7</strong></a> for the full source from this chapter.</p>
+<hr />
+<h1 id="chapter-8-conclusion">Chapter 8 ( Conclusion )</h1>
+<h2 id="tutorial-conclusion">Tutorial Conclusion</h2>
+<p>Welcome to the final chapter of the &quot;Implementing a language with LLVM&quot; tutorial. In the course of this tutorial, we have grown our little Kaleidoscope language from being a useless toy, to being a semi-interesting (but probably still useless) toy. :)</p>
+<p>It is interesting to see how far we've come, and how little code it has taken. We built the entire lexer, parser, AST, code generator, and an interactive run-loop (with a JIT!) by-hand in under 700 lines of (non-comment/non-blank) code.</p>
+<p>Our little language supports a couple of interesting features: it supports user defined binary and unary operators, it uses JIT compilation for immediate evaluation, and it supports a few control flow constructs with SSA construction.</p>
+<p>Part of the idea of this tutorial was to show how easy and fun it can be to define, build, and play with languages. Building a compiler need not be a scary or mystical process! Now that we've seen some of the basics, I strongly encourage you to take the code and hack on it. For example, try adding:</p>
+<ul>
+<li><strong>global variables</strong> - While global variables have questionable value in modern software engineering, they are often useful when putting together quick little hacks like the Kaleidoscope compiler itself. Fortunately, our current setup makes it very easy to add global variables: just have value lookup check to see if an unresolved variable is in the global variable symbol table before rejecting it.</li>
+<li><strong>typed variables</strong> - Kaleidoscope currently only supports variables of type double. This gives the language a very nice elegance, because only supporting one type means that we never have to specify types. Different languages have different ways of handling this. The easiest way is to require the user to specify types for every variable definition, and record the type of the variable in the symbol table along with its Value*.</li>
+<li><strong>arrays, structs, vectors, etc</strong> - Once we add types, we can start extending the type system in all sorts of interesting ways. Simple arrays are very easy and are quite useful for many different applications. Adding them is mostly an exercise in learning how the LLVM getelementptr instruction works: it is so nifty/unconventional, it has its own FAQ! If we add support for recursive types (e.g. linked lists), make sure to read the section in the LLVM Programmer's Manual that describes how to construct them.</li>
+<li><strong>standard runtime</strong> - Our current language allows the user to access arbitrary external functions, and we use it for things like &quot;printd&quot; and &quot;putchard&quot;. As we extend the language to add higher-level constructs, often these constructs make the most sense if they are lowered to calls into a language-supplied runtime. For example, if we add hash tables to the language, it would probably make sense to add the routines to a runtime, instead of inlining them all the way.</li>
+<li><strong>memory management</strong> - Currently we can only access the stack in Kaleidoscope. It would also be useful to be able to allocate heap memory, either with calls to the standard libc malloc/free interface or with a garbage collector. If we would like to use garbage collection, note that LLVM fully supports Accurate Garbage Collection including algorithms that move objects and need to scan/update the stack.</li>
+<li><strong>debugger support</strong> - LLVM supports generation of DWARF Debug info which is understood by common debuggers like GDB. Adding support for debug info is fairly straightforward. The best way to understand it is to compile some C/C++ code with &quot;clang -g -O0&quot; and taking a look at what it produces.</li>
+<li><strong>exception handling support</strong> - LLVM supports generation of zero cost exceptions which interoperate with code compiled in other languages. You could also generate code by implicitly making every function return an error value and checking it. You could also make explicit use of setjmp/longjmp. There are many different ways to go here.</li>
+<li><strong>object orientation, generics, database access, complex numbers, geometric programming, ...</strong> - Really, there is no end of crazy features that we can add to the language.</li>
+<li><strong>unusual domains</strong> - We've been talking about applying LLVM to a domain that many people are interested in: building a compiler for a specific language. However, there are many other domains that can use compiler technology that are not typically considered. For example, LLVM has been used to implement OpenGL graphics acceleration, translate C++ code to ActionScript, and many other cute and clever things. Maybe you will be the first to JIT compile a regular expression interpreter into native code with LLVM? Have fun try doing something crazy and unusual. Building a language like everyone else always has, is much less fun than trying something a little crazy or off the wall and seeing how it turns out. If you get stuck or want to talk about it, feel free to email the llvmdev mailing list: it has lots of people who are interested in languages and are often willing to help out.</li>
+</ul>
+<hr />
+<h1 id="chapter-9-appendix">Chapter 9 ( Appendix )</h1>
+<h2 id="command-line-tools">Command Line Tools</h2>
+<p><strong>llvm-as</strong></p>
+<p>The assembler transforms the human readable LLVM assembly to LLVM bitcode.</p>
+<p>Usage:</p>
+<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash">$ <span class="kw">clang</span> -S -emit-llvm hello.c -c -o hello.ll
+$ <span class="kw">llvm-as</span> hello.ll -o hello.bc</code></pre></div>
+<p><strong>llvm-dis</strong></p>
+<p>The disassembler transforms the LLVM bitcode to human readable LLVM assembly.</p>
+<p>Usage:</p>
+<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash">$ <span class="kw">clang</span> -emit-llvm hello.c -c -o hello.bc
+$ <span class="kw">llvm-dis</span> <span class="kw">&lt;</span> hello.bc <span class="kw">|</span> <span class="kw">less</span></code></pre></div>
+<p><strong>lli</strong></p>
+<p>lli is the LLVM interpreter, which can directly execute LLVM bitcode.</p>
+<p>Usage:</p>
+<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash">$ <span class="kw">clang</span> -emit-llvm hello.c -c -o hello.bc
+$ <span class="kw">lli</span> hello.bc
+$ <span class="kw">lli</span> -use-mcjit hello.bc</code></pre></div>
+<p><strong>llc</strong></p>
+<p>llc is the LLVM backend compiler, which translates LLVM bitcode to native code assembly.</p>
+<p>Usage:</p>
+<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash">$ <span class="kw">clang</span> -emit-llvm hello.c -c -o hello.bc
+$ <span class="kw">llc</span> hello.bc -o hello.s
+$ <span class="kw">cc</span> hello.s -o hello.native
+
+$ <span class="kw">llc</span> -march=x86-64 hello.bc -o hello.s
+$ <span class="kw">llc</span> -march=arm hello.bc -o hello.s</code></pre></div>
+<p><strong>opt</strong></p>
+<p>opt reads LLVM bitcode, applies a series of LLVM to LLVM transformations and then outputs the resultant bitcode. opt can also be used to run a specific analysis on an input LLVM bitcode file and print out the resulting IR or bitcode.</p>
+<p>Usage:</p>
+<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash">$ <span class="kw">clang</span> -emit-llvm hello.c -c -o hello.bc
+$ <span class="kw">opt</span> -mem2reg hello.bc
+$ <span class="kw">opt</span> -simplifycfg hello.bc
+$ <span class="kw">opt</span> -inline hello.bc
+$ <span class="kw">opt</span> -dce hello.bc
+$ <span class="kw">opt</span> -analyze -view-cfg hello.bc
+$ <span class="kw">opt</span> -bb-vectorize hello.bc
+$ <span class="kw">opt</span> -loop-vectorize -force-vector-width=8</code></pre></div>
+<p><strong>llvm-link</strong></p>
+<p>llvm-link links multiple LLVM modules into a single program. Together with opt this can be used to perform link-time optimizations.</p>
+<p>Usage:</p>
+<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash">$ <span class="kw">llvm-link</span> foo.ll bar.ll -o foobar.ll
+$ <span class="kw">opt</span> -std-compile-opts -std-link-opts -O3 foobar.bc -o optimized.bc</code></pre></div>
+          </div>
+        </div>
+
+    </div>
+  </body>
+
+<!-- Mirrored from www.stephendiehl.com/llvm/ by HTTrack Website Copier/3.x [XR&CO'2014], Thu, 22 Dec 2016 02:54:18 GMT -->
+</html>

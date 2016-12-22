@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<!-- Mirrored from martingalemeasure.wordpress.com/2014/06/24/solving-the-15-puzzle-with-haskell-and-diagrams-10/ by HTTrack Website Copier/3.x [XR&CO'2014], Thu, 22 Dec 2016 02:26:08 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=UTF-8" /><!-- /Added by HTTrack -->
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="profile" href="http://gmpg.org/xfn/11">
+<link rel="pingback" href="https://martingalemeasure.wordpress.com/xmlrpc.php">
+
+<title>Solving the 15-Puzzle with Haskell and diagrams &#8211; martingalemeasure</title>
+<link rel='dns-prefetch' href='http://s2.wp.com/' />
+<link rel='dns-prefetch' href='http://s0.wp.com/' />
+<link rel='dns-prefetch' href='http://s1.wp.com/' />
+<link rel='dns-prefetch' href='http://fonts.googleapis.com/' />
+<link rel="alternate" type="application/rss+xml" title="martingalemeasure &raquo; Feed" href="https://martingalemeasure.wordpress.com/feed/" />
+<link rel="alternate" type="application/rss+xml" title="martingalemeasure &raquo; Comments Feed" href="https://martingalemeasure.wordpress.com/comments/feed/" />
+<link rel="alternate" type="application/rss+xml" title="martingalemeasure &raquo; Solving the 15-Puzzle with Haskell and&nbsp;diagrams Comments Feed" href="feed/index.html" />
+	<script type="text/javascript">
+		/* <![CDATA[ */
+		function addLoadEvent(func) {
+			var oldonload = window.onload;
+			if (typeof window.onload != 'function') {
+				window.onload = func;
+			} else {
+				window.onload = function () {
+					oldonload();
+					func();
+				}
+			}
+		}
+		/* ]]> */
+	</script>
+			<script type="text/javascript">
+			window._wpemojiSettings = {"baseUrl":"https:\/\/s0.wp.com\/wp-content\/mu-plugins\/wpcom-smileys\/twemoji\/2\/72x72\/","ext":".png","svgUrl":"https:\/\/s0.wp.com\/wp-content\/mu-plugins\/wpcom-smileys\/twemoji\/2\/svg\/","svgExt":".svg","source":{"concatemoji":"https:\/\/s1.wp.com\/wp-includes\/js\/wp-emoji-release.min.js?m=1473172720h&ver=4.6.1-RC1-38499"}};
+			!function(a,b,c){function d(a){var c,d,e,f,g,h=b.createElement("canvas"),i=h.getContext&&h.getContext("2d"),j=String.fromCharCode;if(!i||!i.fillText)return!1;switch(i.textBaseline="top",i.font="600 32px Arial",a){case"flag":return i.fillText(j(55356,56806,55356,56826),0,0),!(h.toDataURL().length<3e3)&&(i.clearRect(0,0,h.width,h.height),i.fillText(j(55356,57331,65039,8205,55356,57096),0,0),c=h.toDataURL(),i.clearRect(0,0,h.width,h.height),i.fillText(j(55356,57331,55356,57096),0,0),d=h.toDataURL(),c!==d);case"diversity":return i.fillText(j(55356,57221),0,0),e=i.getImageData(16,16,1,1).data,f=e[0]+","+e[1]+","+e[2]+","+e[3],i.fillText(j(55356,57221,55356,57343),0,0),e=i.getImageData(16,16,1,1).data,g=e[0]+","+e[1]+","+e[2]+","+e[3],f!==g;case"simple":return i.fillText(j(55357,56835),0,0),0!==i.getImageData(16,16,1,1).data[0];case"unicode8":return i.fillText(j(55356,57135),0,0),0!==i.getImageData(16,16,1,1).data[0];case"unicode9":return i.fillText(j(55358,56631),0,0),0!==i.getImageData(16,16,1,1).data[0]}return!1}function e(a){var c=b.createElement("script");c.src=a,c.type="text/javascript",b.getElementsByTagName("head")[0].appendChild(c)}var f,g,h,i;for(i=Array("simple","flag","unicode8","diversity","unicode9"),c.supports={everything:!0,everythingExceptFlag:!0},h=0;h<i.length;h++)c.supports[i[h]]=d(i[h]),c.supports.everything=c.supports.everything&&c.supports[i[h]],"flag"!==i[h]&&(c.supports.everythingExceptFlag=c.supports.everythingExceptFlag&&c.supports[i[h]]);c.supports.everythingExceptFlag=c.supports.everythingExceptFlag&&!c.supports.flag,c.DOMReady=!1,c.readyCallback=function(){c.DOMReady=!0},c.supports.everything||(g=function(){c.readyCallback()},b.addEventListener?(b.addEventListener("DOMContentLoaded",g,!1),a.addEventListener("load",g,!1)):(a.attachEvent("onload",g),b.attachEvent("onreadystatechange",function(){"complete"===b.readyState&&c.readyCallback()})),f=c.source||{},f.concatemoji?e(f.concatemoji):f.wpemoji&&f.twemoji&&(e(f.twemoji),e(f.wpemoji)))}(window,document,window._wpemojiSettings);
+		</script>
+		<style type="text/css">
+img.wp-smiley,
+img.emoji {
+	display: inline !important;
+	border: none !important;
+	box-shadow: none !important;
+	height: 1em !important;
+	width: 1em !important;
+	margin: 0 .07em !important;
+	vertical-align: -0.1em !important;
+	background: none !important;
+	padding: 0 !important;
+}
+</style>
+<link rel='stylesheet' id='all-css-0-1' href='https://s2.wp.com/_static/??-eJx9j90OgjAMhV/I2aBo5ML4LNtoYLBuyzpCeHuHxJiI7qbpz/lOW5iD0N4ldAloEsFOnXEMc9CeBJOxuHxVR818gN+YNSMyDJiC1KN4VTu5sr777PGxlS1DZ72StmStfcTcpyDTqiBsjUSLlGUljML1Ta1pn+8qfrC9qlSIyCxyJDORSH1eVOQ6dBhNHvxJd+xmCWFSQMY5PwOnxeKqe9C9qi/Nqa6a8214AtkynQo=' type='text/css' media='all' />
+<link rel='stylesheet' id='minnow-opensans-css'  href='https://fonts.googleapis.com/css?family=Open+Sans%3A300%2C400%2C700%2C700italic%2C400italic%2C300italic%7COpen+Sans+Condensed%3A700%2C700italic&amp;subset=latin%2Clatin-ext' type='text/css' media='all' />
+<link rel='stylesheet' id='all-css-2-1' href='https://s1.wp.com/_static/??-eJx9jEsKAjEQRC9kbAYi6kI8y0xoY0t/wqRD8PZGBBk37qqo9wp6CcnUUR38joIVSltASNU6kCao/mQMvSSTfap1BwRqTkOq3/AZNlfSQuGWaTAZLbCl2cn0p4Qbz7T+U1dc2PKIGQa1qW/pKpcpHs4xno5TfLwArsFKDA==' type='text/css' media='all' />
+<link rel='stylesheet' id='print-css-3-1' href='https://s0.wp.com/wp-content/mu-plugins/global-print/global-print.css?m=1465851035h' type='text/css' media='print' />
+<link rel='stylesheet' id='all-css-4-1' href='https://s0.wp.com/_static/??-eJx9i0EKQjEMBS9kDUpRuxDPkl9qG0mT0uTj9cWFiCiu3jyYgfsIWcWLOPQ1DF4riQFmJ5UF55u22WwDv/Wh5uHKSBOs4SSpr/1XmWZCDqxVP89X5K30YtAiVNYF+Slc+nkXjynt0ykebg/FyknH' type='text/css' media='all' />
+<script type='text/javascript' src='https://s0.wp.com/_static/??-eJyFzt0KwjAMBeAXsiv+Tb0Qn6WrcaQuaW1Shz69HeiFMBQCgZyPQ+yYDLIfyhnEhjq3AvnxXk2Qhf0FDGGfnUJDyB/sIyuwTpZihwOYIpBdX2+16BJnXIqiBCIVzaTfLyHfEca/LIAm568mg+Bzaj3Rcblp2+1qfdjtwws0V1vd'></script>
+<link rel='stylesheet' id='all-css-0-2' href='https://s1.wp.com/wp-content/mu-plugins/highlander-comments/style.css?m=1377793621h' type='text/css' media='all' />
+<!--[if lt IE 8]>
+<link rel='stylesheet' id='highlander-comments-ie7-css'  href='https://s1.wp.com/wp-content/mu-plugins/highlander-comments/style-ie7.css?m=1351637563h&#038;ver=20110606' type='text/css' media='all' />
+<![endif]-->
+<link rel="EditURI" type="application/rsd+xml" title="RSD" href="https://martingalemeasure.wordpress.com/xmlrpc.php?rsd" />
+<link rel="wlwmanifest" type="application/wlwmanifest+xml" href="https://s1.wp.com/wp-includes/wlwmanifest.xml" /> 
+<link rel='prev' title='Monkey typing ABRACADABRA' href='https://martingalemeasure.wordpress.com/2014/02/02/monkey-typing-abracadabra-14/' />
+<link rel='next' title='Convert hs to&nbsp;lhs' href='https://martingalemeasure.wordpress.com/2014/06/26/convert-hs-to-lhs-3/' />
+<meta name="generator" content="WordPress.com" />
+<link rel="canonical" href="index.html" />
+<link rel='shortlink' href='http://wp.me/p33rdz-29' />
+<link rel="alternate" type="application/json+oembed" href="https://public-api.wordpress.com/oembed/1.0/?format=json&amp;url=https%3A%2F%2Fmartingalemeasure.wordpress.com%2F2014%2F06%2F24%2Fsolving-the-15-puzzle-with-haskell-and-diagrams-10%2F&amp;for=wpcom-auto-discovery" /><link rel="alternate" type="application/xml+oembed" href="https://public-api.wordpress.com/oembed/1.0/?format=xml&amp;url=https%3A%2F%2Fmartingalemeasure.wordpress.com%2F2014%2F06%2F24%2Fsolving-the-15-puzzle-with-haskell-and-diagrams-10%2F&amp;for=wpcom-auto-discovery" />
+<!-- Jetpack Open Graph Tags -->
+<meta property="og:type" content="article" />
+<meta property="og:title" content="Solving the 15-Puzzle with Haskell and diagrams" />
+<meta property="og:url" content="https://martingalemeasure.wordpress.com/2014/06/24/solving-the-15-puzzle-with-haskell-and-diagrams-10/" />
+<meta property="og:description" content="Something I like to do when learning a new programming language is to code a familiar project. This lets me gauge my progress and make comparisons with languages I&#8217;m more comfortable with. On…" />
+<meta property="article:published_time" content="2014-06-24T20:15:33+00:00" />
+<meta property="article:modified_time" content="2014-06-25T15:55:13+00:00" />
+<meta property="og:site_name" content="martingalemeasure" />
+<meta property="og:image" content="https://martingalemeasure.files.wordpress.com/2014/06/puzzle1.gif" />
+<meta property="og:locale" content="en_US" />
+<meta name="twitter:site" content="@JeffRosenbluth" />
+<meta name="twitter:image" content="https://martingalemeasure.files.wordpress.com/2014/06/puzzle1.gif?w=240" />
+<meta name="twitter:card" content="summary" />
+<meta name="twitter:creator" content="@JeffRosenbluth" />
+<meta property="fb:app_id" content="249643311490" />
+<meta property="article:publisher" content="https://www.facebook.com/WordPresscom" />
+<link rel="shortcut icon" type="image/x-icon" href="https://s2.wp.com/i/favicon.ico" sizes="16x16 24x24 32x32 48x48" />
+<link rel="icon" type="image/x-icon" href="https://s2.wp.com/i/favicon.ico" sizes="16x16 24x24 32x32 48x48" />
+<link rel="apple-touch-icon-precomposed" href="https://s0.wp.com/i/webclip.png" />
+<link rel='openid.server' href='https://martingalemeasure.wordpress.com/?openidserver=1' />
+<link rel='openid.delegate' href='https://martingalemeasure.wordpress.com/' />
+<link rel="search" type="application/opensearchdescription+xml" href="https://martingalemeasure.wordpress.com/osd.xml" title="martingalemeasure" />
+<link rel="search" type="application/opensearchdescription+xml" href="https://s1.wp.com/opensearch.xml" title="WordPress.com" />
+		<style type="text/css">
+			.recentcomments a {
+				display: inline !important;
+				padding: 0 !important;
+				margin: 0 !important;
+			}
+
+			table.recentcommentsavatartop img.avatar, table.recentcommentsavatarend img.avatar {
+				border: 0px;
+				margin: 0;
+			}
+
+			table.recentcommentsavatartop a, table.recentcommentsavatarend a {
+				border: 0px !important;
+				background-color: transparent !important;
+			}
+
+			td.recentcommentsavatarend, td.recentcommentsavatartop {
+				padding: 0px 0px 1px 0px;
+				margin: 0px;
+			}
+
+			td.recentcommentstextend {
+				border: none !important;
+				padding: 0px 0px 2px 10px;
+			}
+
+			.rtl td.recentcommentstextend {
+				padding: 0px 10px 2px 0px;
+			}
+
+			td.recentcommentstexttop {
+				border: none;
+				padding: 0px 0px 0px 10px;
+			}
+
+			.rtl td.recentcommentstexttop {
+				padding: 0px 10px 0px 0px;
+			}
+		</style>
+		<meta name="application-name" content="martingalemeasure" /><meta name="msapplication-window" content="width=device-width;height=device-height" /><meta name="msapplication-tooltip" content="Computer Science . Mathematics" /><meta name="msapplication-task" content="name=Subscribe;action-uri=https://martingalemeasure.wordpress.com/feed/;icon-uri=https://s2.wp.com/i/favicon.ico" /><meta name="msapplication-task" content="name=Sign up for a free blog;action-uri=http://wordpress.com/signup/;icon-uri=https://s2.wp.com/i/favicon.ico" /><meta name="msapplication-task" content="name=WordPress.com Support;action-uri=http://support.wordpress.com/;icon-uri=https://s2.wp.com/i/favicon.ico" /><meta name="msapplication-task" content="name=WordPress.com Forums;action-uri=http://forums.wordpress.com/;icon-uri=https://s2.wp.com/i/favicon.ico" /><meta name="title" content="Solving the 15-Puzzle with Haskell and&nbsp;diagrams | martingalemeasure on WordPress.com" />
+<meta name="description" content="Something I like to do when learning a new programming language is to code a familiar project. This lets me gauge my progress and make comparisons with languages I&#039;m more comfortable with. One of my favorite &quot;familiar&quot; projects is a solver for the 15-puzzle. If you&#039;re not familiar with the 15-puzzle, it&#039;s a classic grid based game with 4&hellip;" />
+		<script type="text/javascript" src="http://c.amazon-adsystem.com/aax2/amzn_ads.js"></script>
+		<script type="text/javascript">
+		try { amznads.getAds("3033"); } catch(e) { /* ignore */ }
+		</script>
+		<script type="text/javascript">
+		try {
+			var a9_p = amznads.getKeys(),
+			_ipw_custom = {
+				wordAds: '0',
+				adSafe: '0',
+				domain: 'martingalemeasure.wordpress.com',
+				pageURL: 'https://martingalemeasure.wordpress.com/2014/06/24/solving-the-15-puzzle-with-haskell-and-diagrams-10/'
+			};
+			if("undefined"!=typeof a9_p&&""!=a9_p&&null!==a9_p&&"[object Array]"===Object.prototype.toString.call(a9_p)){var a="",b=0,c=a9_p.length;a9_p.sort();for(var d=0;d<c;d++){a9_p[d-b]=a9_p[d-b].replace(/a1x6p/,"a160x600p");var e=a9_p[d-b].split("p");e[0]==a&&(a9_p.splice(d-b,1),b++);a=e[0]}_ipw_custom.amznPay=a9_p};document.close();
+		} catch(e) {}
+		</script> 		<script type="text/javascript" src="https://static.criteo.net/js/ld/publishertag.js"></script>
+ 		<script type="text/javascript" src="http://s.pubmine.com/head.js"></script>
+		<script type="text/javascript">
+		jQuery(window).ready(function () {
+			jQuery("a.wpa-about").text("About these ads");
+		});
+		</script><link rel="amphtml" href="amp/index.html" /><style type="text/css" id="syntaxhighlighteranchor"></style>
+<script type="text/javascript">
+	window.google_analytics_uacct = "UA-52447-2";
+</script>
+
+<script type="text/javascript">
+	var _gaq = _gaq || [];
+	_gaq.push(['_setAccount', 'UA-52447-2']);
+	_gaq.push(['_setDomainName', 'wordpress.com']);
+	_gaq.push(['_initData']);
+	_gaq.push(['_trackPageview']);
+
+	(function() {
+		var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+		ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+		(document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(ga);
+	})();
+</script>
+</head>
+
+<body class="single single-post postid-133 single-format-standard mp6 customizer-styles-applied widgets-hidden highlander-enabled highlander-light">
+<div id="page" class="hfeed site">
+	<a class="skip-link screen-reader-text" href="#content">Skip to content</a>
+
+	<header id="masthead" class="site-header" role="banner">
+
+		<div class="site-branding">
+													<h1 class="site-title"><a href="https://martingalemeasure.wordpress.com/" rel="home">martingalemeasure</a></h1>
+			<h2 class="site-description">Computer Science . Mathematics</h2>
+		</div>
+
+		
+					<button class="menu-toggle" title="Sidebar"><span class="screen-reader-text">Sidebar</span></button>
+				<div class="slide-menu">
+			
+			
+<div id="secondary" class="widget-area clear" role="complementary">
+	<aside id="search-2" class="widget widget_search"><form role="search" method="get" class="search-form" action="https://martingalemeasure.wordpress.com/">
+				<label>
+					<span class="screen-reader-text">Search for:</span>
+					<input type="search" class="search-field" placeholder="Search &hellip;" value="" name="s" />
+				</label>
+				<input type="submit" class="search-submit" value="Search" />
+			</form></aside></div><!-- #secondary -->
+
+		</div>
+	</header><!-- #masthead -->
+
+	<div id="content" class="site-content">
+
+	<div id="primary" class="content-area">
+		<main id="main" class="site-main" role="main">
+
+		
+			
+<article id="post-133" class="post-133 post type-post status-publish format-standard hentry category-haskell tag-a tag-animated-gif tag-diagrams-2 tag-haskell-2">
+	<header class="entry-header">
+		<h1 class="entry-title">Solving the 15-Puzzle with Haskell and&nbsp;diagrams</h1>
+		<div class="entry-meta">
+			<span class="posted-on"><a href="index.html" rel="bookmark"><time class="entry-date published" datetime="2014-06-24T20:15:33+00:00">June 24, 2014</time><time class="updated" datetime="2014-06-25T15:55:13+00:00">June 25, 2014</time></a></span><span class="byline"> <span class="author vcard"><a class="url fn n" href="https://martingalemeasure.wordpress.com/author/jeffreyrosenbluth/">jeffreyrosenbluth</a></span></span><span class="tags-links"><a href="https://martingalemeasure.wordpress.com/tag/a/" rel="tag">A*</a>, <a href="https://martingalemeasure.wordpress.com/tag/animated-gif/" rel="tag">animated GIF</a>, <a href="https://martingalemeasure.wordpress.com/tag/diagrams-2/" rel="tag">diagrams</a>, <a href="https://martingalemeasure.wordpress.com/tag/haskell-2/" rel="tag">haskell</a></span>		</div><!-- .entry-meta -->
+
+	</header><!-- .entry-header -->
+
+	<div class="entry-content">
+		<p>Something I like to do when learning a new programming language is to code a familiar project. This lets me gauge my progress and make comparisons with languages I&#8217;m more comfortable with. One of my favorite &#8220;familiar&#8221; projects is a solver for the 15-puzzle. If you&#8217;re not familiar with the 15-puzzle, it&#8217;s a classic grid based game with 4 rows and 4 columns containing a total of 15 tiles. The tiles are labeled 1-15 and there is one blank space. The object is to put the tiles in ascending order by repeatedly sliding a tile into the blank space. See <a href="../../../../../en.wikipedia.org/wiki/15_puzzlel.html">15 puzzle</a>.</p>
+<div style="text-align:center;">
+<div class="figure"><img src="https://martingalemeasure.files.wordpress.com/2014/06/puzzle1.gif?w=660" alt="45 move puzzle" /></p>
+<p class="caption">45 move puzzle</p>
+</div>
+</div>
+<p>There&#8217;s a reason the 15 puzzle has become a favorite coding exercise of mine. Its  solution is a particularly nice example of the interplay between algorithms and data structures. In particular, we use the A* algorithm which relies on a priority queue.</p>
+<p>While studying Haskell and working on the <a href="http://projects.haskell.org/diagrams/">diagrams project</a> I decided that I could take my 15 puzzle solution to the next level, by using <em>diagrams</em> to animate it.</p>
+<p>We start by getting the imports out of the way.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">&gt; <span style="color:blue;font-weight:bold;">module</span> Main <span style="color:blue;font-weight:bold;">where</span>
+&gt; 
+&gt; <span style="color:blue;font-weight:bold;">import</span>           Data.Array.Unboxed
+&gt; <span style="color:blue;font-weight:bold;">import</span>           Data.List                           <span style="color:red;">(</span>elemIndex<span style="color:red;">)</span>
+&gt; <span style="color:blue;font-weight:bold;">import</span>           Data.List.Split                     <span style="color:red;">(</span>chunksOf<span style="color:red;">)</span>
+&gt; <span style="color:blue;font-weight:bold;">import</span>           Data.Maybe                          <span style="color:red;">(</span>mapMaybe<span style="color:red;">)</span>
+&gt; <span style="color:blue;font-weight:bold;">import</span> <span style="color:blue;font-weight:bold;">qualified</span> Data.PQueue.Prio.Min                <span style="color:blue;font-weight:bold;">as</span> PQ
+&gt; <span style="color:blue;font-weight:bold;">import</span>           Diagrams.Prelude
+&gt; <span style="color:blue;font-weight:bold;">import</span>           Diagrams.Backend.Rasterific.CmdLine
+&gt; <span style="color:blue;font-weight:bold;">import</span>           System.Environment
+</code></pre>
+<h2 id="creating-the-animated-gif">Creating the animated GIF</h2>
+<p>Next, lets write the <em>diagrams</em> code to draw and animate a solution assuming we have already solved a 15 puzzle. The solution takes the form <code>[Board]</code> where <code>Board</code> is a matrix of tiles. Each tile is a number between 1 and 15.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">&gt; <span style="color:blue;font-weight:bold;">type</span> Board <span style="color:red;">=</span> UArray <span style="color:red;">(</span>Int<span style="color:red;">,</span> Int<span style="color:red;">)</span> Int
+</code></pre>
+<p>First we need to draw a single <code>Board</code>, i.e convert it to a diagram. Our strategy is to map a function that draws each tile onto the board, then concatenate the tile diagrams into a diagram of the puzzle board. <em>diagrams</em> has built in functions for vertically and horizontally concatenating lists of diagrams so we start by converting the <code>Board</code> to a list.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">&gt; fromBoard <span style="color:red;">::</span> Board <span style="color:red;">-&gt;</span> <span style="color:red;">[</span><span style="color:red;">[</span>Int<span style="color:red;">]</span><span style="color:red;">]</span>
+&gt; fromBoard b <span style="color:red;">=</span> <span style="color:red;">[</span>row i <span style="color:red;">|</span> i <span style="color:red;">&lt;-</span> <span style="color:red;">[</span><span class="hs-num">1</span><span style="color:red;">..</span>n<span style="color:red;">]</span><span style="color:red;">]</span>
+&gt;   <span style="color:blue;font-weight:bold;">where</span>
+&gt;     row i <span style="color:red;">=</span> <span style="color:red;">[</span>b ! <span style="color:red;">(</span>i<span style="color:red;">,</span> j<span style="color:red;">)</span> <span style="color:red;">|</span> j <span style="color:red;">&lt;-</span> <span style="color:red;">[</span><span class="hs-num">1</span><span style="color:red;">..</span>n<span style="color:red;">]</span><span style="color:red;">]</span>
+&gt;     n <span style="color:red;">=</span> dim b
+</code></pre>
+<p>The number of rows and columns in the puzzle is the upper bound of the array since we are using 1 (not 0) as the starting indices for our array.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">&gt; dim <span style="color:red;">::</span> Board <span style="color:red;">-&gt;</span> Int
+&gt; dim <span style="color:red;">=</span> snd . snd . bounds 
+</code></pre>
+<p>Assuming we have a function <code>drawTile</code> that makes a number into a tile diagrams we can now create a diagram from a game board.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">&gt; boardDia <span style="color:red;">::</span> Board <span style="color:red;">-&gt;</span> Diagram B R2
+&gt; boardDia b <span style="color:red;">=</span> bg gray
+&gt;            . frame <span class="hs-num">0.1</span>
+&gt;            . vcat' <span style="color:red;">(</span>with &amp; sep .~ <span class="hs-num">0.075</span><span style="color:red;">)</span>
+&gt;            . map <span style="color:red;">(</span>hcat' <span style="color:red;">(</span>with &amp; sep .~ <span class="hs-num">0.075</span><span style="color:red;">)</span><span style="color:red;">)</span>
+&gt;            . <span style="color:red;">(</span>map . map<span style="color:red;">)</span> drawTile $ fromBoard b 
+</code></pre>
+<p>Here is <code>drawTile</code></p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">&gt; drawTile <span style="color:red;">::</span> Int <span style="color:red;">-&gt;</span> Diagram B R2
+&gt; drawTile <span class="hs-num">0</span> <span style="color:red;">=</span> square <span class="hs-num">1</span> # lw none
+&gt; drawTile s <span style="color:red;">=</span> text <span style="color:red;">(</span>show s<span style="color:red;">)</span> 
+&gt;            # fontSize <span style="color:red;">(</span>Local <span class="hs-num">1</span><span style="color:red;">)</span> 
+&gt;            # fc white
+&gt;            # scale <span class="hs-num">0.5</span>
+&gt;            # bold
+&gt;           &lt;&gt; roundedRect <span class="hs-num">1</span> <span class="hs-num">1</span> <span class="hs-num">0.2</span> 
+&gt;            # fc darkred
+</code></pre>
+<p>Now we need to assemble a bunch of board diagrams into a GIF. All we need to do is pass a list of diagrams and delay times <code>[(Diagram B R2, Int)]</code> to the <code>mainWith</code> function, choose a .gif file extension when we run the program and <em>diagrams</em> will make an animated GIF.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">&gt; dias <span style="color:red;">::</span> <span style="color:red;">[</span>Board<span style="color:red;">]</span> <span style="color:red;">-&gt;</span> <span style="color:red;">[</span>Diagram B R2<span style="color:red;">]</span>
+&gt; dias bs <span style="color:red;">=</span> map boardDia bs 
+</code></pre>
+<p>We show each board for 1 second and pause for 3 seconds before repeating the GIF loop.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">&gt; times <span style="color:red;">::</span> Int <span style="color:red;">-&gt;</span> <span style="color:red;">[</span>Int<span style="color:red;">]</span>
+&gt; times n <span style="color:red;">=</span> replicate <span style="color:red;">(</span>n<span style="color:green;">-</span><span class="hs-num">1</span><span style="color:red;">)</span> <span class="hs-num">100</span> ++ <span style="color:red;">[</span><span class="hs-num">300</span><span style="color:red;">]</span>
+</code></pre>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">&gt; gifs <span style="color:red;">::</span> <span style="color:red;">[</span>Board<span style="color:red;">]</span> <span style="color:red;">-&gt;</span> <span style="color:red;">[</span><span style="color:red;">(</span>Diagram B R2<span style="color:red;">,</span> Int<span style="color:red;">)</span><span style="color:red;">]</span>
+&gt; gifs bs <span style="color:red;">=</span> zip <span style="color:red;">(</span>dias bs<span style="color:red;">)</span> <span style="color:red;">(</span>times . length $ bs<span style="color:red;">)</span>
+</code></pre>
+<p>Here is an example main program that solves a puzzle read in from a text file. The format of the puzzle file has as first line a single integer representing the dimension of the puzzle and each additional line a string of integers representing a row of the starting puzzle board. For example the puzzle at the top of the post has file:</p>
+<pre><code>4
+ 9  2  8  11  
+ 0  5 13   7
+15  1  4  10
+ 3 14  6  12</code></pre>
+<p>To run the program type the the following at the command line and then enter the path to your puzzle file:   ./Puzzle -o my_solution.gif -w 300</p>
+<p>Of course we still need to write, <code>solve</code>, <code>mkGameState</code>, and <code>boards</code>.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">&gt; main <span style="color:red;">=</span> <span style="color:blue;font-weight:bold;">do</span>
+&gt;   putStrLn <span style="color:teal;">"Enter the name of the file containing the puzzle:"</span>
+&gt;   txt <span style="color:red;">&lt;-</span> readFile =&lt;&lt; getLine
+&gt;   <span style="color:blue;font-weight:bold;">let</span> game <span style="color:red;">=</span> fromString txt
+&gt;       <span style="color:red;">(</span><span style="color:red;">[</span>n<span style="color:red;">]</span><span style="color:red;">,</span> brd<span style="color:red;">)</span> <span style="color:red;">=</span> <span style="color:blue;font-weight:bold;">case</span> game <span style="color:blue;font-weight:bold;">of</span>
+&gt;         [] <span style="color:red;">-&gt;</span> error <span style="color:teal;">"Invalid puzzle file"</span>
+&gt;         x:xs <span style="color:red;">-&gt;</span> <span style="color:red;">(</span>x<span style="color:red;">,</span> concat xs<span style="color:red;">)</span>
+&gt;   <span style="color:blue;font-weight:bold;">let</span> p <span style="color:red;">=</span> solve . mkGameState n $ brd
+&gt;   mainWith $ gifs <span style="color:red;">(</span>boards p<span style="color:red;">)</span> 
+</code></pre>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">&gt; fromString <span style="color:red;">::</span> String <span style="color:red;">-&gt;</span> <span style="color:red;">[</span><span style="color:red;">[</span>Int<span style="color:red;">]</span><span style="color:red;">]</span>
+&gt; fromString s <span style="color:red;">=</span> <span style="color:red;">(</span>map . map<span style="color:red;">)</span> read ws
+&gt;   <span style="color:blue;font-weight:bold;">where</span> ws <span style="color:red;">=</span> map words <span style="color:red;">(</span>lines s<span style="color:red;">)</span>
+</code></pre>
+<h2 id="the-a-algorithm">The A* algorithm</h2>
+<p>We are going to search for a solution using the A* algorithm. We will keep track of the state of the game in an algebraic data type called <code>GameState</code>.</p>
+<p>The game state includes the board, the number of moves up until this point and a previous state (unless this it the start state). We also cache the location of the blank tile and the manhattan distance to the goal state; so that we only need to calculate these things once.</p>
+<p>Notice that <code>GameState</code> recursively contains the game state that preceded it (wrapped in a <code>Maybe</code>) , except for the start state whose <code>previous</code> field will contain <code>Nothing</code>. This will allow us recreate all of the intermediate boards from the final solved board so that we can animate the game. We use the <code>boards</code> function to create the list containing each board from start to finish.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">&gt; <span style="color:blue;font-weight:bold;">data</span> GameState <span style="color:red;">=</span> GameState 
+&gt;   <span style="color:red;">{</span> board     <span style="color:red;">::</span> Board
+&gt;   <span style="color:red;">,</span> dist      <span style="color:red;">::</span> Int
+&gt;   <span style="color:red;">,</span> blank     <span style="color:red;">::</span> <span style="color:red;">(</span>Int<span style="color:red;">,</span> Int<span style="color:red;">)</span>
+&gt;   <span style="color:red;">,</span> moves     <span style="color:red;">::</span> Int
+&gt;   <span style="color:red;">,</span> previous  <span style="color:red;">::</span> Maybe GameState 
+&gt;   <span style="color:red;">}</span> <span style="color:blue;font-weight:bold;">deriving</span> <span style="color:red;">(</span>Show<span style="color:red;">,</span> Eq<span style="color:red;">,</span> Ord<span style="color:red;">)</span>
+</code></pre>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">&gt; boards <span style="color:red;">::</span> GameState <span style="color:red;">-&gt;</span> <span style="color:red;">[</span>Board<span style="color:red;">]</span>
+&gt; boards p <span style="color:red;">=</span> reverse $ brds p
+&gt;   <span style="color:blue;font-weight:bold;">where</span>
+&gt;     brds q <span style="color:red;">=</span> <span style="color:blue;font-weight:bold;">case</span> previous q <span style="color:blue;font-weight:bold;">of</span>
+&gt;       Nothing <span style="color:red;">-&gt;</span> <span style="color:red;">[</span>board q<span style="color:red;">]</span>
+&gt;       Just r  <span style="color:red;">-&gt;</span> board q : brds r
+</code></pre>
+<p>The possible moves.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">&gt; <span style="color:blue;font-weight:bold;">data</span> Direction <span style="color:red;">=</span> North <span style="color:red;">|</span> East <span style="color:red;">|</span> South <span style="color:red;">|</span> West
+</code></pre>
+<p>We create a priority queue <code>Frontier</code> whose priorities are the sum of the moves made so far to reach the game state and the manhattan distance to the goal state. This is an admissible heuristic function which guarantees that the solution we find will take the minimum number of moves. The initial <code>Frontier</code> contains only the start state. Then we recusively pop the minimum game state from the queue and check to see if it is the goal, if it is we are done, if not we calculate the states reachable by a legal game move (<code>neighbors</code>) and add them to the queue. Here&#8217;s the code.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">&gt; <span style="color:blue;font-weight:bold;">type</span> Frontier <span style="color:red;">=</span> PQ.MinPQueue Int GameState
+</code></pre>
+<p>Manhattan distance of a tile with value <code>v</code> at position <code>(i, j)</code>, for a game of dimension <code>n</code>.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">&gt; manhattan <span style="color:red;">::</span> Int <span style="color:red;">-&gt;</span> Int <span style="color:red;">-&gt;</span> Int <span style="color:red;">-&gt;</span> Int  <span style="color:red;">-&gt;</span> Int
+&gt; manhattan v n i j <span style="color:red;">=</span> <span style="color:blue;font-weight:bold;">if</span> v == <span class="hs-num">0</span> <span style="color:blue;font-weight:bold;">then</span> <span class="hs-num">0</span> <span style="color:blue;font-weight:bold;">else</span> rowDist + colDist
+&gt;   <span style="color:blue;font-weight:bold;">where</span>
+&gt;     rowDist <span style="color:red;">=</span> abs <span style="color:red;">(</span>i<span style="color:green;">-</span><span class="hs-num">1</span> <span style="color:green;">-</span> <span style="color:red;">(</span><span style="color:red;">(</span>v<span style="color:green;">-</span><span class="hs-num">1</span><span style="color:red;">)</span> `div` n<span style="color:red;">)</span><span style="color:red;">)</span>
+&gt;     colDist <span style="color:red;">=</span> abs <span style="color:red;">(</span>j<span style="color:green;">-</span><span class="hs-num">1</span> <span style="color:green;">-</span> <span style="color:red;">(</span><span style="color:red;">(</span>v<span style="color:green;">-</span><span class="hs-num">1</span><span style="color:red;">)</span> `mod` n<span style="color:red;">)</span><span style="color:red;">)</span>
+</code></pre>
+<p>Manhattan distance of entire board.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">&gt; totalDist <span style="color:red;">::</span> Board <span style="color:red;">-&gt;</span> Int
+&gt; totalDist b <span style="color:red;">=</span> sum <span style="color:red;">[</span>manhattan <span style="color:red;">(</span>b ! <span style="color:red;">(</span>i<span style="color:red;">,</span> j<span style="color:red;">)</span><span style="color:red;">)</span> n i j <span style="color:red;">|</span> i <span style="color:red;">&lt;-</span> <span style="color:red;">[</span><span class="hs-num">1</span><span style="color:red;">..</span>n<span style="color:red;">]</span><span style="color:red;">,</span> j <span style="color:red;">&lt;-</span> <span style="color:red;">[</span><span class="hs-num">1</span><span style="color:red;">..</span>n<span style="color:red;">]</span><span style="color:red;">]</span>
+&gt;   <span style="color:blue;font-weight:bold;">where</span> n <span style="color:red;">=</span> dim b
+</code></pre>
+<p>Create a start state from a list of tiles.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">&gt; mkGameState <span style="color:red;">::</span> Int <span style="color:red;">-&gt;</span> <span style="color:red;">[</span>Int<span style="color:red;">]</span> <span style="color:red;">-&gt;</span> GameState
+&gt; mkGameState n xs <span style="color:red;">=</span> GameState b d z <span class="hs-num">0</span> Nothing
+&gt;   <span style="color:blue;font-weight:bold;">where</span>
+&gt;     b <span style="color:red;">=</span> listArray <span style="color:red;">(</span><span style="color:red;">(</span><span class="hs-num">1</span><span style="color:red;">,</span> <span class="hs-num">1</span><span style="color:red;">)</span><span style="color:red;">,</span> <span style="color:red;">(</span>n<span style="color:red;">,</span> n<span style="color:red;">)</span><span style="color:red;">)</span> xs
+&gt;     d <span style="color:red;">=</span> totalDist b
+&gt;     Just z' <span style="color:red;">=</span> elemIndex <span class="hs-num">0</span> xs
+&gt;     z <span style="color:red;">=</span> <span style="color:red;">(</span><span class="hs-num">1</span> + z' `div` n<span style="color:red;">,</span> <span class="hs-num">1</span> + z' `mod` n<span style="color:red;">)</span>
+</code></pre>
+<p>Update the game state after switching the position of the blank and tile <code>(i, j)</code>.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">&gt; update <span style="color:red;">::</span> GameState <span style="color:red;">-&gt;</span> Int <span style="color:red;">-&gt;</span> Int <span style="color:red;">-&gt;</span> GameState
+&gt; update p i j <span style="color:red;">=</span> p <span style="color:red;">{</span> board <span style="color:red;">=</span> b
+&gt;                  <span style="color:red;">,</span> dist <span style="color:red;">=</span> totalDist b
+&gt;                  <span style="color:red;">,</span> blank <span style="color:red;">=</span> <span style="color:red;">(</span>i<span style="color:red;">,</span> j<span style="color:red;">)</span>
+&gt;                  <span style="color:red;">,</span> moves <span style="color:red;">=</span> moves p + <span class="hs-num">1</span>
+&gt;                  <span style="color:red;">,</span> previous <span style="color:red;">=</span> Just p <span style="color:red;">}</span>
+&gt;   <span style="color:blue;font-weight:bold;">where</span>
+&gt;     b <span style="color:red;">=</span> b' // <span style="color:red;">[</span><span style="color:red;">(</span>blank p<span style="color:red;">,</span> b' ! <span style="color:red;">(</span>i<span style="color:red;">,</span> j<span style="color:red;">)</span><span style="color:red;">)</span><span style="color:red;">,</span> <span style="color:red;">(</span><span style="color:red;">(</span>i<span style="color:red;">,</span> j<span style="color:red;">)</span><span style="color:red;">,</span> <span class="hs-num">0</span><span style="color:red;">)</span><span style="color:red;">]</span>
+&gt;     b' <span style="color:red;">=</span> board p
+</code></pre>
+<p>Find the the board that can be reached from the current state by moving in the specified direction, being careful not to move off the board.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">&gt; neighbor <span style="color:red;">::</span> GameState <span style="color:red;">-&gt;</span> Direction <span style="color:red;">-&gt;</span> Maybe GameState
+&gt; neighbor p dir <span style="color:red;">=</span> <span style="color:blue;font-weight:bold;">case</span> dir <span style="color:blue;font-weight:bold;">of</span>
+&gt;   North <span style="color:red;">-&gt;</span> <span style="color:blue;font-weight:bold;">if</span> i &lt;= <span class="hs-num">1</span>   <span style="color:blue;font-weight:bold;">then</span> Nothing <span style="color:blue;font-weight:bold;">else</span> Just $ update p <span style="color:red;">(</span>i<span style="color:green;">-</span><span class="hs-num">1</span><span style="color:red;">)</span> j
+&gt;   East  <span style="color:red;">-&gt;</span> <span style="color:blue;font-weight:bold;">if</span> j &gt;= n <span style="color:blue;font-weight:bold;">then</span> Nothing <span style="color:blue;font-weight:bold;">else</span> Just $ update p i <span style="color:red;">(</span>j+<span class="hs-num">1</span><span style="color:red;">)</span>
+&gt;   South <span style="color:red;">-&gt;</span> <span style="color:blue;font-weight:bold;">if</span> i &gt;= n <span style="color:blue;font-weight:bold;">then</span> Nothing <span style="color:blue;font-weight:bold;">else</span> Just $ update p <span style="color:red;">(</span>i+<span class="hs-num">1</span><span style="color:red;">)</span> j
+&gt;   West  <span style="color:red;">-&gt;</span> <span style="color:blue;font-weight:bold;">if</span> j &lt;= <span class="hs-num">1</span>   <span style="color:blue;font-weight:bold;">then</span> Nothing <span style="color:blue;font-weight:bold;">else</span> Just $ update p i <span style="color:red;">(</span>j<span style="color:green;">-</span><span class="hs-num">1</span><span style="color:red;">)</span>
+&gt;   <span style="color:blue;font-weight:bold;">where</span>
+&gt;     <span style="color:red;">(</span>i<span style="color:red;">,</span> j<span style="color:red;">)</span> <span style="color:red;">=</span> blank p
+&gt;     n <span style="color:red;">=</span> dim . board $ p
+</code></pre>
+<p>All of the states that can be reached in one move from the current state.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">&gt; neighbors <span style="color:red;">::</span> GameState <span style="color:red;">-&gt;</span> <span style="color:red;">[</span>GameState<span style="color:red;">]</span>
+&gt; neighbors p <span style="color:red;">=</span> mapMaybe <span style="color:red;">(</span>neighbor p<span style="color:red;">)</span> <span style="color:red;">[</span>North<span style="color:red;">,</span> East<span style="color:red;">,</span> South<span style="color:red;">,</span> West<span style="color:red;">]</span>
+</code></pre>
+<p>Finally, solve the puzzle.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">&gt; solve <span style="color:red;">::</span> GameState <span style="color:red;">-&gt;</span> GameState
+&gt; solve p <span style="color:red;">=</span> go <span style="color:red;">(</span>PQ.fromList <span style="color:red;">[</span><span style="color:red;">(</span>dist p<span style="color:red;">,</span> p<span style="color:red;">)</span><span style="color:red;">]</span><span style="color:red;">)</span>
+&gt;   <span style="color:blue;font-weight:bold;">where</span>
+&gt;     go fr <span style="color:red;">=</span> <span style="color:blue;font-weight:bold;">if</span> dist puzzle == <span class="hs-num">0</span> 
+&gt;             <span style="color:blue;font-weight:bold;">then</span> puzzle 
+&gt;             <span style="color:blue;font-weight:bold;">else</span> go fr2
+&gt;       <span style="color:blue;font-weight:bold;">where</span>
+&gt;         <span style="color:green;">-- Retrieve the game state with the lowest priority and     &gt;         -- remove it from</span>
+&gt;         <span style="color:green;">-- the frontier.</span>
+&gt;         <span style="color:red;">(</span><span style="color:red;">(</span><span style="color:blue;font-weight:bold;">_</span><span style="color:red;">,</span> puzzle<span style="color:red;">)</span><span style="color:red;">,</span> fr1<span style="color:red;">)</span> <span style="color:red;">=</span> PQ.deleteFindMin fr
+&gt; 
+&gt;         <span style="color:green;">-- If the new board is the smae as the previous board then</span>
+&gt;         <span style="color:green;">-- do not add it to the queue since it has already been      &gt;         -- explored.</span>
+&gt;         ns <span style="color:red;">=</span> <span style="color:blue;font-weight:bold;">case</span> previous puzzle <span style="color:blue;font-weight:bold;">of</span>
+&gt;           Nothing <span style="color:red;">-&gt;</span> neighbors puzzle
+&gt;           Just n  <span style="color:red;">-&gt;</span> filter <span style="color:red;">(</span><span style="color:red;">\</span>x <span style="color:red;">-&gt;</span> board x /= board n<span style="color:red;">)</span>
+<span style="color:red;">&gt;                             (</span>neighbors puzzle<span style="color:red;">)</span>
+&gt; 
+&gt;         <span style="color:green;">-- The priority of a puzzle is the number of moves so far</span>
+&gt;         <span style="color:green;">-- plus the manhattan distance.</span>
+&gt;         ps  <span style="color:red;">=</span> zip <span style="color:red;">[</span>moves q + dist q <span style="color:red;">|</span> q <span style="color:red;">&lt;-</span> ns<span style="color:red;">]</span> ns
+&gt;         fr2 <span style="color:red;">=</span> foldr <span style="color:red;">(</span>uncurry PQ.insert<span style="color:red;">)</span> fr1 ps
+</code></pre>
+<p>You can find more puzzles in my github repo: <a href="https://github.com/jeffreyrosenbluth/puzzleN/tree/master/puzzles">puzzles</a>. Happy solving !</p>
+<div class="references"></div>
+		<div class="wpcnt">
+			<div class="wpa wpmrec">
+				<a class="wpa-about" href="https://wordpress.com/about-these-ads/" rel="nofollow"></a>
+				        <div id="crt-609591392" style="width:300px;height:250px;"></div>
+        <script type="text/javascript">
+        var o = document.getElementById('crt-609591392');
+        if ("undefined"!=typeof Criteo) {
+            var p = o.parentNode;
+            p.style.setProperty('display', 'inline-block', 'important');
+            o.style.setProperty('display', 'block', 'important');
+            Criteo.DisplayAcceptableAdIfAdblocked({zoneid:388248,containerid:"crt-609591392",collapseContainerIfNotAdblocked:true});
+        } else {
+            o.style.setProperty('display', 'none', 'important');
+        }
+        </script>
+				<div class="u">
+					<script type='text/javascript'>
+					(function(g){if("undefined"!=typeof g.__ATA){g.__ATA.initAd({sectionId:26942, width:300, height:250});}})(window);
+					</script>
+				</div>
+			</div>
+		</div><div id="jp-post-flair" class="sharedaddy sd-like-enabled sd-sharing-enabled"><div class="sharedaddy sd-sharing-enabled"><div class="robots-nocontent sd-block sd-social sd-social-icon-text sd-sharing"><h3 class="sd-title">Share this:</h3><div class="sd-content"><ul><li class="share-twitter"><a rel="nofollow" data-shared="sharing-twitter-133" class="share-twitter sd-button share-icon" href="index9a7b.html?share=twitter" target="_blank" title="Click to share on Twitter"><span>Twitter</span></a></li><li class="share-facebook"><a rel="nofollow" data-shared="sharing-facebook-133" class="share-facebook sd-button share-icon" href="index5a58.html?share=facebook" target="_blank" title="Share on Facebook"><span>Facebook</span></a></li><li class="share-end"></li></ul></div></div></div><div class='sharedaddy sd-block sd-like jetpack-likes-widget-wrapper jetpack-likes-widget-unloaded' id='like-post-wrapper-45148621-133-585b2fb18f63f' data-src='//widgets.wp.com/likes/#blog_id=45148621&amp;post_id=133&amp;origin=martingalemeasure.wordpress.com&amp;obj_id=45148621-133-585b2fb18f63f' data-name='like-post-frame-45148621-133-585b2fb18f63f'><h3 class='sd-title'>Like this:</h3><div class='likes-widget-placeholder post-likes-widget-placeholder' style='height: 55px;'><span class='button'><span>Like</span></span> <span class="loading">Loading...</span></div><span class='sd-text-color'></span><a class='sd-link-color'></a></div></div>			</div><!-- .entry-content -->
+
+	<div class="entry-format">
+		<a href="index.html"><span class="screen-reader-text">Solving the 15-Puzzle with Haskell and&nbsp;diagrams</span></a>	</div>
+</article><!-- #post-## -->
+
+				<nav class="navigation post-navigation" role="navigation">
+		<h1 class="screen-reader-text">Post navigation</h1>
+		<div class="nav-links">
+			<div class="nav-previous"><a href="https://martingalemeasure.wordpress.com/2014/02/02/monkey-typing-abracadabra-14/" rel="prev"><span class="meta-nav">&larr;</span>&nbsp;Monkey typing ABRACADABRA</a></div><div class="nav-next"><a href="https://martingalemeasure.wordpress.com/2014/06/26/convert-hs-to-lhs-3/" rel="next">Convert hs to&nbsp;lhs&nbsp;<span class="meta-nav">&rarr;</span></a></div>		</div><!-- .nav-links -->
+	</nav><!-- .navigation -->
+	
+			
+<div id="comments" class="comments-area">
+
+	
+	
+	
+					<div id="respond" class="comment-respond">
+			<h3 id="reply-title" class="comment-reply-title">Leave a Reply <small><a rel="nofollow" id="cancel-comment-reply-link" href="index.html#respond" style="display:none;">Cancel reply</a></small></h3>				<form action="https://martingalemeasure.wordpress.com/wp-comments-post.php" method="post" id="commentform" class="comment-form" novalidate>
+					<input type="hidden" id="highlander_comment_nonce" name="highlander_comment_nonce" value="e545112ad6" /><input type="hidden" name="_wp_http_referer" value="/2014/06/24/solving-the-15-puzzle-with-haskell-and-diagrams-10/" />
+<input type="hidden" name="hc_post_as" id="hc_post_as" value="guest" />
+
+<div class="comment-form-field comment-textarea">
+	<label for="comment">Enter your comment here...</label>
+	<div id="comment-form-comment"><textarea id="comment" name="comment" title="Enter your comment here..."></textarea></div>
+</div>
+
+<div id="comment-form-identity">
+
+	<div id="comment-form-nascar">
+		<p>Fill in your details below or click an icon to log in:</p>
+		<ul>
+			<li class="selected" style="display:none;">
+				<a href="#comment-form-guest" id="postas-guest" title="Guest">
+					<span></span>
+				</a>
+			</li>
+			<li>
+				<a href="#comment-form-load-service:WordPress.com" id="postas-wordpress" title="WordPress.com">
+					<span></span>
+				</a>
+			</li>
+			<li>
+				<a href="#comment-form-load-service:Twitter" id="postas-twitter" title="Twitter">
+					<span></span>
+				</a>
+			</li>
+			<li>
+				<a href="#comment-form-load-service:Facebook" id="postas-facebook" title="Facebook">
+					<span></span>
+				</a>
+			</li>
+			<li>
+			<iframe id="googleplus-sign-in" name="googleplus-sign-in" src="https://public-api.wordpress.com/connect/?googleplus-sign-in=https%3A%2F%2Fmartingalemeasure.wordpress.com" width="24" height="24" scrolling="no" allowtransparency="true" seamless="seamless" frameborder="0"></iframe>
+			</li>
+		</ul>
+	</div>
+
+	<div id="comment-form-guest" class="comment-form-service selected">
+		<div class="comment-form-padder">
+			<div class="comment-form-avatar">
+<a href="https://gravatar.com/site/signup/" target="_blank">				<img src="https://1.gravatar.com/avatar/ad516503a11cd5ca435acc9bb6523536?s=25&amp;d=identicon&amp;forcedefault=y&amp;r=G" alt="Gravatar" width="25" class="no-grav" />
+</a>			</div>
+
+				<div class="comment-form-fields">
+				<div class="comment-form-field comment-form-email">
+					<label for="email">Email <span class="required">(required)</span> <span class="nopublish">(Address never made public)</span></label>
+					<div class="comment-form-input"><input id="email" name="email" type="email" value="" /></div>
+				</div>
+				<div class="comment-form-field comment-form-author">
+					<label for="author">Name <span class="required">(required)</span></label>
+					<div class="comment-form-input"><input id="author" name="author" type="text" value="" /></div>
+				</div>
+				<div class="comment-form-field comment-form-url">
+					<label for="url">Website</label>
+					<div class="comment-form-input"><input id="url" name="url" type="url" value="" /></div>
+				</div>
+			</div>
+	
+		</div>
+	</div>
+
+	<div id="comment-form-wordpress" class="comment-form-service">
+		<div class="comment-form-padder">
+			<div class="comment-form-avatar">
+				<img src="https://1.gravatar.com/avatar/ad516503a11cd5ca435acc9bb6523536?s=25&amp;d=identicon&amp;forcedefault=y&amp;r=G" alt="WordPress.com Logo" width="25" class="no-grav" />
+			</div>
+
+				<div class="comment-form-fields">
+				<input type="hidden" name="wp_avatar" id="wordpress-avatar" class="comment-meta-wordpress" value="" />
+				<input type="hidden" name="wp_user_id" id="wordpress-user_id" class="comment-meta-wordpress" value="" />
+				<input type="hidden" name="wp_access_token" id="wordpress-access_token" class="comment-meta-wordpress" value="" />
+				<p class="comment-form-posting-as pa-wordpress"><strong></strong> You are commenting using your WordPress.com account. <span class="comment-form-log-out">(&nbsp;<a href="javascript:HighlanderComments.doExternalLogout( 'wordpress' );">Log&nbsp;Out</a>&nbsp;/&nbsp;<a href="#" onclick="javascript:HighlanderComments.switchAccount();return false;">Change</a>&nbsp;)</span></p>
+			</div>
+	
+		</div>
+	</div>
+
+	<div id="comment-form-twitter" class="comment-form-service">
+		<div class="comment-form-padder">
+			<div class="comment-form-avatar">
+				<img src="https://1.gravatar.com/avatar/ad516503a11cd5ca435acc9bb6523536?s=25&amp;d=identicon&amp;forcedefault=y&amp;r=G" alt="Twitter picture" width="25" class="no-grav" />
+			</div>
+
+				<div class="comment-form-fields">
+				<input type="hidden" name="twitter_avatar" id="twitter-avatar" class="comment-meta-twitter" value="" />
+				<input type="hidden" name="twitter_user_id" id="twitter-user_id" class="comment-meta-twitter" value="" />
+				<input type="hidden" name="twitter_access_token" id="twitter-access_token" class="comment-meta-twitter" value="" />
+				<p class="comment-form-posting-as pa-twitter"><strong></strong> You are commenting using your Twitter account. <span class="comment-form-log-out">(&nbsp;<a href="javascript:HighlanderComments.doExternalLogout( 'twitter' );">Log&nbsp;Out</a>&nbsp;/&nbsp;<a href="#" onclick="javascript:HighlanderComments.switchAccount();return false;">Change</a>&nbsp;)</span></p>
+			</div>
+	
+		</div>
+	</div>
+
+	<div id="comment-form-facebook" class="comment-form-service">
+		<div class="comment-form-padder">
+			<div class="comment-form-avatar">
+				<img src="https://1.gravatar.com/avatar/ad516503a11cd5ca435acc9bb6523536?s=25&amp;d=identicon&amp;forcedefault=y&amp;r=G" alt="Facebook photo" width="25" class="no-grav" />
+			</div>
+
+				<div class="comment-form-fields">
+				<input type="hidden" name="fb_avatar" id="facebook-avatar" class="comment-meta-facebook" value="" />
+				<input type="hidden" name="fb_user_id" id="facebook-user_id" class="comment-meta-facebook" value="" />
+				<input type="hidden" name="fb_access_token" id="facebook-access_token" class="comment-meta-facebook" value="" />
+				<p class="comment-form-posting-as pa-facebook"><strong></strong> You are commenting using your Facebook account. <span class="comment-form-log-out">(&nbsp;<a href="javascript:HighlanderComments.doExternalLogout( 'facebook' );">Log&nbsp;Out</a>&nbsp;/&nbsp;<a href="#" onclick="javascript:HighlanderComments.switchAccount();return false;">Change</a>&nbsp;)</span></p>
+			</div>
+	
+		</div>
+	</div>
+
+	<div id="comment-form-googleplus" class="comment-form-service">
+		<div class="comment-form-padder">
+			<div class="comment-form-avatar">
+				<img src="https://1.gravatar.com/avatar/ad516503a11cd5ca435acc9bb6523536?s=25&amp;d=identicon&amp;forcedefault=y&amp;r=G" alt="Google+ photo" width="25" class="no-grav" />
+			</div>
+
+				<div class="comment-form-fields">
+				<input type="hidden" name="googleplus_avatar" id="googleplus-avatar" class="comment-meta-googleplus" value="" />
+				<input type="hidden" name="googleplus_user_id" id="googleplus-user_id" class="comment-meta-googleplus" value="" />
+				<input type="hidden" name="googleplus_access_token" id="googleplus-access_token" class="comment-meta-googleplus" value="" />
+				<p class="comment-form-posting-as pa-googleplus"><strong></strong> You are commenting using your Google+ account. <span class="comment-form-log-out">(&nbsp;<a href="javascript:HighlanderComments.doExternalLogout( 'googleplus' );">Log&nbsp;Out</a>&nbsp;/&nbsp;<a href="#" onclick="javascript:HighlanderComments.switchAccount();return false;">Change</a>&nbsp;)</span></p>
+			</div>
+	
+		</div>
+	</div>
+
+
+	<div id="comment-form-load-service" class="comment-form-service">
+		<div class="comment-form-posting-as-cancel"><a href="javascript:HighlanderComments.cancelExternalWindow();">Cancel</a></div>
+		<p>Connecting to %s</p>
+	</div>
+
+</div>
+
+<script type="text/javascript">
+var highlander_expando_javascript = function(){
+	var input = document.createElement( 'input' ),
+	    comment = jQuery( '#comment' );
+
+	if ( 'placeholder' in input ) {
+		comment.attr( 'placeholder', jQuery( '.comment-textarea label' ).remove().text() );
+	}
+
+	// Expando Mode: start small, then auto-resize on first click + text length
+	jQuery( '#comment-form-identity' ).hide();
+	jQuery( '#comment-form-subscribe' ).hide();
+	jQuery( '#commentform .form-submit' ).hide();
+
+	comment.css( { 'height':'10px' } ).one( 'focus', function() {
+		var timer = setInterval( HighlanderComments.resizeCallback, 10 )
+		jQuery( this ).animate( { 'height': HighlanderComments.initialHeight } ).delay( 100 ).queue( function(n) { clearInterval( timer ); HighlanderComments.resizeCallback(); n(); } );
+		jQuery( '#comment-form-identity' ).slideDown();
+		jQuery( '#comment-form-subscribe' ).slideDown();
+		jQuery( '#commentform .form-submit' ).slideDown();
+	});
+}
+jQuery(document).ready( highlander_expando_javascript );
+</script>
+
+<div id="comment-form-subscribe">
+	<p class="comment-subscription-form"><input type="checkbox" name="subscribe" id="subscribe" value="subscribe" style="width: auto;"/> <label class="subscribe-label" id="subscribe-label" for="subscribe" style="display: inline;">Notify me of new comments via email.</label></p><p class="post-subscription-form"><input type="checkbox" name="subscribe_blog" id="subscribe_blog" value="subscribe" style="width: auto;"/> <label class="subscribe-label" id="subscribe-blog-label" for="subscribe_blog"  style="display: inline;">Notify me of new posts via email.</label></p></div>
+
+
+
+
+<p class="form-submit"><input name="submit" type="submit" id="comment-submit" class="submit" value="Post Comment" /> <input type='hidden' name='comment_post_ID' value='133' id='comment_post_ID' />
+<input type='hidden' name='comment_parent' id='comment_parent' value='0' />
+</p><p style="display: none;"><input type="hidden" id="akismet_comment_nonce" name="akismet_comment_nonce" value="62c573bfb2" /></p>
+<input type="hidden" name="genseq" value="1482370993" />
+<p style="display: none;"><input type="hidden" id="ak_js" name="ak_js" value="194"/></p>				</form>
+					</div><!-- #respond -->
+		<div style="clear: both"></div>
+</div><!-- #comments -->
+
+		
+		</main><!-- #main -->
+	</div><!-- #primary -->
+
+
+	</div><!-- #content -->
+
+	<footer id="colophon" class="site-footer" role="contentinfo">
+		<div class="site-info">
+			<a href="https://wordpress.com/?ref=footer_website">Create a free website or blog at WordPress.com.</a>
+			
+					</div><!-- .site-info -->
+	</footer><!-- #colophon -->
+</div><!-- #page -->
+
+<!--  -->
+<script type='text/javascript' src='http://0.gravatar.com/js/gprofiles.js?ver=201651y'></script>
+<script type='text/javascript'>
+/* <![CDATA[ */
+var WPGroHo = {"my_hash":""};
+/* ]]> */
+</script>
+<script type='text/javascript' src='https://s1.wp.com/wp-content/mu-plugins/gravatar-hovercards/wpgroho.js?m=1380573781h'></script>
+
+	<script>
+		//initialize and attach hovercards to all gravatars
+		jQuery( document ).ready( function( $ ) {
+
+			if (typeof Gravatar === "undefined"){
+				return;
+			}
+
+			if ( typeof Gravatar.init !== "function" ) {
+				return;
+			}			
+
+			Gravatar.profile_cb = function( hash, id ) {
+				WPGroHo.syncProfileData( hash, id );
+			};
+			Gravatar.my_hash = WPGroHo.my_hash;
+			Gravatar.init( 'body', '#wp-admin-bar-my-account' );
+		});
+	</script>
+
+		<div style="display:none">
+	</div>
+<script type='text/javascript'>
+/* <![CDATA[ */
+var HighlanderComments = {"loggingInText":"Logging In\u2026","submittingText":"Posting Comment\u2026","postCommentText":"Post Comment","connectingToText":"Connecting to %s","commentingAsText":"%1$s: You are commenting using your %2$s account.","logoutText":"Log Out","loginText":"Log In","connectURL":"https:\/\/martingalemeasure.wordpress.com\/public.api\/connect\/?action=request","logoutURL":"https:\/\/martingalemeasure.wordpress.com\/wp-login.php?action=logout&_wpnonce=1b3a05098e","homeURL":"https:\/\/martingalemeasure.wordpress.com\/","postID":"133","gravDefault":"identicon","enterACommentError":"Please enter a comment","enterEmailError":"Please enter your email address here","invalidEmailError":"Invalid email address","enterAuthorError":"Please enter your name here","gravatarFromEmail":"This picture will show whenever you leave a comment. Click to customize it.","logInToExternalAccount":"Log in to use details from one of these accounts.","change":"Change","changeAccount":"Change Account","comment_registration":"","userIsLoggedIn":"","isJetpack":"0","text_direction":"ltr"};
+/* ]]> */
+</script>
+<script type='text/javascript' src='https://s2.wp.com/_static/??/wp-content/js/jquery/jquery.autoresize.js,/wp-content/mu-plugins/highlander-comments/script.js?m=1479964158j'></script>
+
+	<div id="carousel-reblog-box">
+		<form action="#" name="carousel-reblog">
+			<textarea id="carousel-reblog-content" name="carousel-reblog-content" placeholder="Add your thoughts here... (optional)"></textarea>
+			<label for="carousel-reblog-to-blog-id" id="carousel-reblog-lblogid">Post to</label>
+			<select name="carousel-reblog-to-blog-id" id="carousel-reblog-to-blog-id">
+						</select>
+
+			<div class="submit">
+				<span class="canceltext"><a href="#" class="cancel">Cancel</a></span>
+				<input type="submit" name="carousel-reblog-submit" class="button" id="carousel-reblog-submit" value="Reblog Post" />
+				<input type="hidden" id="carousel-reblog-blog-id" value="45148621" />
+				<input type="hidden" id="carousel-reblog-blog-url" value="https://martingalemeasure.wordpress.com" />
+				<input type="hidden" id="carousel-reblog-blog-title" value="martingalemeasure" />
+				<input type="hidden" id="carousel-reblog-post-url" value="" />
+				<input type="hidden" id="carousel-reblog-post-title" value="" />
+			</div>
+
+			<input type="hidden" id="_wpnonce" name="_wpnonce" value="aebb0b8851" /><input type="hidden" name="_wp_http_referer" value="/2014/06/24/solving-the-15-puzzle-with-haskell-and-diagrams-10/" />		</form>
+
+		<div class="arrow"></div>
+	</div>
+
+	<script type="text/javascript">
+		window.WPCOM_sharing_counts = {"https:\/\/martingalemeasure.wordpress.com\/2014\/06\/24\/solving-the-15-puzzle-with-haskell-and-diagrams-10\/":133};
+	</script>
+		<script type="text/javascript">
+			var windowOpen;
+		jQuery(document).on( 'ready post-load', function(){
+			jQuery( 'a.share-twitter' ).on( 'click', function() {
+				if ( 'undefined' !== typeof windowOpen ){ // If there's another sharing window open, close it.
+					windowOpen.close();
+				}
+				windowOpen = window.open( jQuery(this).attr( 'href' ), 'wpcomtwitter', 'menubar=1,resizable=1,width=600,height=350' );
+				return false;
+			});
+		});
+		</script>
+				<script type="text/javascript">
+			var windowOpen;
+		jQuery(document).on( 'ready post-load', function(){
+			jQuery( 'a.share-facebook' ).on( 'click', function() {
+				if ( 'undefined' !== typeof windowOpen ){ // If there's another sharing window open, close it.
+					windowOpen.close();
+				}
+				windowOpen = window.open( jQuery(this).attr( 'href' ), 'wpcomfacebook', 'menubar=1,resizable=1,width=600,height=400' );
+				return false;
+			});
+		});
+		</script>
+		<script type='text/javascript' src='https://s1.wp.com/wp-content/mu-plugins/akismet-3.0/_inc/form.js?m=1404442431h'></script>
+<link rel='stylesheet' id='all-css-0-3' href='https://s1.wp.com/wp-content/mu-plugins/carousel/jetpack-carousel.css?m=1481571546h' type='text/css' media='all' />
+<!--[if lte IE 8]>
+<link rel='stylesheet' id='jetpack-carousel-ie8fix-css'  href='https://s1.wp.com/wp-content/mu-plugins/carousel/jetpack-carousel-ie8fix.css?m=1412618825h&#038;ver=20121024' type='text/css' media='all' />
+<![endif]-->
+<script type='text/javascript'>
+/* <![CDATA[ */
+var actionbardata = {"siteID":"45148621","siteName":"martingalemeasure","siteURL":"http:\/\/martingalemeasure.wordpress.com","icon":"<img alt='' src='https:\/\/s1.wp.com\/i\/void.gif' class='avatar avatar-36' height='36' width='36' \/>","canManageOptions":"","canCustomizeSite":"","isFollowing":"","themeSlug":"pub\/minnow","signupURL":"https:\/\/wordpress.com\/start\/","loginURL":"https:\/\/martingalemeasure.wordpress.com\/wp-login.php?redirect_to=https%3A%2F%2Fmartingalemeasure.wordpress.com%2F2014%2F06%2F24%2Fsolving-the-15-puzzle-with-haskell-and-diagrams-10%2F","themeURL":"https:\/\/wordpress.com\/themes\/minnow\/","xhrURL":"https:\/\/martingalemeasure.wordpress.com\/wp-admin\/admin-ajax.php","nonce":"7c9f5647e6","isSingular":"1","isFolded":"","isLoggedIn":"","isMobile":"","subscribeNonce":"<input type=\"hidden\" id=\"_wpnonce\" name=\"_wpnonce\" value=\"fb669ed9e8\" \/>","referer":"https:\/\/martingalemeasure.wordpress.com\/2014\/06\/24\/solving-the-15-puzzle-with-haskell-and-diagrams-10\/","canFollow":"1","statusMessage":"","customizeLink":"https:\/\/martingalemeasure.wordpress.com\/wp-admin\/customize.php?url=https%3A%2F%2Fmartingalemeasure.wordpress.com%2F2014%2F06%2F24%2Fsolving-the-15-puzzle-with-haskell-and-diagrams-10%2F","postID":"133","shortlink":"http:\/\/wp.me\/p33rdz-29","canEditPost":"","editLink":"https:\/\/wordpress.com\/post\/martingalemeasure.wordpress.com\/133","i18n":{"view":"View Site","follow":"Follow","following":"Following","edit":"Edit","login":"Log In","signup":"Sign Up","customize":"Customize","report":"Report this content","themeInfo":"Get theme: Minnow","shortlink":"Copy shortlink","copied":"Copied","followedText":"New posts from this site will now appear in your <a href=\"https:\/\/wordpress.com\/\">Reader<\/a>","foldBar":"Collapse this bar","unfoldBar":"Expand this bar","editFollows":"Manage Sites I Follow","editSubs":"Manage Subscriptions","viewReader":"View Site in the Reader","subscribe":"Sign me up","enterEmail":"Enter your email address","followers":"Join 105 other followers","alreadyUser":"Already have a WordPress.com account? <a href=\"https:\/\/martingalemeasure.wordpress.com\/wp-login.php?redirect_to=https%3A%2F%2Fmartingalemeasure.wordpress.com%2F2014%2F06%2F24%2Fsolving-the-15-puzzle-with-haskell-and-diagrams-10%2F\">Log in now.<\/a>"}};
+/* ]]> */
+</script>
+<script type='text/javascript'>
+/* <![CDATA[ */
+var jetpackCarouselStrings = {"widths":[370,700,1000,1200,1400,2000],"is_logged_in":"","lang":"en","ajaxurl":"https:\/\/martingalemeasure.wordpress.com\/wp-admin\/admin-ajax.php","nonce":"fe365249d5","display_exif":"1","display_geo":"1","single_image_gallery":"1","single_image_gallery_media_file":"","background_color":"black","comment":"Comment","post_comment":"Post Comment","write_comment":"Write a Comment...","loading_comments":"Loading Comments...","download_original":"View full size <span class=\"photo-size\">{0}<span class=\"photo-size-times\">\u00d7<\/span>{1}<\/span>","no_comment_text":"Please be sure to submit some text with your comment.","no_comment_email":"Please provide an email address to comment.","no_comment_author":"Please provide your name to comment.","comment_post_error":"Sorry, but there was an error posting your comment. Please try again later.","comment_approved":"Your comment was approved.","comment_unapproved":"Your comment is in moderation.","camera":"Camera","aperture":"Aperture","shutter_speed":"Shutter Speed","focal_length":"Focal Length","comment_registration":"0","require_name_email":"1","login_url":"https:\/\/martingalemeasure.wordpress.com\/wp-login.php?redirect_to=https%3A%2F%2Fmartingalemeasure.wordpress.com%2F2014%2F06%2F24%2Fsolving-the-15-puzzle-with-haskell-and-diagrams-10%2F","blog_id":"45148621","local_comments_commenting_as":"<fieldset><label for=\"email\">Email (Required)<\/label> <input type=\"text\" name=\"email\" class=\"jp-carousel-comment-form-field jp-carousel-comment-form-text-field\" id=\"jp-carousel-comment-form-email-field\" \/><\/fieldset><fieldset><label for=\"author\">Name (Required)<\/label> <input type=\"text\" name=\"author\" class=\"jp-carousel-comment-form-field jp-carousel-comment-form-text-field\" id=\"jp-carousel-comment-form-author-field\" \/><\/fieldset><fieldset><label for=\"url\">Website<\/label> <input type=\"text\" name=\"url\" class=\"jp-carousel-comment-form-field jp-carousel-comment-form-text-field\" id=\"jp-carousel-comment-form-url-field\" \/><\/fieldset>","reblog":"Reblog","reblogged":"Reblogged","reblog_add_thoughts":"Add your thoughts here... (optional)","reblogging":"Reblogging...","post_reblog":"Post Reblog","stats_query_args":"blog=45148621&v=wpcom&tz=0&user_id=0&subd=martingalemeasure","is_public":"1","reblog_enabled":""};
+/* ]]> */
+</script>
+<script type='text/javascript'>
+/* <![CDATA[ */
+var sharing_js_options = {"lang":"en","counts":"1"};
+/* ]]> */
+</script>
+<script type='text/javascript' src='https://s0.wp.com/_static/??-eJyNUO1uwyAMfKERFKkf+zPtWShxEhMwzIZ0ffsRdc2iqYr6y6fz3flAX5OykTJQ1k50BzNaSN+Nkze9WYWiki8DkmiPE4j+KlBgNNR54P/iPEKoklQuOiBRvC7Jd/SSlMyMg8kY6SW5TJiUR5pUH20R1eNaH8n60lVHldkYQs1QDMnfmmrfeaPp6l5dDOtgJANXpOIMzLiErdxegl36LwkrelZK0l+PLe/q//LtdzRb1ZNb1nAsAl47yMnYST2IHU+KklXvDbKW0TDS8JjV9Bk+2sN7ezy3x8PJ/QAJlMz9'></script>
+<script type="text/javascript">
+// <![CDATA[
+(function() {
+try{
+  if ( window.external &&'msIsSiteMode' in window.external) {
+    if (window.external.msIsSiteMode()) {
+      var jl = document.createElement('script');
+      jl.type='text/javascript';
+      jl.async=true;
+      jl.src='https://martingalemeasure.wordpress.com/wp-content/plugins/ie-sitemode/custom-jumplist.php';
+      var s = document.getElementsByTagName('script')[0];
+      s.parentNode.insertBefore(jl, s);
+    }
+  }
+}catch(e){}
+})();
+// ]]>
+</script>	<script type="text/javascript">
+	var skimlinks_pub_id = "725X584219"
+	var skimlinks_sitename = "martingalemeasure.wordpress.com";
+	</script>
+	<script type="text/javascript" src="https://s.skimresources.com/js/725X1342.skimlinks.js"></script>		<iframe src='https://widgets.wp.com/likes/master.html?ver=20160429#ver=20160429' scrolling='no' id='likes-master' name='likes-master' style='display:none;'></iframe>
+		<div id='likes-other-gravatars'><div class="likes-text"><span>%d</span> bloggers like this:</div><ul class="wpl-avatars sd-like-gravatars"></ul></div>
+		<script>
+			var _comscore = _comscore || [];
+			_comscore.push({
+				c1: "2",
+				c2: "7518284"
+			});
+			(function() {
+				var s = document.createElement("script"),
+					el = document.getElementsByTagName("script")[0];
+				s.async = true;
+				s.src = (document.location.protocol == "https:" ? "https://sb" : "http://b") + ".scorecardresearch.com/beacon.js";
+				el.parentNode.insertBefore(s, el);
+			})();
+		</script>
+		<noscript>
+			<p class="robots-nocontent"><img src="https://sb.scorecardresearch.com/p?c1=2&amp;c2=7518284&amp;c3=&amp;c4=&amp;c5=&amp;c6=&amp;c15=&amp;cv=2.0&amp;cj=1" alt="" style="display:none;" width="1" height="1" /></p>
+		</noscript><script src="http://stats.wp.com/w.js?55" type="text/javascript" async defer></script>
+<script type="text/javascript">
+_tkq = window._tkq || [];
+_stq = window._stq || [];
+_tkq.push(['storeContext', {'blog_id':'45148621','blog_tz':'0','user_lang':'en','blog_lang':'en','user_id':'0'}]);
+_stq.push(['view', {'blog':'45148621','v':'wpcom','tz':'0','user_id':'0','post':'133','subd':'martingalemeasure'}]);
+_stq.push(['extra', {'crypt':'UE5XaGUuOTlwaD85flAmcm1mcmZsaDhkV11YdTdvUG14Q2VDQTR4LlUsLi82dU1mai9BMmcsaFtjRFBiOW96UWdhYl0uVXptZCZTLi4weVklLm9LTTEtMlhVd1ZLcjBLYVRHS21zJm55fE43Wi9SXXJwNC0sQUVRMyxbTnEvTEZHV1NtNGl8NzA9Y2pHM0xkYS1XOHNqYlZ3K352QmM9Q2xbdXBFMD9OQ3Y1SXAvSFh3RCw1dndYS2xySTB2K1YrNWtXNWwlUiU/TU1lUTc1eVhBLUp3dlNUfkZmTmkyZmEmNmxOfjU2RSxfbT0vRyxkWnZoalI/Y1dVdU5GZF04LUI='}]);
+_stq.push([ 'clickTrackerInit', '45148621', '133' ]);
+	</script>
+<noscript><img src="https://pixel.wp.com/b.gif?v=noscript" style="height:0px;width:0px;overflow:hidden" alt="" /></noscript>
+<script>
+if ( 'object' === typeof wpcom_mobile_user_agent_info ) {
+
+	wpcom_mobile_user_agent_info.init();
+	var mobileStatsQueryString = "";
+	
+	if( false !== wpcom_mobile_user_agent_info.matchedPlatformName )
+		mobileStatsQueryString += "&x_" + 'mobile_platforms' + '=' + wpcom_mobile_user_agent_info.matchedPlatformName;
+	
+	if( false !== wpcom_mobile_user_agent_info.matchedUserAgentName )
+		mobileStatsQueryString += "&x_" + 'mobile_devices' + '=' + wpcom_mobile_user_agent_info.matchedUserAgentName;
+	
+	if( wpcom_mobile_user_agent_info.isIPad() )
+		mobileStatsQueryString += "&x_" + 'ipad_views' + '=' + 'views';
+
+	if( "" != mobileStatsQueryString ) {
+		new Image().src = document.location.protocol + '//pixel.wp.com/g.gif?v=wpcom-no-pv' + mobileStatsQueryString + '&baba=' + Math.random();
+	}
+	
+}
+</script>
+</body>
+
+<!-- Mirrored from martingalemeasure.wordpress.com/2014/06/24/solving-the-15-puzzle-with-haskell-and-diagrams-10/ by HTTrack Website Copier/3.x [XR&CO'2014], Thu, 22 Dec 2016 02:26:09 GMT -->
+</html>

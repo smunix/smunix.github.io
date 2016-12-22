@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+
+<!-- Mirrored from www.stephendiehl.com/posts/ghc_02.html by HTTrack Website Copier/3.x [XR&CO'2014], Thu, 22 Dec 2016 03:10:27 GMT -->
+<head>
+
+    <!-- Basic Page Needs
+  ================================================== -->
+    <meta charset="utf-8">
+    <title>Dive into GHC: Intermediate Forms</title>
+    <meta name="description" content="{{description}}">
+    <meta name="author" content="{{author}}">
+
+    <!-- Mobile Specific Metas
+  ================================================== -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+    <!-- CSS
+  ================================================== -->
+    <link rel="stylesheet" href="../css/base.css">
+    <link rel="stylesheet" href="../css/skeleton.css">
+    <link rel="stylesheet" href="../css/typography.css">
+    <link rel="stylesheet" href="../css/layout.css">
+    <link rel="stylesheet" href="../css/syntax.css">
+    <link rel="stylesheet" href="../css/custom.css">
+
+    <link href="http://fonts.googleapis.com/css?family=Droid+Sans:400,700|Droid+Serif:400,400italic|Inconsolata" rel="stylesheet">
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+    </script>
+    <script type="text/x-mathjax-config">
+    </script>
+
+    <!-- Google Analytics -->
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','http://www.google-analytics.com/analytics.js','ga');
+
+      ga('create', 'UA-49839533-1', 'stephendiehl.com');
+      ga('send', 'pageview');
+    </script>
+
+    <!--[if lt IE 9]>
+        <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <!-- Favicons
+    ================================================== -->
+    <link rel="shortcut icon" href="images/favicon.html">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.html">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.html">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.html">
+
+    <link rel="alternate" title="Stephen Diehl" type="application/atom+xml" href="feed.html">
+    <link rel="alternate" title="Stephen Diehl" type="application/rss+xml" href="feed-2.html">
+</head>
+<body>
+
+    <div class="container">
+        <div class="three columns sidebar">
+            <nav>
+                <h3 id="logo">Stephen Diehl</h3>
+                <ul>
+                    <li><a href="../index.html">Index</a></li>
+                    <li><a href="../posts.html">Blog</a></li>
+                    <li><a href="../pages/writings.html">Writings</a></li>
+                    <li><a href="../pages/hire.html">Contact Me</a></li>
+                    <li><a href="../pages/pgp.html">PGP Key</a></li>
+                    <li><a href="https://github.com/sdiehl">Github</a></li>
+                    <li><a href="https://twitter.com/#!/smdiehl">Twitter</a></li>
+                </ul>
+            </nav>
+            &nbsp;
+        </div>
+
+        <div class="twelve columns offset-by-one content">
+            <h3 id="dive-into-ghc-intermediate-forms">Dive into GHC: Intermediate Forms</h3>
+<p>In the <a href="ghc_01.html">last blog post</a>, we discussed the high-level API used inside the GHC compiler. This time let’s zoom into the pieces that comprise the frontend of the compilation pipeline, namely:</p>
+<ol style="list-style-type: decimal">
+<li><strong>Parsing</strong></li>
+<li><strong>Renaming</strong></li>
+<li><strong>Typechecking</strong></li>
+<li><strong>Desugaring</strong></li>
+<li><strong>Simplification</strong></li>
+<li>Code Generation</li>
+</ol>
+<p style="text-align:center">
+<strong><a href="https://github.com/sdiehl/dive-into-ghc/tree/master/02-parser">Accompaying Source Code</a></strong>
+</p>
+<h4 id="passes">Passes</h4>
+<p>The following functions are the main passes are that are used inside of the compiler driver functions in <code>HscMain</code> .</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- Parse a module.</span>
+<span class="ot">parseModule ::</span> <span class="dt">GhcMonad</span> m <span class="ot">=&gt;</span> <span class="dt">ModSummary</span> <span class="ot">-&gt;</span> m <span class="dt">ParsedModule</span>
+
+<span class="co">-- Typecheck and rename a parsed module.</span>
+<span class="ot">typecheckModule ::</span> <span class="dt">GhcMonad</span> m <span class="ot">=&gt;</span> <span class="dt">ParsedModule</span> <span class="ot">-&gt;</span> m <span class="dt">TypecheckedModule</span>
+
+<span class="co">-- Desugar a typechecked module.</span>
+<span class="ot">desugarModule ::</span> <span class="dt">GhcMonad</span> m <span class="ot">=&gt;</span> <span class="dt">TypecheckedModule</span> <span class="ot">-&gt;</span> m <span class="dt">DesugaredModule</span>
+
+<span class="co">-- Extract ModGuts</span>
+<span class="ot">coreModule ::</span> <span class="dt">DesugaredMod</span> m <span class="ot">=&gt;</span> m <span class="ot">-&gt;</span> <span class="dt">ModGuts</span>
+
+<span class="co">-- Generated STG bindings from Core module</span>
+<span class="ot">coreToStg ::</span> <span class="dt">DynFlags</span> <span class="ot">-&gt;</span> <span class="dt">Module</span> <span class="ot">-&gt;</span> <span class="dt">CoreProgram</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> [<span class="dt">StgBinding</span>]</code></pre></div>
+<p>Each of the these functions manipulates an <em>intermediate form</em> used in the process of compiling a Haskell module into a form that can be compiled into machine code or interpreted.</p>
+<h4 id="parser">Parser</h4>
+<p>The frontend syntax for Haskell is fairly large and is partially defined in the <a href="https://www.haskell.org/onlinereport/haskell2010/haskellch10.html#x17-17500010">Haskell 2010 specification</a> and extended by GHC. The parser is written using two custom tools:</p>
+<ol style="list-style-type: decimal">
+<li><em>Alex</em>, for lexical analysis. See: <a href="https://github.com/ghc/ghc/blob/master/compiler/parser/Lexer.x">Lexer.x</a></li>
+<li><em>Happy</em>, for the parser itself. See: <a href="https://github.com/ghc/ghc/blob/master/compiler/parser/Parser.y">Parser.y</a></li>
+</ol>
+<p>Happy is a parser generator system for Haskell, similar to the tool `yacc’ for C. It works as a preprocessor with it’s own syntax that generates a parse table from two specifications, a lexer file and parser file. The Happy parser consists of a list of a production rules and a monad to running the parser in. Production rules consist of a set of options on the left and generating Haskell expressions on the right with indexed variables (<code>$1</code>, <code>$2</code>, …) mapping to the ordered terms on the left (i.e. in the second term <code>term</code> ~ <code>$1</code>, <code>term</code> ~ <code>$2</code>).</p>
+<div class="sourceCode"><pre class="sourceCode perl"><code class="sourceCode perl">terms
+    : term                   { [<span class="dt">$1</span>] }
+    | term terms             { <span class="dt">$1</span> : <span class="dt">$2</span> }</code></pre></div>
+<p>The most complicated part of the lexer is with regards to whitespace-sensitive layout. To handle whitespace the lexer will analyze the line position of certain productions and will output <em>virtual tokens</em> (vbrace, vsemi, etc) which are used to canonicalize the syntax. For example the use of layout rule in do-notation:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">main <span class="fu">=</span> <span class="kw">do</span>
+  putStrLn <span class="st">&quot;Hello&quot;</span>
+  putStrLn <span class="st">&quot;Haskell&quot;</span></code></pre></div>
+<p>Is converted into explicit virtual braces and semicolons at parse time.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">main <span class="fu">=</span> <span class="kw">do</span> { putStrLn <span class="st">&quot;Hello&quot;</span>; putStrLn <span class="st">&quot;Haskell&quot;</span> }</code></pre></div>
+<p>The main entry points are defined in the <a href="https://downloads.haskell.org/~ghc/7.10.3/docs/html/libraries/ghc-7.10.3/Parser.html">Parser</a> and resolve into a monad <code>P</code> which holds state about the source buffer, and filename and location. The resulting AST is called HsSyn and contains position information preserved from the tokens.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">parseType ::</span> <span class="dt">P</span> (<span class="dt">LHsType</span> <span class="dt">RdrName</span>)
+<span class="ot">parseExpression ::</span> <span class="dt">P</span> (<span class="dt">LHsExpr</span> <span class="dt">RdrName</span>)
+<span class="ot">parseModule ::</span> <span class="dt">P</span> (<span class="dt">Located</span> (<span class="dt">HsModule</span> <span class="dt">RdrName</span>))</code></pre></div>
+<h4 id="located">Located</h4>
+<p>Frontend syntax in GHC carries position information along with it that can be used in error reporting. Location information is defined by a <code>Located</code> type which has a single type paramater for the AST element to be “located”. Typically type synonyms follow the convention that a “L” before the type indicates a synonym for a located element. So a located <code>HsExpr</code> is a <code>LHsExxpr</code>.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">GenLocated</span> l e <span class="fu">=</span> <span class="dt">L</span> l e
+<span class="kw">type</span> <span class="dt">Located</span> e <span class="fu">=</span> <span class="dt">GenLocated</span> <span class="dt">SrcSpan</span> e</code></pre></div>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">unLoc ::</span> <span class="dt">GenLocated</span> l e <span class="ot">-&gt;</span> e
+unLoc (<span class="dt">L</span> _ e) <span class="fu">=</span> e
+
+<span class="ot">getLoc ::</span> <span class="dt">GenLocated</span> l e <span class="ot">-&gt;</span> l
+getLoc (<span class="dt">L</span> l _) <span class="fu">=</span> l
+
+<span class="ot">noLoc ::</span> e <span class="ot">-&gt;</span> <span class="dt">Located</span> e
+noLoc e <span class="fu">=</span> <span class="dt">L</span> noSrcSpan e</code></pre></div>
+<p>Most notably there is a functor instance for <code>fmap</code>ing over a located element, which modifies the underlying type preserving the location.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Functor</span> (<span class="dt">GenLocated</span> l) <span class="kw">where</span>
+  fmap f (<span class="dt">L</span> l e) <span class="fu">=</span> <span class="dt">L</span> l (f e)</code></pre></div>
+<h4 id="frontend-syntax">Frontend Syntax</h4>
+<p>The <a href="https://downloads.haskell.org/~ghc/7.10.3/docs/html/libraries/ghc-7.10.3/HsSyn.html">frontend syntax</a> (called HsSyn) is spread across several data types which contain all possible syntax elements generated from the parser. These are parameterized over the name type so that transformations (renamer, etc) can alter the structure of bindings and identifiers while preserving the syntax tree structure.</p>
+<ol style="list-style-type: decimal">
+<li><strong>HsModule</strong> - Top-level structure for a module. Contains module name, exports, imports, and toplevel declarations.</li>
+<li><strong>HsDecl</strong> - Type, class, value, and interface signature decls</li>
+<li><strong>HsBind</strong> - Value bindings used for both top level and nested bindings.</li>
+<li><strong>HsGroup</strong> - A HsGroup is a group of related HsDecls.</li>
+<li><strong>HsLit</strong> - Literal value (Int, Char, etc)</li>
+<li><strong>HsExpr</strong> - A Haskell expression.</li>
+<li><strong>HsType</strong> - Frontend type annotation.</li>
+<li><strong>Pat</strong> - Pattern match in a case statement or toplevel binding.</li>
+</ol>
+<p>There are many variants of <a href="https://downloads.haskell.org/~ghc/7.10.3/docs/html/libraries/ghc-7.10.3/Var.html#t:Var">identifiers</a> used in different phases of compilation. In order of generality:</p>
+<ol style="list-style-type: decimal">
+<li><strong>OccName</strong> - Simplest name used, it holds the names as strings with the namespace that the name came from and position.</li>
+<li><strong>RdrName</strong> - Is the type of names that come directly from the parser. Contains information whether the name is unqualified or qualified (with module name).</li>
+<li><strong>Name</strong> - Is the type of names that have had their scoping and binding resolved. They have an OccName but also a Unique that disambiguates Names</li>
+<li><strong>Var</strong> - Is the type of names that not only have a Name but also a Type. Vars are either global or local.</li>
+</ol>
+<p>Names are disambiguated from each other by an internal unique numerical key called a <a href="https://downloads.haskell.org/~ghc/7.10.3/docs/html/libraries/ghc-7.10.3/Unique.html#t:Unique">Unique</a> , which are generated from a <a href="https://downloads.haskell.org/~ghc/7.10.3/docs/html/libraries/ghc-7.10.3/UniqSupply.html">UniqSupply</a> . These are often embedded within the monad transformer <code>MonadUnique</code> layer of the pass.</p>
+<p>After typechecking we deal with Var and Id names which have the property that the Name and Type can always be recovered using the following functions.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">varName ::</span> <span class="dt">Var</span> <span class="ot">-&gt;</span> <span class="dt">Name</span>
+<span class="ot">varType ::</span> <span class="dt">Var</span> <span class="ot">-&gt;</span> <span class="dt">Kind</span></code></pre></div>
+<p>In addition, many lookup functions use a sum type <code>TyThing</code> which wraps “things” in scope which have types, such as identifiers and type constructors.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">TyThing</span>
+  <span class="fu">=</span> <span class="dt">AnId</span> <span class="dt">Id</span>
+  <span class="fu">|</span> <span class="dt">AConLike</span> <span class="dt">ConLike.ConLike</span>
+  <span class="fu">|</span> <span class="dt">ATyCon</span> <span class="dt">TyCon</span>
+  <span class="fu">|</span> <span class="dt">ACoAxiom</span> (<span class="dt">CoAxiom</span> <span class="dt">Branched</span>)</code></pre></div>
+<h4 id="outputable">Outputable</h4>
+<p>Inside the GHC API is a pretty printer which can be used to dump out a pretty printed summary of a large number of the internal types. The structure of the class is similar to <code>Show</code> typeclass.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Outputable</span> a <span class="kw">where</span>
+<span class="ot">  ppr ::</span> a <span class="ot">-&gt;</span> <span class="dt">SDoc</span>
+<span class="ot">  pprPrec ::</span> <span class="dt">Rational</span> <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">SDoc</span>
+
+<span class="ot">showPpr ::</span> <span class="dt">Outputable</span> a <span class="ot">=&gt;</span> <span class="dt">DynFlags</span> <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">String</span></code></pre></div>
+<p>To simplify our life a bit we can write a wrapper <code>showGhc</code> which uses the default dynflags to dump out an instance of <code>Outputable</code>.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">showGhc ::</span> (<span class="dt">Outputable</span> a) <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">String</span>
+showGhc <span class="fu">=</span> showPpr unsafeGlobalDynFlags</code></pre></div>
+<h4 id="tracing-compilation">Tracing Compilation</h4>
+<p>Given the following example module we’d like to trace the transformation of the intermediate forms as it’s run through the compiler.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">module</span> <span class="dt">Example</span> <span class="kw">where</span>
+
+<span class="kw">data</span> <span class="dt">Animal</span> <span class="fu">=</span> <span class="dt">Cat</span> <span class="fu">|</span> <span class="dt">Dog</span>
+
+<span class="ot">add ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span>
+add x y <span class="fu">=</span> x <span class="fu">+</span> y </code></pre></div>
+<p>Using the machinery of the last post we import the module target, load it, and then instead of adding it to an interactive context we explicitly call the functions of the individual passes and dump our their structure to the screen.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> runGhc (<span class="dt">Just</span> libdir) <span class="fu">$</span> <span class="kw">do</span>
+  env <span class="ot">&lt;-</span> getSession
+  dflags <span class="ot">&lt;-</span> getSessionDynFlags
+  setSessionDynFlags <span class="fu">$</span> dflags { hscTarget <span class="fu">=</span> <span class="dt">HscInterpreted</span> }
+
+  target <span class="ot">&lt;-</span> guessTarget <span class="st">&quot;Example.hs&quot;</span> <span class="dt">Nothing</span>
+  setTargets [target]
+  load <span class="dt">LoadAllTargets</span>
+  modSum <span class="ot">&lt;-</span> getModSummary <span class="fu">$</span> mkModuleName <span class="st">&quot;Example&quot;</span>
+
+  pmod <span class="ot">&lt;-</span> parseModule modSum      <span class="co">-- ModuleSummary</span>
+  tmod <span class="ot">&lt;-</span> typecheckModule pmod    <span class="co">-- TypecheckedSource</span>
+  dmod <span class="ot">&lt;-</span> desugarModule tmod      <span class="co">-- DesugaredModule</span>
+  <span class="kw">let</span> core <span class="fu">=</span> coreModule dmod      <span class="co">-- ModGuts</span>
+  stg <span class="ot">&lt;-</span> liftIO <span class="fu">$</span> coreToStg dflags (mg_module core) (mg_binds core)
+
+  liftIO <span class="fu">$</span> banner <span class="st">&quot;Parsed Source&quot;</span>
+  liftIO <span class="fu">$</span> putStrLn <span class="fu">$</span> showGhc ( parsedSource pmod )
+
+  liftIO <span class="fu">$</span> banner <span class="st">&quot;Renamed Module&quot;</span>
+  liftIO <span class="fu">$</span> putStrLn <span class="fu">$</span> showGhc ( tm_renamed_source tmod )
+
+  liftIO <span class="fu">$</span> banner <span class="st">&quot;Typechecked Module&quot;</span>
+  liftIO <span class="fu">$</span> putStrLn <span class="fu">$</span> showGhc ( tm_typechecked_source tmod )
+
+  liftIO <span class="fu">$</span> banner <span class="st">&quot;Typed Toplevel Definitions&quot;</span>
+  liftIO <span class="fu">$</span> putStrLn <span class="fu">$</span> showGhc ( modInfoTyThings (moduleInfo tmod) )
+
+  liftIO <span class="fu">$</span> banner <span class="st">&quot;Typed Toplevel Exports&quot;</span>
+  liftIO <span class="fu">$</span> putStrLn <span class="fu">$</span> showGhc ( modInfoExports (moduleInfo tmod) )
+
+  liftIO <span class="fu">$</span> banner <span class="st">&quot;Core Module&quot;</span>
+  liftIO <span class="fu">$</span> putStrLn <span class="fu">$</span> showGhc ( mg_binds core )
+
+  liftIO <span class="fu">$</span> banner <span class="st">&quot;STG&quot;</span>
+  liftIO <span class="fu">$</span> putStrLn <span class="fu">$</span> showGhc stg</code></pre></div>
+<h4 id="parsing">Parsing</h4>
+<p>From the module summary we can extract the underlying text stream of the source file <code>Example.hs</code>. Running the parser over this generates a <em>ParsedSource</em> datatype which contains the HsSyn AST with raw OccNames.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">ParsedModule</span> <span class="fu">=</span> <span class="dt">ParsedModule</span> 
+  {<span class="ot"> pm_mod_summary ::</span> <span class="dt">ModSummary</span>
+  ,<span class="ot"> pm_parsed_source ::</span> <span class="dt">ParsedSource</span>
+  ,<span class="ot"> pm_extra_src_files ::</span> [FilePath]
+  ,<span class="ot"> pm_annotations ::</span> <span class="dt">ApiAnns</span>
+  }</code></pre></div>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="fu">===============================</span><span class="dt">Parsed</span> <span class="dt">Source</span><span class="fu">===============================</span>
+<span class="kw">module</span> <span class="dt">Example</span> <span class="kw">where</span>
+<span class="kw">data</span> <span class="dt">Animal</span> <span class="fu">=</span> <span class="dt">Cat</span> <span class="fu">|</span> <span class="dt">Dog</span>
+<span class="ot">add ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span>
+add x y <span class="fu">=</span> x <span class="fu">+</span> y</code></pre></div>
+<hr />
+<h4 id="renaming">Renaming</h4>
+<p>After parsing we run the renamer pass which is responsible for resolving scopes, operator precedences, and unique’ifying all names so that clashes cannot occur. The renamer resolves <code>RdrName</code>s into <code>Name</code>s across all syntax elements. In addition it annotates each name with whether they are qualified and global or local to the current module. If a name is not in scope, compilation simply halts here and reports the missing name.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="fu">===============================</span><span class="dt">Renamed</span> <span class="dt">Module</span><span class="fu">===============================</span>
+<span class="dt">Just</span> (<span class="ot">add ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span>
+      add x y <span class="fu">=</span> x <span class="fu">+</span> y
+      
+      <span class="kw">data</span> <span class="dt">Animal</span> <span class="fu">=</span> <span class="dt">Cat</span> <span class="fu">|</span> <span class="dt">Dog</span>,
+      [<span class="kw">import </span>(implicit) <span class="dt">Prelude</span>],
+      <span class="dt">Nothing</span>,
+      <span class="dt">Nothing</span>)</code></pre></div>
+<hr />
+<h4 id="typechecking">Typechecking</h4>
+<p>The renamed AST is then run through the typechecker which maps <code>Name</code>s into <code>Id</code> and enriches them with inferred types using type inference.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">TypecheckedModule</span> <span class="fu">=</span> <span class="dt">TypecheckedModule</span> 
+  {<span class="ot"> tm_parsed_module ::</span> <span class="dt">ParsedModule</span>
+  ,<span class="ot"> tm_renamed_source ::</span> <span class="dt">Maybe</span> <span class="dt">RenamedSource</span>
+  ,<span class="ot"> tm_typechecked_source ::</span> <span class="dt">TypecheckedSource</span>
+  ,<span class="ot"> tm_checked_module_info ::</span> <span class="dt">ModuleInfo</span>
+  ,<span class="ot"> tm_internals_ ::</span> (<span class="dt">TcRnTypes.TcGblEnv</span>, <span class="dt">HscTypes.ModDetails</span>)
+  }</code></pre></div>
+<p>The resulting structure is a typechecked module which contains the toplevel types of all bindings and all subexpressions.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="fu">=============================</span><span class="dt">Typechecked</span> <span class="dt">Module</span><span class="fu">=============================</span>
+{<span class="dt">AbsBinds</span> [] []
+   {<span class="dt">Exports</span><span class="fu">:</span> [add <span class="fu">&lt;=</span> add
+                <span class="fu">&lt;&gt;</span>]
+    <span class="dt">Exported</span> types<span class="fu">:</span><span class="ot"> add ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span>
+                    [<span class="dt">LclId</span>, <span class="dt">Str</span><span class="fu">=</span><span class="dt">DmdType</span>]
+    <span class="dt">Binds</span><span class="fu">:</span> add x y <span class="fu">=</span> (<span class="fu">+</span>) x y}}</code></pre></div>
+<p>The resulting datatype has a field for <code>ModuleInfo</code>, which contains various metadata about the typing environment, the names in scope, and typeclasses exported.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">ModuleInfo</span> <span class="fu">=</span> <span class="dt">ModuleInfo</span> 
+  {<span class="ot"> minf_type_env ::</span> <span class="dt">HscTypes.TypeEnv</span>
+  ,<span class="ot"> minf_exports ::</span> <span class="dt">NameSet.NameSet</span>
+  ,<span class="ot"> minf_rdr_env ::</span> <span class="dt">Maybe</span> <span class="dt">RdrName.GlobalRdrEnv</span>
+  ,<span class="ot"> minf_instances ::</span> [<span class="dt">ClsInst</span>]
+  ,<span class="ot"> minf_iface ::</span> <span class="dt">Maybe</span> <span class="dt">ModIface</span>
+  ,<span class="ot"> minf_safe ::</span> <span class="dt">SafeHaskellMode</span>
+  ,<span class="ot"> minf_modBreaks ::</span> <span class="dt">ModBreaks</span>
+  }</code></pre></div>
+<p>Using the <code>coreModule</code> we can also construct the gruesomely named <code>ModGuts</code> datatype which contains an expanded form of all the various exports and types with associated metadata.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">ModGuts</span> <span class="fu">=</span> <span class="dt">ModGuts</span> 
+  {<span class="ot"> mg_module ::</span> <span class="fu">!</span><span class="dt">Module</span>,
+  ,<span class="ot"> mg_boot ::</span> <span class="dt">IsBootInterface</span>
+  ,<span class="ot"> mg_exports ::</span> <span class="fu">!</span>[<span class="dt">Avail.AvailInfo</span>]
+  ,<span class="ot"> mg_deps ::</span> <span class="fu">!</span><span class="dt">Dependencies</span>
+  ,<span class="ot"> mg_dir_imps ::</span> <span class="fu">!</span><span class="dt">ImportedMods</span>
+  ,<span class="ot"> mg_used_names ::</span> <span class="fu">!</span><span class="dt">NameSet.NameSet</span>
+  ,<span class="ot"> mg_used_th ::</span> <span class="fu">!</span><span class="dt">Bool</span>
+  ,<span class="ot"> mg_rdr_env ::</span> <span class="fu">!</span><span class="dt">RdrName.GlobalRdrEnv</span>
+  ,<span class="ot"> mg_fix_env ::</span> <span class="fu">!</span><span class="dt">FixityEnv</span>
+  ,<span class="ot"> mg_tcs ::</span> <span class="fu">!</span>[<span class="dt">TyCon</span>]
+  ,<span class="ot"> mg_insts ::</span> <span class="fu">!</span>[<span class="dt">ClsInst</span>]
+  ,<span class="ot"> mg_fam_insts ::</span> <span class="fu">!</span>[<span class="dt">FamInst</span>]
+  ,<span class="ot"> mg_patsyns ::</span> <span class="fu">!</span>[<span class="dt">PatSyn.PatSyn</span>]
+  ,<span class="ot"> mg_rules ::</span> <span class="fu">!</span>[<span class="dt">CoreSyn.CoreRule</span>]
+  ,<span class="ot"> mg_binds ::</span> <span class="fu">!</span><span class="dt">CoreSyn.CoreProgram</span>
+  ,<span class="ot"> mg_foreign ::</span> <span class="fu">!</span><span class="dt">ForeignStubs</span>
+  ,<span class="ot"> mg_warns ::</span> <span class="fu">!</span><span class="dt">Warnings</span>
+  ,<span class="ot"> mg_anns ::</span> [<span class="dt">Annotations.Annotation</span>]
+  ,<span class="ot"> mg_hpc_info ::</span> <span class="fu">!</span><span class="dt">HpcInfo</span>
+  ,<span class="ot"> mg_modBreaks ::</span> <span class="fu">!</span><span class="dt">ModBreaks</span>
+  ,<span class="ot"> mg_vect_decls ::</span> <span class="fu">!</span>[<span class="dt">CoreSyn.CoreVect</span>]
+  ,<span class="ot"> mg_vect_info ::</span> <span class="fu">!</span><span class="dt">VectInfo</span>
+  ,<span class="ot"> mg_inst_env ::</span> <span class="dt">InstEnv.InstEnv</span>
+  ,<span class="ot"> mg_fam_inst_env ::</span> <span class="dt">FamInstEnv.FamInstEnv</span>
+  ,<span class="ot"> mg_safe_haskell ::</span> <span class="dt">SafeHaskellMode</span>
+  ,<span class="ot"> mg_trust_pkg ::</span> <span class="dt">Bool</span>
+  ,<span class="ot"> mg_dependent_files ::</span> [FilePath]
+  }</code></pre></div>
+<p>The ModuleInfo can be queried for any type of information about types or names at this point. For instance if we were interesed in the types of a global name we could look it up as a <code>TyThing</code> inside the typing environment.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">modInfoTyThings ::</span> <span class="dt">ModuleInfo</span> <span class="ot">-&gt;</span> [<span class="dt">TyThing</span>]
+<span class="ot">modInfoExports ::</span> <span class="dt">ModuleInfo</span> <span class="ot">-&gt;</span> [<span class="dt">Name</span>]</code></pre></div>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="fu">=========================</span><span class="dt">Typed</span> <span class="dt">Toplevel</span> <span class="dt">Definitions</span><span class="fu">=========================</span>
+[<span class="dt">Type</span> constructor ‘<span class="dt">Animal</span>’, <span class="dt">Data</span> constructor ‘<span class="dt">Cat</span>’,
+ <span class="dt">Data</span> constructor ‘<span class="dt">Dog</span>’, <span class="dt">Identifier</span> ‘add’, <span class="dt">Identifier</span> ‘<span class="dt">Cat</span>’,
+ <span class="dt">Identifier</span> ‘<span class="dt">Dog</span>’]</code></pre></div>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="fu">===========================</span><span class="dt">Typed</span> <span class="dt">Toplevel</span> <span class="dt">Exports</span><span class="fu">===========================</span>
+[<span class="dt">Animal</span>, <span class="dt">Cat</span>, <span class="dt">Dog</span>, add]</code></pre></div>
+<hr />
+<h4 id="core">Core</h4>
+<p>The Core language is GHC’s most central data types. Core is a very small, explicitly-typed, variant of System FC. The output of the <code>typecheckModule</code> function is a datatype <code>CoreModule</code> which contains the Core program as the typing environment.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">CoreModule</span> <span class="fu">=</span> <span class="dt">CoreModule</span> 
+  {<span class="ot"> cm_module ::</span> <span class="fu">!</span><span class="dt">Module</span>
+  ,<span class="ot"> cm_types ::</span> <span class="fu">!</span><span class="dt">HscTypes.TypeEnv</span>
+  ,<span class="ot"> cm_binds ::</span> <span class="dt">CoreSyn.CoreProgram</span>
+  ,<span class="ot"> cm_safe ::</span> <span class="dt">SafeHaskellMode</span>
+  }</code></pre></div>
+<p>Looking at the core module we see that each name in the program is now annotated with an explicit type and typeclass dictionaries have been inserted.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="fu">================================</span><span class="dt">Core</span> <span class="dt">Module</span><span class="fu">================================</span>
+[<span class="ot">add ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span>
+ [<span class="dt">LclIdX</span>, <span class="dt">Str</span><span class="fu">=</span><span class="dt">DmdType</span>]
+ add <span class="fu">=</span> \ (<span class="ot">x ::</span> <span class="dt">Int</span>) (<span class="ot">y ::</span> <span class="dt">Int</span>) <span class="ot">-&gt;</span> <span class="fu">+</span> <span class="fu">@</span> <span class="dt">Int</span> <span class="fu">$</span>fNumInt x y]</code></pre></div>
+<p>Core then is translated into a intermediate form that is amenable to various analysis passes that optimize the program for code generation. This form is an abstract machine known a <em>Spineless Tagless G-Machine</em>. In this syntax every closure has an associated <em>Static Reference Table</em> or SRT. More on this later.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="fu">====================================</span><span class="dt">STG</span><span class="fu">====================================</span>
+[<span class="ot">add ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span>
+ [<span class="dt">LclIdX</span>, <span class="dt">Str</span><span class="fu">=</span><span class="dt">DmdType</span>] <span class="fu">=</span>
+     \r srt<span class="fu">:</span><span class="dt">SRT</span><span class="fu">:</span>[r6ry <span class="fu">:-&gt;</span> <span class="fu">$</span>fNumInt] [x y] <span class="fu">+</span> <span class="fu">$</span>fNumInt x y;]</code></pre></div>
+<hr />
+<h4 id="summary-next-steps">Summary &amp; Next Steps</h4>
+<p>We mentioned Core and STG only briefly. The process by which frontend syntax is transformed into Core will be our next topic. The design of Core defines a great deal of aspects about how the language is structured and informs the type system as well as code-generation.</p>
+        </div>
+    </div>
+
+    <!-- JS
+    ================================================== -->
+    <script src="http://code.jquery.com/jquery-1.7.1.min.js"></script>
+
+<!-- End Document
+================================================== -->
+</body>

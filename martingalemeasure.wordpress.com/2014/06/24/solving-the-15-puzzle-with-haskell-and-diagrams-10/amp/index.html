@@ -1,0 +1,707 @@
+<!doctype html>
+<html amp lang="en">
+
+<!-- Mirrored from martingalemeasure.wordpress.com/2014/06/24/solving-the-15-puzzle-with-haskell-and-diagrams-10/amp/ by HTTrack Website Copier/3.x [XR&CO'2014], Thu, 22 Dec 2016 03:09:53 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=UTF-8" /><!-- /Added by HTTrack -->
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no">
+	
+<!-- Jetpack Open Graph Tags -->
+<meta property="og:type" content="article" />
+<meta property="og:title" content="Solving the 15-Puzzle with Haskell and diagrams" />
+<meta property="og:url" content="../index.html" />
+<meta property="og:description" content="Something I like to do when learning a new programming language is to code a familiar project. This lets me gauge my progress and make comparisons with languages I&#8217;m more comfortable with. On…" />
+<meta property="article:published_time" content="2014-06-24T20:15:33+00:00" />
+<meta property="article:modified_time" content="2014-06-25T15:55:13+00:00" />
+<meta property="og:site_name" content="martingalemeasure" />
+<meta property="og:image" content="https://martingalemeasure.files.wordpress.com/2014/06/puzzle1.gif" />
+<meta property="og:locale" content="en_US" />
+<meta name="twitter:site" content="@JeffRosenbluth" />
+<meta name="twitter:image" content="https://martingalemeasure.files.wordpress.com/2014/06/puzzle1.gif?w=240" />
+<meta name="twitter:card" content="summary" />
+<meta name="twitter:creator" content="@JeffRosenbluth" />
+<meta property="fb:app_id" content="249643311490" />
+<meta property="article:publisher" content="https://www.facebook.com/WordPresscom" />
+	<title>Solving the 15-Puzzle with Haskell and diagrams &#8211; martingalemeasure</title>
+		<link rel="canonical" href="../index.html" />
+			<script custom-element="amp-anim" src="https://cdn.ampproject.org/v0/amp-anim-0.1.js" async></script>
+			<script custom-element="amp-ad" src="https://cdn.ampproject.org/v0/amp-ad-0.1.js" async></script>
+		<script src="https://cdn.ampproject.org/v0.js" async></script>
+			<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Merriweather:400,400italic,700,700italic">
+		<style amp-boilerplate>body{-webkit-animation:-amp-start 8s steps(1,end) 0s 1 normal both;-moz-animation:-amp-start 8s steps(1,end) 0s 1 normal both;-ms-animation:-amp-start 8s steps(1,end) 0s 1 normal both;animation:-amp-start 8s steps(1,end) 0s 1 normal both}@-webkit-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@-moz-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@-ms-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@-o-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}</style><noscript><style amp-boilerplate>body{-webkit-animation:none;-moz-animation:none;-ms-animation:none;animation:none}</style></noscript>
+		<script type="application/ld+json">{"@context":"http:\/\/schema.org","@type":"BlogPosting","mainEntityOfPage":"https:\/\/martingalemeasure.wordpress.com\/2014\/06\/24\/solving-the-15-puzzle-with-haskell-and-diagrams-10\/","publisher":{"@type":"Organization","name":"martingalemeasure","logo":{"@type":"ImageObject","url":"https:\/\/s2.wp.com\/i\/favicons\/apple-touch-icon-60x60.png","width":60,"height":60}},"headline":"Solving the 15-Puzzle with Haskell and diagrams","datePublished":"2014-06-24T20:15:33+00:00","dateModified":"2014-06-25T15:55:13+00:00","author":{"@type":"Person","name":"jeffreyrosenbluth"},"image":{"@type":"ImageObject","url":"http:\/\/martingalemeasure.files.wordpress.com\/2014\/06\/puzzle1.gif","width":null,"height":null}}</script>
+		<style amp-custom>
+		/* Generic WP styling */
+
+.alignright {
+	float: right;
+}
+
+.alignleft {
+	float: left;
+}
+
+.aligncenter {
+	display: block;
+	margin-left: auto;
+	margin-right: auto;
+}
+
+.amp-wp-enforced-sizes {
+	/** Our sizes fallback is 100vw, and we have a padding on the container; the max-width here prevents the element from overflowing. **/
+	max-width: 100%;
+	margin: 0 auto;
+}
+
+.amp-wp-unknown-size img {
+	/** Worst case scenario when we can't figure out dimensions for an image. **/
+	/** Force the image into a box of fixed dimensions and use object-fit to scale. **/
+	object-fit: contain;
+}
+
+/* Template Styles */
+
+.amp-wp-content,
+.amp-wp-title-bar div {
+		margin: 0 auto;
+	max-width: 660px;
+	}
+
+html {
+	background: #0a89c0;
+}
+
+body {
+	background: #fff;
+	color: #353535;
+	font-family: 'Merriweather', 'Times New Roman', Times, Serif;
+	font-weight: 300;
+	line-height: 1.75em;
+}
+
+p,
+ol,
+ul,
+figure {
+	margin: 0 0 1em;
+	padding: 0;
+}
+
+a,
+a:visited {
+	color: #0a89c0;
+}
+
+a:hover,
+a:active,
+a:focus {
+	color: #353535;
+}
+
+/* Quotes */
+
+blockquote {
+	color: #353535;
+	background: rgba(127,127,127,.125);
+	border-left: 2px solid #0a89c0;
+	margin: 8px 0 24px 0;
+	padding: 16px;
+}
+
+blockquote p:last-child {
+	margin-bottom: 0;
+}
+
+/* UI Fonts */
+
+.amp-wp-meta,
+.amp-wp-header div,
+.amp-wp-title,
+.wp-caption-text,
+.amp-wp-tax-category,
+.amp-wp-tax-tag,
+.amp-wp-comments-link,
+.amp-wp-footer p,
+.back-to-top {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen-Sans", "Ubuntu", "Cantarell", "Helvetica Neue", sans-serif;
+}
+
+/* Header */
+
+.amp-wp-header {
+	background-color: #0a89c0;
+}
+
+.amp-wp-header div {
+	color: #fff;
+	font-size: 1em;
+	font-weight: 400;
+	margin: 0 auto;
+	max-width: calc(840px - 32px);
+	padding: .875em 16px;
+	position: relative;
+}
+
+.amp-wp-header a {
+	color: #fff;
+	text-decoration: none;
+}
+
+/* Site Icon */
+
+.amp-wp-header .amp-wp-site-icon {
+	/** site icon is 32px **/
+	background-color: #fff;
+	border: 1px solid #fff;
+	border-radius: 50%;
+	position: absolute;
+	right: 18px;
+	top: 10px;
+}
+
+/* Article */
+
+.amp-wp-article {
+	color: #353535;
+	font-weight: 400;
+	margin: 1.5em auto;
+	max-width: 840px;
+	overflow-wrap: break-word;
+	word-wrap: break-word;
+}
+
+/* Article Header */
+
+.amp-wp-article-header {
+	align-items: center;
+	align-content: stretch;
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: space-between;
+	margin: 1.5em 16px 1.5em;
+}
+
+.amp-wp-title {
+	color: #353535;
+	display: block;
+	flex: 1 0 100%;
+	font-weight: 900;
+	margin: 0 0 .625em;
+	width: 100%;
+}
+
+/* Article Meta */
+
+.amp-wp-meta {
+	color: #696969;
+	display: inline-block;
+	flex: 2 1 50%;
+	font-size: .875em;
+	line-height: 1.5em;
+	margin: 0;
+	padding: 0;
+}
+
+.amp-wp-article-header .amp-wp-meta:last-of-type {
+	text-align: right;
+}
+
+.amp-wp-article-header .amp-wp-meta:first-of-type {
+	text-align: left;
+}
+
+.amp-wp-byline amp-img,
+.amp-wp-byline .amp-wp-author {
+	display: inline-block;
+	vertical-align: middle;
+}
+
+.amp-wp-byline amp-img {
+	border: 1px solid #0a89c0;
+	border-radius: 50%;
+	position: relative;
+	margin-right: 6px;
+}
+
+.amp-wp-posted-on {
+	text-align: right;
+}
+
+/* Featured image */
+
+.amp-wp-article-featured-image {
+	margin: 0 0 1em;
+}
+.amp-wp-article-featured-image amp-img {
+	margin: 0 auto;
+}
+.amp-wp-article-featured-image.wp-caption .wp-caption-text {
+	margin: 0 18px;
+}
+
+/* Article Content */
+
+.amp-wp-article-content {
+	margin: 0 16px;
+}
+
+.amp-wp-article-content ul,
+.amp-wp-article-content ol {
+	margin-left: 1em;
+}
+
+.amp-wp-article-content amp-img {
+	margin: 0 auto;
+}
+
+.amp-wp-article-content amp-img.alignright {
+	margin: 0 0 1em 16px;
+}
+
+.amp-wp-article-content amp-img.alignleft {
+	margin: 0 16px 1em 0;
+}
+
+/* Captions */
+
+.wp-caption {
+	padding: 0;
+}
+
+.wp-caption.alignleft {
+	margin-right: 16px;
+}
+
+.wp-caption.alignright {
+	margin-left: 16px;
+}
+
+.wp-caption .wp-caption-text {
+	border-bottom: 1px solid #c2c2c2;
+	color: #696969;
+	font-size: .875em;
+	line-height: 1.5em;
+	margin: 0;
+	padding: .66em 10px .75em;
+}
+
+/* AMP Media */
+
+amp-carousel {
+	background: #c2c2c2;
+	margin: 0 -16px 1.5em;
+}
+amp-iframe,
+amp-youtube,
+amp-instagram,
+amp-vine {
+	background: #c2c2c2;
+	margin: 0 -16px 1.5em;
+}
+
+.amp-wp-article-content amp-carousel amp-img {
+	border: none;
+}
+
+amp-carousel > amp-img > img {
+	object-fit: contain;
+}
+
+.amp-wp-iframe-placeholder {
+	background: #c2c2c2 url( https://s2.wp.com/wp-content/plugins/amp/assets/images/placeholder-icon.png) no-repeat center 40%;
+	background-size: 48px 48px;
+	min-height: 48px;
+}
+
+/* Article Footer Meta */
+
+.amp-wp-article-footer .amp-wp-meta {
+	display: block;
+}
+
+.amp-wp-tax-category,
+.amp-wp-tax-tag {
+	color: #696969;
+	font-size: .875em;
+	line-height: 1.5em;
+	margin: 1.5em 16px;
+}
+
+.amp-wp-comments-link {
+	color: #696969;
+	font-size: .875em;
+	line-height: 1.5em;
+	text-align: center;
+	margin: 2.25em 0 1.5em;
+}
+
+.amp-wp-comments-link a {
+	border-style: solid;
+	border-color: #c2c2c2;
+	border-width: 1px 1px 2px;
+	border-radius: 4px;
+	background-color: transparent;
+	color: #0a89c0;
+	cursor: pointer;
+	display: block;
+	font-size: 14px;
+	font-weight: 600;
+	line-height: 18px;
+	margin: 0 auto;
+	max-width: 200px;
+	padding: 11px 16px;
+	text-decoration: none;
+	width: 50%;
+	-webkit-transition: background-color 0.2s ease;
+			transition: background-color 0.2s ease;
+}
+
+/* AMP Footer */
+
+.amp-wp-footer {
+	border-top: 1px solid #c2c2c2;
+	margin: calc(1.5em - 1px) 0 0;
+}
+
+.amp-wp-footer div {
+	margin: 0 auto;
+	max-width: calc(840px - 32px);
+	padding: 1.25em 16px 1.25em;
+	position: relative;
+}
+
+.amp-wp-footer h2 {
+	font-size: 1em;
+	line-height: 1.375em;
+	margin: 0 0 .5em;
+}
+
+.amp-wp-footer p {
+	color: #696969;
+	font-size: .8em;
+	line-height: 1.5em;
+	margin: 0 85px 0 0;
+}
+
+.amp-wp-footer a {
+	text-decoration: none;
+}
+
+.back-to-top {
+	bottom: 1.275em;
+	font-size: .8em;
+	font-weight: 600;
+	line-height: 2em;
+	position: absolute;
+	right: 16px;
+}
+				/* WordAds */
+		.wpcnt {
+			text-align: center;
+			line-height: 0;
+			display: block;
+			clear: both;
+			margin: 1em 0;
+		}
+
+		.rtl .wpcnt {
+			direction: ltr;
+		}
+
+		.wpa {
+			position: relative;
+			display: inline-block;
+			max-width: 100%;
+			text-align: left;
+			padding: 10px 0 0;
+			min-width: 300px;
+			-webkit-transform: translate3d(0, 0, 0);
+			transform: translate3d(0, 0, 0);
+		}
+
+		.wpa-about {
+			position: absolute;
+			top: 5px;
+			left: 0;
+			right: 0;
+			display: block;
+			min-width: 160px;
+			border-bottom: none;
+			font: 10px/1 "Open Sans", Arial, sans-serif;
+			text-align: left;
+			text-decoration: none;
+			opacity: 0.85;
+		}
+
+		.wpa-about:hover {
+			text-decoration: underline;
+			opacity: 1;
+		}
+
+		.wpa-about:hover, .wa_infobox a:hover {
+			text-decoration: underline;
+			color: #444;
+		}
+
+		.wpa .u>div, .wpadvert>div>* {
+			display: block;
+			margin-top: 5px;
+			margin-bottom: 1em;
+		}
+
+		div.wpa>div {
+			margin-top: 10px;
+		}/* Inline styles */
+.amp-wp-inline-86384b0e20ac09afa0084aec2224fdda{color:red;}.amp-wp-inline-61f54ec584ad0df1f18f15c5583390b5{color:green;}.amp-wp-inline-021ed5e486af3732ded800188941e90a{color:blue;font-weight:bold;}.amp-wp-inline-f1d157e8ab42615679f392ad02f3779a{color:teal;}.amp-wp-inline-a6ec8840dd8107f0c4f9cbd7d00cece0{text-align:center;}	</style>
+</head>
+
+<body class="">
+
+<header id="#top" class="amp-wp-header">
+	<div>
+		<a href="https://martingalemeasure.wordpress.com/">
+						martingalemeasure		</a>
+	</div>
+</header>
+
+<article class="amp-wp-article">
+
+	<header class="amp-wp-article-header">
+		<h1 class="amp-wp-title">Solving the 15-Puzzle with Haskell and diagrams</h1>
+				<div class="amp-wp-meta amp-wp-byline">
+					<amp-img src="https://secure.gravatar.com/avatar/081ba388b15855fa5e5c7e37ab5df39f?s=24&amp;d=identicon&amp;r=g" width="24" height="24" layout="fixed"></amp-img>
+				<span class="amp-wp-author author vcard">jeffreyrosenbluth</span>
+	</div>
+<div class="amp-wp-meta amp-wp-posted-on">
+	<time datetime="2014-06-24T20:15:33+00:00">
+		2 years ago	</time>
+</div>
+	</header>
+
+	
+	<div class="amp-wp-article-content">
+		<p>Something I like to do when learning a new programming language is to code a familiar project. This lets me gauge my progress and make comparisons with languages I’m more comfortable with. One of my favorite “familiar” projects is a solver for the 15-puzzle. If you’re not familiar with the 15-puzzle, it’s a classic grid based game with 4 rows and 4 columns containing a total of 15 tiles. The tiles are labeled 1-15 and there is one blank space. The object is to put the tiles in ascending order by repeatedly sliding a tile into the blank space. See <a href="../../../../../../en.wikipedia.org/wiki/15_puzzlel.html">15 puzzle</a>.</p>
+<div class="amp-wp-inline-a6ec8840dd8107f0c4f9cbd7d00cece0">
+<div class="figure"><amp-anim src="https://martingalemeasure.files.wordpress.com/2014/06/puzzle1.gif?w=660" alt="45 move puzzle" width="300" height="300" sizes="(min-width: 300px) 300px, 100vw" class="amp-wp-enforced-sizes"></amp-anim><p class="caption">45 move puzzle</p>
+</div>
+</div>
+<p>There’s a reason the 15 puzzle has become a favorite coding exercise of mine. Its  solution is a particularly nice example of the interplay between algorithms and data structures. In particular, we use the A* algorithm which relies on a priority queue.</p>
+<p>While studying Haskell and working on the <a href="http://projects.haskell.org/diagrams/">diagrams project</a> I decided that I could take my 15 puzzle solution to the next level, by using <em>diagrams</em> to animate it.</p>
+<p>We start by getting the imports out of the way.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">&gt; <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">module</span> Main <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">where</span>&#13;
+&gt; &#13;
+&gt; <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">import</span>           Data.Array.Unboxed&#13;
+&gt; <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">import</span>           Data.List                           <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">(</span>elemIndex<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span>&#13;
+&gt; <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">import</span>           Data.List.Split                     <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">(</span>chunksOf<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span>&#13;
+&gt; <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">import</span>           Data.Maybe                          <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">(</span>mapMaybe<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span>&#13;
+&gt; <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">import</span> <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">qualified</span> Data.PQueue.Prio.Min                <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">as</span> PQ&#13;
+&gt; <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">import</span>           Diagrams.Prelude&#13;
+&gt; <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">import</span>           Diagrams.Backend.Rasterific.CmdLine&#13;
+&gt; <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">import</span>           System.Environment&#13;
+</code></pre>
+<h2 id="creating-the-animated-gif">Creating the animated GIF</h2>
+<p>Next, lets write the <em>diagrams</em> code to draw and animate a solution assuming we have already solved a 15 puzzle. The solution takes the form <code>[Board]</code> where <code>Board</code> is a matrix of tiles. Each tile is a number between 1 and 15.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">&gt; <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">type</span> Board <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">=</span> UArray <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">(</span>Int<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">,</span> Int<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span> Int&#13;
+</code></pre>
+<p>First we need to draw a single <code>Board</code>, i.e convert it to a diagram. Our strategy is to map a function that draws each tile onto the board, then concatenate the tile diagrams into a diagram of the puzzle board. <em>diagrams</em> has built in functions for vertically and horizontally concatenating lists of diagrams so we start by converting the <code>Board</code> to a list.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">&gt; fromBoard <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">::</span> Board <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">-&gt;</span> <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">[</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">[</span>Int<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">]</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">]</span>&#13;
+&gt; fromBoard b <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">=</span> <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">[</span>row i <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">|</span> i <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">&lt;-</span> <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">[</span><span class="hs-num">1</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">..</span>n<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">]</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">]</span>&#13;
+&gt;   <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">where</span>&#13;
+&gt;     row i <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">=</span> <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">[</span>b ! <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">(</span>i<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">,</span> j<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span> <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">|</span> j <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">&lt;-</span> <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">[</span><span class="hs-num">1</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">..</span>n<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">]</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">]</span>&#13;
+&gt;     n <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">=</span> dim b&#13;
+</code></pre>
+<p>The number of rows and columns in the puzzle is the upper bound of the array since we are using 1 (not 0) as the starting indices for our array.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">&gt; dim <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">::</span> Board <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">-&gt;</span> Int&#13;
+&gt; dim <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">=</span> snd . snd . bounds &#13;
+</code></pre>
+<p>Assuming we have a function <code>drawTile</code> that makes a number into a tile diagrams we can now create a diagram from a game board.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">&gt; boardDia <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">::</span> Board <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">-&gt;</span> Diagram B R2&#13;
+&gt; boardDia b <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">=</span> bg gray&#13;
+&gt;            . frame <span class="hs-num">0.1</span>&#13;
+&gt;            . vcat' <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">(</span>with &amp; sep .~ <span class="hs-num">0.075</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span>&#13;
+&gt;            . map <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">(</span>hcat' <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">(</span>with &amp; sep .~ <span class="hs-num">0.075</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span>&#13;
+&gt;            . <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">(</span>map . map<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span> drawTile $ fromBoard b &#13;
+</code></pre>
+<p>Here is <code>drawTile</code></p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">&gt; drawTile <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">::</span> Int <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">-&gt;</span> Diagram B R2&#13;
+&gt; drawTile <span class="hs-num">0</span> <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">=</span> square <span class="hs-num">1</span> # lw none&#13;
+&gt; drawTile s <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">=</span> text <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">(</span>show s<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span> &#13;
+&gt;            # fontSize <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">(</span>Local <span class="hs-num">1</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span> &#13;
+&gt;            # fc white&#13;
+&gt;            # scale <span class="hs-num">0.5</span>&#13;
+&gt;            # bold&#13;
+&gt;           &lt;&gt; roundedRect <span class="hs-num">1</span> <span class="hs-num">1</span> <span class="hs-num">0.2</span> &#13;
+&gt;            # fc darkred&#13;
+</code></pre>
+<p>Now we need to assemble a bunch of board diagrams into a GIF. All we need to do is pass a list of diagrams and delay times <code>[(Diagram B R2, Int)]</code> to the <code>mainWith</code> function, choose a .gif file extension when we run the program and <em>diagrams</em> will make an animated GIF.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">&gt; dias <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">::</span> <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">[</span>Board<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">]</span> <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">-&gt;</span> <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">[</span>Diagram B R2<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">]</span>&#13;
+&gt; dias bs <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">=</span> map boardDia bs &#13;
+</code></pre>
+<p>We show each board for 1 second and pause for 3 seconds before repeating the GIF loop.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">&gt; times <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">::</span> Int <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">-&gt;</span> <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">[</span>Int<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">]</span>&#13;
+&gt; times n <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">=</span> replicate <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">(</span>n<span class="amp-wp-inline-61f54ec584ad0df1f18f15c5583390b5">-</span><span class="hs-num">1</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span> <span class="hs-num">100</span> ++ <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">[</span><span class="hs-num">300</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">]</span>&#13;
+</code></pre>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">&gt; gifs <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">::</span> <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">[</span>Board<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">]</span> <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">-&gt;</span> <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">[</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">(</span>Diagram B R2<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">,</span> Int<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">]</span>&#13;
+&gt; gifs bs <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">=</span> zip <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">(</span>dias bs<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span> <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">(</span>times . length $ bs<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span>&#13;
+</code></pre>
+<p>Here is an example main program that solves a puzzle read in from a text file. The format of the puzzle file has as first line a single integer representing the dimension of the puzzle and each additional line a string of integers representing a row of the starting puzzle board. For example the puzzle at the top of the post has file:</p>
+<pre><code>4&#13;
+ 9  2  8  11  &#13;
+ 0  5 13   7&#13;
+15  1  4  10&#13;
+ 3 14  6  12</code></pre>
+<p>To run the program type the the following at the command line and then enter the path to your puzzle file:   ./Puzzle -o my_solution.gif -w 300</p>
+<p>Of course we still need to write, <code>solve</code>, <code>mkGameState</code>, and <code>boards</code>.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">&gt; main <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">=</span> <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">do</span>&#13;
+&gt;   putStrLn <span class="amp-wp-inline-f1d157e8ab42615679f392ad02f3779a">"Enter the name of the file containing the puzzle:"</span>&#13;
+&gt;   txt <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">&lt;-</span> readFile =&lt;&lt; getLine&#13;
+&gt;   <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">let</span> game <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">=</span> fromString txt&#13;
+&gt;       <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">(</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">[</span>n<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">]</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">,</span> brd<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span> <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">=</span> <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">case</span> game <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">of</span>&#13;
+&gt;         [] <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">-&gt;</span> error <span class="amp-wp-inline-f1d157e8ab42615679f392ad02f3779a">"Invalid puzzle file"</span>&#13;
+&gt;         x:xs <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">-&gt;</span> <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">(</span>x<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">,</span> concat xs<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span>&#13;
+&gt;   <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">let</span> p <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">=</span> solve . mkGameState n $ brd&#13;
+&gt;   mainWith $ gifs <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">(</span>boards p<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span> &#13;
+</code></pre>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">&gt; fromString <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">::</span> String <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">-&gt;</span> <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">[</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">[</span>Int<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">]</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">]</span>&#13;
+&gt; fromString s <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">=</span> <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">(</span>map . map<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span> read ws&#13;
+&gt;   <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">where</span> ws <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">=</span> map words <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">(</span>lines s<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span>&#13;
+</code></pre>
+<h2 id="the-a-algorithm">The A* algorithm</h2>
+<p>We are going to search for a solution using the A* algorithm. We will keep track of the state of the game in an algebraic data type called <code>GameState</code>.</p>
+<p>The game state includes the board, the number of moves up until this point and a previous state (unless this it the start state). We also cache the location of the blank tile and the manhattan distance to the goal state; so that we only need to calculate these things once.</p>
+<p>Notice that <code>GameState</code> recursively contains the game state that preceded it (wrapped in a <code>Maybe</code>) , except for the start state whose <code>previous</code> field will contain <code>Nothing</code>. This will allow us recreate all of the intermediate boards from the final solved board so that we can animate the game. We use the <code>boards</code> function to create the list containing each board from start to finish.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">&gt; <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">data</span> GameState <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">=</span> GameState &#13;
+&gt;   <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">{</span> board     <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">::</span> Board&#13;
+&gt;   <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">,</span> dist      <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">::</span> Int&#13;
+&gt;   <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">,</span> blank     <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">::</span> <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">(</span>Int<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">,</span> Int<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span>&#13;
+&gt;   <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">,</span> moves     <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">::</span> Int&#13;
+&gt;   <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">,</span> previous  <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">::</span> Maybe GameState &#13;
+&gt;   <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">}</span> <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">deriving</span> <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">(</span>Show<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">,</span> Eq<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">,</span> Ord<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span>&#13;
+</code></pre>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">&gt; boards <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">::</span> GameState <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">-&gt;</span> <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">[</span>Board<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">]</span>&#13;
+&gt; boards p <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">=</span> reverse $ brds p&#13;
+&gt;   <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">where</span>&#13;
+&gt;     brds q <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">=</span> <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">case</span> previous q <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">of</span>&#13;
+&gt;       Nothing <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">-&gt;</span> <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">[</span>board q<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">]</span>&#13;
+&gt;       Just r  <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">-&gt;</span> board q : brds r&#13;
+</code></pre>
+<p>The possible moves.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">&gt; <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">data</span> Direction <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">=</span> North <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">|</span> East <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">|</span> South <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">|</span> West&#13;
+</code></pre>
+<p>We create a priority queue <code>Frontier</code> whose priorities are the sum of the moves made so far to reach the game state and the manhattan distance to the goal state. This is an admissible heuristic function which guarantees that the solution we find will take the minimum number of moves. The initial <code>Frontier</code> contains only the start state. Then we recusively pop the minimum game state from the queue and check to see if it is the goal, if it is we are done, if not we calculate the states reachable by a legal game move (<code>neighbors</code>) and add them to the queue. Here’s the code.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">&gt; <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">type</span> Frontier <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">=</span> PQ.MinPQueue Int GameState&#13;
+</code></pre>
+<p>Manhattan distance of a tile with value <code>v</code> at position <code>(i, j)</code>, for a game of dimension <code>n</code>.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">&gt; manhattan <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">::</span> Int <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">-&gt;</span> Int <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">-&gt;</span> Int <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">-&gt;</span> Int  <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">-&gt;</span> Int&#13;
+&gt; manhattan v n i j <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">=</span> <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">if</span> v == <span class="hs-num">0</span> <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">then</span> <span class="hs-num">0</span> <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">else</span> rowDist + colDist&#13;
+&gt;   <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">where</span>&#13;
+&gt;     rowDist <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">=</span> abs <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">(</span>i<span class="amp-wp-inline-61f54ec584ad0df1f18f15c5583390b5">-</span><span class="hs-num">1</span> <span class="amp-wp-inline-61f54ec584ad0df1f18f15c5583390b5">-</span> <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">(</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">(</span>v<span class="amp-wp-inline-61f54ec584ad0df1f18f15c5583390b5">-</span><span class="hs-num">1</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span> `div` n<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span>&#13;
+&gt;     colDist <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">=</span> abs <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">(</span>j<span class="amp-wp-inline-61f54ec584ad0df1f18f15c5583390b5">-</span><span class="hs-num">1</span> <span class="amp-wp-inline-61f54ec584ad0df1f18f15c5583390b5">-</span> <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">(</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">(</span>v<span class="amp-wp-inline-61f54ec584ad0df1f18f15c5583390b5">-</span><span class="hs-num">1</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span> `mod` n<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span>&#13;
+</code></pre>
+<p>Manhattan distance of entire board.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">&gt; totalDist <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">::</span> Board <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">-&gt;</span> Int&#13;
+&gt; totalDist b <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">=</span> sum <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">[</span>manhattan <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">(</span>b ! <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">(</span>i<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">,</span> j<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span> n i j <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">|</span> i <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">&lt;-</span> <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">[</span><span class="hs-num">1</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">..</span>n<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">]</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">,</span> j <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">&lt;-</span> <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">[</span><span class="hs-num">1</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">..</span>n<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">]</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">]</span>&#13;
+&gt;   <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">where</span> n <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">=</span> dim b&#13;
+</code></pre>
+<p>Create a start state from a list of tiles.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">&gt; mkGameState <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">::</span> Int <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">-&gt;</span> <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">[</span>Int<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">]</span> <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">-&gt;</span> GameState&#13;
+&gt; mkGameState n xs <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">=</span> GameState b d z <span class="hs-num">0</span> Nothing&#13;
+&gt;   <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">where</span>&#13;
+&gt;     b <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">=</span> listArray <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">(</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">(</span><span class="hs-num">1</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">,</span> <span class="hs-num">1</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">,</span> <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">(</span>n<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">,</span> n<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span> xs&#13;
+&gt;     d <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">=</span> totalDist b&#13;
+&gt;     Just z' <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">=</span> elemIndex <span class="hs-num">0</span> xs&#13;
+&gt;     z <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">=</span> <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">(</span><span class="hs-num">1</span> + z' `div` n<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">,</span> <span class="hs-num">1</span> + z' `mod` n<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span>&#13;
+</code></pre>
+<p>Update the game state after switching the position of the blank and tile <code>(i, j)</code>.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">&gt; update <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">::</span> GameState <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">-&gt;</span> Int <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">-&gt;</span> Int <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">-&gt;</span> GameState&#13;
+&gt; update p i j <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">=</span> p <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">{</span> board <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">=</span> b&#13;
+&gt;                  <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">,</span> dist <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">=</span> totalDist b&#13;
+&gt;                  <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">,</span> blank <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">=</span> <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">(</span>i<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">,</span> j<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span>&#13;
+&gt;                  <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">,</span> moves <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">=</span> moves p + <span class="hs-num">1</span>&#13;
+&gt;                  <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">,</span> previous <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">=</span> Just p <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">}</span>&#13;
+&gt;   <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">where</span>&#13;
+&gt;     b <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">=</span> b' // <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">[</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">(</span>blank p<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">,</span> b' ! <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">(</span>i<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">,</span> j<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">,</span> <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">(</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">(</span>i<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">,</span> j<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">,</span> <span class="hs-num">0</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">]</span>&#13;
+&gt;     b' <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">=</span> board p&#13;
+</code></pre>
+<p>Find the the board that can be reached from the current state by moving in the specified direction, being careful not to move off the board.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">&gt; neighbor <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">::</span> GameState <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">-&gt;</span> Direction <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">-&gt;</span> Maybe GameState&#13;
+&gt; neighbor p dir <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">=</span> <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">case</span> dir <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">of</span>&#13;
+&gt;   North <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">-&gt;</span> <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">if</span> i &lt;= <span class="hs-num">1</span>   <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">then</span> Nothing <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">else</span> Just $ update p <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">(</span>i<span class="amp-wp-inline-61f54ec584ad0df1f18f15c5583390b5">-</span><span class="hs-num">1</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span> j&#13;
+&gt;   East  <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">-&gt;</span> <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">if</span> j &gt;= n <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">then</span> Nothing <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">else</span> Just $ update p i <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">(</span>j+<span class="hs-num">1</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span>&#13;
+&gt;   South <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">-&gt;</span> <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">if</span> i &gt;= n <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">then</span> Nothing <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">else</span> Just $ update p <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">(</span>i+<span class="hs-num">1</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span> j&#13;
+&gt;   West  <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">-&gt;</span> <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">if</span> j &lt;= <span class="hs-num">1</span>   <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">then</span> Nothing <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">else</span> Just $ update p i <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">(</span>j<span class="amp-wp-inline-61f54ec584ad0df1f18f15c5583390b5">-</span><span class="hs-num">1</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span>&#13;
+&gt;   <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">where</span>&#13;
+&gt;     <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">(</span>i<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">,</span> j<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span> <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">=</span> blank p&#13;
+&gt;     n <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">=</span> dim . board $ p&#13;
+</code></pre>
+<p>All of the states that can be reached in one move from the current state.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">&gt; neighbors <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">::</span> GameState <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">-&gt;</span> <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">[</span>GameState<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">]</span>&#13;
+&gt; neighbors p <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">=</span> mapMaybe <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">(</span>neighbor p<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span> <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">[</span>North<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">,</span> East<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">,</span> South<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">,</span> West<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">]</span>&#13;
+</code></pre>
+<p>Finally, solve the puzzle.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">&gt; solve <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">::</span> GameState <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">-&gt;</span> GameState&#13;
+&gt; solve p <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">=</span> go <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">(</span>PQ.fromList <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">[</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">(</span>dist p<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">,</span> p<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">]</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span>&#13;
+&gt;   <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">where</span>&#13;
+&gt;     go fr <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">=</span> <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">if</span> dist puzzle == <span class="hs-num">0</span> &#13;
+&gt;             <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">then</span> puzzle &#13;
+&gt;             <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">else</span> go fr2&#13;
+&gt;       <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">where</span>&#13;
+&gt;         <span class="amp-wp-inline-61f54ec584ad0df1f18f15c5583390b5">-- Retrieve the game state with the lowest priority and     &gt;         -- remove it from</span>&#13;
+&gt;         <span class="amp-wp-inline-61f54ec584ad0df1f18f15c5583390b5">-- the frontier.</span>&#13;
+&gt;         <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">(</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">(</span><span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">_</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">,</span> puzzle<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">,</span> fr1<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span> <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">=</span> PQ.deleteFindMin fr&#13;
+&gt; &#13;
+&gt;         <span class="amp-wp-inline-61f54ec584ad0df1f18f15c5583390b5">-- If the new board is the smae as the previous board then</span>&#13;
+&gt;         <span class="amp-wp-inline-61f54ec584ad0df1f18f15c5583390b5">-- do not add it to the queue since it has already been      &gt;         -- explored.</span>&#13;
+&gt;         ns <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">=</span> <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">case</span> previous puzzle <span class="amp-wp-inline-021ed5e486af3732ded800188941e90a">of</span>&#13;
+&gt;           Nothing <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">-&gt;</span> neighbors puzzle&#13;
+&gt;           Just n  <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">-&gt;</span> filter <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">(</span><span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">\</span>x <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">-&gt;</span> board x /= board n<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span>&#13;
+<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">&gt;                             (</span>neighbors puzzle<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span>&#13;
+&gt; &#13;
+&gt;         <span class="amp-wp-inline-61f54ec584ad0df1f18f15c5583390b5">-- The priority of a puzzle is the number of moves so far</span>&#13;
+&gt;         <span class="amp-wp-inline-61f54ec584ad0df1f18f15c5583390b5">-- plus the manhattan distance.</span>&#13;
+&gt;         ps  <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">=</span> zip <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">[</span>moves q + dist q <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">|</span> q <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">&lt;-</span> ns<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">]</span> ns&#13;
+&gt;         fr2 <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">=</span> foldr <span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">(</span>uncurry PQ.insert<span class="amp-wp-inline-86384b0e20ac09afa0084aec2224fdda">)</span> fr1 ps&#13;
+</code></pre>
+<p>You can find more puzzles in my github repo: <a href="https://github.com/jeffreyrosenbluth/puzzleN/tree/master/puzzles">puzzles</a>. Happy solving !</p>
+<div class="references"></div>
+		<div class="wpcnt">
+			<div class="wpa wpmrec">
+				<a class="wpa-about" href="https://wordpress.com/about-these-ads/" rel="nofollow">About these ads</a>
+				<div class="u">
+					<amp-ad width="300" height="250" type="pubmine" data-adsafe="0" data-section="2" data-siteid="2694" data-wordads="0"><div placeholder="" class="amp-wp-iframe-placeholder"></div>
+					</amp-ad></div>
+			</div>
+		</div>	</div>
+
+	<footer class="amp-wp-article-footer">
+			<div class="amp-wp-meta amp-wp-tax-category">
+		Categories: <a href="https://martingalemeasure.wordpress.com/category/haskell/" rel="category tag">Haskell</a>	</div>
+
+	<div class="amp-wp-meta amp-wp-tax-tag">
+		Tags: <a href="https://martingalemeasure.wordpress.com/tag/a/" rel="tag">A*</a>, <a href="https://martingalemeasure.wordpress.com/tag/animated-gif/" rel="tag">animated GIF</a>, <a href="https://martingalemeasure.wordpress.com/tag/diagrams-2/" rel="tag">diagrams</a>, <a href="https://martingalemeasure.wordpress.com/tag/haskell-2/" rel="tag">haskell</a>	</div>
+		<div class="amp-wp-meta amp-wp-comments-link">
+		<a href="../index.html#respond">
+			Leave a Comment		</a>
+	</div>
+	</footer>
+
+</article>
+
+<footer class="amp-wp-footer">
+	<div>
+		<h2>martingalemeasure</h2>
+		<p>
+			<a href="https://wordpress.com/?ref=footer_blog">Blog at WordPress.com.</a>
+		</p>
+		<a href="#top" class="back-to-top">Back to top</a>
+	</div>
+</footer>
+
+	<amp-pixel src="https://pixel.wp.com/b.gif?rand=RANDOM&amp;host=martingalemeasure.wordpress.com&amp;ref=DOCUMENT_REFERRER&amp;amp=1&amp;blog=45148621&amp;v=wpcom&amp;tz=0&amp;user_id=0&amp;post=133&amp;subd=martingalemeasure"></amp-pixel>
+	<amp-pixel src="https://pixel.wp.com/b.gif?rand=RANDOM&amp;v=wpcom-no-pv&amp;crypt=UE5XaGUuOTlwaD85flAmcm1mcmZsaDhkV11YdTdvUG14Q2VDQTR4LlUsLi82dU1mai9BMmcsaFtjRFBiOW96UWdhYl0uVXptZCZTLi4weVklLm9LTTEtMlhVd1ZLcjBLYVRHS21zJm55fE43Wi9SXXJwNC0sQW9xfHAtRzFpJTV8ak0rODliL2ZrZ0VVMDR5SlNKJVpIbF1Mc3hdaUpMWFV%2BV0VGOElsfDduZG5zdHF4aUxqVjhiXzF4S35zczlacDguT1UzX3JLRk9Cam1OczgxX3g0YVZEanxzdFlDLg%3D%3D"></amp-pixel>
+	
+</body>
+
+<!-- Mirrored from martingalemeasure.wordpress.com/2014/06/24/solving-the-15-puzzle-with-haskell-and-diagrams-10/amp/ by HTTrack Website Copier/3.x [XR&CO'2014], Thu, 22 Dec 2016 03:09:53 GMT -->
+</html>

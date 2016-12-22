@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+
+<!-- Mirrored from www.stephendiehl.com/posts/ghc_01.html by HTTrack Website Copier/3.x [XR&CO'2014], Thu, 22 Dec 2016 03:10:27 GMT -->
+<head>
+
+    <!-- Basic Page Needs
+  ================================================== -->
+    <meta charset="utf-8">
+    <title>Dive into GHC: Pipeline</title>
+    <meta name="description" content="{{description}}">
+    <meta name="author" content="{{author}}">
+
+    <!-- Mobile Specific Metas
+  ================================================== -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+    <!-- CSS
+  ================================================== -->
+    <link rel="stylesheet" href="../css/base.css">
+    <link rel="stylesheet" href="../css/skeleton.css">
+    <link rel="stylesheet" href="../css/typography.css">
+    <link rel="stylesheet" href="../css/layout.css">
+    <link rel="stylesheet" href="../css/syntax.css">
+    <link rel="stylesheet" href="../css/custom.css">
+
+    <link href="http://fonts.googleapis.com/css?family=Droid+Sans:400,700|Droid+Serif:400,400italic|Inconsolata" rel="stylesheet">
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+    </script>
+    <script type="text/x-mathjax-config">
+    </script>
+
+    <!-- Google Analytics -->
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','http://www.google-analytics.com/analytics.js','ga');
+
+      ga('create', 'UA-49839533-1', 'stephendiehl.com');
+      ga('send', 'pageview');
+    </script>
+
+    <!--[if lt IE 9]>
+        <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <!-- Favicons
+    ================================================== -->
+    <link rel="shortcut icon" href="images/favicon.html">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.html">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.html">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.html">
+
+    <link rel="alternate" title="Stephen Diehl" type="application/atom+xml" href="feed.html">
+    <link rel="alternate" title="Stephen Diehl" type="application/rss+xml" href="feed-2.html">
+</head>
+<body>
+
+    <div class="container">
+        <div class="three columns sidebar">
+            <nav>
+                <h3 id="logo">Stephen Diehl</h3>
+                <ul>
+                    <li><a href="../index.html">Index</a></li>
+                    <li><a href="../posts.html">Blog</a></li>
+                    <li><a href="../pages/writings.html">Writings</a></li>
+                    <li><a href="../pages/hire.html">Contact Me</a></li>
+                    <li><a href="../pages/pgp.html">PGP Key</a></li>
+                    <li><a href="https://github.com/sdiehl">Github</a></li>
+                    <li><a href="https://twitter.com/#!/smdiehl">Twitter</a></li>
+                </ul>
+            </nav>
+            &nbsp;
+        </div>
+
+        <div class="twelve columns offset-by-one content">
+            <h3 id="dive-into-ghc-pipeline">Dive into GHC: Pipeline</h3>
+<p>After reading <a href="https://ghc.haskell.org/trac/ghc/blog/ContributingToGhc">Simon’s</a> call for more volunteer writing about GHC I thought it would be timely to share some knowledge I’ve accumulated over the years about working with the with GHC internals.</p>
+<p>I’m by no means an expert on GHC internals, but I have worked with them a fair bit for several projects and the deep dive style of blog posts tends to be a good format for helping ease into exploring the code for themselves. Often times simply a high-level overview and a small bit of runnable example code is enough to encourage further involvement with an open source project and this what I aim to write.</p>
+<p>So begins a multipart writeup on the structure of GHC structured around several examples that use the GHC API for some small project that shows off some internal structure of the compiler.</p>
+<p style="text-align:center">
+<strong><a href="https://github.com/sdiehl/dive-into-ghc/tree/master/01-pipeline">Accompaying Source Code</a></strong>
+</p>
+<hr />
+<h4 id="official-commentary">Official Commentary</h4>
+<p>GHC core developers have actually spent a great deal of time over the sharing knowledge about the design of the compiler. Some good places to start are the following:</p>
+<ol style="list-style-type: decimal">
+<li><a href="https://ghc.haskell.org/trac/ghc/wiki/Commentary">GHC Commentary</a></li>
+<li><a href="https://www.youtube.com/watch?v=6COvD8oynmI">OPLSS: Adventures in Types</a></li>
+<li><a href="https://ghc.haskell.org/trac/ghc/wiki/AboutVideos">2006 GHC Hackathon Videos</a></li>
+<li><a href="https://davidterei.com/talks/2016-03-cs240h/ghc-compiler.html">David Terei’s Notes</a></li>
+<li><a href="https://takenobu-hs.github.io/downloads/haskell_ghc_illustrated.pdf">Takenobu Tani’s GHC Illustrated</a></li>
+<li><a href="http://blog.ezyang.com/2011/04/tracing-the-compilation-of-hello-factorial/">Edward Yang’s Blog</a></li>
+</ol>
+<p>On top of this there is a literature trail going back 25 years that shows how the historical context and the research that led up to GHC today.</p>
+<ol style="list-style-type: decimal">
+<li><a href="https://ghc.haskell.org/trac/ghc/wiki/ReadingList">GHC Reading List</a></li>
+</ol>
+<h4 id="toplevel">Toplevel</h4>
+<p>GHC is a quirky beast of a codebase, but as far compilers go it is a fairly well-engineered and documented project if you know where to look. Yes, it uses a somewhat idiosyncratic convention in places, but after all it is a 20-year old codebase.</p>
+<p>To get the source for the compiler clone the official repo:</p>
+<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash">$ <span class="kw">git</span> clone --recursive git://git.haskell.org/ghc.git
+$ <span class="kw">cd</span> ghc/</code></pre></div>
+<p>There are many utilities included with the compiler the encompass documentation and the build system, but the important toplevel directories for the compiler itself are primarily:</p>
+<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash">├── <span class="kw">rts</span>          <span class="co"># The Haskell runtime systems</span>
+├── <span class="kw">compiler</span>     <span class="co"># The Haskell compiler logic</span>
+├── <span class="kw">includes</span>     <span class="co"># Header files for runtime and code generation</span>
+└── <span class="kw">libraries</span>    <span class="co"># The base libraries and Prelude source</span></code></pre></div>
+<p>For this post we’ll concern ourselves with the <code>compiler</code> folder.</p>
+<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash">├── <span class="kw">basicTypes</span>   <span class="co"># Types used across all modules</span>
+├── <span class="kw">cbits</span>        <span class="co"># Misc C utilities</span>
+├── <span class="kw">cmm</span>          <span class="co"># Cmm langauge definitions</span>
+├── <span class="kw">codeGen</span>      <span class="co"># Cmm Compilers</span>
+├── <span class="kw">coreSyn</span>      <span class="co"># Core language definitions</span>
+├── <span class="kw">deSugar</span>      <span class="co"># Desugarer</span>
+├── <span class="kw">ghci</span>         <span class="co"># Interactive shell</span>
+├── <span class="kw">hsSyn</span>        <span class="co"># Frontend syntax</span>
+├── <span class="kw">iface</span>        <span class="co"># Interface files</span>
+├── <span class="kw">llvmGen</span>      <span class="co"># LLVM Code generator</span>
+├── <span class="kw">main</span>         <span class="co"># Compiler driver logic and options</span>
+├── <span class="kw">nativeGen</span>    <span class="co"># Assemblers for x86 / SPARC / PPC</span>
+├── <span class="kw">parser</span>       <span class="co"># Frontend Parser for HsSyn</span>
+├── <span class="kw">prelude</span>      <span class="co"># Wired-In Types /  Primops and Builtins</span>
+├── <span class="kw">profiling</span>    <span class="co"># Runtime profiing tools</span>
+├── <span class="kw">rename</span>       <span class="co"># Frontend renamer</span>
+├── <span class="kw">simplCore</span>    <span class="co"># Core-To-Core simplifier</span>
+├── <span class="kw">simplStg</span>     <span class="co"># Stg-To-Stg simplifier</span>
+├── <span class="kw">specialise</span>   <span class="co"># Specisliation pass ( Eliminates Overloading )</span>
+├── <span class="kw">stgSyn</span>       <span class="co"># Stg Core Language</span>
+├── <span class="kw">stranal</span>      <span class="co"># Strictness Analyzer</span>
+├── <span class="kw">typecheck</span>    <span class="co"># Typechecker</span>
+├── <span class="kw">types</span>        <span class="co"># Type language, data constructors, and type families</span>
+├── <span class="kw">utils</span>        <span class="co"># Misc functions and core data sstructures</span>
+└── <span class="kw">vectorise</span>    <span class="co"># Vectorisation optimiations</span></code></pre></div>
+<h4 id="ghc-api">GHC API</h4>
+<p>Since GHC is itself written in Haskell, GHC is effectively a large library the encompasses the <a href="https://downloads.haskell.org/~ghc/7.10.3/docs/html/libraries/ghc-7.10.3/index.html">GHC API</a>. The toplevel module is simply called <a href="https://downloads.haskell.org/~ghc/7.10.3/docs/html/libraries/ghc-7.10.3/GHC.html">GHC</a> and contains a namespace dump of many of the core types that drive the <em>compilation pipeline</em>.</p>
+<p>Beneath this is the main API for compiling plain Haskell source code called <a href="https://downloads.haskell.org/~ghc/7.10.3/docs/html/libraries/ghc-7.10.3/HscMain.html">HscMain</a> which contains the various drivers for different passes within the compilation. The six core passes make up the <a href="http://www.aosabook.org/images/ghc/hscpipe2.png">compilation pipeline</a>:</p>
+<ol style="list-style-type: decimal">
+<li>Parsing</li>
+<li>Renaming</li>
+<li>Typechecking</li>
+<li>Desugaring</li>
+<li>Simplification</li>
+<li>Code Generation</li>
+</ol>
+<p>The result of this compilation is several artificats which are <em>object files</em> (.o), <em>interface files</em> (.hi) and <em>executables</em>.</p>
+<h4 id="ghc-monad">GHC Monad</h4>
+<p>The heart of the compilation process is stored within the GHC Monad, a state monad that handles the internal session state of the compilation pipeline, error handling and sequencing of multi-module compilation.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">newtype</span> <span class="dt">Ghc</span> a <span class="fu">=</span> <span class="dt">Ghc</span> {<span class="ot"> unGhc ::</span> <span class="dt">Session</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> a }</code></pre></div>
+<p>The abstract class <code>GhcMonad</code> provides a lifted version of the GHC monad functions to get at the internal session objects from within the various submonads used throughout compilation (renamer, typechecker, etc).</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> (<span class="dt">Functor</span> m, <span class="dt">MonadIO</span> m, <span class="dt">ExceptionMonad</span> m, <span class="dt">HasDynFlags</span> m) <span class="ot">=&gt;</span> <span class="dt">GhcMonad</span> m <span class="kw">where</span>
+<span class="ot">  getSession ::</span> m <span class="dt">HscEnv</span>
+<span class="ot">  setSession ::</span> <span class="dt">HscEnv</span> <span class="ot">-&gt;</span> m ()</code></pre></div>
+<p>The evaluation function takes in a path to the <code>libdir</code> and returns the result inside of <code>IO</code>.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">runGhc ::</span> <span class="dt">Maybe</span> FilePath <span class="ot">-&gt;</span> <span class="dt">Ghc</span> a <span class="ot">-&gt;</span> <span class="dt">IO</span> a</code></pre></div>
+<p>The filepaths are installation specific paths indicating the local installation and paths to the GHC compiler. These are provided by the <a href="https://hackage.haskell.org/package/ghc-paths">ghc-paths</a> package.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">import </span><span class="dt">GHC.Paths</span>
+
+libdir, docdir, ghc,<span class="ot"> ghc_pkg ::</span> FilePath</code></pre></div>
+<p>At the heart of the session object is a very important structure called <code>HscEnv</code> which holds the internal state of compilation.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">HscEnv</span>
+  <span class="fu">=</span> <span class="dt">HscEnv</span> 
+  {<span class="ot"> hsc_dflags ::</span> <span class="dt">DynFlags</span>
+  ,<span class="ot"> hsc_targets ::</span> [<span class="dt">Target</span>]
+  ,<span class="ot"> hsc_mod_graph ::</span> <span class="dt">ModuleGraph</span>
+  ,<span class="ot"> hsc_IC ::</span> <span class="dt">InteractiveContext</span>
+  ,<span class="ot"> hsc_HPT ::</span> <span class="dt">HomePackageTable</span>
+  <span class="co">-- Many more ... (truncated for brevity)</span>
+  }</code></pre></div>
+<p>The <code>hsc_dlfags</code> holds the settings objects (more on this next). The <code>hsc_targets</code> holds the roots of the Module graph which are traversed bottom-up to build up the entire set of modules needed for compilation of the current package. The entire set of modules involved in this (roots and non-roots) is stored in <code>hsc_mod_graph</code> which holds the whole ModuleGraph, which is not necessarily in topological order. The <code>hsc_IC</code> field contains the interactive context which is used for the interactive shell and for when the end targets are linked in memory. Specific commands in GHCi such as adding modules to the top-level scope modifying this structure state fully.</p>
+<p>The <code>hsc_HPT</code> holds the home package table which describes already-compiled home-package modules, When a module done being compiled, and is loaded with <code>loadModule</code> it is internally added to this mapping.</p>
+<h4 id="dynflags">DynFlags</h4>
+<p><a href="https://downloads.haskell.org/~ghc/7.10.2/docs/html/libraries/ghc-7.10.2/DynFlags.html#t:DynFlags">DynFlags</a> contains a collection of flags relating to the compilation of a single file or GHC session. This is the core datatype that informs how compilation occurs and is passed to most of the various pass functions.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">DynFlags</span>
+  <span class="fu">=</span> <span class="dt">DynFlags</span> 
+  {<span class="ot"> ghcMode ::</span> <span class="dt">GhcMode</span>
+  ,<span class="ot"> ghcLink ::</span> <span class="dt">GhcLink</span>
+  ,<span class="ot"> hscTarget ::</span> <span class="dt">HscTarget</span>
+  ,<span class="ot"> settings ::</span> <span class="dt">Settings</span>
+
+  ,<span class="ot"> flags ::</span> [<span class="dt">DynFlag</span>]
+  ,<span class="ot"> extensionFlags ::</span> [<span class="dt">ExtensionFlag</span>]
+
+  ,<span class="ot"> pkgState ::</span> <span class="dt">PackageState</span>
+  ,<span class="ot"> pkgDatabase ::</span> <span class="dt">Maybe</span> [<span class="dt">PackageConfig</span>]
+  ,<span class="ot"> packageEnv ::</span> <span class="dt">Maybe</span> FilePath
+  ,<span class="ot"> packageFlags ::</span> [<span class="dt">PackageFlag</span>]
+  ,<span class="ot"> extraPkgConfs ::</span> [<span class="dt">PkgConfRef</span>] <span class="ot">-&gt;</span> [<span class="dt">PkgConfRef</span>]
+  <span class="co">-- Many more flags... (truncated for brevity)</span>
+  }</code></pre></div>
+<p>The <code>GhcMode</code> informs whether we’re doing multi-module compilation or one-shot single-file compilation. In the case of multi-module the ModuleGraph is built up via the <a href="https://downloads.haskell.org/~ghc/7.10.3/docs/html/libraries/ghc-7.10.3/Finder.html">Finder</a> function which searches the home package for the dependent modules.</p>
+<table>
+<thead>
+<tr class="header">
+<th align="left"><strong>GhcMode</strong></th>
+<th align="left"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">CompManager</td>
+<td align="left"><code>--make</code></td>
+</tr>
+<tr class="even">
+<td align="left">OneShot</td>
+<td align="left"><code>ghc -c Foo.hs</code></td>
+</tr>
+<tr class="odd">
+<td align="left">MkDepend</td>
+<td align="left"><code>ghc -M</code></td>
+</tr>
+</tbody>
+</table>
+<p>The <code>HscTarget</code> datatype defines the target code type of the compilation. By default this is <code>HscAsm</code>.</p>
+<table>
+<thead>
+<tr class="header">
+<th align="left"><strong>HscTarget</strong></th>
+<th align="left"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">HscC</td>
+<td align="left">Generate C code.</td>
+</tr>
+<tr class="even">
+<td align="left">HscAsm</td>
+<td align="left">Generate assembly using the native code generator.</td>
+</tr>
+<tr class="odd">
+<td align="left">HscLlvm</td>
+<td align="left">Generate assembly using the llvm code generator.</td>
+</tr>
+<tr class="even">
+<td align="left">HscInterpreted</td>
+<td align="left">Generate bytecode.</td>
+</tr>
+<tr class="odd">
+<td align="left">HscNothing</td>
+<td align="left">Don’t generate any code. See notes above.</td>
+</tr>
+</tbody>
+</table>
+<p>After compilation is done (for multi-module) GHC then begins the linker phase and the <code>GhcLink</code> setting determines what to do with the resulting object files.</p>
+<table>
+<thead>
+<tr class="header">
+<th align="left"><strong>GhcLink</strong></th>
+<th align="left"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">NoLink</td>
+<td align="left">Don’t link at all</td>
+</tr>
+<tr class="even">
+<td align="left">LinkBinary</td>
+<td align="left">Link object code into a binary</td>
+</tr>
+<tr class="odd">
+<td align="left">LinkInMemory</td>
+<td align="left">Use the in-memory dynamic linker (works for both bytecode and object code).</td>
+</tr>
+<tr class="even">
+<td align="left">LinkDynLib</td>
+<td align="left">Link objects into a dynamic lib (DLL on Windows, DSO on ELF platforms)</td>
+</tr>
+<tr class="odd">
+<td align="left">LinkStaticLib</td>
+<td align="left">Link objects into a static lib</td>
+</tr>
+</tbody>
+</table>
+<p>The simplest initializer of a GHC session simply uses the defaults and sets up a interpreted session that links any modules it is given in memory.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">example ::</span> <span class="dt">IO</span> ()
+example <span class="fu">=</span> runGhc (<span class="dt">Just</span> libdir) <span class="fu">$</span> <span class="kw">do</span>
+  dflags <span class="ot">&lt;-</span> getSessionDynFlags
+  setSessionDynFlags <span class="fu">$</span> dflags { hscTarget <span class="fu">=</span> <span class="dt">HscInterpreted</span>
+                              , ghcLink   <span class="fu">=</span> <span class="dt">LinkInMemory</span>
+                              }</code></pre></div>
+<p>GHC exposes many compiler flags on the commandline and these are themselves reflected in various subfields of the <code>DynFlags</code> struct. The three major classes of flags are <code>DumpFlag</code> (example: <code>-ddump-simpl</code>), GeneralFlag (example: <code>-fspec-constr</code>) and ExtensionFlag (example: <code>-XTypeInType</code>). There are various helper functions that modifying the DynFlags to twiddle these flags on or off.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">dopt_set ::</span> <span class="dt">DynFlags</span> <span class="ot">-&gt;</span> <span class="dt">DumpFlag</span> <span class="ot">-&gt;</span> <span class="dt">DynFlags</span>
+<span class="ot">gopt_set ::</span> <span class="dt">DynFlags</span> <span class="ot">-&gt;</span> <span class="dt">GeneralFlag</span> <span class="ot">-&gt;</span> <span class="dt">DynFlags</span>
+<span class="ot">xopt_set ::</span> <span class="dt">DynFlags</span> <span class="ot">-&gt;</span> <span class="dt">ExtensionFlag</span> <span class="ot">-&gt;</span> <span class="dt">DynFlags</span></code></pre></div>
+<p>Through the compilation GHC will query the state of these flags to dispatch to different codepaths based on whether a language extension is set or other flag behavior. This is done through querying the <code>GhcMonad</code> instance to get the dynflags and using one of the various flag specific functions.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">xopt ::</span> <span class="dt">ExtensionFlag</span> <span class="ot">-&gt;</span> <span class="dt">DynFlags</span> <span class="ot">-&gt;</span> <span class="dt">Bool</span>
+<span class="ot">gopt ::</span> <span class="dt">GeneralFlag</span> <span class="ot">-&gt;</span> <span class="dt">DynFlags</span> <span class="ot">-&gt;</span> <span class="dt">Bool</span>
+<span class="ot">dopt ::</span> <span class="dt">DumpFlag</span> <span class="ot">-&gt;</span> <span class="dt">DynFlags</span> <span class="ot">-&gt;</span> <span class="dt">Bool</span></code></pre></div>
+<p>To enable various flags we use modify the current <code>dflags</code> object using the flag set functions.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">example ::</span> <span class="dt">IO</span> ()
+example <span class="fu">=</span> runGhc (<span class="dt">Just</span> libdir) <span class="fu">$</span> <span class="kw">do</span>
+  dflags <span class="ot">&lt;-</span> getSessionDynFlags
+  <span class="kw">let</span> dflags' <span class="fu">=</span> dflags { hscTarget <span class="fu">=</span> <span class="dt">HscInterpreted</span> , ghcLink <span class="fu">=</span> <span class="dt">LinkInMemory</span> }
+               <span class="ot">`dopt_set`</span> <span class="dt">Opt_D_dump_BCOs</span>        <span class="co">-- Set Dump Flag</span>
+               <span class="ot">`xopt_set`</span> <span class="dt">Opt_OverloadedStrings</span>  <span class="co">-- Set Language Extension Flag</span></code></pre></div>
+<h4 id="compilation">Compilation</h4>
+<p>To start compilation we first add a target to the state. This modifies the <code>hsc_targets</code> field of the environment. To two types of targets are either module names or filenames. The <code>guessTarget</code> will discriminate on the given string’s extension it to determine which target object to create.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">addTarget ::</span> <span class="dt">GhcMonad</span> m <span class="ot">=&gt;</span> <span class="dt">Target</span> <span class="ot">-&gt;</span> m ()
+<span class="ot">guessTarget ::</span> <span class="dt">GhcMonad</span> m <span class="ot">=&gt;</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Maybe</span> <span class="dt">Phase</span> <span class="ot">-&gt;</span> m <span class="dt">Target</span></code></pre></div>
+<p>Targets specify the source files or modules at the top of the dependency tree. For a executable program there is just a single target <code>Main.hs</code>, for a library the targets are visible module in the library.</p>
+<table>
+<thead>
+<tr class="header">
+<th align="left"><strong>Target</strong></th>
+<th align="left"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">TargetModule</td>
+<td align="left">A module name: search for the file</td>
+</tr>
+<tr class="even">
+<td align="left">TargetFile FilePath</td>
+<td align="left">A filename: preprocess and parse it to find the module name.</td>
+</tr>
+</tbody>
+</table>
+<p>If with the modules added to the state we can then perform dependency analsysis to determine the module graph to proceed with multi-module compilation. Dependency analysis entails parsing the import directives of the module and resolving the <code>ModuleGraph</code> which is a type alias for a list of <code>ModuleSummary</code> which contains the targets. This is performed by the <code>depanal</code> function.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">depanal ::</span> <span class="dt">GhcMonad</span> m <span class="ot">=&gt;</span> [<span class="dt">ModuleName</span>] <span class="ot">-&gt;</span> <span class="dt">Bool</span> <span class="ot">-&gt;</span> m <span class="dt">ModuleGraph</span></code></pre></div>
+<p>After a target is created the compiler is then run on the module yielding the resulting artifacts and it is loaded into the home package table. This is accomplished via the <code>load</code> command.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">load ::</span> <span class="dt">GhcMonad</span> m <span class="ot">=&gt;</span> <span class="dt">LoadHowMuch</span> <span class="ot">-&gt;</span> m <span class="dt">SuccessFlag</span></code></pre></div>
+<table>
+<thead>
+<tr class="header">
+<th align="left"><strong>LoadHowMuch</strong></th>
+<th align="left"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">LoadAllTargets</td>
+<td align="left">Load all targets and its dependencies.</td>
+</tr>
+<tr class="even">
+<td align="left">LoadUpTo</td>
+<td align="left">Load only the given module and its dependencies.</td>
+</tr>
+<tr class="odd">
+<td align="left">LoadDependenciesOf</td>
+<td align="left">Load only the dependencies of the given module, but not the module itself.</td>
+</tr>
+</tbody>
+</table>
+<p>A full example of this would be the compilation of a module <code>Example.hs</code> in the current working directory that is interpreted and linked in memory.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">example ::</span> <span class="dt">IO</span> ()
+example <span class="fu">=</span> runGhc (<span class="dt">Just</span> libdir) <span class="fu">$</span> <span class="kw">do</span>
+  dflags <span class="ot">&lt;-</span> getSessionDynFlags
+  setSessionDynFlags <span class="fu">$</span> dflags { hscTarget <span class="fu">=</span> <span class="dt">HscInterpreted</span>
+                              , ghcLink   <span class="fu">=</span> <span class="dt">LinkInMemory</span>
+                              }
+
+  target <span class="ot">&lt;-</span> guessTarget <span class="st">&quot;Example.hs&quot;</span> <span class="dt">Nothing</span>
+  addTarget target
+  load <span class="dt">LoadAllTargets</span></code></pre></div>
+<h4 id="interactive-context">Interactive Context</h4>
+<p>On top of simply generating compiler artifacts. GHC can compile and link code into memory to be evaluated interactively. The state of the interpreter backing this is held in the <a href="https://downloads.haskell.org/~ghc/7.10.3/docs/html/libraries/ghc-7.10.3/HscTypes.html#t:InteractiveContext">InteractiveContext</a>.</p>
+<p>The set of modules in the interactive scope can be modified by the <code>setContext</code> function.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">getContext ::</span> <span class="dt">GhcMonad</span> m <span class="ot">=&gt;</span> m [<span class="dt">InteractiveImport</span>]
+<span class="ot">setContext ::</span> <span class="dt">GhcMonad</span> m <span class="ot">=&gt;</span> [<span class="dt">InteractiveImport</span>] <span class="ot">-&gt;</span> m ()</code></pre></div>
+<p>When a module is interpreted and loaded as an interactive import it has its full top-level scope available. We can manipulate, query and extend this scope using various function.</p>
+<p><code>parseName</code> can be used to resolve a name (or names) from a given string to a set of symbols in the interactive context. This returns a <code>Name</code> object (more on this later) which is GHC’s internal name type that holds position and a unique identifier.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">parseName ::</span> <span class="dt">GhcMonad</span> m <span class="ot">=&gt;</span> <span class="dt">String</span> <span class="ot">-&gt;</span> m [<span class="dt">Name</span>]</code></pre></div>
+<p>To resolve the type of an given expression the <code>exprType</code> can be used to extract the type information within the current context.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">exprType ::</span> <span class="dt">GhcMonad</span> m <span class="ot">=&gt;</span> <span class="dt">String</span> <span class="ot">-&gt;</span> m <span class="dt">Type</span></code></pre></div>
+<p>And within the entire interactive context we can query the set of all names that have been brought into scope by imports. This is used for the interactive <code>:browse</code> command.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">getNamesInScope ::</span> <span class="dt">GhcMonad</span> m <span class="ot">=&gt;</span> m [<span class="dt">Name</span>]</code></pre></div>
+<p>And the most important function is evaluation of arbitrary expressions with in the interactive context. Which is accomplished via <code>dynCompileExpr</code>. This returns a <code>Dynamic</code> which can be safely cast using <code>fromDynamic</code> for any instance of <code>Typeable</code>. This is used to dynamically evaluate a string expression within the interactive context.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">dynCompileExpr ::</span> <span class="dt">GhcMonad</span> m <span class="ot">=&gt;</span> <span class="dt">String</span> <span class="ot">-&gt;</span> m <span class="dt">Dynamic</span>
+<span class="ot">fromDynamic ::</span> <span class="dt">Typeable</span> a <span class="ot">=&gt;</span> <span class="dt">Dynamic</span> <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">Maybe</span> a</code></pre></div>
+<h4 id="package-database">Package Database</h4>
+<p>In it’s default state GHC is aware of two package databases: the global package database in <code>/usr/lib/ghc-x.x.x/</code> and the user database in <code>~/.ghc/lib</code>.</p>
+<p>This however can be extended via the “GHC_PACKAGE_PATH” environment variable which reads the path variable and applies the <code>extraPkgConfs</code> function to add it to the package database. This is used in the various modern sandboxing techniques used in tools like <code>cabal</code> and <code>stack</code>.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">extraPkgConfs ::</span> [<span class="dt">PkgConfRef</span>] <span class="ot">-&gt;</span> [<span class="dt">PkgConfRef</span>]</code></pre></div>
+<p>To modify the given dynflagas with a filepath, the following function can be used to extend the state.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">addPkgDbs ::</span> <span class="dt">GhcMonad</span> m <span class="ot">=&gt;</span> [FilePath] <span class="ot">-&gt;</span> m ()
+addPkgDbs fps <span class="fu">=</span> <span class="kw">do</span> 
+  dfs <span class="ot">&lt;-</span> getSessionDynFlags
+  <span class="kw">let</span> pkgs <span class="fu">=</span> map <span class="dt">PkgConfFile</span> fps
+  <span class="kw">let</span> dfs' <span class="fu">=</span> dfs { extraPkgConfs <span class="fu">=</span> (pkgs <span class="fu">++</span>) <span class="fu">.</span> extraPkgConfs dfs }
+  setSessionDynFlags dfs'
+  _ <span class="ot">&lt;-</span> initPackages dfs'
+  return ()</code></pre></div>
+<p>Stack sets this when launching the shell with <code>stack repl</code>. More on modifying this will be discussed later.</p>
+<h4 id="mini-ghci">Mini GHCi</h4>
+<p>Ok, so let’s a build a very small interactive shell for GHC. If you’re not familiar with <a href="../../dev.stephendiehl.com/hask/index.html#haskeline">Haskeline</a> (the platform-agnostic readline abstraction) then read up on that first.</p>
+<p>The Haskeline interface is exposed as a monad transformer <code>InputT</code> which inside of IO gives us our interactive repl monad.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">Repl</span> a <span class="fu">=</span> <span class="dt">InputT</span> <span class="dt">IO</span> a</code></pre></div>
+<p>To set up the initial session set get the default dynflags, set the target to be interpreted and memory-linked and twiddle the <code>-XExtendedDefaultRules</code> flag. We set the interactive shell to import the <code>Prelude</code> and then monadically return the resulting session so that we can progressively add to it on each shell commnad.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">initSession ::</span> <span class="dt">IO</span> <span class="dt">HscEnv</span>
+initSession <span class="fu">=</span> runGhc (<span class="dt">Just</span> libdir) <span class="fu">$</span> <span class="kw">do</span>
+  liftIO <span class="fu">$</span> putStrLn <span class="st">&quot;Setting up HscEnv&quot;</span>
+  dflags <span class="ot">&lt;-</span> getSessionDynFlags
+  <span class="kw">let</span> dflags' <span class="fu">=</span> dflags { hscTarget <span class="fu">=</span> <span class="dt">HscInterpreted</span> , ghcLink <span class="fu">=</span> <span class="dt">LinkInMemory</span> }
+                <span class="ot">`xopt_set`</span> <span class="dt">Opt_ExtendedDefaultRules</span>
+  setSessionDynFlags dflags'
+  setContext [ <span class="dt">IIDecl</span> <span class="fu">$</span> simpleImportDecl (mkModuleName <span class="st">&quot;Prelude&quot;</span>) ]
+  env <span class="ot">&lt;-</span> getSession
+  return env</code></pre></div>
+<p>Each our interactive shell commands is then wrapped in a helper function <code>session</code> which spins up a new Ghc monad but restores the session from the last compilation. The monadic action is then evaluated and the resulting session afterwards is returned as a value to be reused.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">session ::</span> <span class="dt">HscEnv</span> <span class="ot">-&gt;</span> <span class="dt">Ghc</span> a <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">HscEnv</span>
+session env m <span class="fu">=</span> runGhc (<span class="dt">Just</span> libdir) <span class="fu">$</span> <span class="kw">do</span>
+  setSession env 
+  m
+  env <span class="ot">&lt;-</span> getSession
+  return env</code></pre></div>
+<p>The evaluator function tries two different compilation steps. First it tries to compile the expression as is to see if it evaluates to a <code>IO a</code> action. If it does it is then evaluated directly within the monad. If it does not then the <code>fromDyanamic</code> cast will simply yield a Nothing and we’ll try to wrap the expression in a print statement. The resulting compiled expression is guaranteed to be an <code>IO a</code> so we unsafely coerce the compiled code pointer that GHC gives us into IO and run it.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">eval ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Ghc</span> ()
+eval inp <span class="fu">=</span> <span class="kw">do</span>
+  dyn <span class="ot">&lt;-</span> fromDynamic <span class="fu">&lt;$&gt;</span> dynCompileExpr inp
+  <span class="kw">case</span> dyn <span class="kw">of</span>
+    <span class="dt">Nothing</span> <span class="ot">-&gt;</span> <span class="kw">do</span>
+      act <span class="ot">&lt;-</span> compileExpr (<span class="st">&quot;Prelude.print (&quot;</span> <span class="fu">&lt;&gt;</span> inp <span class="fu">&lt;&gt;</span> <span class="st">&quot;)&quot;</span>)
+      <span class="co">-- 'print' is constrained to 'IO ()' so unsafeCoerce is &quot;safe&quot;</span>
+      liftIO (unsafeCoerce act)
+    <span class="dt">Just</span> act <span class="ot">-&gt;</span> liftIO <span class="fu">$</span> act</code></pre></div>
+<p>To add an import we simply cons the import as a module name to the context and then yield the new state.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">addImport ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Ghc</span> ()
+addImport mod <span class="fu">=</span> <span class="kw">do</span>
+  ctx <span class="ot">&lt;-</span> getContext
+  setContext ( (<span class="dt">IIDecl</span> <span class="fu">$</span> simpleImportDecl (mkModuleName mod)) <span class="fu">:</span> ctx )</code></pre></div>
+<p>Then we do the naughty thing of catching all exceptions that are thrown and just printing them out. This is fairly justified in the case that if expression compilation fails we have to just trap and report the failure in the embedded interpreter logic.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">ghcCatch ::</span> <span class="dt">MonadIO</span> m <span class="ot">=&gt;</span> <span class="dt">IO</span> a <span class="ot">-&gt;</span> m (<span class="dt">Maybe</span> a)
+ghcCatch m <span class="fu">=</span> liftIO <span class="fu">$</span> <span class="kw">do</span>
+  mres <span class="ot">&lt;-</span> try m
+  <span class="kw">case</span> mres <span class="kw">of</span>
+    <span class="dt">Left</span> (<span class="ot">err ::</span> <span class="dt">SomeException</span>) <span class="ot">-&gt;</span> <span class="kw">do</span>
+      liftIO <span class="fu">$</span> print err
+      return <span class="dt">Nothing</span>
+    <span class="dt">Right</span> res <span class="ot">-&gt;</span> return (<span class="dt">Just</span> res)</code></pre></div>
+<p>The REPL then just reads the user’s input and dispatch based on whether the line starts with the keyword <code>import</code>. Depending on the expression line it then spins up a GHC session with the currently held HscEnv from the last line and trys to compile it. If succesfully it then calls <code>repl</code> with the new <code>env</code> state ad-infinitum. Unix signals for aborting are handled by Haskeline monad.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">repl ::</span> <span class="dt">HscEnv</span> <span class="ot">-&gt;</span> <span class="dt">Repl</span> ()
+repl env <span class="fu">=</span> <span class="kw">do</span>
+  minput <span class="ot">&lt;-</span> getInputLine <span class="st">&quot;&gt;&gt;&gt; &quot;</span>
+  <span class="kw">case</span> minput <span class="kw">of</span>
+    <span class="dt">Nothing</span> <span class="ot">-&gt;</span> outputStrLn <span class="st">&quot;Goodbye.&quot;</span>
+
+    <span class="dt">Just</span> input <span class="fu">|</span> <span class="st">&quot;import&quot;</span> <span class="ot">`isPrefixOf`</span> input <span class="ot">-&gt;</span> <span class="kw">do</span>
+      <span class="kw">let</span> mod <span class="fu">=</span> concat <span class="fu">$</span> tail <span class="fu">$</span> words input
+      env' <span class="ot">&lt;-</span> ghcCatch (session env (addImport mod))
+      maybe (repl env) repl env'
+
+    <span class="dt">Just</span> input <span class="ot">-&gt;</span> <span class="kw">do</span>
+      env' <span class="ot">&lt;-</span> ghcCatch (session env (eval input))
+      maybe (repl env) repl env'</code></pre></div>
+<p>Then putting it all together.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> <span class="kw">do</span>
+  env <span class="ot">&lt;-</span> initSession
+  runInputT defaultSettings (repl env)</code></pre></div>
+<p>We can then run our little shell.</p>
+<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash">$ <span class="kw">stack</span> build dive
+$ <span class="kw">stack</span> exec dive 
+
+<span class="kw">Setting</span> up HscEnv
+<span class="kw">&gt;&gt;&gt;</span> <span class="kw">fmap</span> (+1) [<span class="kw">1..10</span>]
+[<span class="kw">2</span>,3,4,5,6,7,8,9,10,11]
+<span class="kw">&gt;&gt;&gt;</span> <span class="kw">import</span> Data.Text
+<span class="kw">&gt;&gt;&gt;</span>
+<span class="kw">Goodbye.</span></code></pre></div>
+<p>So that’s our custom Mini GHCi. In practice <a href="https://github.com/ghc/ghc/tree/master/libraries/ghci">real GHCi</a> does things a little differently, but some underlying machinery remains the same. Other features like name lookup and introspection are left as an exercise to the reader. A fun next project would be to create tiny shell with an introspection tool querying the original source code of any definition in scope.</p>
+<h4 id="summary-next-steps">Summary &amp; Next Steps</h4>
+<p>This is the “Very High Level” API we can use to interact with GHC. Next we’ll concern ourselves with the guts of the internal artifacts used and how to introspect and build them programatically.</p>
+        </div>
+    </div>
+
+    <!-- JS
+    ================================================== -->
+    <script src="http://code.jquery.com/jquery-1.7.1.min.js"></script>
+
+<!-- End Document
+================================================== -->
+</body>

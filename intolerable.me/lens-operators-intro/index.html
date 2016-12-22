@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html>
+
+<!-- Mirrored from intolerable.me/lens-operators-intro/ by HTTrack Website Copier/3.x [XR&CO'2014], Thu, 22 Dec 2016 02:26:10 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+
+    
+    <title>basic lens operator examples</title>
+    <meta name="description" content="" />
+    <meta name="HandheldFriendly" content="True" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <link rel="shortcut icon" href="http://intolerable.me/assets/icons/favicon.ico?v=ae3985f46c" type="image/x-icon">
+	<link rel="apple-touch-icon" href="http://intolerable.me/assets/icons/apple-touch-icon.png?v=ae3985f46c" />
+	<link rel="apple-touch-icon" sizes="57x57" href="http://intolerable.me/assets/icons/apple-touch-icon-57x57.png?v=ae3985f46c" />
+	<link rel="apple-touch-icon" sizes="72x72" href="http://intolerable.me/assets/icons/apple-touch-icon-72x72.png?v=ae3985f46c" />
+	<link rel="apple-touch-icon" sizes="76x76" href="http://intolerable.me/assets/icons/apple-touch-icon-76x76.png?v=ae3985f46c" />
+	<link rel="apple-touch-icon" sizes="114x114" href="http://intolerable.me/assets/icons/apple-touch-icon-114x114.png?v=ae3985f46c" />
+	<link rel="apple-touch-icon" sizes="120x120" href="http://intolerable.me/assets/icons/apple-touch-icon-120x120.png?v=ae3985f46c" />
+	<link rel="apple-touch-icon" sizes="144x144" href="http://intolerable.me/assets/icons/apple-touch-icon-144x144.png?v=ae3985f46c" />
+	<link rel="apple-touch-icon" sizes="152x152" href="http://intolerable.me/assets/icons/apple-touch-icon-152x152.png?v=ae3985f46c" />
+
+    
+    <link rel="stylesheet" type="text/css" href="http://intolerable.me/assets/css/normalize.css?v=ae3985f46c" />
+    <link rel="stylesheet" type="text/css" href="http://intolerable.me/assets/css/icons.css?v=ae3985f46c" />
+    <link rel="stylesheet" type="text/css" href="http://intolerable.me/assets/css/screen.css?v=ae3985f46c" />
+    <link href='http://fonts.googleapis.com/css?family=Lato:100,300,700,100italic,300italic,700italic|Source+Code+Pro:300,400,500,700|Bree+Serif' rel='stylesheet' type='text/css'>
+
+    
+    <meta name="generator" content="Ghost 0.5" />
+<link rel="alternate" type="application/rss+xml" title="Intolerable" href="http://intolerable.me/rss/">
+<link rel="canonical" href="index.html" />
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','http://www.google-analytics.com/analytics.js','ga');
+
+      ga('create', 'UA-7696096-7', 'auto');
+      ga('send', 'pageview');
+
+    </script>
+</head>
+<body class="post-template tag-lens tag-haskell tag-operators tag-intro tag-examples">
+	<header class="main-header">
+		<div class="main-header-content">
+			<h1 class="blog-title"><a href="http://intolerable.me/">Intolerable</a></h1>
+			<h2 class="blog-description"></h2>
+		</div>
+		
+		
+		
+		
+		
+	</header>
+
+    
+    
+
+
+
+<main class="content" role="main">
+	<article class="post tag-lens tag-haskell tag-operators tag-intro tag-examples">
+	
+		<header class="post-header">
+			<h2 class="post-title">basic lens operator examples</h2>
+			<section class="post-meta">
+				<time class="post-date" datetime="2014-09-08">September 8, 2014</time>
+			</section>
+		</header>
+		<section class="post-content">
+			<p>one of the most common complaints about the <a href="https://hackage.haskell.org/package/lens"><code>lens</code></a> package is how many operators it defines. fortunately, you can get away with using a very minimal set and <code>lens</code> is still very powerful. here are some examples of use of the operators defined in the core <a href="https://hackage.haskell.org/package/lens-4.4.0.1/docs/Control-Lens-Lens.html"><code>Control.Lens.Lens</code></a> part of the library (without all the category theory "nonsense" because you don't need to know that to use the library effectively):</p>
+
+<p>this post assumes that you have some lenses defined on your types (unless you just want to use the pre-defined ones that come with the lens library), but doesn't assume that you have much knowledge of the theory behind lenses – this is not intended in any way to be a lens tutorial</p>
+
+<h3 id="flippedfunctionapplication"><code>&amp;</code>: flipped function application</h3>
+
+<p><code>&amp;</code> is literally just the <code>$</code> function application with the arguments reversed. fairly straightforward, but very helpful when you're using the lens library since it's so generally useful</p>
+
+<pre><code class=" haskell">(&amp;) = flip ($)
+"hello" &amp; reverse = "olleh"  
+50 &amp; (* 2) = 100  
+</code></pre>
+
+<h3 id="flippedfmap"><code>&lt;&amp;&gt;</code>: flipped <code>fmap</code></h3>
+
+<p><code>&lt;&amp;&gt;</code> is to <code>&amp;</code> as <code>&lt;$&gt;</code> is to <code>$</code>, its just <code>x &lt;&amp;&gt; f = fmap f x</code>. not as commonly used as <code>&amp;</code> but helpful nonetheless</p>
+
+<pre><code class=" haskell">Just 50 &lt;&amp;&gt; (* 2) = Just 100  
+[1,2,3,4] &lt;&amp;&gt; show = ["1","2","3","4"]
+show &lt;&amp;&gt; reverse $ [1,2,3,4,5] = "]5,4,3,2,1[" -- essentially flip (.)  
+</code></pre>
+
+<h3 id="tstateyfunctionapplication"><code>&amp;~</code>: state-y function application</h3>
+
+<p>lets you use the state combinators on regular not-state values (you can't change the type of the value from within though)</p>
+
+<pre><code class=" haskell">(1, "hello world", [1..5]) &amp;~ do
+  _2 .= "goodbye friends"
+  _3 %= (9:)
+  _1 &lt;~ (head &lt;$&gt; use _3)
+= (9, "goodbye friends", [9,1,2,3,4,5])
+</code></pre>
+
+<h3 id="flippedfunctorfunctions"> <code>??</code>: flipped functor functions</h3>
+
+<p>flipped functor function application. if you want to apply a function that's in a functor to something that isn't in a functor, this is your operator</p>
+
+<pre><code class=" haskell">Just (* 5) ?? 5 = Just 25  
+Nothing ?? 5 = Nothing  
+[(*2), (*3), (*6)] ?? 40 = [80, 120, 240]
+</code></pre>
+
+<h3 id="getviewfromalens"><code>^.</code>: get (view) from a lens</h3>
+
+<p>aka <code>view</code>. gets you a result of a lens</p>
+
+<pre><code class=" haskell">(1, "what") ^. _2 = "what"
+[1,2,3] ^.  to reverse = [3,2,1]
+
+-- data Thing = Thing { _boolThing :: Bool, _intThing :: Int }
+-- makeLens ''Thing
+Thing False 0 ^. boolThing = False  
+</code></pre>
+
+<p>secret sneaky tip: you can use <code>use</code> to do something similar if you're in a state-y context</p>
+
+<h3 id="tupdatewithalens"> <code>.~</code>: update with a lens</h3>
+
+<p>updates a value that you can access from a lens</p>
+
+<pre><code class=" haskell">(1, 2) &amp; _1 .~ 5 = (5, 2)
+Thing False 0 &amp; intThing .~ 5 = Thing False 5  
+Just 5 &amp; _Just .~ 10 = Just 10  
+</code></pre>
+
+<h3 id="tadjustwithalens"> <code>%~</code>: adjust with a lens</h3>
+
+<p>adjusts a value that you can access from a lens</p>
+
+<pre><code class=" haskell">("what", "how") &amp; _2 %~ (++ " amazing") = ("what", "how amazing")
+Thing False 0 &amp; intThing %~ (+ 5) = Thing False 5  
+Right "hello" &amp; _Right %~ (,) 0 = Right (0, "hello")  
+</code></pre>
+
+<h3 id="ttttpurenumericoperators"> <code>+~</code>, <code>-~</code>, <code>*~</code>, <code>//~</code>: pure numeric operators</h3>
+
+<p>adjustment operators for the associated numeric operators. there are also similar operators for things like logic (<code>&amp;&amp;~</code> / <code>||~</code>), bit-wise operations (<code>.&amp;.~</code> /  <code>.|.~</code> in Data.Bits.Lens), monoidal operations (<code>&lt;&gt;~</code>), powers (<code>^~</code> / <code>^^~</code>) etc.  </p>
+
+<pre><code class=" haskell">(1, "hello", 5) &amp; _3 *~ 2 = (1, "hello", 10)
+(1, "hello", 5) &amp; _1 +~ 6 = (7, "hello", 5)
+(1, "hello", 5) &amp; _1 -~ 1 &amp; _3 //~ 2 = (0, "hello", 2.5)
+</code></pre>
+
+<h3 id="stateupdate"><code>.=</code>: state update</h3>
+
+<p>updates a value inside a state-y context  </p>
+
+<pre><code class=" haskell">doSomething :: State Thing ()  
+doSomething = do  
+  intThing .= 5
+  boolThing .= True
+runState doSomething (Thing False 0) = Thing True 5  
+</code></pre>
+
+<h3 id="stateupdate"><code>%=</code>: state update</h3>
+
+<p>adjusts a value inside a state-y context  </p>
+
+<pre><code class=" haskell">doSomething :: State Thing ()  
+doSomething = do  
+  intThing %= const 15
+  boolThing %= not
+runState doSomething (Thing False 0) = Thing True 15  
+</code></pre>
+
+<h3 id="numericstateoperators"> <code>+=</code>, <code>-=</code>, <code>*=</code>, <code>//=</code>: numeric state operators</h3>
+
+<p>you should be able to guess what these do, they do numeric adjustments inside a state-y context. just like the pure operators, there are matching <code>=</code> versions of the logic / bit-wise operations and a few others  </p>
+
+<pre><code class=" haskell">doSomething :: State (Int, Double, Integer)  
+doSomething = do  
+  _1 += 1
+  _2 -= 5.0
+  _3 *= 4
+  _2 //= 2
+runState doSomething (1, 17.0, 3) = (2, 6.0, 12)  
+</code></pre>
+
+<h4 id="extrarules">extra rules</h4>
+
+<p>if <code>[operator]</code> modifies a thing, then <code>&lt;[operator]</code> returns a tuple with the result of the actual modification, plus the modified thing – for example, <code>(1,"hello", 5) &amp; _3 &lt;*~ 2 = (10, (1, "hello, 10))</code></p>
+
+<p>similarly, if <code>[operator]</code> modifies a thing, then <code>&lt;&lt;[operator]</code> returns a tuple with the result of the actual modification, plus the <em>old</em> (i.e. before the modification) result of the modified thing – for example, <code>(1,"hello", 5) &amp; _3 &lt;&gt;*~ 2 = (5, (1, "hello, 10))</code></p>
+
+<p>if there's an <code>.[operator]</code>, there's most likely a matching <code>#[operator]</code>. these are mostly functionally identical but the <code>#</code> variant works on <code>ALens</code>es, which are <code>Lens</code>es that you can put inside a container (since they are rank-1 and won't choke the compiler)</p>
+
+<p>as you can imagine you can find more (and probably more mathematically accurate) information on <code>lens</code>' haddock pages, and there's a bunch more operators on the <a href="https://hackage.haskell.org/package/lens-4.4.0.1/docs/Control-Lens-Operators.html"><code>Control.Lens.Operators</code></a> docs page. beware, there are lots of terrifying category theory bits on there, and if you understand it all you are a more enlightened person than me</p>
+
+<hr />
+
+<p>i wrote this partially as a personal reference for when im writing some of my own lens-heavy code, which is available on github <a href="https://github.com/intolerable/gbc">here</a>. it's pretty shit though, so don't look too hard. if u have any criticisms or comments about this or my code, u can fire an issue at my repo or message me on <a href="http://www.reddit.com/message/compose/?to=Intolerable">reddit</a></p>
+		</section>
+		<footer class="post-footer">
+			<section class="tags post-meta">
+				Tagged <a href="http://intolerable.me/tag/lens/">lens</a>, <a href="http://intolerable.me/tag/haskell/">haskell</a>, <a href="http://intolerable.me/tag/operators/">operators</a>, <a href="http://intolerable.me/tag/intro/">intro</a>, <a href="http://intolerable.me/tag/examples/">examples</a>
+			</section>
+			<section class="share">
+            </section>	
+		</footer>
+	
+	</article>
+</main>
+
+    
+    <footer class="site-footer">
+    	<section class="rss"><a class="subscribe-button icon-feed" href="http://intolerable.me/rss/"></a></section>
+    	
+    	
+        <section class="copyright">&copy; 2016 Intolerable</section>
+        <section class="poweredby"><a href="http://coffeeintoapps.com/arabica">Arabica</a> theme by Sean Lunsford. Published with <a href="https://ghost.org/">Ghost</a>.</section>
+    </footer>
+    <script src="http://intolerable.me/public/jquery.min.js?v=ae3985f46c"></script>
+</body>
+
+<!-- Mirrored from intolerable.me/lens-operators-intro/ by HTTrack Website Copier/3.x [XR&CO'2014], Thu, 22 Dec 2016 02:26:10 GMT -->
+</html>
