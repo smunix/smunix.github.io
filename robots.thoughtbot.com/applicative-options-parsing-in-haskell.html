@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang='en'>
+
+<!-- Mirrored from robots.thoughtbot.com/applicative-options-parsing-in-haskell by HTTrack Website Copier/3.x [XR&CO'2014], Fri, 23 Dec 2016 08:28:26 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+<meta charset='utf-8'>
+<meta content='IE=edge' http-equiv='X-UA-Compatible'>
+<meta content='width=device-width,initial-scale=1' name='viewport'>
+<meta content='NOODP' name='robots'>
+<meta content='Articles by thoughtbot about design, Ruby on Rails, iOS, Android, and growth.' name='description'>
+
+<meta content='summary' name='twitter:card'>
+<meta content='@thoughtbot' name='twitter:site'>
+<meta content='https://robots.thoughtbot.com/applicative-options-parsing-in-haskell' name='twitter:url'>
+<meta content='Applicative Options Parsing in Haskell' name='twitter:title'>
+<meta content='I’ve just finished work on a small command line client for the&#x000A;Heroku Build...' name='twitter:description'>
+
+<link rel="shortcut icon" type="image/x-icon" href="assets/favicon-f2dbb21c91d2db85a5cb89a59e2b72cca851b16f03caffad1f8375cb8e957e0a.ico" />
+<link rel="apple-touch-icon" type="image/x-icon" href="assets/apple-touch-icon-f5660bd740993647d20c17d16b3fae2697e73d818752f2d4f3045e49d8b80153.png" />
+<title>Applicative Options Parsing in Haskell</title>
+<link rel="stylesheet" media="all" href="assets/application-ff0c4cc73b0d2029b89faccf076fdc8a7e82ffa8adeb43387b1449ef94499722.css" />
+
+<link href='feed://feeds.feedburner.com/GiantRobotsSmashingIntoOtherGiantRobots' rel='alternate' type='application/rss+xml'>
+</head>
+<body>
+<nav class='main'>
+<a href="index.html"><svg xmlns="http://www.w3.org/2000/svg" width="257.6px" height="257.6px" viewBox="0 0 257.6 257.6" role="img" aria-labelledby="cb4m9hxguevrazc7fa7ulqbnpyn8y8d" class="logo nav-logo"><title id="cb4m9hxguevrazc7fa7ulqbnpyn8y8d">Blog home</title>
+  <path fill="#ed3e44" d="M128.8,0C57.7,0,0,57.7,0,128.8c0,71.1,57.7,128.8,128.8,128.8c71.1,0,128.8-57.7,128.8-128.8     C257.6,57.7,199.9,0,128.8,0z"></path>
+  <g fill="#fff">
+    <path d="M95.6,137.3h-5.2v36.6h0c1.7,2.1,2.8,4.7,2.8,7.6c0,3.6-1.6,6.8-4.2,9l-3.2-3.2c1.8-1.3,2.9-3.4,2.9-5.8       c0-4-3.3-7.3-7.3-7.3c-4,0-7.3,3.3-7.3,7.3c0,2.4,1.1,4.5,2.9,5.8l-3.2,3.2c-2.5-2.2-4.2-5.4-4.2-9c0-2.9,1.1-5.6,2.8-7.6v-57       c0.1-2.2,1.9-4,4.1-4l104.5,0c2.2,0,4,1.8,4.1,4v57c1.8,2.1,2.8,4.7,2.8,7.6c0,3.6-1.6,6.8-4.2,9l-3.2-3.2       c1.7-1.3,2.9-3.4,2.9-5.8c0-4-3.3-7.3-7.3-7.3c-4,0-7.3,3.3-7.3,7.3c0,2.4,1.1,4.5,2.9,5.8l-3.2,3.2c-2.6-2.2-4.2-5.4-4.2-9       c0-2.9,1.1-5.6,2.8-7.6h0v-36.6H162v77.2l3.5,2v6.3h-35v-6.3l3.5-2h0V191h-10.4v23.4l3.5,2v6.3l-34.9,0.1v-6.3l3.4-2L95.6,137.3z"></path>
+    <path d="M128.8,53.6c7.3,0,13.8,2.6,17.9,6.5l3.2-4.6c-5.1-4.5-12.6-7.4-21.1-7.4l0,0c-8.5,0-16.1,2.9-21.1,7.4       l3.2,4.6C114.9,56.2,121.5,53.6,128.8,53.6"></path>
+    <g>
+      <path d="M129,42c7.9,0,15.3,2.3,20.8,6.5c1.1,0.8,2.1,1.7,3,2.7l3.2-4.6c-6.2-6.1-16-10.1-27-10.1l0,0         c-11.3,0-21.3,4.1-27.5,10.5l3.2,4.6c1-1.1,2.1-2.2,3.4-3.2C113.7,44.3,121.1,42,129,42"></path>
+    </g>
+    <g>
+      <path d="M128.8,30.8c12.6,0,23.7,4.6,30.3,11.6l3.2-4.5c-7.7-7.6-19.9-12.5-33.5-12.5l0,0         c-13.7,0-25.8,4.9-33.5,12.6l3.2,4.5C105,35.4,116.2,30.8,128.8,30.8"></path>
+    </g>
+    <g>
+      <path d="M118.7,84.7c0,1.9-1.5,3.5-3.5,3.5c-1.9,0-3.5-1.6-3.5-3.5c0-1.9,1.6-3.5,3.5-3.5         C117.2,81.2,118.7,82.7,118.7,84.7z"></path>
+      <path d="M155.3,66h-53.1c-2.2,0-4,1.8-4,4v34.6c0,2.2,1.8,4,4,4h53.1c2.2,0,4-1.8,4-4V70         C159.3,67.8,157.5,66,155.3,66z M115.3,91.4c-3.7,0-6.8-3-6.8-6.8c0-3.7,3-6.8,6.8-6.8c3.7,0,6.8,3,6.8,6.8         C122,88.4,119,91.4,115.3,91.4z M142.4,91.4c-3.7,0-6.8-3-6.8-6.8c0-3.7,3-6.8,6.8-6.8c3.7,0,6.8,3,6.8,6.8         C149.2,88.4,146.1,91.4,142.4,91.4z"></path>
+      <path d="M145.9,84.7c0,1.9-1.6,3.5-3.5,3.5c-1.9,0-3.5-1.6-3.5-3.5c0-1.9,1.5-3.5,3.5-3.5         C144.3,81.2,145.9,82.7,145.9,84.7z"></path>
+    </g>
+  </g>
+</svg>
+
+</a><ul class='topic-nav'>
+<li class='topic-nav-item'>
+<a href="tags.html">All Topics</a>
+</li>
+<li class='topic-nav-item'>
+<a class="" href="design.html">Design</a>
+</li>
+<li class='topic-nav-item'>
+<a class="" href="web.html">Web</a>
+</li>
+<li class='topic-nav-item'>
+<a class="" href="ios.html">iOS</a>
+</li>
+<li class='topic-nav-item'>
+<a class="" href="android.html">Android</a>
+</li>
+</ul>
+</nav>
+
+
+<div class='container'>
+<article class='post text' data-url='/applicative-options-parsing-in-haskell' role='main'>
+<header>
+<h1 class='title'>
+Applicative Options Parsing in Haskell
+</h1>
+<div class='meta'>
+<div class='meta-author'>
+<a href="authors/pat-brisbin.html">Pat Brisbin</a>
+</div>
+<time class='meta-date' datetime='2014-06-13T00:00:00+00:00'>
+June 13, 2014
+</time>
+<ul class='meta-tag-list'>
+<li class='meta-tag-item'>
+<a href="tags/web.html">web</a>
+</li>
+<li class='meta-tag-item'>
+<a href="tags/haskell.html">haskell</a>
+</li>
+</ul>
+
+</div>
+
+</header>
+<div class='post-body'>
+<p>I&rsquo;ve just finished work on a small command line <a href="https://github.com/pbrisbin/heroku-build">client</a> for the
+<a href="https://devcenter.heroku.com/articles/platform-api-reference#build">Heroku Build API</a> written in Haskell. It may be a bit overkill for
+the task, but it allowed me to play with a library I was very interested
+in but hadn&rsquo;t had a chance to use yet: <a href="https://hackage.haskell.org/package/optparse-applicative">optparse-applicative</a>.</p>
+
+<p>In figuring things out, I again noticed something I find common to many
+Haskell libraries:</p>
+
+<ol>
+<li>It&rsquo;s extremely easy to use and solves the problem exactly as I need.</li>
+<li>It&rsquo;s woefully under-documented and appears incredibly difficult to
+use at first glance.</li>
+</ol>
+
+<p>Note that when I say under-documented, I mean it in a very specific way.
+The <a href="https://hackage.haskell.org/package/optparse-applicative-0.9.0/docs/Options-Applicative-Builder.html">Haddocks</a> are stellar. Unfortunately, what I find lacking are
+blogs and example-driven tutorials.</p>
+
+<p>Rather than complain about the lack of tutorials, I&rsquo;ve decided to write
+one.</p>
+<h2 id="applicative-parsers">
+  <a href="#applicative-parsers">
+    Applicative Parsers
+  </a>
+</h2>
+
+<p>Haskell is known for its great parsing libraries and this is no
+exception. For some context, here&rsquo;s an example of what it looks like to
+build a Parser in Haskell:</p>
+
+<pre><code class="haskell">type CSV = [[String]]&#x000A;&#x000A;csvFile :: Parser CSV&#x000A;csvFile = do&#x000A;    lines &lt;- many csvLine&#x000A;    eof&#x000A;&#x000A;    return lines&#x000A;&#x000A;  where&#x000A;    csvLine = do&#x000A;        cells &lt;- many csvCell `sepBy` comma&#x000A;        eol&#x000A;&#x000A;        return cells&#x000A;&#x000A;    csvCell = quoted (many anyChar)&#x000A;&#x000A;    comma = char &#39;,&#39;&#x000A;&#x000A;    eol = char &#39;\n&#39; &lt;|&gt; char &#39;\r\n&#39;&#x000A;&#x000A;    -- etc...&#x000A;</code></pre>
+
+<p>As you can see, Haskell parsers have a fractal nature. You make tiny
+parsers for simple values and combine them into slightly larger parsers
+for slightly more complicated values. You continue this process until
+you reach the top level <code>csvFile</code> which reads like exactly what it is.</p>
+
+<p>When combining parsers from a general-purpose library like <a href="as%20we%27re%20doing%20above.html">parsec</a>, we typically do it <em>monadically</em>. This means
+that each parsing step is <em>sequenced</em> together (that&rsquo;s what
+<a href="http://www.haskell.org/haskellwiki/Monad#Special_notation">do-notation</a> does) and that sequencing will be respected when the
+parser is ultimately executed on some input. Sequencing parsing steps in
+an imperative way like this allows us to make decisions mid-parse about
+what to do next or to use the results of earlier parses in later ones.
+This ability is essential in most cases.</p>
+
+<p>When using libraries like <a href="https://hackage.haskell.org/package/optparse-applicative">optparse-applicative</a> and <a href="http://hackage.haskell.org/package/aeson">aeson</a>
+we&rsquo;re able to do something different. Instead of treating parsers as
+monadic, we can treat them as applicative. The <code>Applicative</code> type class
+is a lot like <code>Monad</code> in that it&rsquo;s a means of describing combination.
+Crucially, it differs in that it has no ability to define an order &ndash;
+there&rsquo;s no sequencing.</p>
+
+<p>If it helps, you can think of applicative parsers as <em>atomic</em> or
+<em>parallel</em> while monadic parsers would be <em>incremental</em> or <em>serial</em>. Yet
+another way to say it is that monadic parsers operate on the result of
+the previous parser and can only return something to the next; the
+overall result is then simply the result of the last parser in the
+chain. Applicative parsers, on the other hand, operate on the whole
+input and contribute directly to the whole output &ndash; when combined and
+executed, many applicative parsers can run &ldquo;at once&rdquo; to produce the
+final result.</p>
+
+<p>Taking values and combining them into a larger value via some
+constructor is exactly how normal function application works. The
+<code>Applicative</code> type class lets you construct things from values wrapped
+in some context (say, a <em>Parser State</em>) using a very similar syntax. By
+using <code>Applicative</code> to combine smaller parsers into larger ones, you end
+up with a very convenient situation: the constructed parsers resemble
+the structure of their <em>output</em>, not their <em>input</em>.</p>
+
+<p>When you look at the CSV parser above, it reads like the document it&rsquo;s
+parsing, not the value it&rsquo;s producing. It doesn&rsquo;t <em>look like</em> an array
+of arrays, it looks like a walk over the values and down the lines of a
+file. There&rsquo;s nothing wrong with this structure per se, but contrast it
+with this parser for creating a <code>User</code> from a <abbr title="JavaScript Object Notation">JSON</abbr> value:</p>
+
+<pre><code class="haskell">data User = User String Int&#x000A;&#x000A;-- Value is a type provided by aeson to represent &lt;abbr title=&quot;JavaScript Object Notation&quot;&gt;JSON&lt;/abbr&gt; values.&#x000A;parseUser :: Value -&gt; Parser User&#x000A;parseUser (Object o) = User &lt;$&gt; o .: &quot;name&quot; &lt;*&gt; o .: &quot;age&quot;&#x000A;</code></pre>
+
+<p>It&rsquo;s hard to believe the two share any qualities at all, but they are in
+fact the same thing, just constructed via different means of
+combination.</p>
+
+<p>In the CSV case, parsers like <code>csvLine</code> and <code>eof</code> are combined
+monadically via do-notation:</p>
+
+<blockquote>
+<p>You will parse many lines of CSV, <em>then</em> you will parse an
+end-of-file.</p>
+</blockquote>
+
+<p>In the <abbr title="JavaScript Object Notation">JSON</abbr> case, parsers like <code>o .: &quot;name&quot;</code> and <code>o .: &quot;age&quot;</code> each
+contribute part of a <code>User</code> and those parts are combined applicatively
+via <a href="http://hackage.haskell.org/package/base-4.7.0.0/docs/Control-Applicative.html#v:-60--36--62-"><code>(&lt;$&gt;)</code></a> and <a href="http://hackage.haskell.org/package/base-4.7.0.0/docs/Control-Applicative.html#v:-60--42--62-"><code>(&lt;*&gt;)</code></a> (pronounced <em>fmap</em> and
+<em>apply</em>):</p>
+
+<blockquote>
+<p>You will parse a user from the value for the &ldquo;name&rdquo; key <em>and</em> the
+value for the &ldquo;age&rdquo; key</p>
+</blockquote>
+
+<p>Just by virtue of how <code>Applicative</code> works, we find ourselves with a
+<code>Parser User</code> that looks surprisingly like a <code>User</code>.</p>
+
+<p>I go through all of this not because you need to know about it to use
+these libraries (though it does help with understanding their error
+messages), but because I think it&rsquo;s a great example of something many
+developers don&rsquo;t believe: not only <em>can</em> highly theoretic concepts have
+tangible value in real world code, but they in fact <em>do</em> in Haskell.</p>
+
+<p>Let&rsquo;s see it in action.</p>
+<h2 id="options-parsing">
+  <a href="#options-parsing">
+    Options Parsing
+  </a>
+</h2>
+
+<p>My little command line client has the following usage:</p>
+
+<pre><code class="sh">heroku-build [--app COMPILE-APP] [start|status|release]&#x000A;</code></pre>
+
+<p>Where each sub-command has its own set of arguments:</p>
+
+<pre><code class="sh">heroku-build start SOURCE-URL VERSION&#x000A;heroku-build status BUILD-ID&#x000A;heroku-build release BUILD-ID RELEASE-APP&#x000A;</code></pre>
+
+<p>The first step is to define a data type for what you want <em>out</em> of
+options parsing. I typically call this <code>Options</code>:</p>
+
+<pre><code class="haskell">import Options.Applicative -- Provided by optparse-applicative&#x000A;&#x000A;type App = String&#x000A;type Version = String&#x000A;type Url = String&#x000A;type BuildId = String&#x000A;&#x000A;data Command&#x000A;    = Start Url Version&#x000A;    | Status BuildId&#x000A;    | Release BuildId App&#x000A;&#x000A;data Options = Options App Command&#x000A;</code></pre>
+
+<p>If we assume that we can build a <code>Parser Options</code>, using it in <code>main</code>
+would look like this:</p>
+
+<pre><code class="haskell">main :: IO ()&#x000A;main = run =&lt;&lt; execParser&#x000A;    (parseOptions `withInfo` &quot;Interact with the Heroku Build API&quot;)&#x000A;&#x000A;parseOptions :: Parser Options&#x000A;parseOptions = undefined&#x000A;&#x000A;-- Actual program logic&#x000A;run :: Options -&gt; IO ()&#x000A;run opts = undefined&#x000A;</code></pre>
+
+<p>Where <code>withInfo</code> is just a convenience function to add <code>--help</code> support
+given a parser and description:</p>
+
+<pre><code class="haskell">withInfo :: Parser a -&gt; String -&gt; ParserInfo a&#x000A;withInfo opts desc = info (helper &lt;*&gt; opts) $ progDesc desc&#x000A;</code></pre>
+
+<p>So what does an Applicative Options Parser look like? Well, if you
+remember the discussion above, it&rsquo;s going to be a series of smaller
+parsers combined in an applicative way.</p>
+
+<p>Let&rsquo;s start by parsing just the <code>--app</code> option using the
+library-provided <code>strOption</code> helper:</p>
+
+<pre><code class="haskell">parseApp :: Parser App&#x000A;parseApp = strOption $&#x000A;    short &#39;a&#39; &lt;&gt; long &quot;app&quot; &lt;&gt; metavar &quot;COMPILE-APP&quot; &lt;&gt;&#x000A;    help &quot;Heroku app on which to compile&quot;&#x000A;</code></pre>
+
+<p>Next we make a parser for each sub-command:</p>
+
+<pre><code class="haskell">parseStart :: Parser Command&#x000A;parseStart = Start&#x000A;    &lt;$&gt; argument str (metavar &quot;SOURCE-URL&quot;)&#x000A;    &lt;*&gt; argument str (metavar &quot;VERSION&quot;)&#x000A;&#x000A;parseStatus :: Parser Command&#x000A;parseStatus = Status &lt;$&gt; argument str (metavar &quot;BUILD-ID&quot;)&#x000A;&#x000A;parseRelease :: Parser Command&#x000A;parseRelease = Release&#x000A;    &lt;$&gt; argument str (metavar &quot;BUILD-ID&quot;)&#x000A;    &lt;*&gt; argument str (metavar &quot;RELEASE-APP&quot;)&#x000A;</code></pre>
+
+<p>Looks familiar, right? These parsers are made up of simpler parsers
+(like <code>argument</code>) combined in much the same way as our <code>parseUser</code>
+example. We can then combine them further via the <code>subparser</code> function:</p>
+
+<pre><code class="haskell">parseCommand :: Parser Command&#x000A;parseCommand = subparser $&#x000A;    command &quot;start&quot;   (parseStart   `withInfo` &quot;Start a build on the compilation app&quot;) &lt;&gt;&#x000A;    command &quot;status&quot;  (parseStatus  `withInfo` &quot;Check the status of a build&quot;) &lt;&gt;&#x000A;    command &quot;release&quot; (parseRelease `withInfo` &quot;Release a successful build&quot;)&#x000A;</code></pre>
+
+<p>By re-using <code>withInfo</code> here, we even get sub-command <code>--help</code> flags:</p>
+
+<pre><code class="sh">$ heroku-build start --help&#x000A;Usage: heroku-build start SOURCE-URL VERSION&#x000A;  Start a build on the compilation app&#x000A;&#x000A;Available options:&#x000A;  -h,--help                Show this help text&#x000A;</code></pre>
+
+<p>Pretty great, right?</p>
+
+<p>All of this comes together to make the full <code>Options</code> parser:</p>
+
+<pre><code class="haskell">parseOptions :: Parser Options&#x000A;parseOptions = Options &lt;$&gt; parseApp &lt;*&gt; parseCommand&#x000A;</code></pre>
+
+<p>Again, this looks just like <code>parseUser</code>. You might&rsquo;ve thought that
+<code>o .: &quot;name&quot;</code> was some kind of magic, but as you can see, it&rsquo;s just a
+parser. It was defined in the same way as <code>parseApp</code>, designed to parse
+something simple, and is easily combined into a more complex parser
+thanks to its applicative nature.</p>
+
+<p>Finally, with option handling thoroughly taken care of, we&rsquo;re free to
+implement our program logic in terms of meaningful types:</p>
+
+<pre><code class="haskell">run :: Options -&gt; IO ()&#x000A;run (Options app cmd) = do&#x000A;    case cmd of&#x000A;        Start url version  -&gt; -- ...&#x000A;        Status build       -&gt; -- ...&#x000A;        Release build rApp -&gt; -- ...&#x000A;</code></pre>
+<h1 id="wrapping-up">
+  <a href="#wrapping-up">
+    Wrapping Up
+  </a>
+</h1>
+
+<p>To recap, optparse-applicative allows us to do a number of things:</p>
+
+<ul>
+<li>Implement our program input as a meaningful type</li>
+<li>State how to turn command-line options into a value of that type in a
+concise and declarative way</li>
+<li>Do this even in the presence of something complex like sub-commands</li>
+<li>Handle invalid input and get a really great <code>--help</code> message for free</li>
+</ul>
+
+<p>Hopefully, this post has piqued some interest in Haskell&rsquo;s deeper ideas
+which I believe lead to most of these benefits. If not, at least there&rsquo;s
+some real world examples that you can reference the next time you want
+to parse command-line options in Haskell.</p>
+
+</div>
+<ul class='share-post-list'>
+<li class='share-network-item'>
+<a class="social-share-network social-twitter" onClick="window.open(this.href, &#39;twitter-share&#39;, &#39;width=550,height=235&#39;);return false;" href="https://twitter.com/share?text=Applicative%20Options%20Parsing%20in%20Haskell&amp;url=https://robots.thoughtbot.com/applicative-options-parsing-in-haskell"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 274 223" class="share-network-item-icon"><desc>Twitter</desc><g fill="none" fill-rule="evenodd"><path d="M0 197.8c4.388.52 8.853.784 13.38.784 26.278 0 50.463-8.967 69.66-24.01-24.545-.453-45.26-16.67-52.396-38.953 3.424.66 6.938 1.01 10.552 1.01 5.116 0 10.07-.685 14.778-1.967-25.66-5.15-44.993-27.82-44.993-54.997 0-.236 0-.47.008-.705 7.563 4.2 16.21 6.725 25.406 7.016C21.34 75.913 11.44 58.746 11.44 39.286c0-10.28 2.766-19.913 7.594-28.197 27.664 33.93 68.993 56.26 115.61 58.6-.957-4.106-1.454-8.387-1.454-12.78 0-30.978 25.114-56.09 56.09-56.09 16.133 0 30.71 6.81 40.942 17.712 12.776-2.516 24.78-7.184 35.617-13.61-4.19 13.096-13.08 24.088-24.665 31.03 11.346-1.356 22.156-4.37 32.215-8.832-7.52 11.25-17.03 21.128-27.987 29.036.108 2.405.162 4.824.162 7.256C245.565 137.532 189.148 223 85.98 223c-31.675 0-61.158-9.285-85.98-25.2z"></path></g></svg>
+
+</a></li>
+<li class='share-network-item'>
+<a class="social-share-network social-email" href="mailto:?body=Applicative%20Options%20Parsing%20in%20Haskell%20-%20https%3A%2F%2Frobots.thoughtbot.com%2F%2Fapplicative-options-parsing-in-haskell&amp;subject=Check%20out%20this%20blog%20post%20by%20thoughtbot"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="10" viewBox="0 0 26 17" class="share-network-item-icon"><desc>Email</desc><g fill="none" fill-rule="evenodd"><path d="M23.096 0c.684 0 .978.868.435 1.284L13.31 9.112c-.425.324-1.014.324-1.438 0l-10.2-7.83C1.13.868 1.424 0 2.108 0h20.988zm.932 2.758c.477-.377 1.18-.037 1.18.57v11.534c0 .825-.67 1.493-1.494 1.493H1.494C.668 16.355 0 15.687 0 14.862V3.332c0-.61.703-.95 1.18-.572l10.375 8.214c.61.482 1.468.482 2.077 0L24.028 2.76z"></path></g></svg>
+
+</a></li>
+</ul>
+
+</article>
+
+</div>
+<section class='container'>
+<div class='promoted'>
+<div class='etc ad-book'>
+<img alt='Maybe Haskell book cover' src='https://images.thoughtbot.com/books/maybe-haskell/cover.png'>
+<p>
+Have you ever wanted to to program without <code>nil</code>?
+Learn about Haskell's <code>Maybe</code> data type
+in our new book
+<a href="http://maybe-haskell.com?utm_source=robots.thoughtbot.com&amp;utm_medium=referral&amp;utm_campaign=ad&amp;utm_term=https://robots.thoughtbot.com/applicative-options-parsing-in-haskell"><i>Maybe Haskell</i></a>
+to start living in a null-free world.
+You'll find this concept useful whether you program
+in Haskell, Scala, OCaml,
+or are a heavy user of Swift's <code>Optional</code>s.
+</p>
+</div>
+
+
+</div>
+
+</section>
+<footer>
+<section id='universal-footer'>
+<div class='wrap'>
+<div class='footer-nav'>
+<ul>
+<li class='title'>
+Products
+</li>
+<li>
+<a href="https://formkeep.com/">FormKeep
+</a></li>
+<li>
+<a href="https://houndci.com/">Hound
+</a></li>
+<li>
+<a href="https://thoughtbot.com/upcase">Upcase
+</a></li>
+</ul>
+<ul>
+<li class='title'>
+Services
+</li>
+<li>
+<a href="https://thoughtbot.com/services/design">Design
+</a></li>
+<li>
+<a href="https://thoughtbot.com/services/elixir-phoenix">Elixir/Phoenix
+</a></li>
+<li>
+<a href="https://thoughtbot.com/services/go">Go
+</a></li>
+<li>
+<a href="https://thoughtbot.com/services/ios-development">iOS
+</a></li>
+<li>
+<a href="https://thoughtbot.com/services/python-django">Python/Django
+</a></li>
+<li>
+<a href="https://thoughtbot.com/services/react">React
+</a></li>
+<li>
+<a href="https://thoughtbot.com/services/ruby-on-rails">Ruby/Rails
+</a></li>
+</ul>
+<ul>
+<li class='title'>
+Open Source
+</li>
+<li>
+<a href="https://github.com/thoughtbot/Argo">Argo
+</a></li>
+<li>
+<a href="http://bourbon.io/">Bourbon
+</a></li>
+<li>
+<a href="https://github.com/thoughtbot/capybara-webkit">Capybara Webkit
+</a></li>
+<li>
+<a href="https://github.com/thoughtbot/clearance">Clearance
+</a></li>
+<li>
+<a href="https://github.com/thoughtbot/dotfiles">Dotfiles
+</a></li>
+<li>
+<a href="https://github.com/thoughtbot/factory_girl">Factory Girl
+</a></li>
+<li>
+<a href="https://github.com/thoughtbot/laptop">Laptop
+</a></li>
+<li>
+<a href="https://github.com/thoughtbot/suspenders">Suspenders
+</a></li>
+<li>
+<a href="https://github.com/thoughtbot">More...
+</a></li>
+</ul>
+<ul>
+<li class='title'>
+Locations
+</li>
+<li>
+<a href="https://thoughtbot.com/austin">Austin, TX
+</a></li>
+<li>
+<a href="https://thoughtbot.com/boston">Boston, MA
+</a></li>
+<li>
+<a href="https://thoughtbot.com/london">London, UK
+</a></li>
+<li>
+<a href="https://thoughtbot.com/new-york-city">New York, NY
+</a></li>
+<li>
+<a href="https://thoughtbot.com/raleigh">Raleigh, NC
+</a></li>
+<li>
+<a href="https://thoughtbot.com/san-francisco">San Francisco, CA
+</a></li>
+<li>
+<a href="https://thoughtbot.com/washington-d-c">Washington, DC
+</a></li>
+</ul>
+<ul>
+<li class='title'>
+Podcasts
+</li>
+<li>
+<a href="http://bikeshed.fm/">The Bike Shed
+</a></li>
+<li>
+<a href="http://buildphase.fm/">Build Phase
+</a></li>
+<li>
+<a href="http://giantrobots.fm/">Giant Robots
+</a></li>
+<li>
+<a href="http://tentative.fm/">Tentative
+</a></li>
+</ul>
+</div>
+</div>
+</section>
+</footer>
+<div id='copyright-footer' role='contentinfo'>
+<strong>
+&copy; 2016
+<a href="https://thoughtbot.com/">thoughtbot, inc.</a>
+</strong>
+The design of a robot and thoughtbot are registered trademarks of
+thoughtbot, inc.
+<a href="http://www.iubenda.com/privacy-policy/7827608">Privacy Policy</a>
+</div>
+
+<script src="assets/application-bbf94746fb135c6b856f4e12ddc446ccb8dffb30f060c3fa348511e86dd1f3aa.js"></script>
+<script src="http://carnivalapp.io/sites/3/init.js"></script>
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    Carnival.init({
+      article_author: "Pat Brisbin",
+      article_selector: "article .post-body",
+      block_selector: ":scope > p, :scope > pre, :scope li",
+      onNewComment: function(comment) {
+        [].slice.call(comment.element.querySelectorAll("pre code")).map(
+          function(e) { hljs.highlightBlock(e); }
+        );
+      }
+    });
+  })
+</script>
+
+<script>
+  window.analytics.load("wperrhev8f")
+  window.analytics.page();
+</script>
+
+</body>
+
+<!-- Mirrored from robots.thoughtbot.com/applicative-options-parsing-in-haskell by HTTrack Website Copier/3.x [XR&CO'2014], Fri, 23 Dec 2016 08:28:30 GMT -->
+</html>
