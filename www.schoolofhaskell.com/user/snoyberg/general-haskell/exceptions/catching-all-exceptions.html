@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html>
+<!-- Mirrored from www.schoolofhaskell.com/user/snoyberg/general-haskell/exceptions/catching-all-exceptions by HTTrack Website Copier/3.x [XR&CO'2014], Fri, 23 Dec 2016 06:19:59 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head><title>Catching all exceptions - School of Haskell | School of Haskell</title><meta http-equiv="x-ua-compatible" content="IE=9"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="google-site-verification" content="Rfxk2TdeMMXEXHgJ2_OO8Rt3hPbQSDao0OXQV_n6z_s" /><link href="http://fonts.googleapis.com/css?family=Merriweather" rel="stylesheet" type="text/css"><link href="https://www.schoolofhaskell.com/recent-content/feed" type="application/rss+xml" rel="alternate" title="Recently published content">
+<link rel="stylesheet" href="https://www.schoolofhaskell.com/static/combined/UlwEHVcM.css"><style>#hident3 .like-count{margin-right:0.5em}#hident3 .likes{font-family:merriweather;float:right;margin-bottom:1em;border:1px solid #eee;font-size:1.1em;padding:0.25em;border-radius:0.25em;display:inline-block;text-align:center;color:#468847;background-color:#dff0d8;border-color:#d6e9c6}#hident3 .likes:hover{text-decoration:none;cursor:pointer}#hident3 .likes-liked i{opacity:0.25}#hident3 .likes-liked .like-count{font-weight:bold }#hident3 .like-not-logged-in *{cursor:default}.social{margin-right:1em}h1{font-family:Merriweather !important}article{font-family:Merriweather !important}article li{font-family:Merriweather !important;line-height:1.6em}h1,h2,h3,h4,h4,h5{font-family:Merriweather !important}.editor p{font-family:Frutiger, "Frutiger Linotype", Univers, Calibri, "Gill Sans", "Gill Sans MT", "Myriad Pro", Myriad, "DejaVu Sans Condensed", "Liberation Sans", "Nimbus Sans L", Tahoma, Geneva, "Helvetica Neue", Helvetica, Arial, sans-serif}.article-footer{border-top:1px solid #ddd;padding-top:1em;margin-top:1em}body{font-size:16px !important}.navbar .navbar-inner{background:#3c3f41}.navbar .brand{font-size:14px}.navbar .brand img{width:6em}.navbar .icon-wrench{margin:0 -0.5em 0 -0.5em;padding:0 1em 0 1em;height:20px}.navbar-inverse .nav .active a{background:#333638}.navbar-inverse .nav > li > a{color:#a7a7a7
+}.navbar-inverse .btn-navbar{background:#333638}.navbar-inverse .nav > li a:hover,.navbar-inverse .btn{background:#333537 !important}@media (max-width: 979px) {.icon-wrench{padding-left:1em !important}}.breadcrumb{border-top-left-radius:0;border-top-right-radius:0}h1{margin-top:20px}.breadcrumb-container + .main-content h1{margin-top:0}.footer{padding:30px 0;margin-top:70px;border-top:1px solid #e5e5e5;background-color:#f5f5f5}.footer ul.footer-menu{list-style-type:none}.footer ul.footer-menu li{display:inline-block}.footer ul.footer-menu li + li{margin-left:0.5em}.footer ul.footer-menu li + li:before{margin-right:0.5em;content:"·";color:#999}.footer ul.menu li{display:inline-block}.footer ul.menu li + li{margin-left:0.5em}.footer .copyright{margin-left:25px}.main-content{min-height:100%}.gravatar{width:80px;height:80px;border-radius:2px;background:#eee}.empty-gravatar{width:0}.container{font-family:"Segoe UI", Candara, "Bitstream Vera Sans", "DejaVu Sans", "Bitstream Vera Sans", "Trebuchet MS", Verdana, "Verdana Ref", sans-serif}.container h1,.container h2,.container h4,.container h4,.container h5{font-family:"Segoe UI", Candara, "Bitstream Vera Sans", "DejaVu Sans", "Bitstream Vera Sans", "Trebuchet MS", Verdana, "Verdana Ref", sans-serif}article{font-family:Merriweather !important}article h1{font-family:Merriweather !important}article li{font-family:Merriweather !important;line-height:1.6em}article li + li{margin-top:0.5em}article div.code{background:#f9f9f9;border:1px solid #d1d1d1;position:relative;border-radius:0.2em;margin:0.25em 0 0.75em 0;min-height:2.5em}article code{color:#005580;font-size:14px;white-space:pre}article a.hoogle > code{color:#0088cc;font-size:14px;white-space:pre;border:0}article .expand-code{display:none}article pre{overflow:auto;word-wrap:normal}article code.active{display:block;max-height:430px}article h1{font-size:31.5px}article h3{font-size:17.5px}article h4{font-size:14px}article h5,article h6{font-size:11.9px}article p{line-height:1.7em}article h1 code,article h2 code,article h3 code,article h4 code,article h5 code,article h6 code{font-size:inherit !important}article h1 a,article h2 a,article h3 a,article h4 a,article h5 a,article h6 a{color:#444}article h1 a:before,article h2 a:before,article h3 a:before,article h4 a:before,article h5 a:before,article h6 a:before{margin-left:-1.5em;padding-right:0.5em;font-family:fontawesome;content:"\f0c1";font-size:20px;color:#fff}article h1 a:hover,article h2 a:hover,article h3 a:hover,article h4 a:hover,article h5 a:hover,article h6 a:hover{text-decoration:none;color:#0088cc}article h1 a:hover:before,article h2 a:hover:before,article h3 a:hover:before,article h4 a:hover:before,article h5 a:hover:before,article h6 a:hover:before{color:#888}article h2{font-size:24.5px}article .popover{font-family:actor}article .popover h3.popover-title{font-family:actor !important;font-size:1em}article .popover .popover-content{width:15em;font-size:1em}article .controlsRun{display:block;padding:0.5em;text-align:right;background:#f2f2f2}article .controlsRun a.clone{margin-right:1em;font-family:actor;text-decoration:none}article .controlsRun a.clone span{padding-left:0.5em}article .controlsRun a.run,article .controlsRun a.reset,article .controlsRun a.show-code{font-size:16px}article .controlsRun a.run span,article .controlsRun a.reset span,article .controlsRun a.show-code span{display:none}article .controlsRun a.reset{margin-left:0.5em;color:#a2becc}article .controlsRun a.reset{display:none}article .controlsRun a.show-code{margin-right:0.75em}article .controlsRun a.run:hover,article .controlsRun a.show-code:hover{text-decoration:none}article .controlsRun a.show-code.active{color:#DC0D0D}article .controlsRun a[disabled]{color:#a2becc;cursor:default}article .collapse-area .collapse-header{background:#0088cc;color:#fff;padding:0.3em;cursor:pointer}article .collapse-area .hidden-toggle:before{content:"\f0d7";font-family:fontawesome;margin-right:0.5em;margin-left:0.25em}article .collapse-area .collapsed-files{overflow:auto;height:auto}article .collapse-area.collapse-disabled{display:none}article .collapse-area.collapse-area-off .collapsed-files{height:0px;overflow:hidden}article .collapse-area.collapse-area-off .hidden-toggle:before{content:"\f0da"}article .snippet-stdio .stdout{margin:0.5em;padding-right:2em;position:relative;word-wrap:break-word}article .snippet-stdio .stdin{-webkit-box-shadow:none;-moz-box-shadow:none;box-shadow:none;-webkit-transition:none;-moz-transition:none;-o-transition:none;transition:none;padding:0;margin:0}article .hoogle-results{margin:0.25em}article .hoogle-results .hoogle-inner{background:#fff;padding:0.5em;border-radius:3px;border:1px solid #ddd}article .hoogle-results .hoogle-inner .close-link{position:relative;float:right;margin-top:-0.5em;margin-right:-0.5em}article .snippet-output-errors{margin:1em 0.5em 0.5em 0.5em;position:relative}article .snippet-output-errors ul{list-style-type:none;margin:0;position:relative}article .snippet-output-errors pre{border:0;border-radius:0;padding:0.25em;margin:0;background:inherit;color:inherit}article .snippet-output-errors .close-link{color:inherit;background:inherit}article .snippet-editors{z-index:0;padding:0.25em}article .close-link{padding:0.5em;background:#eaeaea;border-bottom-left-radius:0.2em;border-top-right-radius:0.2em;position:absolute;top:0;right:0}article .close-link:hover{text-decoration:none}article .snippet-title{padding:0.5em 0 0 0.5em}article .snippet-title .snippet-icon{font-family:FontAwesome;display:inline-block;margin-right:0.5em}article .fullModuleCode + div .snippet-title{margin-top:0.5em;border-top:1px solid #ccc;padding-top:0.5em}article .CodeMirror{height:auto;min-height:1em;line-height:1.5em;background:transparent;font-size:14px !important}article .CodeMirror .highlighted{background:rgba(250, 210, 0, 0.45) !important}article .CodeMirror-widget{margin-left:2em;line-height:1.8}article .CodeMirror.collapsed{height:10em !important}article .editor .expander{text-align:center;display:block;padding:0.5em;text-decoration:none;border-bottom-left-radius:2px;border-bottom-right-radius:2px}article .editor .expander .ellipsis{background:white;border:1px solid #ccc;padding:0 0.5em;height:1em;line-height:0.5em;display:inline-block;color:#555;cursor:pointer}article .editor .expander .ellipsis:hover{background:#ddd;color:#333}article .web-runner{margin:0.5em;padding:0.5em;border:1px solid #ccc;border-radius:3px;background:#f5f5f5}article .web-runner iframe{border:0;margin-top:0.5em;margin-bottom:0;background:white}article .web-runner .controls i{cursor:pointer;color:#0088cc}article .web-runner .controls i:hover{color:#222}article .web-runner .controls i + i{margin-left:0.5em}article .web-runner .controls .icon-remove{float:right}article .hidden{display:block;visibility:visible}article .controlsShowHide{margin-bottom:0.5em}.tutorial-body{float:left !important}.tutorial-nav{float:right !important}@media (max-width: 979px) {.related-content{float:right}.author-name{display:block;margin-left:20px !important;padding-left:5px;margin-top:5px}article h1 a:hover:before,article h2 a:hover:before,article h3 a:hover:before,article h4 a:hover:before,article h5 a:hover:before,article h6 a:hover:before{color:#fff}.tutorial-nav{float:none !important;width:auto !important}.tutorial-body{float:none !important;width:auto !important}}@media (min-width: 980px) and (max-width: 1199px) {.navbar-search{display:none}.tutorial-nav{width:200px}.tutorial-body{width:720px}}#accountPage h1{margin:20px 0 0 0}#accountPage h2{font-size:20px}.group-contents .span8{float:left}.group-contents .span4{float:right}.container > .alert-block{margin-top:1em}.alert{color:#aa874a
+}.social{margin-bottom:.8em;display:block}.social a{text-decoration:none}.social i{font-size:1.1em;color:#fff;padding:0.25em;border-radius:0.25em;width:1em;display:inline-block;text-align:center}.social i.icon-twitter{background:#0088cc}.social i.icon-facebook{background:#3b5998
+  }.social i.icon-google-plus{background:#dd4b39
+  }.well pre{background:#fcfcfc}.well h2{margin-top:0}code{color:#005580;font-size:14px;white-space:pre}</style><!--[if lt IE 8]><link rel="stylesheet" href="https://www.schoolofhaskell.com/static/design/css/ie7.css?etag=TSMl9x1V"><![endif]--><!--[if lt IE 9]><script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script><![endif]--></head><body class="not-logged-in" itemscope itemtype="http://schema.org/Product"><noscript><iframe src="http://www.googletagmanager.com/ns.html?id=GTM-H62P" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript><script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='http://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','GTM-H62P');</script><div class="navbar navbar-inverse navbar-static-top"><div class="navbar-inner"><div class="container"><a class="btn btn-navbar" type="button" data-toggle="collapse" data-target=".nav-collapse"><span class="icon-bar"></span>
+<span class="icon-bar"></span>
+<span class="icon-bar"></span>
+</a>
+<a class="brand" href="https://www.schoolofhaskell.com/"><img src="https://www.schoolofhaskell.com/static/img/ide-logo.png" title="School of Haskell">
+</a>
+<div class="nav-collapse collapse"><ul class="nav"><li><a href="https://www.schoolofhaskell.com/">School</a>
+</li>
+<li><a href="https://www.schoolofhaskell.com/user">Users</a>
+</li>
+</ul>
+<form class="navbar-search pull-left" action="https://www.schoolofhaskell.com/search"><input class="search-query" type="text" placeholder="Search" name="search">
+</form>
+<ul class="nav pull-right"><li><a href="https://www.schoolofhaskell.com/auth/login">Login</a>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+<div class="container breadcrumb-container"><div class="row"><div class="span12"><ul class="breadcrumb"><li><a href="https://www.schoolofhaskell.com/user/snoyberg">Michael Snoyman</a>
+<span class="divider">/</span>
+</li>
+<li><a href="https://www.schoolofhaskell.com/user/snoyberg/general-haskell">General Haskell</a>
+<span class="divider">/</span>
+</li>
+<li><a href="https://www.schoolofhaskell.com/user/snoyberg/general-haskell/exceptions">Exceptions</a>
+<span class="divider">/</span>
+</li>
+<li><a href="catching-all-exceptions.html">Catching all exceptions</a>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="container main-content"><div class="row"><div class="span12"><p class="alert">Interactive code snippets not yet available for SoH 2.0, see our <a href=https://www.fpcomplete.com/blog/2016/01/soh-status>Status of
+ of School of Haskell 2.0 blog post</a></p>
+</div>
+</div>
+<div class="row"><div class="span12"><h1 itemprop="name">Catching all exceptions</h1>
+</div>
+</div>
+<div class="row"><div class="span7 meta"><p><span class="date">29 Jun 2016</span>
+<span class="author"><a href="https://www.schoolofhaskell.com/user/snoyberg">Michael Snoyman</a>
+</span>
+<span class="view-edit-link pull-right"><a class="view-source-link" href="https://www.schoolofhaskell.com/tutorial-raw/1/5584a3e4a208c6f6564293f139276f133792030c">View Markdown source</a>
+</span>
+</p>
+<p class="tags"></p>
+</div>
+</div>
+<div class="row"><div class="span7 meta"><div id="hident3"></div>
+
+<span class="sociallinksunicode social">
+<a href="https://twitter.com/home?status=$url$" target="_blank"><i class="icon-twitter"></i></a>&nbsp;
+<a href="http://www.facebook.com/sharer/sharer.php?u=$url$" target="_blank"><i class="icon-facebook"></i></a>&nbsp;
+<a href="https://plus.google.com/share?url=$url$" target="_blank"><i class="icon-google-plus"></i></a></span>
+</div>
+</div>
+<div class="row" itemprop="desc"><div class="span4 tutorial-nav"><div class="related-content"><ul class="nav nav-tabs nav-stacked"><li><script>reddit_target='fpcomplete'</script>
+<script src="https://redditstatic.s3.amazonaws.com/button/button1.js"></script>
+</li>
+<li><a href="exceptions-and-monad-transformers.html">Previous content: Exceptions and monad transformers</a>
+</li>
+<li><a href="https://www.schoolofhaskell.com/user/snoyberg/general-haskell/exceptions">Go up to: Exceptions</a>
+</li>
+<li><a href="https://www.schoolofhaskell.com/user/snoyberg">See all content by Michael Snoyman</a>
+</li>
+</ul>
+
+</div>
+<div class="aside"><h3>Sections</h3>
+<ul><li><a href="#async-exceptions">Async exceptions</a></li><li><a href="#non-solution--examine-the-types">Non-solution: examine the types</a></li><li><a href="#real-solution--separate-worker-thread">Real solution: separate worker thread</a></li><li><a href="#going-deeper">Going deeper</a></li><li><a href="#transformers">Transformers</a></li><li><a href="#moving-forward">Moving forward</a></li></ul></div>
+</div>
+<div class="span8 tutorial-body" data-environment="ghc-7.8-stable-14.09">
+<article><p>Note: the code in this article is now available on Hackage in <a href="http://hackage.haskell.org/package/enclosed-exceptions">enclosed-exceptions</a>. I've also since written a new library with a type-based approach, so you may be interested in reading about <a href="https://www.stackage.org/package/safe-exceptions">safe-exceptions</a> instead.</p><p>A commonly discussed piece of functionality is &quot;catching all exceptions.&quot; The goal usually is to write reliable functions, which can recover from any kind of problem that exists in some library, or perhaps in some callback passed into the function, which the library author has no control over. Thanks to extensible exceptions, writing this kind of &quot;catch any exception&quot; is pretty trivial in Haskell:</p><pre><code class="haskell active">import Control.Exception
+
+catchAny :: IO a -&gt; (SomeException -&gt; IO a) -&gt; IO a
+catchAny = Control.Exception.catch
+
+dangerous :: IO Int
+dangerous = error &quot;Fool you!&quot;
+
+main :: IO ()
+main = do
+    result &lt;- catchAny dangerous $ \e -&gt; do
+        putStrLn $ &quot;Got an exception: &quot; ++ show e
+        putStrLn &quot;Returning dummy value of -1&quot;
+        return (-1)
+    print result</code></pre><p>But this <code>catchAny</code> function isn't quite correct, due to asynchronous exceptions. I'd like to explain what the problem is, demonstrate a fix for it (inspired by John Lato using Simon Marlow's <code>async</code> library), and then generalize it even further using <code>monad-control</code>.</p><h2 id="async-exceptions"><a href="#async-exceptions">Async exceptions</a></h2><p>Let's consider the following theoretical workflow:</p><ul><li>I have a potentially exception-throwing function I want to run, called <code>dangerous</code>.</li><li>This function should be run by a larger function, called <code>worker</code>. It should handle exceptions thrown by <code>dangerous</code> gracefully.</li><li>I want to make sure that <code>worker</code> runs for no more than 5 milliseconds. I'll use the <code>timeout</code> function to ensure this.</li><li>But unbeknownst to me, <code>dangerous</code> tends to take about 10 milliseconds.</li></ul><p>Below is an implementation of the above logic, using the <code>catchAny</code> we defined earlier. Before you run this code, consider what the expected behavior here should be. In particular, should <code>worker</code> run to completion or not?</p><pre><code class="haskell active">import Control.Exception
+import System.Timeout
+import Control.Concurrent
+
+catchAny :: IO a -&gt; (SomeException -&gt; IO a) -&gt; IO a
+catchAny = Control.Exception.catch
+
+dangerous :: IO Int
+dangerous = do
+    putStrLn &quot;Succeeds this time, but takes some time&quot;
+    threadDelay 10000
+    return 5
+    
+worker :: IO ()
+worker = do
+    x &lt;- catchAny dangerous $ \e -&gt; do
+        putStrLn $ &quot;Caught an exception: &quot; ++ show e
+        return (-1)
+    putStrLn $ &quot;x + 10 == &quot; ++ show (x + 10)
+
+main :: IO ()
+main = do
+    res &lt;- timeout 5000 worker
+    case res of
+        Nothing -&gt; putStrLn &quot;worker did not run to completion&quot;
+        Just () -&gt; putStrLn &quot;worker ran to completion&quot;</code></pre><p>In an ideal world, <code>worker</code> would be stopped before it finished, since it takes more than the 10 milliseconds provided to it to completely run. However, if you run the above code, you'll see that <code>worker</code> does in fact complete. What gives? Well, this is what <i>actually</i> happens when you run this code:</p><ul><li>The <code>timeout</code> function forks a new thread to run <code>worker</code> in. If <code>worker</code> does not complete within 5 ms, that new thread is thrown a timeout exception. This kind of throwing is done by the <code>throwTo</code> function, and is an <i>asynchronous exception</i>.</li><li>Meanwhile, <code>worker</code> starts running, and wraps <code>dangerous</code> with <code>catchAny</code>.</li><li>Since <code>dangerous</code> takes 10 ms, the timeout exception is called when the new thread is inside <code>dangerous</code>, which itself is inside <code>catchAny</code>. <code>dangerous</code> has no exception handling, so the exception propagates up to <code>worker</code>.</li><li><code>worker</code>'s <code>catchAny</code> catches all exceptions, and therefore treats the timeout exception as if it was thrown from <code>dangerous</code> itself. It therefore continues processing, completely ignoring the command to timeout.</li></ul><p>This is a little tricky, so make sure you understand the situation properly before continuing.</p><h2 id="non-solution--examine-the-types"><a href="#non-solution--examine-the-types">Non-solution: examine the types</a></h2><p>My first inclination for solving this problem was to look at the types of the exception being caught. If it was a timeout exception, or any other kind of asynchronous exception, <code>catchAny</code> could simply ignore it. This looks something like:</p><pre><code class="haskell active">{-# LANGUAGE ScopedTypeVariables #-}
+import Control.Exception
+import System.Timeout
+import Control.Concurrent
+
+-- show
+catchAny :: IO a -&gt; (SomeException -&gt; IO a) -&gt; IO a
+catchAny m f =
+    Control.Exception.catch m onExc
+  where
+    onExc e
+        | shouldCatch e = f e
+        | otherwise = throwIO e
+    shouldCatch e
+        | show e == &quot;&lt;&lt;timeout&gt;&gt;&quot; = False
+        | Just (_ :: AsyncException) &lt;- fromException e = False
+        | otherwise = True
+-- /show
+
+dangerous :: IO Int
+dangerous = do
+    putStrLn &quot;Succeeds this time, but takes some time&quot;
+    threadDelay 10000
+    return 5
+    
+worker :: IO ()
+worker = do
+    x &lt;- catchAny dangerous $ \e -&gt; do
+        putStrLn $ &quot;Caught an exception: &quot; ++ show e
+        return (-1)
+    putStrLn $ &quot;x + 10 == &quot; ++ show (x + 10)
+
+main :: IO ()
+main = do
+    res &lt;- timeout 5000 worker
+    case res of
+        Nothing -&gt; putStrLn &quot;worker did not run to completion&quot;
+        Just () -&gt; putStrLn &quot;worker ran to completion&quot;</code></pre><p>As you can see, this does in fact solve our problem. <code>catchAny</code> now ignores the timeout exception, so it is propagated to <code>worker</code>, terminating the computation. However, it has a few problems. I won't profess to understand all of the problems, but here's the most salient in my mind: <b>the types have nothing to do with whether an exception is synchronous or asynchronous</b>. Consider that, for some strange reason, we decided to asynchronously throw an <code>IOException</code> to a worker thread, e.g.:</p><pre><code class="haskell active">{-# LANGUAGE ScopedTypeVariables #-}
+import Control.Exception
+import System.Timeout
+import Control.Concurrent
+
+catchAny :: IO a -&gt; (SomeException -&gt; IO a) -&gt; IO a
+catchAny m f =
+    Control.Exception.catch m onExc
+  where
+    onExc e
+        | shouldCatch e = f e
+        | otherwise = throwIO e
+    shouldCatch e
+        | show e == &quot;&lt;&lt;timeout&gt;&gt;&quot; = False
+        | Just (_ :: AsyncException) &lt;- fromException e = False
+        | otherwise = True
+
+dangerous :: IO Int
+dangerous = do
+    putStrLn &quot;Succeeds, but takes some time&quot;
+    threadDelay 10000
+    return 5
+    
+worker :: IO ()
+worker = do
+    x &lt;- catchAny dangerous $ \e -&gt; do
+        putStrLn $ &quot;Caught an exception: &quot; ++ show e
+        return (-1)
+    putStrLn $ &quot;x + 10 == &quot; ++ show (x + 10)
+
+-- show
+main :: IO ()
+main = do
+    threadId &lt;- forkIO worker
+    eresult &lt;- try $ readFile &quot;does-not-exist.txt&quot;
+    case eresult of
+        Left e -&gt; throwTo threadId (e :: IOException)
+        Right _ -&gt; putStrLn &quot;Funny, that shouldn't have worked&quot;
+    -- Give the forked thread time to finish
+    threadDelay 50000
+-- /show</code></pre><p>Since our <code>catchAny</code> knowns nothing about asynchronously thrown <code>IOException</code>s, our worker thread will continue doing work even after we try to kill the thread. This example is clearly a bit contrived, but consider if we had some kind of user quota system, where we send a custom asynchronous exception whenever a thread uses too much disk space. There's no way a generic <code>catchAny</code> could know about every kind of custom exception type a user defines. And even if we did, it's clear that any exception type could be thrown either synchronously or asynchronously.</p><h2 id="real-solution--separate-worker-thread"><a href="#real-solution--separate-worker-thread">Real solution: separate worker thread</a></h2><p>John Lato described a very straight-forward means of doing the right thing, leveraging Simon Marlow's excellent <code>async</code> library. In fact, that library is so excellent that it solved some of my implementation details before I even realized they existed... more on that in a moment.</p><p>The concept is simple: if you have some function you want to catch all exceptions for, fork a new thread and run the function there. Catch all exceptions thrown in that new thread, and return them to the original thread (via usage of software transactional memory). Now, if any async exceptions are thrown to the original thread, they are unaffected by the exception catching code. And the cool part that the <code>async</code> library took care of automatically: if the original thread gets an async exception, automatically propagate it down to the worker thread so that it terminates work immediately.</p><p>The amazing thing is just how simple this code is. We'll switch over to implementing <code>tryAny</code> instead of <code>catchAny</code>, since it's easier with the <code>async</code> library, and then we can build <code>catchAny</code> on top of that.</p><p><b>Note</b>: the <code>async</code> library hasn't yet been deployed to the FP Haskell Center at time of writing, so I'll include the necessary code inline from <code>async</code>.</p><pre><code class="haskell active">import Control.Exception
+import Control.Concurrent
+import Control.Concurrent.STM
+import GHC.Magic (inline)
+import Prelude hiding (catch)
+
+-- show
+tryAny :: IO a -&gt; IO (Either SomeException a)
+tryAny action = withAsync action waitCatch
+
+catchAny :: IO a -&gt; (SomeException -&gt; IO a) -&gt; IO a
+catchAny action onE = tryAny action &gt;&gt;= either onE return
+-- /show
+
+dangerous :: IO Int
+dangerous = do
+    putStrLn &quot;Succeeds, but takes some time&quot;
+    threadDelay 10000
+    return 5
+    
+worker :: IO ()
+worker = do
+    x &lt;- catchAny dangerous $ \e -&gt; do
+        putStrLn $ &quot;Caught an exception: &quot; ++ show e
+        return (-1)
+    putStrLn $ &quot;x + 10 == &quot; ++ show (x + 10)
+
+main :: IO ()
+main = do
+    threadId &lt;- forkIO worker
+    eresult &lt;- try $ readFile &quot;does-not-exist.txt&quot;
+    case eresult of
+        Left e -&gt; throwTo threadId (e :: IOException)
+        Right _ -&gt; putStrLn &quot;Funny, that shouldn't have worked&quot;
+    -- Give the forked thread time to finish
+    threadDelay 50000
+
+-- From async
+data Async a = Async { asyncThreadId :: {-# UNPACK #-} !ThreadId
+                       -- ^ Returns the 'ThreadId' of the thread running the given 'Async'.
+                     , _asyncWait    :: STM (Either SomeException a) }
+
+withAsync :: IO a -&gt; (Async a -&gt; IO b) -&gt; IO b
+withAsync = inline withAsyncUsing forkIO
+
+withAsyncUsing :: (IO () -&gt; IO ThreadId)
+               -&gt; IO a -&gt; (Async a -&gt; IO b) -&gt; IO b
+-- The bracket version works, but is slow.  We can do better by
+-- hand-coding it:
+withAsyncUsing doFork = \action inner -&gt; do
+  var &lt;- newEmptyTMVarIO
+  mask $ \restore -&gt; do
+    t &lt;- doFork $ try (restore action) &gt;&gt;= atomically . putTMVar var
+    let a = Async t (readTMVar var)
+    r &lt;- restore (inner a) `catchAll` \e -&gt; do cancel a; throwIO e
+    cancel a
+    return r
+
+catchAll :: IO a -&gt; (SomeException -&gt; IO a) -&gt; IO a
+catchAll = catch
+
+cancel :: Async a -&gt; IO ()
+cancel (Async t _) = throwTo t ThreadKilled
+
+waitCatch :: Async a -&gt; IO (Either SomeException a)
+waitCatch = atomically . waitCatchSTM
+
+waitCatchSTM :: Async a -&gt; STM (Either SomeException a)
+waitCatchSTM (Async _ w) = w</code></pre><p>Our solution is now very concise, built on top of quality libraries, and it resilient to any changes in the future to the exception hierarchy.</p><p>This is really our complete solution to the problem as described. The next two sections describe two optional enhancements to this solution.</p><h2 id="going-deeper"><a href="#going-deeper">Going deeper</a></h2><p>What we really want is to be completely isolated from any exceptions generated by a piece of code. The solution above is still vulnerable to one issue: exceptions from pure code hiding in an unevaluated thunk. Even the most brute force <code>catchAny</code> is susceptible to this problem.</p><pre><code class="haskell active">import Control.Exception
+
+catchAny :: IO a -&gt; (SomeException -&gt; IO a) -&gt; IO a
+catchAny = Control.Exception.catch
+
+dangerous :: IO Int
+dangerous = return $ error &quot;Unevaluated!&quot;
+
+main :: IO ()
+main = do
+    res &lt;- catchAny dangerous (const $ return (-1))
+    putStrLn &quot;About to print the result&quot;
+    putStrLn $ &quot;Result: &quot; ++ show res
+    putStrLn &quot;Hmm... does this ever get printed?&quot;</code></pre><p>What we want to do is force evaluation of the value, and if forcing throws any exceptions, catch them. With the <code>deepseq</code> package, this is easy. Let's call these new functions <code>tryAnyDeep</code> and <code>catchAnyDeep</code>, and base them on our previously defined <code>tryAny</code>:</p><pre><code class="haskell active">import Control.Exception
+import Control.Concurrent
+import Control.Concurrent.STM
+import GHC.Magic (inline)
+import Prelude hiding (catch)
+import Control.DeepSeq
+
+-- show
+tryAnyDeep :: NFData a =&gt; IO a -&gt; IO (Either SomeException a)
+tryAnyDeep action = tryAny $ do
+    res &lt;- action
+    evaluate $!! res -- here's the magic
+
+catchAnyDeep :: NFData a =&gt; IO a -&gt; (SomeException -&gt; IO a) -&gt; IO a
+catchAnyDeep action onE = tryAnyDeep action &gt;&gt;= either onE return
+
+dangerous :: IO Int
+dangerous = return $ error &quot;Unevaluated!&quot;
+
+main :: IO ()
+main = do
+    res &lt;- catchAnyDeep dangerous (const $ return (-1))
+    putStrLn &quot;About to print the result&quot;
+    putStrLn $ &quot;Result: &quot; ++ show res
+    putStrLn &quot;Hmm... does this ever get printed?&quot;
+-- /show
+
+tryAny :: IO a -&gt; IO (Either SomeException a)
+tryAny action = withAsync action waitCatch
+
+catchAny :: IO a -&gt; (SomeException -&gt; IO a) -&gt; IO a
+catchAny action onE = tryAny action &gt;&gt;= either onE return
+
+-- From async
+data Async a = Async { asyncThreadId :: {-# UNPACK #-} !ThreadId
+                       -- ^ Returns the 'ThreadId' of the thread running the given 'Async'.
+                     , _asyncWait    :: STM (Either SomeException a) }
+
+withAsync :: IO a -&gt; (Async a -&gt; IO b) -&gt; IO b
+withAsync = inline withAsyncUsing forkIO
+
+withAsyncUsing :: (IO () -&gt; IO ThreadId)
+               -&gt; IO a -&gt; (Async a -&gt; IO b) -&gt; IO b
+-- The bracket version works, but is slow.  We can do better by
+-- hand-coding it:
+withAsyncUsing doFork = \action inner -&gt; do
+  var &lt;- newEmptyTMVarIO
+  mask $ \restore -&gt; do
+    t &lt;- doFork $ try (restore action) &gt;&gt;= atomically . putTMVar var
+    let a = Async t (readTMVar var)
+    r &lt;- restore (inner a) `catchAll` \e -&gt; do cancel a; throwIO e
+    cancel a
+    return r
+
+catchAll :: IO a -&gt; (SomeException -&gt; IO a) -&gt; IO a
+catchAll = catch
+
+cancel :: Async a -&gt; IO ()
+cancel (Async t _) = throwTo t ThreadKilled
+
+waitCatch :: Async a -&gt; IO (Either SomeException a)
+waitCatch = atomically . waitCatchSTM
+
+waitCatchSTM :: Async a -&gt; STM (Either SomeException a)
+waitCatchSTM (Async _ w) = w</code></pre><p>We can now have complete* confidence in the values returned from <code>catchAny</code>.</p><p>* Complete confidence, assuming we trust the <code>NFData</code> instances, but that's a different problem.</p><h2 id="transformers"><a href="#transformers">Transformers</a></h2><p>OK, one final twist: can we catch exceptions in a monad transformer stack? Many of you may be aware that I'm a big advocate of Bas van Dijk's <code>monad-control</code> package, and the related <code>lifted-base</code> package. <code>monad-control</code> allows for a consistent manner of lifted control operations within a monad transformer stack. Can we generalize our <code>tryAny</code> and <code>catchAny</code> functions to work with arbitrary transformer stacks? Fortunately, we can:</p><pre><code class="haskell active">{-# LANGUAGE FlexibleContexts #-}
+import Control.Exception
+import Control.Concurrent
+import Control.Concurrent.STM
+import GHC.Magic (inline)
+import Prelude hiding (catch)
+import Control.DeepSeq
+import Control.Monad.Trans.Control
+import Control.Monad.Trans.Reader
+import Control.Monad.IO.Class
+import Control.Monad (liftM)
+
+-- show
+tryAnyIO :: IO a -&gt; IO (Either SomeException a)
+tryAnyIO action = withAsync action waitCatch
+
+tryAny :: MonadBaseControl IO m =&gt; m a -&gt; m (Either SomeException a)
+tryAny action =
+    -- MAGIC!
+    liftBaseWith (\runInIO -&gt; tryAnyIO (runInIO action)) &gt;&gt;=
+    either (return . Left) (liftM Right . restoreM)
+
+catchAny :: MonadBaseControl IO m =&gt; m a -&gt; (SomeException -&gt; m a) -&gt; m a
+catchAny action onE = tryAny action &gt;&gt;= either onE return
+
+tryAnyDeep :: (MonadBaseControl IO m, NFData a)
+           =&gt; m a
+           -&gt; m (Either SomeException a)
+tryAnyDeep action = tryAny $ do
+    res &lt;- action
+    liftBase $ evluate $!! res -- here's the magic
+
+catchAnyDeep :: (MonadBaseControl IO m, NFData a)
+             =&gt; m a
+             -&gt; (SomeException -&gt; m a)
+             -&gt; m a
+catchAnyDeep action onE = tryAnyDeep action &gt;&gt;= either onE return
+
+dangerous :: Monad m =&gt; m Int
+dangerous = return $ error &quot;Unevaluated!&quot;
+
+main :: IO ()
+main = flip runReaderT () $ do
+    res &lt;- catchAnyDeep dangerous (const $ return (-1))
+    liftIO $ putStrLn &quot;About to print the result&quot;
+    liftIO $ putStrLn $ &quot;Result: &quot; ++ show res
+    liftIO $ putStrLn &quot;Hmm... does this ever get printed?&quot;
+-- /show
+
+-- From async
+data Async a = Async { asyncThreadId :: {-# UNPACK #-} !ThreadId
+                       -- ^ Returns the 'ThreadId' of the thread running the given 'Async'.
+                     , _asyncWait    :: STM (Either SomeException a) }
+
+withAsync :: IO a -&gt; (Async a -&gt; IO b) -&gt; IO b
+withAsync = inline withAsyncUsing forkIO
+
+withAsyncUsing :: (IO () -&gt; IO ThreadId)
+               -&gt; IO a -&gt; (Async a -&gt; IO b) -&gt; IO b
+-- The bracket version works, but is slow.  We can do better by
+-- hand-coding it:
+withAsyncUsing doFork = \action inner -&gt; do
+  var &lt;- newEmptyTMVarIO
+  mask $ \restore -&gt; do
+    t &lt;- doFork $ try (restore action) &gt;&gt;= atomically . putTMVar var
+    let a = Async t (readTMVar var)
+    r &lt;- restore (inner a) `catchAll` \e -&gt; do cancel a; throwIO e
+    cancel a
+    return r
+
+catchAll :: IO a -&gt; (SomeException -&gt; IO a) -&gt; IO a
+catchAll = catch
+
+cancel :: Async a -&gt; IO ()
+cancel (Async t _) = throwTo t ThreadKilled
+
+waitCatch :: Async a -&gt; IO (Either SomeException a)
+waitCatch = atomically . waitCatchSTM
+
+waitCatchSTM :: Async a -&gt; STM (Either SomeException a)
+waitCatchSTM (Async _ w) = w</code></pre><p>That implementation of <code>tryAny</code> is a little bit hairy, but it essentially means:</p><ul><li>Capture the monadic state when we start running (via <code>liftWithBase</code>).</li><li>Put the state inside the <code>IO</code> monad by modifying the internal value (via <code>runInIO</code>).</li><li>Now that we have an <code>IO</code> action, run <code>tryAnyIO</code> on it.</li><li>Get back the result.<ul><li>If an exception was thrown, then return that exception.</li><li>If a value was returned, unwrap the new monadic state from and extract the actual return value (via <code>restoreM</code>).</li></ul></li></ul><h2 id="moving-forward"><a href="#moving-forward">Moving forward</a></h2><p>I've <a href="https://github.com/snoyberg/classy-prelude/blob/ccd19f2c62882c69d5dcdd3da5c0df1031334c5a/classy-prelude/ClassyPrelude.hs#L320">added these functions</a> to the <code>classy-prelude</code> Github repo, and after a bit more testing will be releasing them. But I think including something like this in a more accessible place makes a lot of sense, as we should be trying to make the correct approach easier to implement.</p><p>I'd be happy to hear ideas on how to improve the code, or where the correct place to put these functions might be.</p></article>
+
+<div id="disqus_thread"><script>var disqus_shortname = "snoyberg-soh"; (function() { var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true; dsq.src = 'https://' + disqus_shortname + '.disqus.com/embed.js'; (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq); })();</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<a class="dsq-brlink" href="https://disqus.com/">comments powered by <span class="logo-disqus">Disqus</span></a></a>
+</div>
+
+</div>
+</div>
+<div class="row article-footer"><div class="span7 meta"><span class="sociallinksunicode social">
+<a href="https://twitter.com/home?status=$url$" target="_blank"><i class="icon-twitter"></i></a>&nbsp;
+<a href="http://www.facebook.com/sharer/sharer.php?u=$url$" target="_blank"><i class="icon-facebook"></i></a>&nbsp;
+<a href="https://plus.google.com/share?url=$url$" target="_blank"><i class="icon-google-plus"></i></a></span>
+</div>
+</div>
+</div>
+<div class="footer"><div class="container"><div class="row"><div class="span12"><ul class="menu"><li><a href="https://www.schoolofhaskell.com/">School</a>
+</li>
+<li><a href="https://www.schoolofhaskell.com/user">Users</a>
+</li>
+<li><a href="https://www.schoolofhaskell.com/auth/login">Log In</a>
+</li>
+<li><a href="https://www.schoolofhaskell.com/auth/page/email/register">Sign Up</a>
+</li>
+</ul>
+</div>
+</div>
+<div class="row"><div class="span12"></div>
+</div>
+</div>
+</div>
+<link rel="stylesheet" type="text/css" href="https://www.schoolofhaskell.com/static/bootstrap/css/bootstrap-responsive.css" />
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script><script src="https://www.schoolofhaskell.com/static/combined/cKRLBd-P.js"></script><script>window.fpco = window.fpco || {};
+window.fpco.keyMap = "";
+
+        function hident2() {
+            if (navigator.id) {
+                navigator.id.watch({
+                    onlogin: function (assertion) {
+                        if (assertion) {
+                            document.location = "https://www.schoolofhaskell.com/auth/page/browserid/" + assertion;
+                        }
+                    },
+                    onlogout: function () {}
+                });
+                navigator.id.request({
+                    returnTo: "/auth/login" + "?autologin=true"
+                });
+            }
+            else {
+                alert("Loading, please try again");
+            }
+        }
+    
+        (function(){
+            var bid = document.createElement("script");
+            bid.async = true;
+            bid.src = "https://login.persona.org/include.js";
+            var s = document.getElementsByTagName('script')[0];
+            s.parentNode.insertBefore(bid, s);
+        })();
+    $(function(){
+    var url = "https://www.schoolofhaskell.com/like-content/1802";
+    var $self = $("#hident3");
+    $.getJSON(url, function(state){
+        var $a, $likeCount;
+
+        $a = $('<a class="likes" href="/auth/login"></a>');
+        $likeCount = $('<span class="like-count"></span>');
+        $thumbs = $("<i class='icon-thumbs-up' title='Unlike this :-('>");
+        $a.append($likeCount);
+        $a.append($thumbs);
+        $self.append($a);
+
+        updateView();
+
+        $a.click(function(){
+            if(state.myLike == 'not-logged-in') {
+                return true;
+            } else {
+                var $a = $(this);
+                $.post(url, state.myLike !== 'no-like' ? {unlike:true} : {}, function(data){
+                    state.myLike = state.myLike == 'no-like'? 'like' : 'no-like';
+                    state.likes = data.likes;
+                    updateView();
+                });
+                return false;
+            }
+        });
+
+        function updateView(){
+            var liked = state.myLike !== 'not-logged-in' && state.myLike !== 'no-like';
+            if(liked) $a.addClass('likes-liked');
+            else $a.removeClass('likes-liked');
+
+            $likeCount.text(state.likes);
+
+            if(state.myLike !== 'not-logged-in') {
+                if (liked) $thumbs.attr('title','Unlike this');
+                else $thumbs.attr('title','Like this!');
+
+                if (liked) $a.addClass('likes-liked');
+                else $a.removeClass('likes-liked');
+            } else {
+                $a.addClass('like-not-logged-in');
+                $thumbs.attr('title','Please login to vote!');
+            }
+        }
+    });
+});
+$(function(){
+  $("a.logout").click(function(){
+    var form = $("<form method='post'/>");
+    form.attr("action", $(this).attr("href"));
+    $("body").append(form);
+    form.submit();
+    return false;
+  });
+});
+
+$(function(){
+    $('.sociallinksunicode a').each(function(){
+        $(this).attr('href',$(this).attr('href').replace('$url$',document.location));
+    });
+});
+
+$(function(){
+  // If we need to select a user/select a password then show the
+  // details confirmation form, otherwise enable the getting started
+  // section.
+  if($('.alert-block a').text().match(/(selected a username|change your password)/)) {
+    $("#confirm-details").show();
+    $("#confirm-details #inputUsername").focus();
+  } else {
+    $("#get-started").removeClass('disabled').addClass('enabled');
+  }
+
+  // For lack of a plain HTML validation story this will do.
+  $('.welcome-page').each(function(){
+    $('form').submit(check);
+  });
+  function check(){
+    setTimeout(check,500);
+    var error = false;
+    $('.error').removeClass('error');
+    $('#enter-details input').each(function(){
+      if($(this).val() == '') {
+        $(this).parent().parent().addClass('error');
+        error = true;
+      }
+    });
+    if(error) return false;
+    if($('[name=password]').val() == $('[name=confirm]').val()) {
+      $('#confirm').removeClass('error');
+      return true;
+    } else {
+      $('#confirm').addClass('error');
+      return false;
+    }
+  }
+});
+
+$(function(){
+  // When scrolling over a snippet editor, activate the "clone in IDE" popovers
+  $('article').each(function(){
+    var n = 100;
+    var wait = 10000;
+    function check(){
+      if($('.clone').length == 0) {
+        setTimeout(check,n);
+        return;
+      }
+      var activated = $.cookie('clone-popover');
+      if (activated) return;
+      var activate = false;
+      $('.controlsRun:onScreen').each(function(){
+        $.cookie('clone-popover', 'true', { expires: 30, path: '/' });
+        activate = true;
+        return false;
+      });
+      if(activate) {
+          $('.clone').each(function(){
+              // The bootstrap API is rather unreasonable to say the
+              // least.
+              next = $(this).parent();
+              var title = next.attr('title');
+              next.attr('data-content',$(this).attr('data-content'));
+              next.attr('title',$(this).attr('title'));
+              next.popover('show',{
+                  title: $(this).attr('title')
+              });
+              next.attr('title',title);
+          });
+          setTimeout(function(){
+              $('.clone').each(function(){
+                  $(this).parent().popover('hide');
+              });
+          },wait);
+      } else {
+        setTimeout(check,n);
+      }
+    }
+    setTimeout(check,n);
+  });
+});
+
+// onScreen jQuery plugin v0.2.1
+// (c) 2011-2013 Ben Pickles
+//
+// http://benpickles.github.com/onScreen
+//
+// Released under MIT license.
+(function(a){a.expr[":"].onScreen=function(b){var c=a(window),d=c.scrollTop(),e=c.height(),f=d+e,g=a(b),h=g.offset().top,i=g.height(),j=h+i;return h>=d&&h<f||j>d&&j<=f||i>e&&h<=d&&j>=f}})(jQuery);
+
+/*!
+ * jQuery Cookie Plugin v1.1
+ * https://github.com/carhartl/jquery-cookie
+ *
+ * Copyright 2011, Klaus Hartl
+ * Dual licensed under the MIT or GPL Version 2 licenses.
+ * http://www.opensource.org/licenses/mit-license.php
+ * http://www.opensource.org/licenses/GPL-2.0
+ */
+(function($, document) {
+
+  var pluses = /\+/g;
+  function raw(s) {
+    return s;
+  }
+  function decoded(s) {
+    return decodeURIComponent(s.replace(pluses, ' '));
+  }
+
+  $.cookie = function(key, value, options) {
+
+    // key and at least value given, set cookie...
+    if (arguments.length > 1 && (!/Object/.test(Object.prototype.toString.call(value)) || value == null)) {
+      options = $.extend({}, $.cookie.defaults, options);
+
+      if (value == null) {
+	options.expires = -1;
+      }
+
+      if (typeof options.expires === 'number') {
+	var days = options.expires, t = options.expires = new Date();
+	t.setDate(t.getDate() + days);
+      }
+
+      value = String(value);
+
+      return (document.cookie = [
+	encodeURIComponent(key), '=', options.raw ? value : encodeURIComponent(value),
+	options.expires ? '; expires=' + options.expires.toUTCString() : '', // use expires attribute, max-age is not supported by IE
+	options.path    ? '; path=' + options.path : '',
+	options.domain  ? '; domain=' + options.domain : '',
+	options.secure  ? '; secure' : ''
+      ].join(''));
+    }
+
+    // key and possibly options given, get cookie...
+    options = value || $.cookie.defaults || {};
+    var decode = options.raw ? raw : decoded;
+    var cookies = document.cookie.split('; ');
+    for (var i = 0, parts; (parts = cookies[i] && cookies[i].split('=')); i++) {
+      if (decode(parts.shift()) === key) {
+	return decode(parts.join('='));
+      }
+    }
+    return null;
+  };
+  $.cookie.defaults = {};})(jQuery, document);
+</script><!--[if lt IE 10]><script src="https://www.schoolofhaskell.com/static/design/js/ie.js?etag=ayV2DuJ0"></script><![endif]--><script>if(!window.location.href.match(/localhost/)){var track = '/tutorial/user/snoyberg/general-haskell/exceptions/catching-all-exceptions';
+window._gaq = [['_setAccount','UA-36928035-1'],track != ''? ['_trackPageview',track] : ['_trackPageview']
+,['_trackPageLoadTime']];window._gaq.push(['_setCustomVar',1,'Section','School of Haskell',3]);
+window._gaq.push(['_setCustomVar',2,'User Type','Visitor',1]);
+(function() {
+  var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+  ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+  var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+
+})();}</script>
+<!-- Prompt IE 6 users to install Chrome Frame. Remove this if you want to support IE 6.  chromium.org/developers/how-tos/chrome-frame-getting-started --><!--[if lt IE 7 ]><script src="//ajax.googleapis.com/ajax/libs/chrome-frame/1.0.3/CFInstall.min.js"></script><script>window.attachEvent('onload',function(){CFInstall.check({mode:'overlay'})})</script><![endif]--></body>
+<!-- Mirrored from www.schoolofhaskell.com/user/snoyberg/general-haskell/exceptions/catching-all-exceptions by HTTrack Website Copier/3.x [XR&CO'2014], Fri, 23 Dec 2016 06:19:59 GMT -->
+</html>

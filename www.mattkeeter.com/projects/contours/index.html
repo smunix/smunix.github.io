@@ -13,7 +13,7 @@
 </script>
 
 
-<!-- Mirrored from www.mattkeeter.com/projects/contours/ by HTTrack Website Copier/3.x [XR&CO'2014], Thu, 22 Dec 2016 01:44:14 GMT -->
+<!-- Mirrored from www.mattkeeter.com/projects/contours/ by HTTrack Website Copier/3.x [XR&CO'2014], Fri, 23 Dec 2016 06:00:51 GMT -->
 <head>
 <link rel="stylesheet" href="https://www.mattkeeter.com/style.css"/>
 <link rel="stylesheet" href="https://www.mattkeeter.com/font/css/icons.css">
@@ -151,10 +151,10 @@ single cell.</p>
 </ul>
 <p>As motivation, here's a quadtree decomposition of our test shape.  Green, grey,
 and black squares represent <code>Leaf</code>, <code>Empty</code>, and <code>Full</code> cells respectively.</p>
-<p><img src="images/quadtree.png" alt="Quadtree of 'hi'" /></p>
+<p><img src="images/quadtree.html" alt="Quadtree of 'hi'" /></p>
 <p>Now that we know what we're looking for, let's start by creating our data type.
 Subtrees and corners will always be numbered as follows:</p>
-<p><img src="images/numbering.png" alt="Quadtree numbering" /></p>
+<p><img src="images/numbering.html" alt="Quadtree numbering" /></p>
 <p>For the purposes of this exercise, we'll make a generic <code>Tree_</code> type that
 stores some kind of data at each leaf, then specialize it to storing the
 leaf's corner positions.</p>
@@ -180,7 +180,7 @@ buildTree (xmin, ymin) (xmax, ymax) i =
 leaf cells filling a space.  For example:</p>
 <pre><code class="language-haskell">λ&gt; buildTree (0,0) (1,1) 2
 </code></pre>
-<p><img src="images/fulltree.png" alt="Full quadtree" /></p>
+<p><img src="images/fulltree.html" alt="Full quadtree" /></p>
 <p>It may look like we're building a full tree here, but that's not quite the
 case.  Because Haskell is lazy, this tree will <em>actually</em> be constructed on an
 as-needed basis, so we need not feel guilty about building it naïvely.</p>
@@ -204,7 +204,7 @@ collapse shape (Root a b c d) =
 collapse _ t = t
 </code></pre>
 <p>Here's what the first five quadtree levels look like on our example shape:</p>
-<p><img src="images/multiquad.png" alt="Quadtree" /></p>
+<p><img src="images/multiquad.html" alt="Quadtree" /></p>
 <p>Note that the contour-containing cells are all <code>Leaf</code> cells (and vice versa):</p>
 <ul>
 <li>Cells whose corners are different signs are not collapsed</li>
@@ -231,13 +231,13 @@ finding the centers of each leaf:</p>
  (0.125,0.625),(0.375,0.625),(0.125,0.875),(0.375,0.875),
  (0.625,0.625),(0.875,0.625),(0.625,0.875),(0.875,0.875)]
 </code></pre>
-<p><img src="images/leafs.png" alt="Leaf positions" /></p>
+<p><img src="images/leafs.html" alt="Leaf positions" /></p>
 <h2>Marching Squares</h2>
 <p><a href="../../../en.wikipedia.org/wiki/Marching_squares.html">Marching Squares</a> is a
 fundamental algorithm for extracting isocontours from 2D samples.</p>
 <p>Here's the idea: for every cell, we examine the corners, which match one of
 sixteen cases:</p>
-<p><img src="images/squares.png" alt="Marching squares table" /></p>
+<p><img src="images/squares.html" alt="Marching squares table" /></p>
 <p>Each case creates between zero and two edges.  Run this procedure on every
 contour-containing cell and you'll get your shape's contour.</p>
 <p>To get started, we'll encode the 16 cases shown above in a lookup table named
@@ -279,7 +279,7 @@ edges shape c = lut !! index shape c
 <p>The <code>edges</code> function
 gives us pairs of cell sides between which we should draw edges; however,
 we need to pick the starting and ending point for each edge:</p>
-<p><img src="images/search.png" alt="Finding points" /></p>
+<p><img src="images/search.html" alt="Finding points" /></p>
 <p>In the image above, how do we find the green points?  Well, the green points
 should be points where the shape function is zero.  We'll assume that the
 shape function is monotonic along the edge and use binary search:</p>
@@ -315,13 +315,13 @@ contours shape cell = [(pt' a, pt' b) |
 <pre><code>λ&gt; foldMap (contours hi) $ collapse hi $ buildTree (0,0) (1,1) 5
 </code></pre>
 <p>(factoring out <code>hi</code> with a monad is left as an exercise for the reader)</p>
-<p><img src="images/ms.png" alt="Marching squares" /></p>
+<p><img src="images/ms.html" alt="Marching squares" /></p>
 <h2>Sampled distance fields</h2>
 <p>There's an interesting nuance to our quadtrees:  the <code>collapse</code> function treats
 sampled data as a binary value (based on whether it's less than zero).  Can we
 do better by using the scalar value?</p>
 <p>Consider the following quadtree (with one level of subdivision):</p>
-<p><img src="images/sampled.png" alt="Sampled" /></p>
+<p><img src="images/sampled.html" alt="Sampled" /></p>
 <p>The internal samples have different boolean values (some are inside the shape,
 some are outside), but all of the internal sampled values can be reconstructed
 from the corner values using <a href="../../../en.wikipedia.org/wiki/Bilinear_interpolation.html">bilinear interpolation</a>.</p>
@@ -356,7 +356,7 @@ score shape cell pt = abs $
 <p>Now, we can use the score function and a user-defined cutoff to decide
 whether to merge a set of leaf cells.  Note the names for nodes and
 cells:</p>
-<p><img src="images/named.png" alt="Named" /></p>
+<p><img src="images/named.html" alt="Named" /></p>
 <pre><code class="language-haskell">merge :: Shape -&gt; Tree -&gt; Tree
 merge shape (Root a b c d) =
     merge' a' b' c' d'
@@ -374,17 +374,17 @@ merge _ t = t
 <p>We apply this function before calling <code>collapse</code> to produce a sparser quadtree:</p>
 <pre><code class="language-haskell">λ&gt; collapse hi $ merge hi $ buildTree (0,0) (1,1) res
 </code></pre>
-<p><img src="images/sdf.png" alt="SDF" /></p>
+<p><img src="images/sdf.html" alt="SDF" /></p>
 <p>As expected, we now see larger leaf cells containing a single flat edge.</p>
 <p>We can use the same contouring strategy on this sparser quadtree, producing a
 contour with fewer samples along flat edges:</p>
-<p><img src="images/sdf_cracks.png" alt="Contoured SDF" /></p>
+<p><img src="images/sdf_cracks.html" alt="Contoured SDF" /></p>
 <p>This seems too easy — what's the catch?</p>
 <p>Our meshing strategy assumed that all leaf cells were the same size, so
 a pair of leaves that shared an edge performed the same zero-crossing
 search.  Now, with leaves of different sizes, the zero-crossing search
 will not be numerically identical, so the edges will not quite touch:</p>
-<p><img src="images/cracks_zoom.png" alt="Cracks" /></p>
+<p><img src="images/cracks_zoom.html" alt="Cracks" /></p>
 <p>This becomes a more significant issue in 3D: naïvely meshing a hierarchical
 structure will leave cracks in between cells of different sizes.</p>
 <h2>Dual contouring</h2>
@@ -399,7 +399,7 @@ of the quadtree.  Instead of each leaf containing zero or more edges, each
 leaf stores a vertex; we connect these vertices to create the contour.</p>
 <p>In this image, the original quadtree is drawn in light grey and the dual grid
 is shown in black.</p>
-<p><img src="images/dualgrid.png" alt="Dual grid" /></p>
+<p><img src="images/dualgrid.html" alt="Dual grid" /></p>
 <p>There are three important questions to answer:</p>
 <ul>
 <li>How do we choose which edges of the dual graph belong to the contour?</li>
@@ -408,7 +408,7 @@ is shown in black.</p>
 </ul>
 <p>To answer the first question, we want to draw an edge between any two cells
 that share a side with a sign change.</p>
-<p><img src="images/signchange.png" alt="Sign change" /></p>
+<p><img src="images/signchange.html" alt="Sign change" /></p>
 <p>The answer to the second question is more subtle:
 we want to position vertices of the dual graph on features of the original
 shape.  For example, in a cell containing a corner, the vertex should be on
@@ -433,7 +433,7 @@ deriv shape (x,y) =
 λ&gt; deriv (circle (0,0) 1) (1,0)
 (1.0,0.0)
 </code></pre>
-<p><img src="images/circlenorms.png" alt="Circle normals" /></p>
+<p><img src="images/circlenorms.html" alt="Circle normals" /></p>
 <p>To find a feature in a cell, we find the position and normal of every point
 along the cell's sides that intersects the isosurface, then perform a
 least-squares fit to estimate the feature position.</p>
@@ -464,14 +464,14 @@ feature shape cell =
 <pre><code>λ&gt; let tree = collapse hi $ merge hi $ buildTree (0,0) (1,1) 5
 λ&gt; catMaybes $ foldMap (\cell -&gt; [feature hi cell]) tree
 </code></pre>
-<p><img src="images/dc_pts.png" alt="DC point placement" /></p>
+<p><img src="images/dc_pts.html" alt="DC point placement" /></p>
 <p>This looks promising!  There's one remaining step: to link these points
 together into a shape-outlining contour.</p>
 <p>We use a set of three recursive functions to isolate edges of the dual graph.
 They're tricky, so I'll present them three times: in a diagram, in plain
 English, and in code.</p>
 <p>First, the diagram:</p>
-<p><img src="images/dual_construction.png" alt="Dual construction" /></p>
+<p><img src="images/dual_construction.html" alt="Dual construction" /></p>
 <p><code>faceProc</code> is called on one cell.  If that cell is a leaf, then it returns
 nothing.  If that cell is a root, it recurses by calling <code>faceProc</code> on each
 subtree, <code>edgeProcH</code> on each horizontal pair of cells, and <code>edgeProcV</code> on each
@@ -517,13 +517,13 @@ edgeProcV _ _ _ = []
 <p>This completes our implementation of Dual Contouring:</p>
 <pre><code class="language-haskell">λ&gt; dc hi $ collapse hi $ merge hi $ buildTree (0,0) (1,1) res
 </code></pre>
-<p><img src="images/dc_contour.png" alt="Dual contouring in action" /></p>
+<p><img src="images/dc_contour.html" alt="Dual contouring in action" /></p>
 <p>At this point, we'll declare victory: the contour is a faithful representation
 of the original shape and point density along the contour scales with local
 complexity / curvature.</p>
 <p>There's plenty more to dive into in the literature, with references below.</p>
 <p>Thanks to Richard Bowen and Michael Gilik for their feedback on an early draft.</p>
-<p>Download the source <a href="dc.zip">here</a> (including code used to generate diagrams).</p>
+<p>Download the source <a href="dc.html">here</a> (including code used to generate diagrams).</p>
 <h2>References</h2>
 <h3>Papers</h3>
 <ul>
@@ -549,5 +549,5 @@ complexity / curvature.</p>
 </body>
 
 
-<!-- Mirrored from www.mattkeeter.com/projects/contours/ by HTTrack Website Copier/3.x [XR&CO'2014], Thu, 22 Dec 2016 01:44:20 GMT -->
+<!-- Mirrored from www.mattkeeter.com/projects/contours/ by HTTrack Website Copier/3.x [XR&CO'2014], Fri, 23 Dec 2016 06:01:03 GMT -->
 </html>
