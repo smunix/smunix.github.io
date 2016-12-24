@@ -1,0 +1,235 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+  
+  
+
+  
+
+
+  
+<!-- Mirrored from ghc.haskell.org/trac/ghc/wiki/Debugging by HTTrack Website Copier/3.x [XR&CO'2014], Sat, 24 Dec 2016 02:25:04 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <title>
+      Debugging – GHC
+    </title>
+      <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+      <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!--[if IE]><script type="text/javascript">
+      if (/^#__msie303:/.test(window.location.hash))
+        window.location.replace(window.location.hash.replace(/^#__msie303:/, '#'));
+    </script><![endif]-->
+        <link rel="search" href="https://ghc.haskell.org/trac/ghc/search" />
+        <link rel="help" href="TracGuide.html" />
+        <link rel="alternate" href="https://ghc.haskell.org/trac/ghc/wiki/Debugging?format=txt" type="text/x-trac-wiki" title="Plain Text" />
+        <link rel="start" href="https://ghc.haskell.org/trac/ghc/wiki" />
+        <link rel="stylesheet" href="https://ghc.haskell.org/trac-1.0.7-htdocs/css/trac.css" type="text/css" /><link rel="stylesheet" href="https://ghc.haskell.org/trac-1.0.7-htdocs/css/wiki.css" type="text/css" /><link rel="stylesheet" href="https://ghc.haskell.org/trac/ghc/chrome/wikiextras/css/phrases.css" type="text/css" /><link rel="stylesheet" href="https://ghc.haskell.org/trac/ghc/chrome/wikiextras/css/boxes.css" type="text/css" /><link rel="stylesheet" href="https://ghc.haskell.org/trac/ghc/wikiextras/dynamicboxes.css" type="text/css" />
+        <link rel="shortcut icon" href="https://ghc.haskell.org/trac/ghc/chrome/common/trac.ico" type="image/x-icon" />
+        <link rel="icon" href="https://ghc.haskell.org/trac/ghc/chrome/common/trac.ico" type="image/x-icon" />
+    <style id="trac-noscript" type="text/css">.trac-noscript { display: none !important }</style>
+      <link type="application/opensearchdescription+xml" rel="search" href="https://ghc.haskell.org/trac/ghc/search/opensearch" title="Search GHC" />
+      <script type="text/javascript" charset="utf-8" src="https://ghc.haskell.org/trac-1.0.7-htdocs/js/jquery.js"></script>
+      <script type="text/javascript" charset="utf-8" src="https://ghc.haskell.org/trac-1.0.7-htdocs/js/babel.js"></script>
+      <script type="text/javascript" charset="utf-8" src="https://ghc.haskell.org/trac-1.0.7-htdocs/js/trac.js"></script>
+      <script type="text/javascript" charset="utf-8" src="https://ghc.haskell.org/trac-1.0.7-htdocs/js/search.js"></script>
+      <script type="text/javascript" charset="utf-8" src="https://ghc.haskell.org/trac-1.0.7-htdocs/js/folding.js"></script>
+    <script type="text/javascript">
+      jQuery("#trac-noscript").remove();
+      jQuery(document).ready(function($) {
+        $(".trac-autofocus").focus();
+        $(".trac-target-new").attr("target", "_blank");
+        setTimeout(function() { $(".trac-scroll").scrollToTop() }, 1);
+        $(".trac-disable-on-submit").disableOnSubmit();
+      });
+    </script>
+    <script type="text/javascript">
+      jQuery(document).ready(function($) {
+        $("#content").find("h1,h2,h3,h4,h5,h6").addAnchor(_("Link to this section"));
+        $("#content").find(".wikianchor").each(function() {
+          $(this).addAnchor(babel.format(_("Link to #%(id)s"), {id: $(this).attr('id')}));
+        });
+        $(".foldable").enableFolding(true, true);
+      });
+    </script>
+  </head>
+  <body>
+    <div id="banner">
+      <div id="header">
+        <a id="logo" href="http://www.haskell.org/ghc/"><img src="https://ghc.haskell.org/trac/ghc/chrome/site/ghc_logo.png" alt="Trac" height="73" width="584" /></a>
+      </div>
+      <form id="search" action="https://ghc.haskell.org/trac/ghc/search" method="get">
+        <div>
+          <label for="proj-search">Search:</label>
+          <input type="text" id="proj-search" name="q" size="18" value="" />
+          <input type="submit" value="Search" />
+        </div>
+      </form>
+      <div id="metanav" class="nav">
+    <ul>
+      <li class="first"><a href="https://ghc.haskell.org/trac/ghc/login">Login</a></li><li><a href="TracGuide.html">Help/Guide</a></li><li><a href="https://ghc.haskell.org/trac/ghc/about">About Trac</a></li><li><a href="https://ghc.haskell.org/trac/ghc/prefs">Preferences</a></li><li class="last"><a href="https://ghc.haskell.org/trac/ghc/register">Register</a></li>
+    </ul>
+  </div>
+    </div>
+    <div id="mainnav" class="nav">
+    <ul>
+      <li class="first active"><a href="https://ghc.haskell.org/trac/ghc/wiki">Wiki</a></li><li><a href="https://ghc.haskell.org/trac/ghc/timeline">Timeline</a></li><li><a href="https://ghc.haskell.org/trac/ghc/roadmap">Roadmap</a></li><li><a href="https://ghc.haskell.org/trac/ghc/browser">Browse Source</a></li><li><a href="https://ghc.haskell.org/trac/ghc/report">View Tickets</a></li><li><a href="https://ghc.haskell.org/trac/ghc/search">Search</a></li><li class="last"><a href="https://ghc.haskell.org/trac/ghc/blog">Blog</a></li>
+    </ul>
+  </div>
+    <div id="main">
+      <div id="pagepath" class="noprint">
+  <a class="pathentry first" title="View WikiStart" href="https://ghc.haskell.org/trac/ghc/wiki">wiki:</a><a class="pathentry" href="Debugging.html" title="View Debugging">Debugging</a>
+</div>
+      <div id="ctxtnav" class="nav">
+        <h2>Context Navigation</h2>
+        <ul>
+          <li class="first"><a href="WikiStart.html">Start Page</a></li><li><a href="TitleIndex.html">Index</a></li><li class="last"><a href="https://ghc.haskell.org/trac/ghc/wiki/Debugging?action=history">History</a></li>
+        </ul>
+        <hr />
+      </div>
+    <div id="ghc-wrap" style="padding: 0; margin 0; width: 100%; border: 0; min-height: 45em;">
+      <div id="ghc-sidebar" style="border: 1px solid #bbb; margin-top: 0px; width: 136px; border-radius: 0.5em; position: absolute; background-color: #D6F3D6; box-shadow: 1px 1px 10px #aaa;">
+  <ul style="list-style: none; padding: 9px; font-size: 85%; margin: 0;">
+    <li><a href="http://ghc.haskell.org/trac/ghc">GHC Trac Home</a></li>
+    <li><a href="http://www.haskell.org/ghc/">GHC Home</a></li>
+    <li> </li>
+    <li><b>Joining In</b></li>
+    <li><a href="ReportABug.html">Report a bug</a></li>
+    <li><a href="Newcomers.html">Newcomers info</a></li>
+    <li><a href="MailingListsAndIRC.html">Mailing Lists &amp; IRC</a></li>
+    <li><a href="TeamGHC.html">The GHC Team</a></li>
+    <li> </li>
+    <li><b>Documentation</b></li>
+    <li><a href="Status.html">GHC Status Info</a></li>
+    <li><a href="Building.html">Building Guide</a></li>
+    <li><a href="WorkingConventions.html">Working conventions</a></li>
+    <li><a href="Commentary.html">Commentary</a></li>
+    <li><a href="Debugging.html">Debugging</a></li>
+    <li><a href="Infrastructure.html">Infrastructure</a></li>
+    <li> </li>
+    <li><b>View Tickets</b></li>
+    <li><a href="https://ghc.haskell.org/trac/ghc/query?status=infoneeded&amp;status=new&amp;status=patch&amp;order=priority&amp;owner=$USER">My Tickets</a></li>
+    <li><a href="https://ghc.haskell.org/trac/ghc/query?status=infoneeded&amp;status=new&amp;status=patch&amp;order=priority&amp;reporter=$USER">Tickets I Created</a></li>
+    <li><a href="https://ghc.haskell.org/trac/ghc/query?status=new&amp;status=assigned&amp;status=reopened&amp;group=milestone&amp;order=priority">By Milestone</a></li>
+    <li><a href="https://ghc.haskell.org/trac/ghc/query?status=new&amp;status=assigned&amp;status=reopened&amp;group=os&amp;order=priority">By OS</a></li>
+    <li><a href="https://ghc.haskell.org/trac/ghc/query?status=new&amp;status=assigned&amp;status=reopened&amp;group=architecture&amp;order=priority">By Architecture</a></li>
+    <li><a href="https://ghc.haskell.org/trac/ghc/query?status=patch&amp;ol=id&amp;col=summary&amp;col=owner&amp;col=type&amp;col=priority&amp;col=milestone&amp;col=component&amp;order=priority&amp;differential=">Patches for review</a></li>
+    <li> </li>
+    <li><b>Create Ticket</b></li>
+    <li><a href="https://ghc.haskell.org/trac/ghc/newticket?type=bug">New Bug</a></li>
+    <li><a href="https://ghc.haskell.org/trac/ghc/newticket?type=task">New Task</a></li>
+    <li><a href="https://ghc.haskell.org/trac/ghc/newticket?type=feature+request">New Feature Req</a></li>
+    <li> </li>
+    <li><b>Wiki</b></li>
+    <li><a href="TitleIndex.html">Title Index</a></li>
+    <li><a href="RecentChanges.html">Recent Changes</a></li>
+    <li><a href="TracWikiMisc.html">Wiki Notes</a></li>
+  </ul>
+</div>
+      <div id="ghc-content" style="margin-left: 150px;">
+        <div id="content" class="wiki">
+      <div class="wikipage searchable">
+        
+          <div id="wikipage" class="trac-content"><h1 id="Debugging">Debugging</h1>
+<p>
+This part of the wiki collects all the information related to debugging GHC. That includes debugging the compiler itself, the libraries, the runtime system, the code generator, or the build system.
+</p>
+<ul><li>If you're debugging a compiler panic or some problem in GHC itself, then go to <a class="wiki" href="https://ghc.haskell.org/trac/ghc/wiki/Debugging/Compiler">Debugging/Compiler</a>
+</li></ul><ul><li>If the compiled program crashes or panics, then go to <a class="wiki" href="Debugging/CompiledCode.html">Debugging/CompiledCode</a>
+</li></ul><ul><li>For debugging the runtime system, see <a class="wiki" href="https://ghc.haskell.org/trac/ghc/wiki/Debugging/RuntimeSystem">Debugging/RuntimeSystem</a>
+</li></ul><ul><li>For debugging when running under GHCi, see <a class="wiki" href="https://ghc.haskell.org/trac/ghc/wiki/Commentary/Compiler/Backends/GHCi">Commentary/Compiler/Backends/GHCi</a>
+</li></ul><ul><li>Performance debugging. 
+<ul><li><a class="wiki" href="https://ghc.haskell.org/trac/ghc/wiki/Debugging/ProfilingGhc">Debugging/ProfilingGhc</a>: Profiling the compiler itself.  
+</li><li><a class="wiki" href="https://ghc.haskell.org/trac/ghc/wiki/Debugging/TickyTicky">Debugging/TickyTicky</a>: for debugging performance-related issues in compiled code.  Typically for performance debugging of the Simplifier and Core-level optimisations.
+</li><li><a class="wiki" href="https://ghc.haskell.org/trac/ghc/wiki/Debugging/LowLevelProfiling">Debugging/LowLevelProfiling</a>: way to investigate low-level performance, typically for performance debugging of the code generator or RTS.
+</li></ul></li></ul><ul><li>Build failures.  If you're trying to debug a build failure, then you probably want to look at
+<ul><li><a class="wiki" href="https://ghc.haskell.org/trac/ghc/wiki/Building/Troubleshooting">Building/Troubleshooting</a>: Fixing common problems in a GHC build
+</li><li><a class="wiki" href="https://ghc.haskell.org/trac/ghc/wiki/Building/Modifying#Debugging">Building/Modifying</a>: Debugging the build system
+</li></ul></li></ul><ul><li>Use <a class="wiki" href="Debugging.html#count_lines">count_lines</a> to count the number of lines of code in the compiler
+</li></ul><ul><li>Use <a class="wiki" href="Debugging.html#compareSizes">compareSizes</a> to compare the sizes of corresponding .o or .hi files in two trees.
+</li></ul><ul><li>If know the last good commit, <a class="wiki" href="https://ghc.haskell.org/trac/ghc/wiki/Bisection">bisection</a> may be useful to identify which commit introduced the bug.
+</li></ul><hr />
+<h2 id="count_lines">count_lines</h2>
+<p>
+The <tt>count_lines</tt> script, which is put in <tt>$(TOP)/inplace/bin</tt>, counts source lines and comments. The command-line arguments are the Haskell source files to count.
+</p>
+<pre class="wiki">bash-3.2$ $head/count_lines compiler/*/*hs
+
+                      Code  Comments
+compiler/basicTypes    4565   5092
+compiler/cmm           9685   4703
+...
+compiler/utils         6316   4669
+compiler/vectorise     2608    669
+
+TOTAL:               105893  86247
+
+                      Code  Comments
+Annotations.lhs          57     44
+AsmCodeGen.lhs          591    333
+Bag.lhs                 140     51
+....
+ZipCfgExtras.hs          43     33
+ZipDataflow.hs          779    271
+
+TOTAL:               105893  86247
+</pre><p>
+The source for <tt>count_lines</tt> is in <tt>$(TOP)/utils/count_lines</tt>.
+</p>
+<h2 id="compareSizes">compareSizes</h2>
+<p>
+The <tt>compareSizes</tt> program compares the sizes of corresponding files in two trees:
+</p>
+<pre class="wiki">$ ./compareSizes --hi ~/ghc/darcs/ghc ~/ghc/6.12-branch/ghc
+        Size | Change | Filename
+      25644 | -0.99% | compiler/stage1/build/Demand.hi
+      21103 | -0.98% | compiler/stage2/build/Demand.hi
+     180044 | -0.98% | libraries/base/dist-install/build/GHC/Classes.hi
+       6415 | -0.58% | .../Data/Array/Parallel/Prelude/Base/Tuple.hi
+       6507 | -0.57% | .../Data/Array/Parallel/Prelude/Base/Tuple.hi
+   [...]
+       3264 |  3.16% | .../Parallel/Unlifted/Sequential/Flat/Enum.hi
+      51389 |  3.30% | .../build/Language/Haskell/Extension.hi
+       1415 | 72.18% | libraries/base/dist-install/build/Data/Tuple.hi
+   28752162 | -0.00% | TOTAL
+</pre><p>
+Flags:
+</p>
+<ul><li><tt>--o</tt> to compare object files.
+</li><li><tt>--hi</tt> to compare interface files [DEFAULT]
+</li></ul><p>
+There's a hack to avoid descending into '*_split' directories. 
+</p>
+<p>
+The source for <tt>compareSizes</tt> is in <tt>$(TOP)/utils/compare_sizes</tt>.
+</p>
+</div>
+          
+          <div class="trac-modifiedby">
+            <span><a href="https://ghc.haskell.org/trac/ghc/wiki/Debugging?action=diff&amp;version=21" title="Version 21 by bgamari: Reverted to version 19.">Last modified</a> <a class="timeline" href="https://ghc.haskell.org/trac/ghc/timeline?from=2016-04-15T13%3A35%3A19Z&amp;precision=second" title="See timeline at Apr 15, 2016 1:35:19 PM">8 months ago</a></span>
+            <span class="trac-print">Last modified on Apr 15, 2016 1:35:19 PM</span>
+          </div>
+        
+        
+      </div>
+        </div>
+      </div>
+    </div>
+    <div id="altlinks">
+      <h3>Download in other formats:</h3>
+      <ul>
+        <li class="last first">
+          <a rel="nofollow" href="https://ghc.haskell.org/trac/ghc/wiki/Debugging?format=txt">Plain Text</a>
+        </li>
+      </ul>
+    </div>
+    </div>
+    <div id="footer" lang="en" xml:lang="en"><hr />
+      <a id="tracpowered" href="http://trac.edgewall.org/"><img src="https://ghc.haskell.org/trac-1.0.7-htdocs/trac_logo_mini.png" height="30" width="107" alt="Trac Powered" /></a>
+      <p class="left">Powered by <a href="https://ghc.haskell.org/trac/ghc/about"><strong>Trac 1.0.9</strong></a><br />
+        By <a href="http://www.edgewall.org/">Edgewall Software</a>.</p>
+      <p class="right">Visit the Trac open source project at<br /><a href="http://trac.edgewall.org/">http://trac.edgewall.org/</a></p>
+    </div>
+  </body>
+
+<!-- Mirrored from ghc.haskell.org/trac/ghc/wiki/Debugging by HTTrack Website Copier/3.x [XR&CO'2014], Sat, 24 Dec 2016 02:25:04 GMT -->
+</html>

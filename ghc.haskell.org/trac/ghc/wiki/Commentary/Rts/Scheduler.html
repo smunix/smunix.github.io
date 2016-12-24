@@ -1,0 +1,486 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+  
+  
+
+  
+
+
+  
+<!-- Mirrored from ghc.haskell.org/trac/ghc/wiki/Commentary/Rts/Scheduler by HTTrack Website Copier/3.x [XR&CO'2014], Sat, 24 Dec 2016 02:23:56 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <title>
+      Commentary/Rts/Scheduler – GHC
+    </title>
+      <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+      <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!--[if IE]><script type="text/javascript">
+      if (/^#__msie303:/.test(window.location.hash))
+        window.location.replace(window.location.hash.replace(/^#__msie303:/, '#'));
+    </script><![endif]-->
+        <link rel="search" href="https://ghc.haskell.org/trac/ghc/search" />
+        <link rel="help" href="../../TracGuide.html" />
+        <link rel="alternate" href="https://ghc.haskell.org/trac/ghc/wiki/Commentary/Rts/Scheduler?format=txt" type="text/x-trac-wiki" title="Plain Text" />
+        <link rel="up" href="https://ghc.haskell.org/trac/ghc/wiki/Commentary/Rts" title="View parent page" />
+        <link rel="start" href="https://ghc.haskell.org/trac/ghc/wiki" />
+        <link rel="stylesheet" href="https://ghc.haskell.org/trac-1.0.7-htdocs/css/trac.css" type="text/css" /><link rel="stylesheet" href="https://ghc.haskell.org/trac-1.0.7-htdocs/css/wiki.css" type="text/css" /><link rel="stylesheet" href="https://ghc.haskell.org/trac/ghc/chrome/wikiextras/css/phrases.css" type="text/css" /><link rel="stylesheet" href="https://ghc.haskell.org/trac/ghc/chrome/wikiextras/css/boxes.css" type="text/css" /><link rel="stylesheet" href="https://ghc.haskell.org/trac/ghc/wikiextras/dynamicboxes.css" type="text/css" />
+        <link rel="shortcut icon" href="https://ghc.haskell.org/trac/ghc/chrome/common/trac.ico" type="image/x-icon" />
+        <link rel="icon" href="https://ghc.haskell.org/trac/ghc/chrome/common/trac.ico" type="image/x-icon" />
+    <style id="trac-noscript" type="text/css">.trac-noscript { display: none !important }</style>
+      <link type="application/opensearchdescription+xml" rel="search" href="https://ghc.haskell.org/trac/ghc/search/opensearch" title="Search GHC" />
+      <script type="text/javascript" charset="utf-8" src="https://ghc.haskell.org/trac-1.0.7-htdocs/js/jquery.js"></script>
+      <script type="text/javascript" charset="utf-8" src="https://ghc.haskell.org/trac-1.0.7-htdocs/js/babel.js"></script>
+      <script type="text/javascript" charset="utf-8" src="https://ghc.haskell.org/trac-1.0.7-htdocs/js/trac.js"></script>
+      <script type="text/javascript" charset="utf-8" src="https://ghc.haskell.org/trac-1.0.7-htdocs/js/search.js"></script>
+      <script type="text/javascript" charset="utf-8" src="https://ghc.haskell.org/trac-1.0.7-htdocs/js/folding.js"></script>
+    <script type="text/javascript">
+      jQuery("#trac-noscript").remove();
+      jQuery(document).ready(function($) {
+        $(".trac-autofocus").focus();
+        $(".trac-target-new").attr("target", "_blank");
+        setTimeout(function() { $(".trac-scroll").scrollToTop() }, 1);
+        $(".trac-disable-on-submit").disableOnSubmit();
+      });
+    </script>
+    <script type="text/javascript">
+      jQuery(document).ready(function($) {
+        $("#content").find("h1,h2,h3,h4,h5,h6").addAnchor(_("Link to this section"));
+        $("#content").find(".wikianchor").each(function() {
+          $(this).addAnchor(babel.format(_("Link to #%(id)s"), {id: $(this).attr('id')}));
+        });
+        $(".foldable").enableFolding(true, true);
+      });
+    </script>
+  </head>
+  <body>
+    <div id="banner">
+      <div id="header">
+        <a id="logo" href="http://www.haskell.org/ghc/"><img src="https://ghc.haskell.org/trac/ghc/chrome/site/ghc_logo.png" alt="Trac" height="73" width="584" /></a>
+      </div>
+      <form id="search" action="https://ghc.haskell.org/trac/ghc/search" method="get">
+        <div>
+          <label for="proj-search">Search:</label>
+          <input type="text" id="proj-search" name="q" size="18" value="" />
+          <input type="submit" value="Search" />
+        </div>
+      </form>
+      <div id="metanav" class="nav">
+    <ul>
+      <li class="first"><a href="https://ghc.haskell.org/trac/ghc/login">Login</a></li><li><a href="../../TracGuide.html">Help/Guide</a></li><li><a href="https://ghc.haskell.org/trac/ghc/about">About Trac</a></li><li><a href="https://ghc.haskell.org/trac/ghc/prefs">Preferences</a></li><li class="last"><a href="https://ghc.haskell.org/trac/ghc/register">Register</a></li>
+    </ul>
+  </div>
+    </div>
+    <div id="mainnav" class="nav">
+    <ul>
+      <li class="first active"><a href="https://ghc.haskell.org/trac/ghc/wiki">Wiki</a></li><li><a href="https://ghc.haskell.org/trac/ghc/timeline">Timeline</a></li><li><a href="https://ghc.haskell.org/trac/ghc/roadmap">Roadmap</a></li><li><a href="https://ghc.haskell.org/trac/ghc/browser">Browse Source</a></li><li><a href="https://ghc.haskell.org/trac/ghc/report">View Tickets</a></li><li><a href="https://ghc.haskell.org/trac/ghc/search">Search</a></li><li class="last"><a href="https://ghc.haskell.org/trac/ghc/blog">Blog</a></li>
+    </ul>
+  </div>
+    <div id="main">
+      <div id="pagepath" class="noprint">
+  <a class="pathentry first" title="View WikiStart" href="https://ghc.haskell.org/trac/ghc/wiki">wiki:</a><a class="pathentry" href="../../Commentary.html" title="View Commentary">Commentary</a><span class="pathentry sep">/</span><a class="pathentry" href="https://ghc.haskell.org/trac/ghc/wiki/Commentary/Rts" title="View Commentary/Rts">Rts</a><span class="pathentry sep">/</span><a class="pathentry" href="Scheduler.html" title="View Commentary/Rts/Scheduler">Scheduler</a>
+</div>
+      <div id="ctxtnav" class="nav">
+        <h2>Context Navigation</h2>
+        <ul>
+          <li class="first"><a href="https://ghc.haskell.org/trac/ghc/wiki/Commentary/Rts">Up</a></li><li><a href="../../WikiStart.html">Start Page</a></li><li><a href="../../TitleIndex.html">Index</a></li><li class="last"><a href="https://ghc.haskell.org/trac/ghc/wiki/Commentary/Rts/Scheduler?action=history">History</a></li>
+        </ul>
+        <hr />
+      </div>
+    <div id="ghc-wrap" style="padding: 0; margin 0; width: 100%; border: 0; min-height: 45em;">
+      <div id="ghc-sidebar" style="border: 1px solid #bbb; margin-top: 0px; width: 136px; border-radius: 0.5em; position: absolute; background-color: #D6F3D6; box-shadow: 1px 1px 10px #aaa;">
+  <ul style="list-style: none; padding: 9px; font-size: 85%; margin: 0;">
+    <li><a href="http://ghc.haskell.org/trac/ghc">GHC Trac Home</a></li>
+    <li><a href="http://www.haskell.org/ghc/">GHC Home</a></li>
+    <li> </li>
+    <li><b>Joining In</b></li>
+    <li><a href="../../ReportABug.html">Report a bug</a></li>
+    <li><a href="../../Newcomers.html">Newcomers info</a></li>
+    <li><a href="../../MailingListsAndIRC.html">Mailing Lists &amp; IRC</a></li>
+    <li><a href="../../TeamGHC.html">The GHC Team</a></li>
+    <li> </li>
+    <li><b>Documentation</b></li>
+    <li><a href="../../Status.html">GHC Status Info</a></li>
+    <li><a href="../../Building.html">Building Guide</a></li>
+    <li><a href="../../WorkingConventions.html">Working conventions</a></li>
+    <li><a href="../../Commentary.html">Commentary</a></li>
+    <li><a href="../../Debugging.html">Debugging</a></li>
+    <li><a href="../../Infrastructure.html">Infrastructure</a></li>
+    <li> </li>
+    <li><b>View Tickets</b></li>
+    <li><a href="https://ghc.haskell.org/trac/ghc/query?status=infoneeded&amp;status=new&amp;status=patch&amp;order=priority&amp;owner=$USER">My Tickets</a></li>
+    <li><a href="https://ghc.haskell.org/trac/ghc/query?status=infoneeded&amp;status=new&amp;status=patch&amp;order=priority&amp;reporter=$USER">Tickets I Created</a></li>
+    <li><a href="https://ghc.haskell.org/trac/ghc/query?status=new&amp;status=assigned&amp;status=reopened&amp;group=milestone&amp;order=priority">By Milestone</a></li>
+    <li><a href="https://ghc.haskell.org/trac/ghc/query?status=new&amp;status=assigned&amp;status=reopened&amp;group=os&amp;order=priority">By OS</a></li>
+    <li><a href="https://ghc.haskell.org/trac/ghc/query?status=new&amp;status=assigned&amp;status=reopened&amp;group=architecture&amp;order=priority">By Architecture</a></li>
+    <li><a href="https://ghc.haskell.org/trac/ghc/query?status=patch&amp;ol=id&amp;col=summary&amp;col=owner&amp;col=type&amp;col=priority&amp;col=milestone&amp;col=component&amp;order=priority&amp;differential=">Patches for review</a></li>
+    <li> </li>
+    <li><b>Create Ticket</b></li>
+    <li><a href="https://ghc.haskell.org/trac/ghc/newticket?type=bug">New Bug</a></li>
+    <li><a href="https://ghc.haskell.org/trac/ghc/newticket?type=task">New Task</a></li>
+    <li><a href="https://ghc.haskell.org/trac/ghc/newticket?type=feature+request">New Feature Req</a></li>
+    <li> </li>
+    <li><b>Wiki</b></li>
+    <li><a href="../../TitleIndex.html">Title Index</a></li>
+    <li><a href="../../RecentChanges.html">Recent Changes</a></li>
+    <li><a href="../../TracWikiMisc.html">Wiki Notes</a></li>
+  </ul>
+</div>
+      <div id="ghc-content" style="margin-left: 150px;">
+        <div id="content" class="wiki">
+      <div class="wikipage searchable">
+        
+          <div id="wikipage" class="trac-content"><p>
+</p><div class="wiki-toc">
+<ol>
+  <li>
+    <a href="#TheScheduler">The Scheduler</a>
+    <ol>
+      <li>
+        <a href="#OSThreads">OS Threads</a>
+      </li>
+      <li>
+        <a href="#Haskellthreads">Haskell threads</a>
+      </li>
+      <li>
+        <a href="#Tasks">Tasks</a>
+      </li>
+      <li>
+        <a href="#InCalls">InCalls</a>
+      </li>
+      <li>
+        <a href="#Capabilities">Capabilities</a>
+        <ol>
+          <li>
+            <a href="#HandingoveraCapability">Handing over a Capability</a>
+          </li>
+        </ol>
+      </li>
+      <li>
+        <a href="#TheSchedulersmainloop">The Scheduler's main loop</a>
+        <ol>
+          <li>
+            <a href="#Therunqueue">The run queue</a>
+          </li>
+        </ol>
+      </li>
+      <li>
+        <a href="#Sparksandtheparoperator">Sparks and the par operator</a>
+      </li>
+      <li>
+        <a href="#Affinityandmigration">Affinity and migration</a>
+      </li>
+      <li>
+        <a href="#ShuttingDown">Shutting Down</a>
+      </li>
+      <li>
+        <a href="#nofibbenchmarks">nofib benchmarks</a>
+      </li>
+    </ol>
+  </li>
+</ol>
+</div><p>
+</p>
+<h1 id="TheScheduler">The Scheduler</h1>
+<p>
+The scheduler is the heart of the runtime: it is the single part of
+the system through which all entry to the Haskell world goes, and it
+handles requests from outside to invoke Haskell functions (foreign
+export).
+</p>
+<p>
+In this part of the commentary we'll discuss the <em>threaded</em> version
+of the runtime (see <a class="wiki" href="https://ghc.haskell.org/trac/ghc/wiki/Commentary/Rts/Config">Commentary/Rts/Config</a>), that is, the
+version of the runtime that uses multiple OS threads, because it is by
+far the most complex beast.
+</p>
+<p>
+See also <a class="ext-link" href="http://blog.ezyang.com/2013/01/the-ghc-scheduler/"><span class="icon">​</span>Edward Yang's blog post</a> (2013); some of the material there has been incorporated here.
+</p>
+<p>
+We begin by discussing the basic abstractions used in the scheduler.
+</p>
+<h2 id="OSThreads">OS Threads</h2>
+<p>
+Source files: <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/includes/rts/OSThreads.h">includes/rts/OSThreads.h</a>,
+<a href="https://ghc.haskell.org/trac/ghc/browser/ghc/rts/win32/OSThreads.c">rts/win32/OSThreads.c</a>, <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/rts/posix/OSThreads.c">rts/posix/OSThreads.c</a>
+</p>
+<p>
+We assume that the OS provides some kind of native threads, and for
+SMP parallelism we assume that the OS will schedule multiple OS
+threads across the available CPUs.
+</p>
+<p>
+OS threads are only used by the runtime for two reasons:
+</p>
+<ul><li>To support non-blocking foreign calls: a foreign call
+should not block the other Haskell threads in the system from
+running, and using OS threads is the only way to ensure that.
+</li></ul><ul><li>To support SMP parallelism.
+</li></ul><p>
+Haskell threads are much lighter-weight (at least 100x) than OS threads.
+</p>
+<p>
+When running on an SMP, we begin by creating the number of OS threads specified by the <tt>+RTS -N</tt> option, although during the course of running the program more OS threads might be created in order to continue running Haskell code while foreign calls execute.  Spare OS threads are kept in a pool attached to each <tt>Capability</tt> (see <a class="wiki" href="Scheduler.html#Capabilities">#Capabilities</a>).
+</p>
+<p>
+The RTS provides a platform-independent abstraction layer for OS
+threads in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/includes/rts/OSThreads.h">includes/rts/OSThreads.h</a>.
+</p>
+<h2 id="Haskellthreads">Haskell threads</h2>
+<p>
+A Haskell thread is represented by a Thread State Object
+(<a class="wiki" href="https://ghc.haskell.org/trac/ghc/wiki/Commentary/Rts/Storage/HeapObjects#ThreadStateObjects">TSO</a>). These objects are <em>garbage-collected</em>, like other closures in Haskell.  The TSO, along with the stack allocated with it (STACK), constitute the primary memory overhead of a thread.  Default stack size, in particular, is controlled by the GC flag <tt>-ki</tt>, and is 1k by default (Actually, your usable stack will be a little smaller than that because this size also includes the size of the <tt>StgTSO</tt> struct, so that a lot of allocated threads will fit nicely into a single block.)  There are
+two kinds of Haskell thread:
+</p>
+<ul><li>A <em>bound</em> thread is created as the result of a <em>call-in</em> from
+outside Haskell; that is, a call to <tt>foreign export</tt> or
+<tt>foreign import "wrapper"</tt>.  A bound thread is tied to the
+OS thread that made the call; all further foreign calls made by
+this Haskell thread are made in the same OS thread.  (this is part
+of the design of the FFI, described in the paper 
+<a class="ext-link" href="http://www.haskell.org/~simonmar/papers/conc-ffi.pdf"><span class="icon">​</span>Extending the Haskell Foreign Function Inteface with Concurrency</a>).
+</li></ul><ul><li>An <em>unbound</em> thread is created by
+<tt>Control.Concurrent.forkIO</tt>.  Foreign calls made by an unbound
+thread are made by an arbitrary OS thread.
+</li></ul><p>
+Initialization of TSOs is handled in <tt>createThread</tt> in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/rts/Threads.c">rts/Threads.c</a>; this function is in turn invoked by <tt>createGenThread</tt>, <tt>createIOThread</tt> and <tt>createStrictIOThread</tt> in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/rts/RtsAPI.c">rts/RtsAPI.c</a>. These functions setup the initial stack state, which controls what the thread executes when it actually gets run. These functions are the ones invoked by the <tt>fork#</tt> and other primops (recall entry-points for primops are located in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/rts/PrimOps.cmm">rts/PrimOps.cmm</a>).
+</p>
+<p>
+Being garbage collected has two major implications for TSOs. First, TSOs are not GC roots, so they will get GC'd if there is nothing holding on to them (e.g. <a class="ext-link" href="http://blog.ezyang.com/2011/07/blockedindefinitelyonmvar"><span class="icon">​</span>in the case of deadlock</a>), and their space is not automatically reclaimed when they finish executing (so <tt>ThreadId</tt> can cause memory leaks}}}. Usually, a TSO will be retained by a Capability’s run queue (a GC root), or in the list of waiting threads of some concurrency variable, e.g. an MVar. Second, a TSO must be considered a mutable object, and is thus subject to the conventional GC write barriers necessary for any mutable object in a generational garbage collector. The <tt>dirty</tt> bit tracks whether or not a TSO has been modified; it is always set when a thread is run and also when any of the pointer fields on a TSO are modified.
+</p>
+<h2 id="Tasks">Tasks</h2>
+<p>
+Source files: <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/rts/Task.h">rts/Task.h</a>, <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/rts/Task.c">rts/Task.c</a>
+</p>
+<p>
+A Task is a further layer of abstraction over an OS thread.  One <tt>Task</tt> structure is created for each OS thread known to the runtime.  To get the <tt>Task</tt> associated with with the current OS thread, use the function <tt>myTask</tt>:
+</p>
+<pre class="wiki">  Task *myTask (void);
+</pre><p>
+The <tt>myTask</tt> function is implemented using thread-local storage.
+</p>
+<p>
+The Task contains a mutex and a condition variable used when OS threads in the runtime need to synchronise with each other or sleep waiting for a condition to occur.  The <tt>Task</tt> also points to the <tt>Capability</tt> that the <tt>Task</tt> currently owns (<tt>task-&gt;cap</tt>), or <tt>NULL</tt> if the <tt>Task</tt> does not currently own a <tt>Capability</tt>.
+</p>
+<p>
+The important components of a Task are:
+</p>
+<ul><li>The OS thread that owns this Task
+</li><li>The <em>Capability</em> that this Task holds (see below)
+</li><li>The current <tt>InCall</tt> for this Task (see below)
+</li><li>A condition variable on which this Task can put itself to sleep
+</li><li>Some link fields for placing the Task on various queues
+</li></ul><h2 id="InCalls">InCalls</h2>
+<p>
+When an in-call is made, a Task is allocated (unless the current OS thread already has a Task), and an <tt>InCall</tt> structure is allocated for the call.  The <tt>InCall</tt> structure contains
+</p>
+<ul><li>a pointer to the <tt>Task</tt> that made the in-call
+</li><li>a pointer to the <tt>TSO</tt> that is executing the call
+</li><li>a slot to save the <tt>TSO</tt> in the event that this <tt>TSO</tt> needs to make a foreign call itself
+</li><li>a pointer to the previous <tt>InCall</tt>, if the current <tt>Task</tt> had already made an in-call followed by an out-call that lead to this in-call
+</li></ul><p>
+Each task points to its current <tt>InCall</tt>.  A worker Task (i.e. one that was created by the RTS rather than externally) also has an <tt>InCall</tt> structure, but in that case <tt>incall-&gt;tso</tt> is NULL.
+</p>
+<p>
+When a <tt>TSO</tt> makes a foreign call, the current <tt>InCall</tt> is placed on a queue attached to the <tt>Capability</tt>, <tt>cap-&gt;suspended_ccalls</tt>, from where the garbage collector can find the <tt>TSO</tt>s involved in foreign calls.  If one of these threads makes another in-call into Haskell, then another <tt>InCall</tt> is allocated, which points back to the original <tt>InCall</tt> via <tt>incall-&gt;prev_stack</tt>.  So we have a representation of the out-call/in-call stack for each <tt>Task</tt>, and we can restore the previous <tt>InCall</tt> when an in-call returns.
+</p>
+<p>
+A task has a small cache of spare <tt>InCall</tt> structures so that it can allocate a fresh one quickly and without taking any locks; this is important for in-call performance.
+</p>
+<h2 id="Capabilities">Capabilities</h2>
+<p>
+Source files: <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/rts/Capability.h">rts/Capability.h</a>, <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/rts/Capability.c">rts/Capability.c</a>
+</p>
+<p>
+A Capability is a <em>virtual CPU</em> for executing Haskell code.  The
+number of capabilities in the system is chosen by the <tt>+RTS -N</tt>
+option.  This value should be chosen to be the same as the number of
+real CPU cores, so that we never try to run more Haskell threads
+simultaneously than we have real CPUs available.
+</p>
+<p>
+Invariant: a task that holds a capability is not blocked in the operating system.
+</p>
+<p>
+This makes some parts of the system simpler - for example, we can use
+spin locks that spin indefinitely, because we can ensure that the spin
+lock is only held by a currently executing CPU, and will therefore be
+released in a finite (and short) amount of time.
+</p>
+<p>
+Also we can maximise the advantage of our lightweight threading by not
+using OS-level context switching.  We still use OS-level blocking I/O,
+however - only the OS knows how to do that in general.
+</p>
+<p>
+A Capability is in one of two states:
+</p>
+<ul><li>It is free if <tt>cap-&gt;running_task == NULL</tt>.  The Capability
+is dormant, not currently executing any code.
+</li></ul><ul><li>Otherwise, it is held by a Task, and <tt>cap-&gt;running_task</tt> points
+to the Task that is currently holding it.
+</li></ul><p>
+The important components of a Capability are:
+</p>
+<ul><li>The <a class="wiki" href="https://ghc.haskell.org/trac/ghc/wiki/Commentary/Rts/HaskellExecution#Registers">registers</a> of
+the virtual machine, for executing Haskell code (although while
+actually executing, some of these registers may be held in real
+machine registers, they are only saved to the Capability when
+returning to the scheduler).
+</li></ul><ul><li>The Task that is currently animating this Capability.
+</li></ul><ul><li>A queue of runnable Haskell threads (the <em>run queue</em>).
+</li></ul><ul><li>A list of Haskell threads currently making safe foreign calls.
+</li></ul><ul><li>A list of worker OS threads.
+</li></ul><ul><li>A list of Tasks waiting to return to Haskell from foreign calls.
+</li></ul><ul><li>A list of Haskell threads waiting to wake up on this Capability.
+</li></ul><h3 id="HandingoveraCapability">Handing over a Capability</h3>
+<p>
+The Task currently holding a Capability might need to relinquish it
+for one of the following reasons:
+</p>
+<ul><li>The Haskell thread at the head of the run queue is not appropriate
+for this Task: it is bound to another Task, or it is unbound and
+the current Task is bound.
+</li></ul><ul><li>There is a Task waiting to return to Haskell from a foreign call
+(these are given priority over Haskell threads in the run queue,
+because in general they haven't had a full time slice yet).
+</li></ul><ul><li>Another Task is trying to garbage collect (in the current
+single-threaded GC, all activity has to stop in order to GC).
+</li></ul><p>
+The details of handing over a Capability are rather subtle, so look at
+the code for the definitive picture.  Broadly speaking, when handing
+over a Capability to a Task, we make the Task aware that it should
+wake up and on which Capability, and we mark the Capability as free.
+The Task wakes up, tries to acquire ownership of the Capability.  If
+it fails because another Task is holding the Capability (this is
+entirely possibly, since the Capability was marked free momentarily),
+then it goes back to sleep: the other Task will release and hand it
+over at some point.
+</p>
+<p>
+One reason behind marking a Capability as free when it is handed over
+is to support fast callouts.  When making a safe foreign call we have
+to release the Capability, and therefore hand it over to another
+worker thread.  If the foreign call is short, we don't want to incur
+the cost of a context switch on returning, but since we marked the
+Capability as free there's a good chance the returning Task will be
+able to re-acquire it immediately and continue.  The worker that we
+woke up will find that the Capability is owned, and go back to sleep
+again (this may incur a double context switch if there are no free
+CPUs on which to run the worker, however).
+</p>
+<h2 id="TheSchedulersmainloop">The Scheduler's main loop</h2>
+<p>
+A transcript of Simon's explanation at the board:
+</p>
+<pre class="wiki">scheduler(cap)
+{
+  for (;;) {
+    yieldCapability(cap);  /* give cap to anybody wanting in from outside */
+    tso = popRunQueue(cap);
+    result = StgRun(tso);
+    case result of
+      out of heap -&gt; re-enqueue tso; call GC;
+      out of stack -&gt; enlarge tso; re-enqueue tso;
+      time expired -&gt; put tso on end of queue; /* round robin */
+      finished -&gt; 
+        if (tso is a bound thread)
+          return;
+        else
+          continue;
+    }
+}
+</pre><h3 id="Therunqueue">The run queue</h3>
+<p>
+The run queue is at the heart of the scheduler, as any runnable thread will hit the run queue before the scheduler actually pops it off the queue and runs it.  There’s one per capability <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/rts/Capability.h">rts/Capability.h</a> (in the bad old days, there was a global run queue, but this performed badly for multithreaded processes), and it is implemented as a doubly-linked list <tt>run_queue_hd</tt> and <tt>run_queue_tl</tt>. (It is doubly linked due to ticket <a class="closed ticket" href="https://ghc.haskell.org/trac/ghc/ticket/3838" title="bug: Performance issues with blackholes (closed: fixed)">#3838</a>). The head and tail pointers mean that the queue is actually a deque: this is important because the scheduler will often have to handle threads that were interrupted in some way, and should let the threads get back on.  The links themselves are on the TSOs and modified with <tt>setTSOLink</tt> and <tt>setTSOPrev</tt>, so modifying the queue dirties the TSOs involved. Otherwise, the run queue is exclusively owned by the scheduler. If there are idle capabilities and if we have more than one thread left in our run queue, threads will be pushed to other queues with <tt>schedulePushWork</tt>.
+</p>
+<p>
+In general, if the thread has exhausted its time slice (<tt>context_switch != 0</tt>), then it goes to the back of the queue, otherwise, it goes on the front and we keep running it.
+</p>
+<p>
+In more detail, threads are put <strong>in front</strong> (<tt>pushOnRunQueue</tt>) if:
+</p>
+<ul><li>A stack overflow occurs;
+</li></ul><ul><li>A heap overflow occurs; (Sometimes, a heap overflow and a context switch occur simultaneously. If the thread requested a large block, we still always push it in front (because we don’t want another thread to steal our large block); however, otherwise, the context switch takes precedence and the thread is booted to the end of the queue—the context switch is checked as <em>late</em> as possible. (See commit <a class="changeset" href="https://ghc.haskell.org/trac/ghc/changeset/05881ecab/ghc/repo" title="[project @ 2004-08-09 14:27:53 by simonmar]
+Two changes:
+
+  - newly ...">05881ecab/repo</a>))
+</li></ul><ul><li>A task attempts to run a thread, but it is <a class="ext-link" href="http://hackage.haskell.org/packages/archive/base/latest/doc/html/Control-Concurrent.html#v:forkOS"><span class="icon">​</span>bound</a> and the current task is the wrong one;
+</li></ul><ul><li>A thread is associated with a black hole (a thunk that is being evaluated), and another thread, possibly on another capability, has blocked on its evaluation (see ticket <a class="closed ticket" href="https://ghc.haskell.org/trac/ghc/ticket/3838" title="bug: Performance issues with blackholes (closed: fixed)">#3838</a>);
+</li></ul><ul><li>In the threaded runtime, if a thread was interrupted because another Capability needed to do a stop-the-world GC (see commit <a class="changeset" href="https://ghc.haskell.org/trac/ghc/changeset/6d18141d8/ghc/repo" title="Fix a scheduling bug in the threaded RTS
+
+The parallel GC was using ...">6d18141d8/repo</a>);
+</li></ul><ul><li>In the non-threaded runtime, when a thread waiting on IO unblocks.
+</li></ul><p>
+Threads are put in <strong>back</strong> (<tt>appendToRunQueue</tt>) in the case of pre-emption, or if it’s new; particularly, if
+</p>
+<ul><li>A thread was pre-empted via the context switch flag (e.g. incoming message from another thread, the timer fired, the thread cooperatively yielded, etc);
+</li></ul><ul><li>It is a new thread (so large amounts of thread creation do not starve old threads, see <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/nofib/smp/conc004">nofib/smp/conc004</a> and commit <a class="changeset" href="https://ghc.haskell.org/trac/ghc/changeset/05881ecab/ghc/repo" title="[project @ 2004-08-09 14:27:53 by simonmar]
+Two changes:
+
+  - newly ...">05881ecab/repo</a>);
+</li></ul><ul><li>A thread becomes unblocked;
+</li></ul><ul><li>A thread is migrated to another capability (though, in this case, the queue was empty anyway);
+</li></ul><ul><li>A thread finishes, but for some reason we need to keep it around (this is related to in-calls, though I’m not a 100% sure what is going on here; if you know, please update this page.)
+</li></ul><h2 id="Sparksandtheparoperator">Sparks and the par operator</h2>
+<p>
+Source files: <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/rts/Sparks.c">rts/Sparks.c</a>, <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/rts/Sparks.h">rts/Sparks.h</a>.
+</p>
+<p>
+The <a href="http://www.haskell.org/ghc/docs/latest/html/libraries/base/Control-Parallel.html#v%3Apar">par</a> operator is used for annotating computations that could be evaluated in parallel.  See also <a href="http://www.haskell.org/ghc/docs/latest/html/users_guide/lang-parallel.html">Parallel Haskell</a> in the GHC User's Guide.
+</p>
+<p>
+Par itself is implemented in terms of the <tt>par#</tt> primop, which the code generator compiles into a call to <tt>newSpark</tt> in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/rts/Sparks.c">rts/Sparks.c</a>.
+</p>
+<p>
+Par doesn't actually create a new thread immediately; instead it places a pointer to its first argument in the <em>spark pool</em>.  The spark pool is a circular buffer, when it is full we have the choice of either overwriting the oldest entry or dropping the new entry - currently we drop the new entry (see code for <tt>newSpark</tt>).  Each capability has its own spark pool, so this operation can be performed without taking a lock.
+</p>
+<p>
+So how does the spark turn into a thread?  When the scheduler spots that the current capability has no runnable threads, it checks the spark pool, and if there is a valid spark (a spark that points to a THUNK), then the spark is turned into a real thread and placed on the run queue: see <tt>createSparkThread</tt> in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/rts/Sparks.c">rts/Sparks.c</a>.  Also, the scheduler attempts to share its available sparks with any other idle capabilities: see <tt>schedulePushWork</tt> in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/rts/Scheduler.c">rts/Scheduler.c</a>.
+</p>
+<h2 id="Affinityandmigration">Affinity and migration</h2>
+<h2 id="ShuttingDown">Shutting Down</h2>
+<h2 id="nofibbenchmarks">nofib benchmarks</h2>
+<p>
+When making changes to the scheduler, be sure to run the <tt>smp</tt> nofib benchmarks, because the ordinary set doesn't test threads. Here are some brief descriptions of the benchmarks:
+</p>
+<ul><li><tt>callback001</tt> (also known as <tt>ffi014</tt>) performs a large number of incalls to Haskell from C from a large number of threads. This is a rather specific test related to how we place threads in the run queue even if they’ve finished, if they finished in an in-call.
+</li></ul><ul><li><tt>callback002</tt> measures how quickly we can perform incalls to Haskell from C.
+</li></ul><ul><li><tt>chan</tt> measures how scheduling order effects memory usage: if threads are allowed to run for a bit without getting context switched, they build up data in channels.  This is related to when we reset the context switch flag.
+</li></ul><ul><li><tt>sieve</tt> implements the Sieve of Eratosthenes, spawning many threads to evaluate thunks of a lazy list in parallel. It performs a bit of allocation, and sensitive to what happens to threads after a HeapOverflow.
+</li></ul><ul><li><tt>threads001</tt> tests how quickly we can create a thread and then context switch to it.
+</li></ul><ul><li><tt>threads003</tt> tests how quickly many threads can communicate by reading and writing MVars. It is a bit sensitive to what happens to threads after they wake up from sleeping.
+</li></ul><ul><li><tt>threads006</tt> tests how quickly threads can be created and destroyed, as well as <tt>throwTo</tt> blocking performance.  It is very sensitive to the number of major GCs that occur (which can be influenced if TSO size changes).
+</li></ul><ul><li><tt>threads007</tt> generates a lot of threads waiting on MVars, and then sees how shutdown behavior is affected. It was due to bad behavior in the MVar queue and fixed in [changset:f4692220c7/repo].
+</li></ul></div>
+          
+          <div class="trac-modifiedby">
+            <span><a href="https://ghc.haskell.org/trac/ghc/wiki/Commentary/Rts/Scheduler?action=diff&amp;version=24" title="Version 24 by NCrashed: fix mistype 'thrads' to 'threads'">Last modified</a> <a class="timeline" href="https://ghc.haskell.org/trac/ghc/timeline?from=2016-07-14T15%3A16%3A51Z&amp;precision=second" title="See timeline at Jul 14, 2016 3:16:51 PM">5 months ago</a></span>
+            <span class="trac-print">Last modified on Jul 14, 2016 3:16:51 PM</span>
+          </div>
+        
+        
+      </div>
+        </div>
+      </div>
+    </div>
+    <div id="altlinks">
+      <h3>Download in other formats:</h3>
+      <ul>
+        <li class="last first">
+          <a rel="nofollow" href="https://ghc.haskell.org/trac/ghc/wiki/Commentary/Rts/Scheduler?format=txt">Plain Text</a>
+        </li>
+      </ul>
+    </div>
+    </div>
+    <div id="footer" lang="en" xml:lang="en"><hr />
+      <a id="tracpowered" href="http://trac.edgewall.org/"><img src="https://ghc.haskell.org/trac-1.0.7-htdocs/trac_logo_mini.png" height="30" width="107" alt="Trac Powered" /></a>
+      <p class="left">Powered by <a href="https://ghc.haskell.org/trac/ghc/about"><strong>Trac 1.0.9</strong></a><br />
+        By <a href="http://www.edgewall.org/">Edgewall Software</a>.</p>
+      <p class="right">Visit the Trac open source project at<br /><a href="http://trac.edgewall.org/">http://trac.edgewall.org/</a></p>
+    </div>
+  </body>
+
+<!-- Mirrored from ghc.haskell.org/trac/ghc/wiki/Commentary/Rts/Scheduler by HTTrack Website Copier/3.x [XR&CO'2014], Sat, 24 Dec 2016 02:23:56 GMT -->
+</html>

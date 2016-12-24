@@ -1,0 +1,593 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+  
+  
+
+  
+
+
+  
+<!-- Mirrored from ghc.haskell.org/trac/ghc/wiki/Debugging/CompiledCode by HTTrack Website Copier/3.x [XR&CO'2014], Sat, 24 Dec 2016 02:22:04 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <title>
+      Debugging/CompiledCode – GHC
+    </title>
+      <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+      <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!--[if IE]><script type="text/javascript">
+      if (/^#__msie303:/.test(window.location.hash))
+        window.location.replace(window.location.hash.replace(/^#__msie303:/, '#'));
+    </script><![endif]-->
+        <link rel="search" href="https://ghc.haskell.org/trac/ghc/search" />
+        <link rel="help" href="../TracGuide.html" />
+        <link rel="alternate" href="https://ghc.haskell.org/trac/ghc/wiki/Debugging/CompiledCode?format=txt" type="text/x-trac-wiki" title="Plain Text" />
+        <link rel="up" href="../Debugging.html" title="View parent page" />
+        <link rel="start" href="https://ghc.haskell.org/trac/ghc/wiki" />
+        <link rel="stylesheet" href="https://ghc.haskell.org/trac-1.0.7-htdocs/css/trac.css" type="text/css" /><link rel="stylesheet" href="https://ghc.haskell.org/trac-1.0.7-htdocs/css/wiki.css" type="text/css" /><link rel="stylesheet" href="https://ghc.haskell.org/trac/ghc/chrome/wikiextras/css/phrases.css" type="text/css" /><link rel="stylesheet" href="https://ghc.haskell.org/trac/ghc/chrome/wikiextras/css/boxes.css" type="text/css" /><link rel="stylesheet" href="https://ghc.haskell.org/trac/ghc/wikiextras/dynamicboxes.css" type="text/css" />
+        <link rel="shortcut icon" href="https://ghc.haskell.org/trac/ghc/chrome/common/trac.ico" type="image/x-icon" />
+        <link rel="icon" href="https://ghc.haskell.org/trac/ghc/chrome/common/trac.ico" type="image/x-icon" />
+    <style id="trac-noscript" type="text/css">.trac-noscript { display: none !important }</style>
+      <link type="application/opensearchdescription+xml" rel="search" href="https://ghc.haskell.org/trac/ghc/search/opensearch" title="Search GHC" />
+      <script type="text/javascript" charset="utf-8" src="https://ghc.haskell.org/trac-1.0.7-htdocs/js/jquery.js"></script>
+      <script type="text/javascript" charset="utf-8" src="https://ghc.haskell.org/trac-1.0.7-htdocs/js/babel.js"></script>
+      <script type="text/javascript" charset="utf-8" src="https://ghc.haskell.org/trac-1.0.7-htdocs/js/trac.js"></script>
+      <script type="text/javascript" charset="utf-8" src="https://ghc.haskell.org/trac-1.0.7-htdocs/js/search.js"></script>
+      <script type="text/javascript" charset="utf-8" src="https://ghc.haskell.org/trac-1.0.7-htdocs/js/folding.js"></script>
+    <script type="text/javascript">
+      jQuery("#trac-noscript").remove();
+      jQuery(document).ready(function($) {
+        $(".trac-autofocus").focus();
+        $(".trac-target-new").attr("target", "_blank");
+        setTimeout(function() { $(".trac-scroll").scrollToTop() }, 1);
+        $(".trac-disable-on-submit").disableOnSubmit();
+      });
+    </script>
+    <script type="text/javascript">
+      jQuery(document).ready(function($) {
+        $("#content").find("h1,h2,h3,h4,h5,h6").addAnchor(_("Link to this section"));
+        $("#content").find(".wikianchor").each(function() {
+          $(this).addAnchor(babel.format(_("Link to #%(id)s"), {id: $(this).attr('id')}));
+        });
+        $(".foldable").enableFolding(true, true);
+      });
+    </script>
+  </head>
+  <body>
+    <div id="banner">
+      <div id="header">
+        <a id="logo" href="http://www.haskell.org/ghc/"><img src="https://ghc.haskell.org/trac/ghc/chrome/site/ghc_logo.png" alt="Trac" height="73" width="584" /></a>
+      </div>
+      <form id="search" action="https://ghc.haskell.org/trac/ghc/search" method="get">
+        <div>
+          <label for="proj-search">Search:</label>
+          <input type="text" id="proj-search" name="q" size="18" value="" />
+          <input type="submit" value="Search" />
+        </div>
+      </form>
+      <div id="metanav" class="nav">
+    <ul>
+      <li class="first"><a href="https://ghc.haskell.org/trac/ghc/login">Login</a></li><li><a href="../TracGuide.html">Help/Guide</a></li><li><a href="https://ghc.haskell.org/trac/ghc/about">About Trac</a></li><li><a href="https://ghc.haskell.org/trac/ghc/prefs">Preferences</a></li><li class="last"><a href="https://ghc.haskell.org/trac/ghc/register">Register</a></li>
+    </ul>
+  </div>
+    </div>
+    <div id="mainnav" class="nav">
+    <ul>
+      <li class="first active"><a href="https://ghc.haskell.org/trac/ghc/wiki">Wiki</a></li><li><a href="https://ghc.haskell.org/trac/ghc/timeline">Timeline</a></li><li><a href="https://ghc.haskell.org/trac/ghc/roadmap">Roadmap</a></li><li><a href="https://ghc.haskell.org/trac/ghc/browser">Browse Source</a></li><li><a href="https://ghc.haskell.org/trac/ghc/report">View Tickets</a></li><li><a href="https://ghc.haskell.org/trac/ghc/search">Search</a></li><li class="last"><a href="https://ghc.haskell.org/trac/ghc/blog">Blog</a></li>
+    </ul>
+  </div>
+    <div id="main">
+      <div id="pagepath" class="noprint">
+  <a class="pathentry first" title="View WikiStart" href="https://ghc.haskell.org/trac/ghc/wiki">wiki:</a><a class="pathentry" href="../Debugging.html" title="View Debugging">Debugging</a><span class="pathentry sep">/</span><a class="pathentry" href="CompiledCode.html" title="View Debugging/CompiledCode">CompiledCode</a>
+</div>
+      <div id="ctxtnav" class="nav">
+        <h2>Context Navigation</h2>
+        <ul>
+          <li class="first"><a href="../Debugging.html">Up</a></li><li><a href="../WikiStart.html">Start Page</a></li><li><a href="../TitleIndex.html">Index</a></li><li class="last"><a href="https://ghc.haskell.org/trac/ghc/wiki/Debugging/CompiledCode?action=history">History</a></li>
+        </ul>
+        <hr />
+      </div>
+    <div id="ghc-wrap" style="padding: 0; margin 0; width: 100%; border: 0; min-height: 45em;">
+      <div id="ghc-sidebar" style="border: 1px solid #bbb; margin-top: 0px; width: 136px; border-radius: 0.5em; position: absolute; background-color: #D6F3D6; box-shadow: 1px 1px 10px #aaa;">
+  <ul style="list-style: none; padding: 9px; font-size: 85%; margin: 0;">
+    <li><a href="http://ghc.haskell.org/trac/ghc">GHC Trac Home</a></li>
+    <li><a href="http://www.haskell.org/ghc/">GHC Home</a></li>
+    <li> </li>
+    <li><b>Joining In</b></li>
+    <li><a href="../ReportABug.html">Report a bug</a></li>
+    <li><a href="../Newcomers.html">Newcomers info</a></li>
+    <li><a href="../MailingListsAndIRC.html">Mailing Lists &amp; IRC</a></li>
+    <li><a href="../TeamGHC.html">The GHC Team</a></li>
+    <li> </li>
+    <li><b>Documentation</b></li>
+    <li><a href="../Status.html">GHC Status Info</a></li>
+    <li><a href="../Building.html">Building Guide</a></li>
+    <li><a href="../WorkingConventions.html">Working conventions</a></li>
+    <li><a href="../Commentary.html">Commentary</a></li>
+    <li><a href="../Debugging.html">Debugging</a></li>
+    <li><a href="../Infrastructure.html">Infrastructure</a></li>
+    <li> </li>
+    <li><b>View Tickets</b></li>
+    <li><a href="https://ghc.haskell.org/trac/ghc/query?status=infoneeded&amp;status=new&amp;status=patch&amp;order=priority&amp;owner=$USER">My Tickets</a></li>
+    <li><a href="https://ghc.haskell.org/trac/ghc/query?status=infoneeded&amp;status=new&amp;status=patch&amp;order=priority&amp;reporter=$USER">Tickets I Created</a></li>
+    <li><a href="https://ghc.haskell.org/trac/ghc/query?status=new&amp;status=assigned&amp;status=reopened&amp;group=milestone&amp;order=priority">By Milestone</a></li>
+    <li><a href="https://ghc.haskell.org/trac/ghc/query?status=new&amp;status=assigned&amp;status=reopened&amp;group=os&amp;order=priority">By OS</a></li>
+    <li><a href="https://ghc.haskell.org/trac/ghc/query?status=new&amp;status=assigned&amp;status=reopened&amp;group=architecture&amp;order=priority">By Architecture</a></li>
+    <li><a href="https://ghc.haskell.org/trac/ghc/query?status=patch&amp;ol=id&amp;col=summary&amp;col=owner&amp;col=type&amp;col=priority&amp;col=milestone&amp;col=component&amp;order=priority&amp;differential=">Patches for review</a></li>
+    <li> </li>
+    <li><b>Create Ticket</b></li>
+    <li><a href="https://ghc.haskell.org/trac/ghc/newticket?type=bug">New Bug</a></li>
+    <li><a href="https://ghc.haskell.org/trac/ghc/newticket?type=task">New Task</a></li>
+    <li><a href="https://ghc.haskell.org/trac/ghc/newticket?type=feature+request">New Feature Req</a></li>
+    <li> </li>
+    <li><b>Wiki</b></li>
+    <li><a href="../TitleIndex.html">Title Index</a></li>
+    <li><a href="../RecentChanges.html">Recent Changes</a></li>
+    <li><a href="../TracWikiMisc.html">Wiki Notes</a></li>
+  </ul>
+</div>
+      <div id="ghc-content" style="margin-left: 150px;">
+        <div id="content" class="wiki">
+      <div class="wikipage searchable">
+        
+          <div id="wikipage" class="trac-content"><p>
+</p><div class="wiki-toc">
+<ol>
+  <li>
+    <a href="#DebuggingGHC-compiledcodewithgdb">Debugging GHC-compiled code with gdb</a>
+    <ol>
+      <li>
+        <a href="#Therecipe">The recipe</a>
+      </li>
+      <li>
+        <a href="#Debuggingstackoverflows">Debugging stack overflows</a>
+      </li>
+      <li>
+        <a href="#Goingbackintime">Going back in time</a>
+      </li>
+      <li>
+        <a href="#Decodingsymbolnames">Decoding symbol names</a>
+      </li>
+      <li>
+        <a href="#Pokingaround">Poking around</a>
+      </li>
+      <li>
+        <a href="#Usefulflags">Useful flags</a>
+      </li>
+      <li>
+        <a href="#Usefulhints">Useful hints</a>
+      </li>
+      <li>
+        <a href="#MappingbacktotheSTGcode">Mapping back to the STG code</a>
+      </li>
+      <li>
+        <a href="#Settingupgdbinit">Setting up gdbinit</a>
+      </li>
+      <li>
+        <a href="#Whenyouvefoundfixedit">When you've found &amp; fixed it</a>
+      </li>
+    </ol>
+  </li>
+</ol>
+</div><p>
+</p>
+<h1 id="DebuggingGHC-compiledcodewithgdb">Debugging GHC-compiled code with gdb</h1>
+<p>
+If you're working on a GHC port, tweaking the runtime, or modifying
+the code generator, at some point you will have to become familiar
+with how to use <a class="ext-link" href="http://www.gnu.org/software/gdb/"><span class="icon">​</span>gdb</a> for debugging
+crashes in GHC-compiled programs.
+</p>
+<p>
+This is quite scary, for a few reasons:
+</p>
+<ul><li>We can't do source-level debugging of Haskell code.  gdb doesn't
+know anything about Haskell.  We're stuck with assembly-level
+debugging of Haskell code.
+</li></ul><ul><li>Most of the time you can't even get a backtrace inside GHC-compiled
+code.  The GHC calling conventions are entirely different from C's,
+and GHC-compiled code doesn't use the C stack.    There are a
+couple of exceptions:
+<ul><li>when the crash happens inside the runtime, you can use the usual
+C debugging facilities of gdb with full backtrace and
+source-level debugging.  (make sure you use a <tt>-debug</tt>
+version of the runtime to get the debug info, though, and if
+the bug happens with the non-threaded runtime then that will also
+simplify things).
+</li><li>when the crash happens inside a foreign call invoked by Haskell
+code.  In this case you'll be able to see which Haskell fragment
+invoked the foreign call (it'll be something like
+<tt>MyModule_zdwccall13_info</tt>, more about symbol names later).
+</li></ul></li></ul><ul><li>In fact, there <em>are</em> no useful backtraces in Haskell code,
+because of lazy evaluation and tail-calls.  Finding out "how we got
+here" is often a challenge.
+</li></ul><h2 id="Therecipe">The recipe</h2>
+<p>
+Usually you want to do something along these lines:
+</p>
+<ul><li>Compile with <tt>-dcore-lint</tt> to make sure the crash isn't caused by the compiler
+generating incorrect code in a way that can be detected statically.
+</li></ul><ul><li>Compile with <tt>-debug</tt>!  This links the program with a debugging
+version of the runtime, that includes extra assertions, debugging
+code, and debugging info for gdb (if you compile using cabal, use the unstripped binary from dist/build/).
+</li></ul><p>
+ 
+</p>
+<ul><li>Don't compile with <tt>-threaded</tt> (assuming the bug still happens
+with the non-threaded runtime).
+</li></ul><ul><li>Use runtime debugging options to help narrow down the fault (see also the <a href="http://www.haskell.org/ghc/docs/latest/html/users_guide/runtime-control.html#rts-options-debugging">relevant User Manual section</a>).
+</li></ul><ul><li>Grab our <a class="attachment" href="https://ghc.haskell.org/trac/ghc/attachment/wiki/Debugging/CompiledCode/.gdbinit" title="Attachment '.gdbinit' in Debugging/CompiledCode">gdb macros</a><a class="trac-rawlink" href="https://ghc.haskell.org/trac/ghc/raw-attachment/wiki/Debugging/CompiledCode/.gdbinit" title="Download">​</a>.
+</li></ul><ul><li>Run the program in gdb until it crashes, type <tt>where</tt> to find
+out whether the crash is in the RTS or in Haskell code.  If you see
+an uninformative backtrace with a symbol like <tt>s32y_info</tt> at
+the top, then you're in Haskell.  If you're in the runtime, then
+we don't have anything more to tell you here, you can use gdb's
+full C debugging facilities to track down the problem.
+</li></ul><ul><li>Make the crash happen as early as possible.  <tt>-debug</tt> already
+turned on lots of assertions, one of which might trigger.  Also,
+try <tt>+RTS -DS</tt> which turns on a bunch of extra "sanity
+checking", i.e. expensive assertions about the state of the runtime
+at regular points.  One thing this enables is a full sweep of the
+heap after each garbage collection to make sure there are no
+dangling references.  Also, it fills all free memory with the value
+<tt>0xaaaaaaaa</tt> (the sound of GHC disappearing down a hole).
+</li></ul><ul><li>Look at the fragment of code that crashed: <tt>disassemble</tt>.  It
+should be pretty small (code blocks in GHC-generated code usually
+are).  Look at the instruction that caused the crash - the address
+is given in the <tt>where</tt> output earlier.  If you can tell what
+the problem is right there, then great.
+</li></ul><ul><li>Poke around in the heap and stack and see if you can figure out
+what has gone wrong.  See "poking around", below.
+</li></ul><ul><li>Make the crash happen repeatably, if possible.  That means after
+the exact same number of garbage collections and context switches
+each time. Use <tt>+RTS -C0</tt> to turn off timer-based context switches.
+Setting <tt>+RTS -V0</tt> disables the RTS timer entirely.  Disabling the RTS
+timer altogether can make the point at which the program crashes reproducible,
+and is very helpful when using the "going back in time" method described below.
+If you're debugging heap profiling, add <tt>-i0</tt> too.
+</li></ul><ul><li>Similarly, if possible, turn off address space layout randomization (ASLR).
+On Linux you can do this with "echo 0 &gt; /proc/sys/kernel/randomize_va_space".
+</li></ul><ul><li>If you still haven't figured it out, you probably need to go back in
+time a bit to find out what was happening just before the crash.
+This is the tricky bit, because going back in time isn't directly
+supported by gdb, we need to find a way to hit a breakpoint a short
+time before the crash happened.  See "going back in time", below.
+</li></ul><h2 id="Debuggingstackoverflows">Debugging stack overflows</h2>
+<ul><li>Set a breakpoint on <tt>threadStackOverflow</tt>, and when it gets hit
+<tt>p *tso.stackobj</tt> will tell you the stack pointer, e.g.
+<tt>sp = 0x7ffff69fe228</tt>. Then <tt>pmem 0x7ffff69fe228 64</tt> will show you
+what's at the top of the stack.
+</li></ul><h2 id="Goingbackintime">Going back in time</h2>
+<ul><li>Set a breakpoint on a code fragment that is regularly executed.
+Some good examples are <tt>stg_upd_frame_info</tt> (the standard
+update code), <tt>stg_upd_frame_1_info</tt> (the update code for a
+1-tagged object, eg. a cons cell), <tt>stg_ap_p_info</tt> (the apply
+code for a single pointer argument).
+</li></ul><blockquote>
+<blockquote>
+<p>
+<tt>break stg_upd_frame_info</tt>
+</p>
+</blockquote>
+</blockquote>
+<ul><li>Ignore that breakpoint for ever
+</li></ul><blockquote>
+<blockquote>
+<p>
+<tt>ignore 1 9999999</tt>
+</p>
+</blockquote>
+</blockquote>
+<ul><li>Run the program
+</li></ul><blockquote>
+<blockquote>
+<p>
+<tt>run</tt>
+</p>
+</blockquote>
+</blockquote>
+<ul><li>Find out how many times the breakpoint was hit
+</li></ul><blockquote>
+<blockquote>
+<p>
+<tt>info break</tt>
+</p>
+</blockquote>
+</blockquote>
+<ul><li>Suppose it was hit 4325 times, then next time we'll ignore it
+for 4324 times (i.e. subtract one), which will stop on the 4325th
+time, just before the crash.
+</li></ul><blockquote>
+<blockquote>
+<p>
+<tt>ignore 1 4324</tt>
+</p>
+</blockquote>
+</blockquote>
+<ul><li>Run the program
+</li></ul><blockquote>
+<blockquote>
+<p>
+<tt>run</tt>
+</p>
+</blockquote>
+</blockquote>
+<ul><li>Single step until the crash happens
+</li></ul><blockquote>
+<blockquote>
+<p>
+<tt>si</tt>...
+</p>
+</blockquote>
+</blockquote>
+<ul><li>If the crash doesn't happen for a long time, try picking another
+break point (e.g. something you stepped through this time). You
+might have to repeat this a few times to get to a useful point.
+</li></ul><ul><li>Sometimes the crash is a long way into the program, and setting a
+frequently accessed breakopint like <tt>stg_upd_frame_info</tt> means
+the program just runs too slowly; in this case you might have to
+use a 2-stage strategy instead.  Set a breakpoint on a less
+frequently accessed point (a good one I use for this is
+<tt>GarbageCollect</tt>, which stops at each GC), do the ignore thing
+on this, and then switch to a more frequently accessed breakpoint
+when you are closer to the crash.
+</li></ul><h2 id="Decodingsymbolnames">Decoding symbol names</h2>
+<p>
+Symbols in GHC are encoded using something called the Z-encoding (see
+<a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/utils/Encoding.hs">compiler/utils/Encoding.hs</a>).  Basically special symbols are replaced by sequences
+beginning with <tt>z</tt> or <tt>Z</tt>.  eg. <tt>state#</tt> becomes
+<tt>statezh</tt>.  The letter <tt>z</tt> itself is replaced by <tt>zz</tt>.
+</p>
+<p>
+External symbols follow the pattern
+<em>module</em>_<em>identifier</em>_<em>kind</em>.  Where <em>module</em> is the module
+name, <em>identifier</em> is the identifier in the STG code that this
+symbol relates to, and <em>kind</em> is the kind of symbol:
+</p>
+<table class="wiki">
+<tr><td><tt>closure</tt></td><td>a static closure
+</td></tr><tr><td><tt>info</tt></td><td>an info table, also entry code or return address
+</td></tr><tr><td><tt>con_info</tt></td><td>an info table for a constructor
+</td></tr><tr><td><tt>fast</tt></td><td>a primitive
+</td></tr></table>
+<p>
+(see <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/cmm/CLabel.hs">compiler/cmm/CLabel.hs</a>
+for a table of these).  Note that if you're matching up assembly with
+C-- and (info) tables next to code is enabled (as it is by default),
+then code that is named <tt>entry</tt> is equivalent to <tt>info</tt> symbols
+in the final binary.
+</p>
+<p>
+For example:
+</p>
+<blockquote>
+<p>
+<tt>GHCziBase_ZMZN_closure</tt>
+</p>
+</blockquote>
+<p>
+Means the static closure for <tt>[]</tt> in module <tt>GHC.Base</tt>.
+</p>
+<blockquote>
+<p>
+<tt>DataziList_foldlzq_info</tt>
+</p>
+</blockquote>
+<p>
+Means the entry code (or info table) for <tt>Data.List.foldl'</tt>.
+</p>
+<p>
+Internal symbols are of the form <em>identifier</em>_<em>kind</em>, i.e. the
+same as external symbols but without the module name.
+</p>
+<h2 id="Pokingaround">Poking around</h2>
+<p>
+There are two things you usually want to inspect inside a code
+fragment: the contents of heap objects, and the contents of the
+stack.  A full description of the layout of these things is here: <a class="wiki" href="https://ghc.haskell.org/trac/ghc/wiki/Commentary/Rts/Storage">Commentary/Rts/Storage</a>; what follows is a basic introduction to
+looking at heap &amp; stack objects in a running program.
+</p>
+<p>
+You can display memory in gdb with something like <tt>x/4a</tt> to
+display 4 words of memory, or using our <a class="attachment" href="https://ghc.haskell.org/trac/ghc/attachment/wiki/Debugging/CompiledCode/.gdbinit" title="Attachment '.gdbinit' in Debugging/CompiledCode">gdb macros</a><a class="trac-rawlink" href="https://ghc.haskell.org/trac/ghc/raw-attachment/wiki/Debugging/CompiledCode/.gdbinit" title="Download">​</a> you get slightly
+nicer output:
+</p>
+<pre class="wiki">(gdb) p4 $rbx
+0x2b35cc6c99a0: 0x4482d8 &lt;stg_IND_1_info&gt;
+0x2b35cc6c9998: 0x2b35cc6c9978
+0x2b35cc6c9990: 0x5
+0x2b35cc6c9988: 0x404e30 &lt;GHCziBase_Izh_con_info&gt;
+</pre><p>
+<tt>p4</tt> displays 4 words of memory backwards, i.e. lower addresses at
+the bottom.  In this case I'm displaying memory pointed to by the
+register <tt>rbx</tt>, which corresponds to the STG register <tt>R1</tt> on
+a recent x86_64 build.  Check
+<a href="https://ghc.haskell.org/trac/ghc/browser/ghc/includes/stg/MachRegs.h">includes/stg/MachRegs.h</a> to
+see which machine registers correspond to which STG registers on your
+platform.
+</p>
+<p>
+In the example above, I can see that <tt>$rbx</tt> points to a heap
+closure for the <tt>Int</tt> value 5.  Closures always consist of an info
+pointer (<tt>GHCziBase_Izh_con_info</tt> in this case, the <tt>I#</tt>
+constructor), followed by any number of payload words (just one word
+containing the value 5, here).  Full details on closure layouts are in
+<a href="https://ghc.haskell.org/trac/ghc/browser/ghc/includes/rts/storage/Closures.h">includes/rts/storage/Closures.h</a>.
+</p>
+<p>
+It looks like the next word contains garbage, probably because it is
+the next free location in the heap.
+</p>
+<p>
+We can see the info tables using the <tt>pinfo</tt> macro:
+</p>
+<pre class="wiki">(gdb) pinfo &amp;GHCziBase_Izh_con_info
+$2 = {layout = {payload = {ptrs = 0, nptrs = 1}, bitmap = 4294967296, 
+    large_bitmap_offset = 0, __pad_large_bitmap_offset = 0, 
+    selector_offset = 4294967296}, type = 3, srt_bitmap = 0, 
+  code = 0x404e30 "ÿe"}
+</pre><p>
+Info tables tell the garbage collector and other parts of the system
+about the layout of closures, they are rarely used during actual
+execution.  The <em>info pointer</em> of a closure actually points to the
+<em>entry code</em> for the closure; the info table lives just before the
+entry code (this is a trick used by GHC so that the common operation
+of jumping to the entry code for a closure can be done with a single
+indirection).  The layout of info tables is defined in
+<a href="https://ghc.haskell.org/trac/ghc/browser/ghc/includes/rts/storage/InfoTables.h">includes/rts/storage/InfoTables.h</a>.
+</p>
+<p>
+To display the stack, you need to know what the <tt>Sp</tt> register is
+mapped to on this platform.  On x86_64 you'll find it in <tt>$rbp</tt>:
+</p>
+<pre class="wiki">(gdb) p8 $rbp
+0x2ae9697ccc00: 0x1
+0x2ae9697ccbf8: 0x40b8c8 &lt;GHCziBase_plusInt_info+32&gt;
+0x2ae9697ccbf0: 0x2ae9696c9868
+0x2ae9697ccbe8: 0x44a2d8 &lt;stg_upd_frame_info&gt;
+0x2ae9697ccbe0: 0x1
+0x2ae9697ccbd8: 0x40b8c8 &lt;GHCziBase_plusInt_info+32&gt;
+0x2ae9697ccbd0: 0x2ae9696c98a8
+0x2ae9697ccbc8: 0x44a2d8 &lt;stg_upd_frame_info&gt;
+</pre><p>
+It looks like the stack has an update frame on the top, followed by
+some stack frame from <tt>GHC.Base</tt>, followed by another update
+frame.
+</p>
+<p>
+Return addresses on the stack have info tables just like heap
+closures, and you can display them with <tt>pinfo</tt> in the same way:
+</p>
+<pre class="wiki">(gdb) pinfo 0x40b8c8
+$4 = {layout = {payload = {ptrs = 65, nptrs = 0}, bitmap = 65, 
+    large_bitmap_offset = 65, __pad_large_bitmap_offset = 65, 
+    selector_offset = 65}, type = 36, srt_bitmap = 0, 
+  code = 0x40b8c8 "I\203Ä\020M9üw$H\213E\bI\003E\bIÇD$ø0N@"}
+</pre><p>
+However, return addresses have special info tables with more
+information; to display the whole thing, use <tt>prinfo</tt>
+</p>
+<pre class="wiki">(gdb) prinfo 0x40b8c8
+$5 = {srt_offset = 4241688, __pad_srt_offset = 6684481, i = {layout = {
+      payload = {ptrs = 65, nptrs = 0}, bitmap = 65, large_bitmap_offset = 65, 
+      __pad_large_bitmap_offset = 65, selector_offset = 65}, type = 36, 
+    srt_bitmap = 0, code = 0x40b8c8 "I\203Ä\020M9üw$H\213E\bI\003E\bIÇD$ø0N@"}}
+</pre><p>
+The <tt>type</tt> field tells us what kind of object this is, in this
+case <tt>36</tt>}, which means a <tt>RET_SMALL</tt> stack frame (see
+<a href="https://ghc.haskell.org/trac/ghc/browser/ghc/includes/rts/storage/ClosureTypes.h">includes/rts/storage/ClosureTypes.h</a>
+for a list of closure types, but make sure you are
+looking at the right version of this file for the build you're using,
+because the types do change).
+</p>
+<h2 id="Usefulflags">Useful flags</h2>
+<p>
+See <tt>-ddump-stg, -ddump-simpl, -ddump-cmm, -dppr-debug</tt>.  For a really close correspondence to the assembly, see <tt>-ddump-opt-cmm</tt>.  You can also use <tt>-ddump-to-file</tt> to have this output be put into a file rather than to standard output.
+</p>
+<h2 id="Usefulhints">Useful hints</h2>
+<ul><li>Use the <tt>dpc</tt> macro if you want to avoid the pain of matching the <tt>pc</tt> address with instructions at every program step:
+<pre class="wiki">(gdb) dpc
+(gdb) si
+0x0000000000408a37 in base_GHCziTopHandler_lvl9_info ()
+1: x/i $pc  0x408a37 &lt;base_GHCziTopHandler_lvl9_info+7&gt;:        jb     0x408a55 &lt;base_GHCziTopHandler_lvl9_info+37&gt;
+(gdb)
+0x0000000000408a39 in base_GHCziTopHandler_lvl9_info ()
+1: x/i $pc  0x408a39 &lt;base_GHCziTopHandler_lvl9_info+9&gt;:        mov    $0x5cf248,%ebx
+(gdb)
+0x0000000000408a3e in base_GHCziTopHandler_lvl9_info ()
+1: x/i $pc  0x408a3e &lt;base_GHCziTopHandler_lvl9_info+14&gt;:       movq   $0x408a80,0xfffffffffffffff8(%rbp)
+(gdb) 
+</pre>Also note that an empty gdb request repeats the previous command, in this case <tt>si</tt>.
+</li><li>Sometimes you need to look and step through the compiled code of Haskell libraries. (ToDo: the following is out of date, and refers to the old build system.  We should now use <tt>-ddump-to-file</tt>.)  I find it useful to change the lines 43 and 48 of file <tt>mk/suffix.mk</tt> as follows:
+<pre class="wiki">43:  $(HC) $(HC_OPTS) -c $&lt; -o $@  -ohi $(basename $@).$(way_)hi -ddump-simpl -ddump-cmm -ddump-stg &gt; $@.output
+48:  $(HC) $(HC_OPTS) -c $&lt; -o $@  -ohi $(basename $@).$(way_)hi -ddump-simpl -ddump-cmm -ddump-stg &gt; $@.output
+</pre>Now, I can use file <tt>libraries/base/GHC/TopHandler.o.output</tt> to make sense of what is going on in <tt>TopHandler.o</tt>.
+</li></ul><h2 id="MappingbacktotheSTGcode">Mapping back to the STG code</h2>
+<p>
+To figure out which bit of Haskell code corresponds to the assembly
+fragment you're looking at, you need to look at the STG intermediate
+code generated by GHC.  Use the <tt>-ddump-stg</tt> flag.  The reason we
+have to look at the STG is because this is the last phase before code
+generation, after all the transformations have happened, and the
+symbol names in STG correspond pretty directly to the symbols you see
+in the object code.
+</p>
+<p>
+For example, if you're stopped in a code fragment <tt>s28a_info</tt>,
+then you should be able to search for <tt>s28a</tt> in the STG output and
+find it - but you first have to find which module it comes from, and
+the best way to do that is to grep for <tt>s28a</tt> in all the modules
+of your program.
+</p>
+<h2 id="Settingupgdbinit">Setting up gdbinit</h2>
+<p>
+As GHC's allocation of registers will vary depending on what architecture
+you're building for, you'll need to modify some values in your gdbinit to
+make things work for you.  In particular, you need to know what values
+<tt>BaseReg</tt> and <tt>Sp</tt> are.  You can find them out by looking at
+<tt>includes/stg/MachRegs.h</tt> (as well as all of the other registers.)
+In particular, on x86-32, <tt>BaseReg</tt> is in <tt>ebx</tt> and <tt>Sp</tt> is in <tt>ebp</tt>, while on
+x84-64, <tt>BaseReg</tt> is in <tt>r13</tt> and <tt>Sp</tt> is in <tt>rbp</tt>.
+</p>
+<h2 id="Whenyouvefoundfixedit">When you've found &amp; fixed it</h2>
+<ul><li>Tell someone, they'll probably be impressed :-)
+</li></ul><ul><li>Try to think about whether adding an assertion somewhere might have
+helped you find the bug quicker, and if so, add one.  Test it.  Add
+some commentary next to the assertion to help someone else
+understand the problem later.
+</li></ul><p>
+  
+</p>
+<ul><li>Add a test to the testsuite for your bug.
+</li></ul></div>
+          
+          <div class="trac-modifiedby">
+            <span><a href="https://ghc.haskell.org/trac/ghc/wiki/Debugging/CompiledCode?action=diff&amp;version=14" title="Version 14 by heisenbug: there is no -ddump-cmmz any more">Last modified</a> <a class="timeline" href="https://ghc.haskell.org/trac/ghc/timeline?from=2013-04-05T12%3A46%3A30Z&amp;precision=second" title="See timeline at Apr 5, 2013 12:46:30 PM">4 years ago</a></span>
+            <span class="trac-print">Last modified on Apr 5, 2013 12:46:30 PM</span>
+          </div>
+        
+        
+      </div>
+    <div id="attachments">
+        <h3 class="foldable">Attachments <span class="trac-count">(2)</span></h3>
+        <div>
+          <ul>
+              <li>
+    <a href="https://ghc.haskell.org/trac/ghc/attachment/wiki/Debugging/CompiledCode/.gdbinit" title="View attachment">.gdbinit</a><a href="https://ghc.haskell.org/trac/ghc/raw-attachment/wiki/Debugging/CompiledCode/.gdbinit" class="trac-rawlink" title="Download">​</a>
+       (<span title="3125 bytes">3.1 KB</span>) -
+      added by <em>simonmar</em> <a class="timeline" href="https://ghc.haskell.org/trac/ghc/timeline?from=2009-08-27T10%3A58%3A27Z&amp;precision=second" title="See timeline at Aug 27, 2009 10:58:27 AM">7 years ago</a>.
+              </li>
+              <li>
+    <a href="https://ghc.haskell.org/trac/ghc/attachment/wiki/Debugging/CompiledCode/gdbinit" title="View attachment">gdbinit</a><a href="https://ghc.haskell.org/trac/ghc/raw-attachment/wiki/Debugging/CompiledCode/gdbinit" class="trac-rawlink" title="Download">​</a>
+       (<span title="3142 bytes">3.1 KB</span>) -
+      added by <em>batterseapower</em> <a class="timeline" href="https://ghc.haskell.org/trac/ghc/timeline?from=2010-04-23T16%3A13%3A08Z&amp;precision=second" title="See timeline at Apr 23, 2010 4:13:08 PM">7 years ago</a>.
+                <q>.gdbinit</q>
+              </li>
+          </ul>
+          <p>
+            Download all attachments as: <a rel="nofollow" href="https://ghc.haskell.org/trac/ghc/zip-attachment/wiki/Debugging/CompiledCode/">.zip</a>
+          </p>
+        </div>
+    </div>
+        </div>
+      </div>
+    </div>
+    <div id="altlinks">
+      <h3>Download in other formats:</h3>
+      <ul>
+        <li class="last first">
+          <a rel="nofollow" href="https://ghc.haskell.org/trac/ghc/wiki/Debugging/CompiledCode?format=txt">Plain Text</a>
+        </li>
+      </ul>
+    </div>
+    </div>
+    <div id="footer" lang="en" xml:lang="en"><hr />
+      <a id="tracpowered" href="http://trac.edgewall.org/"><img src="https://ghc.haskell.org/trac-1.0.7-htdocs/trac_logo_mini.png" height="30" width="107" alt="Trac Powered" /></a>
+      <p class="left">Powered by <a href="https://ghc.haskell.org/trac/ghc/about"><strong>Trac 1.0.9</strong></a><br />
+        By <a href="http://www.edgewall.org/">Edgewall Software</a>.</p>
+      <p class="right">Visit the Trac open source project at<br /><a href="http://trac.edgewall.org/">http://trac.edgewall.org/</a></p>
+    </div>
+  </body>
+
+<!-- Mirrored from ghc.haskell.org/trac/ghc/wiki/Debugging/CompiledCode by HTTrack Website Copier/3.x [XR&CO'2014], Sat, 24 Dec 2016 02:22:04 GMT -->
+</html>
