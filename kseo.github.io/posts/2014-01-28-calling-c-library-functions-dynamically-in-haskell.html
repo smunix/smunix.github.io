@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+    
+<!-- Mirrored from kseo.github.io/posts/2014-01-28-calling-c-library-functions-dynamically-in-haskell.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 25 Dec 2016 16:48:14 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <meta name="keywords" content="Haskell, functional programming, category theory, type theory">
+        <title>Kwang's Haskell Blog - Calling C library functions dynamically in Haskell</title>
+        <link rel="stylesheet" type="text/css" href="http://kseo.github.io/css/default.css" />
+        <link rel="stylesheet" type="text/css" href="http://kseo.github.io/css/syntax.css" />
+    </head>
+    <body>
+        <div id="header">
+            <div id="logo">
+                <a href="http://kseo.github.io/">Kwang's Haskell Blog</a>
+            </div>
+            <div id="navigation">
+                <a href="http://kseo.github.io/">Home</a>
+                <a href="http://kseo.github.io/about.html">About</a>
+                <a href="http://kseo.github.io/contact.html">Contact</a>
+                <a href="http://kseo.github.io/archive.html">Archive</a>
+            </div>
+        </div>
+
+        <div id="content">
+            <h1>Calling C library functions dynamically in Haskell</h1>
+
+            <a href="https://twitter.com/share" class="twitter-share-button" data-show-count="false">Tweet</a><script async src="http://platform.twitter.com/widgets.js" charset="utf-8"></script>
+
+<article>
+  <div class="info">
+      Posted on January 28, 2014
+      
+          by Kwang Yul Seo
+      
+  </div>
+  <div class="info">
+      
+      Tags: <a href="http://kseo.github.io/tags/Haskell.html">Haskell</a>, <a href="http://kseo.github.io/tags/FFI.html">FFI</a>, <a href="http://kseo.github.io/tags/C.html">C</a>
+      
+  </div>
+
+<p>Haskell FFI is used to call functions from C and for C to call Haskell functions. A classic example from Haskell Wiki page <a href="https://wiki.haskell.org/FFI_Introduction">FFI Introduction</a> is to call a C library function, <code>sin</code> from Haskell. In this method, you have to declare the type of C function you want to call using <code>foreign import ccall</code>.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">{-# LANGUAGE ForeignFunctionInterface #-}</span>
+<span class="kw">import </span><span class="dt">Foreign.C</span>
+ 
+foreign <span class="kw">import </span>ccall &quot;sin&quot; c_sin :: <span class="dt">CDouble</span> -&gt; <span class="dt">CDouble</span>
+  
+<span class="ot">sin1 ::</span> <span class="dt">Double</span> <span class="ot">-&gt;</span> <span class="dt">Double</span>
+sin1 d <span class="fu">=</span> realToFrac (c_sin (realToFrac d))</code></pre></div>
+<p>What if you don’t know the type of a C function you want to call until you run your program (e.g., JIT compilation). You can’t use <code>foreign import ccall</code> because you don’t know the function type statically. In this case, you can use the <a href="http://hackage.haskell.org/package/libffi-0.1/docs/Foreign-LibFFI.html">Haskell binding for libffi</a>, a Portable Foreign Function Interface Library.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">import </span><span class="dt">System.Posix.DynamicLinker</span>
+<span class="kw">import </span><span class="dt">Foreign.C</span>
+<span class="kw">import </span><span class="dt">Foreign.Ptr</span>
+<span class="kw">import </span><span class="dt">Foreign.LibFFI</span>
+ 
+<span class="ot">sin2 ::</span> <span class="dt">Double</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">Double</span>
+sin2 d <span class="fu">=</span> <span class="kw">do</span>
+    sin <span class="ot">&lt;-</span> dlsym <span class="dt">Default</span> <span class="st">&quot;sin&quot;</span>
+    ret <span class="ot">&lt;-</span> callFFI sin retCDouble [argCDouble (realToFrac d)]
+    return <span class="fu">$</span> realToFrac ret</code></pre></div>
+<p>Now you don’t need to declare it using <code>foreign import ccall</code>. You can just pass the return type and the list of argument types to <code>callFFI</code> function.</p>
+<p>So far so good, but there is one problem with this approach. <code>sin2</code> is no longer a pure function. The return type must be <code>IO Double</code> because calling <code>callFFI</code> function requires IO monad. If you call a impure C function with side effects, this is okay though.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">callFFI ::</span> <span class="dt">FunPtr</span> a <span class="ot">-&gt;</span> <span class="dt">RetType</span> b <span class="ot">-&gt;</span> [<span class="dt">Arg</span>] <span class="ot">-&gt;</span> <span class="dt">IO</span> b</code></pre></div>
+<div id="disqus_thread"></div>
+<script>
+
+/**
+ *  RECOMMENDED CONFIGURATION VARIABLES: EDIT AND UNCOMMENT THE SECTION BELOW TO INSERT DYNAMIC VALUES FROM YOUR PLATFORM OR CMS.
+ *  LEARN WHY DEFINING THESE VARIABLES IS IMPORTANT: https://disqus.com/admin/universalcode/#configuration-variables */
+/*
+var disqus_config = function () {
+    this.page.url = PAGE_URL;  // Replace PAGE_URL with your page's canonical URL variable
+    this.page.identifier = PAGE_IDENTIFIER; // Replace PAGE_IDENTIFIER with your page's unique identifier variable
+};
+*/
+(function() { // DON'T EDIT BELOW THIS LINE
+    var d = document, s = d.createElement('script');
+    s.src = 'http://kwangs-haskell-blog.disqus.com/embed.js';
+    s.setAttribute('data-timestamp', +new Date());
+    (d.head || d.body).appendChild(s);
+})();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+
+</article>
+
+        </div>
+        <div id="footer">
+            <a href="http://kseo.github.io/rss.xml">RSS</a> |
+            <a href="http://kseo.github.io/atom.xml">ATOM</a> |
+            <a href="https://twitter.com/kwangyulseo" class="twitter-follow-button" data-show-count="false">Follow @kwangyulseo</a><script async src="http://platform.twitter.com/widgets.js" charset="utf-8"></script>
+        </div>
+        <script>
+          (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+          (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+          m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+          })(window,document,'script','http://www.google-analytics.com/analytics.js','ga');
+
+          ga('create', 'UA-61779656-7', 'auto');
+          ga('send', 'pageview');
+        </script>
+    </body>
+
+<!-- Mirrored from kseo.github.io/posts/2014-01-28-calling-c-library-functions-dynamically-in-haskell.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 25 Dec 2016 16:48:14 GMT -->
+</html>

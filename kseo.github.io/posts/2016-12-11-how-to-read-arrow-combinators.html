@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+    
+<!-- Mirrored from kseo.github.io/posts/2016-12-11-how-to-read-arrow-combinators.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 25 Dec 2016 16:48:12 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <meta name="keywords" content="Haskell, functional programming, category theory, type theory">
+        <title>Kwang's Haskell Blog - How to read arrow combinators</title>
+        <link rel="stylesheet" type="text/css" href="http://kseo.github.io/css/default.css" />
+        <link rel="stylesheet" type="text/css" href="http://kseo.github.io/css/syntax.css" />
+    </head>
+    <body>
+        <div id="header">
+            <div id="logo">
+                <a href="http://kseo.github.io/">Kwang's Haskell Blog</a>
+            </div>
+            <div id="navigation">
+                <a href="http://kseo.github.io/">Home</a>
+                <a href="http://kseo.github.io/about.html">About</a>
+                <a href="http://kseo.github.io/contact.html">Contact</a>
+                <a href="http://kseo.github.io/archive.html">Archive</a>
+            </div>
+        </div>
+
+        <div id="content">
+            <h1>How to read arrow combinators</h1>
+
+            <a href="https://twitter.com/share" class="twitter-share-button" data-show-count="false">Tweet</a><script async src="http://platform.twitter.com/widgets.js" charset="utf-8"></script>
+
+<article>
+  <div class="info">
+      Posted on December 11, 2016
+      
+          by Kwang Yul Seo
+      
+  </div>
+  <div class="info">
+      
+      Tags: <a href="http://kseo.github.io/tags/Arrow.html">Arrow</a>
+      
+  </div>
+
+<p>Arrows, like monads and applicative functors, express computations that happen within a context. In Haskell, arrows are represented with a constructor class <code>Arrow</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Arrow</span> a <span class="kw">where</span>
+<span class="ot">  arr ::</span> (b <span class="ot">-&gt;</span> c) <span class="ot">-&gt;</span> a b c
+  <span class="co">-- Each function may be treated as a computation.</span>
+
+<span class="ot">  (&gt;&gt;&gt;) ::</span> a b c <span class="ot">-&gt;</span> a c d <span class="ot">-&gt;</span> a b d
+  <span class="co">-- Computations may be composed, by connecting the output of the first to the input of the second.</span>
+
+<span class="ot">  first ::</span> a b c <span class="ot">-&gt;</span> a (b,d) (c,d)
+  <span class="co">-- A computation may be applied to part of the input, with the rest copied through to the output.</span>
+  <span class="fu">...</span></code></pre></div>
+<p>As usual, it takes some time to comprehend what arrow is and why and how it is useful. If you are looking for a good arrow tutorial, I strongly recommend John Hughes’s <a href="http://www.cse.chalmers.se/~rjmh/afp-arrows.pdf">Programming with Arrows</a>.</p>
+<p>However, it is not necessary to understand arrow just to read some code written with arrow combinators because arrows are often used even when there is no compelling reason to do so. <code>(-&gt;)</code> is an instance of <code>Arrow</code> and some Haskell programmers just prefer arrow style even though combinators of <code>Data.Bifunctor</code> are often more readable.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Arrow</span> (<span class="ot">-&gt;</span>) <span class="kw">where</span>
+    arr f <span class="fu">=</span> f
+    (<span class="fu">***</span>) f g <span class="fu">~</span>(x,y) <span class="fu">=</span> (f x, g y)</code></pre></div>
+<p>So here is my tip. If you encounter code written with arrow combinators in the context of <code>(-&gt;)</code>, use the following <a href="https://en.wikibooks.org/wiki/Haskell/Understanding_arrows#Arrow_combinators_crop_up_in_unexpected_places">translation table</a> to decode what the code means.</p>
+<table>
+<thead>
+<tr class="header">
+<th>Combinator</th>
+<th>Meaning</th>
+<th>Alternatives</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>(&gt;&gt;&gt;)</td>
+<td>flip (.)</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>first</td>
+<td>(x, y) -&gt; (f x, y)</td>
+<td>first (Data.Bifunctor)</td>
+</tr>
+<tr class="odd">
+<td>second</td>
+<td>(x, y) -&gt; (x, f y)</td>
+<td>second (Data.Bifunctor)</td>
+</tr>
+<tr class="even">
+<td>(***)</td>
+<td>g (x, y) -&gt; (f x, g y)</td>
+<td>bimap (Data.Bifunctor)</td>
+</tr>
+<tr class="odd">
+<td>(&amp;&amp;&amp;)</td>
+<td>g x -&gt; (f x, g x)</td>
+<td>liftA2 (,) (Control.Applicative)</td>
+</tr>
+<tr class="even">
+<td>left</td>
+<td>Maps over Left case</td>
+<td>first (Data.Bifunctor)</td>
+</tr>
+<tr class="odd">
+<td>right</td>
+<td>Maps over Right case</td>
+<td>second (Data.Bifunctor)</td>
+</tr>
+<tr class="even">
+<td>(+++)</td>
+<td>Maps over both cases</td>
+<td>bimap (Data.Bifunctor)</td>
+</tr>
+<tr class="odd">
+<td>(|||)</td>
+<td>Eliminates Either</td>
+<td>either (Data.Either)</td>
+</tr>
+<tr class="even">
+<td>app</td>
+<td>(f, x) -&gt; f x</td>
+<td>uncurry ($)</td>
+</tr>
+</tbody>
+</table>
+<p>In case of <code>second</code> and <code>right</code>, we can also use <code>fmap</code> because both <code>(,)</code> and <code>Either</code> is functorial on the second type. But I personally don’t recommend <code>fmap</code> in this case because these types arbitrarily map the second type instead of the first one.</p>
+<div id="disqus_thread"></div>
+<script>
+
+/**
+ *  RECOMMENDED CONFIGURATION VARIABLES: EDIT AND UNCOMMENT THE SECTION BELOW TO INSERT DYNAMIC VALUES FROM YOUR PLATFORM OR CMS.
+ *  LEARN WHY DEFINING THESE VARIABLES IS IMPORTANT: https://disqus.com/admin/universalcode/#configuration-variables */
+/*
+var disqus_config = function () {
+    this.page.url = PAGE_URL;  // Replace PAGE_URL with your page's canonical URL variable
+    this.page.identifier = PAGE_IDENTIFIER; // Replace PAGE_IDENTIFIER with your page's unique identifier variable
+};
+*/
+(function() { // DON'T EDIT BELOW THIS LINE
+    var d = document, s = d.createElement('script');
+    s.src = 'http://kwangs-haskell-blog.disqus.com/embed.js';
+    s.setAttribute('data-timestamp', +new Date());
+    (d.head || d.body).appendChild(s);
+})();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+
+</article>
+
+        </div>
+        <div id="footer">
+            <a href="http://kseo.github.io/rss.xml">RSS</a> |
+            <a href="http://kseo.github.io/atom.xml">ATOM</a> |
+            <a href="https://twitter.com/kwangyulseo" class="twitter-follow-button" data-show-count="false">Follow @kwangyulseo</a><script async src="http://platform.twitter.com/widgets.js" charset="utf-8"></script>
+        </div>
+        <script>
+          (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+          (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+          m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+          })(window,document,'script','http://www.google-analytics.com/analytics.js','ga');
+
+          ga('create', 'UA-61779656-7', 'auto');
+          ga('send', 'pageview');
+        </script>
+    </body>
+
+<!-- Mirrored from kseo.github.io/posts/2016-12-11-how-to-read-arrow-combinators.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 25 Dec 2016 16:48:12 GMT -->
+</html>
