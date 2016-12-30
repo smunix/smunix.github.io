@@ -1,0 +1,706 @@
+<!doctype html><!--[if lt IE 7]> <html class="no-js ie6 oldie" lang="en"> <![endif]--><!--[if IE 7]>    <html class="no-js ie7 oldie" lang="en"> <![endif]--><!--[if IE 8]>    <html class="no-js ie8 oldie" lang="en"> <![endif]--><!--[if gt IE 8]><!--><html class="no-js" lang="en"> <!--<![endif]-->
+<!-- Mirrored from www.fpcomplete.com/blog/2016/11/exceptions-best-practices-haskell by HTTrack Website Copier/3.x [XR&CO'2014], Fri, 30 Dec 2016 16:24:26 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head><meta charset="UTF-8"><meta name="google-site-verification" content="DAcj3V2VPIWbiY2qQJaztufXD7u4kY75RlyH2zhIHsk" /><title>Exceptions Best Practices in Haskell :: FP Complete</title><meta name="google-site-verification" content="DAcj3V2VPIWbiY2qQJaztufXD7u4kY75RlyH2zhIHsk" /><meta name="viewport" content="width=device-width,initial-scale=1"><link href="https://www.fpcomplete.com/feed" type="application/atom+xml" rel="alternate" title="FP Complete Blog">
+<link href="https://www.fpcomplete.com/feed" type="application/rss+xml" rel="alternate" title="FP Complete Blog">
+<meta name="author" content="Michael Snoyman">
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css"><link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css"><link rel="stylesheet" href="https://www.fpcomplete.com/static/css/code-highlighting.css?etag=OmhFiN9e"><link rel="stylesheet" href="http://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.8.0/styles/default.min.css"><style>#social{margin:1em 0;padding:0.25em}#social > div{margin-right:1em;display:inline-block}#social{margin:1em 0;padding:0.25em}#social > div{margin-right:1em;display:inline-block}.container{font-family:"Segoe UI", Candara, "Bitstream Vera Sans", "DejaVu Sans", "Bitstream Vera Sans", "Trebuchet MS", Verdana, "Verdana Ref", sans-serif;font-size:1.1em}#twitter > div{margin-right:1em;display:inline-block}</style><!--[if lt IE 9]><script src="http://html5shiv.googlecode.com/svn/trunk/html5.js"></script><![endif]--></head><body><nav class="navbar navbar-inverse"><div class="container"><div class="row"><div class="col-md-12"><div class="navbar-header"><button class="navbar-toggle collapsed" type="button" data-toggle="collapse" data-target="#top-navbar" aria-expanded="false"><span class="sr-only">Toggle navigation</span>
+<span class="icon-bar"></span>
+<span class="icon-bar"></span>
+<span class="icon-bar"></span>
+</button>
+<ul class="nav navbar-nav collapse navbar-collapse" id="top-navbar"><li><a href="https://www.fpcomplete.com/"><img src="https://www.fpcomplete.com/static/fpcomplete-logo-transparent.png?etag=5QQp_9Ic" alt="FP Complete" title="FP Complete" style="max-height:100%;height:2em">
+</a>
+</li>
+<li><a href="https://www.fpcomplete.com/blog">Blog</a>
+</li>
+<li><a href="https://www.fpcomplete.com/haskell">Haskell</a>
+</li>
+<li><a href="https://www.fpcomplete.com/devops">Devops</a>
+</li>
+<li><a href="https://www.fpcomplete.com/consulting">Consulting</a>
+</li>
+<li><a href="https://www.fpcomplete.com/training">Training</a>
+</li>
+<li><a href="https://www.fpcomplete.com/contact-us">Contact</a>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+</nav>
+<div class="container"><div class="row"><div class="col-md-12"><h1 itemprop="name">Exceptions Best Practices in Haskell</h1>
+<div id="social"><div class="twitter-share"><a class="twitter-share-button" href="https://twitter.com/share" data-show-count="false">Tweet</a>
+</div>
+<div class="reddit"><script type="text/javascript" src="http://www.redditstatic.com/button/button1.js"></script>
+</div>
+<div class="linkedin"><script src="http://platform.linkedin.com/in.js" type="text/javascript">lang: en_US</script>
+<script type="IN/Share" data-counter="right"></script>
+</div>
+<div class="googleplus"><script src="https://apis.google.com/js/platform.js" async defer></script>
+<g:plusone></g:plusone>
+</div>
+</div>
+</div>
+</div>
+<div class="row"><div class="col-md-8"><p><span class="date"> 7 Nov 2016</span>
+<span class="author"><em>Michael Snoyman</em>
+</span>
+</p>
+<article itemprop="desc"><p>Over the years, I&#39;ve written a number of different documents,
+tutorials, comments, and libraries on how to do proper exception
+handling in Haskell. Most of this has culminated in the creation of
+<a href="https://haskell-lang.org/library/safe-exceptions" rel="nofollow">safe-exceptions library</a>,
+which I strongly recommend everyone use. That library contains a full
+tutorial which explains many of the more subtle points of exceptions,
+and describes how exceptions are handled by that library.</p><p>Overall, I consider that library uncontroversial, simply addressing
+the reality of exceptions in GHC today. This blog post is the
+opinionated part: how I recommend you use exceptions in Haskell, and
+how to structure your code around them. There are dissenting opinions,
+which is why this is an opinion blog post instead of library
+documentation. However, in my experience, these approaches are the
+best way to make your code robust.</p><p>This blog post is also part of the <a href="https://www.fpcomplete.com/haskell-syllabus">FP Complete Haskell
+Syllabus</a> and part of our <a href="https://www.fpcomplete.com/training">Haskell training</a>.</p><h2 id="the-io-contract">The IO contract</h2><p>A commonly stated position in the Haskell community around exceptions
+goes something like &quot;all exceptions should be explicit at the type
+level, and async exceptions are terrible.&quot; We can argue as much as we
+want about this point in a theoretical sense. However, practically, it
+is irrelevant, because GHC has already chosen a stance on this: it
+supports async exceptions, and all code that runs in <code>IO</code> can have
+exceptions of <i>any</i> type which is an instance of <code>Exception</code>.</p><p>I&#39;d go a step further, and say not only are we stuck with GHC&#39;s
+decisions, but GHC&#39;s decisions are a great point in the design
+space. I&#39;ll explain that below.</p><p>So take as a given: any code in <code>IO</code> can throw a runtime exception,
+and any thread can be killed at any time by an asynchronous exception.</p><p>Let&#39;s identify a few anti-patterns in Haskell exception handling, and then move
+on to recommended practices.</p><h2 id="the-bad">The bad</h2><h3 id="exceptt-io-anti-pattern">ExceptT IO anti-pattern</h3><p>A common (bad) design pattern I see is something like the following:</p><pre><span class='hs-definition'>myFunction</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>String</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>ExceptT</span> <span class='hs-conid'>MyException</span> <span class='hs-conid'>IO</span> <span class='hs-conid'>Int</span></pre><p>There are (at least) three problems with this:</p><ol><li>It&#39;s <i>non-composable</i>. If someone else has a separate exception
+type <code>HisException</code>, these two functions do not easily compose.</li><li>It gives an implication which is almost certainly false, namely:
+the only exception that can be thrown from this function is
+<code>MyException</code>. Almost any <code>IO</code> code in there will have the ability
+to throw some other type of exception, and additionally, almost any
+async exception can be thrown even if no synchronous exception is
+possible.</li><li>You haven&#39;t limited the possibility of exceptions, you&#39;ve only
+added one extra avenue by which an exception can be
+thrown. <code>myFunction</code> can now either <code>throwE</code> or <code>liftIO . throwIO</code>.</li></ol><p>It is almost always wrong to wrap an <code>ExceptT</code>, <code>EitherT</code>, or <code>ErrorT</code>
+around an <code>IO</code>-based transformer stack.</p><p>Separate issue: it&#39;s also almost always a bad idea to have such a concrete
+transformer stack used in a public-facing API. It&#39;s usually better to express a
+function in terms of typeclass requirements, using mtl typeclasses as
+necessary.</p><p>A similar pattern is</p><pre><span class='hs-definition'>myFunction</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>String</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>ExceptT</span> <span class='hs-conid'>Text</span> <span class='hs-conid'>IO</span> <span class='hs-conid'>Int</span></pre><p>This is usually done with the idea that in the future the error type
+will be changed from <code>Text</code> to something like <code>MyException</code>. However,
+<code>Text</code> may end up sticking around forever because it helps avoid the
+composition problems of a real data type. However that leads to
+expressing useful error data types as unstructured <code>Text</code>.</p><p>Generally the solution to the <code>ExceptT IO</code> anti-pattern is to return
+an <code>Either</code> from more functions and throw an exception for uncommon
+errors. Note that returning <code>Either</code> from <code>ExceptT IO</code> means there are
+now 3 distinct sources of errors in just one function.</p><p>Please note that using ExceptT, etc with a non-IO base monad (for
+example with pure code) is a perfectly fine pattern.</p><h3 id="mask-them-all-anti-pattern">Mask-them-all anti-pattern</h3><p>This anti-pattern goes like this: remembering to deal with async
+exceptions everywhere is hard, so I&#39;ll just mask them all.</p><p>Every time you do this, 17 kittens are mauled to death by the loch
+ness monster.</p><p>Async exceptions may be annoying, but they are vital to keeping a
+system functioning correctly. The <code>timeout</code> function uses them to
+great benefit. The Warp webserver bases all of its slowloris
+protection on async exceptions. The cancel function from the async
+package will hang indefinitely if async exceptions are masked. Et
+cetera et cetera.</p><p>Are async exceptions difficult to work with? Sometimes, yes. Deal with
+it anyway. Best practices include:</p><ul><li>Use the bracket pattern wherever possible.</li><li>Use the safe-exceptions package.</li><li>If you have truly complex flow of control and non-linear scoping of
+resources, use the resourcet package.</li></ul><h2 id="the-good">The good</h2><h3 id="monadthrow">MonadThrow</h3><p>Consider the following function:</p><pre><span class='hs-definition'>foo</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>lookup</span> <span class='hs-str'>"foo"</span> <span class='hs-varid'>m</span>
+<span class='hs-definition'>bar</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>lookup</span> <span class='hs-str'>"bar"</span> <span class='hs-varid'>m</span>
+<span class='hs-definition'>baz</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>lookup</span> <span class='hs-str'>"baz"</span> <span class='hs-varid'>m</span>
+<span class='hs-definition'>f</span> <span class='hs-varid'>foo</span> <span class='hs-varid'>bar</span> <span class='hs-varid'>baz</span></pre><p>If this function returns <code>Nothing</code>, we have no idea why. It could be
+because:</p><ol><li>&quot;foo&quot; wasn&#39;t in the map.</li><li>&quot;bar&quot; wasn&#39;t in the map.</li><li>&quot;baz&quot; wasn&#39;t in the map.</li><li><code>f</code> returned <code>Nothing</code>.</li></ol><p>The problem is that we&#39;ve thrown away a lot of information by having
+our functions return <code>Maybe</code>. Instead, wouldn&#39;t it be nice if the
+types of our functions were:</p><pre><span class='hs-definition'>lookup</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Eq</span> <span class='hs-varid'>k</span> <span class='hs-keyglyph'>=&gt;</span> <span class='hs-varid'>k</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-keyglyph'>[</span><span class='hs-layout'>(</span><span class='hs-varid'>k</span><span class='hs-layout'>,</span> <span class='hs-varid'>v</span><span class='hs-layout'>)</span><span class='hs-keyglyph'>]</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>Either</span> <span class='hs-layout'>(</span><span class='hs-conid'>KeyNotFound</span> <span class='hs-varid'>k</span><span class='hs-layout'>)</span> <span class='hs-varid'>v</span>
+
+<span class='hs-definition'>f</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>SomeVal</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>SomeVal</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>SomeVal</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>Either</span> <span class='hs-conid'>F'sExceptionType</span> <span class='hs-conid'>F'sResult</span></pre><p>The problem is that these types don&#39;t unify. Also, it&#39;s commonly the
+case that we really don&#39;t need to know about <i>why</i> a lookup failed, we
+just need to deal with it. For those cases, <code>Maybe</code> is better.</p><p>The solution to this is the <code>MonadThrow</code> typeclass from the exceptions
+package.  With that, we would write the type signatures as:</p><pre><span class='hs-definition'>lookup</span> <span class='hs-keyglyph'>::</span> <span class='hs-layout'>(</span><span class='hs-conid'>MonadThrow</span> <span class='hs-varid'>m</span><span class='hs-layout'>,</span> <span class='hs-conid'>Eq</span> <span class='hs-varid'>k</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>=&gt;</span> <span class='hs-varid'>k</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-keyglyph'>[</span><span class='hs-layout'>(</span><span class='hs-varid'>k</span><span class='hs-layout'>,</span> <span class='hs-varid'>v</span><span class='hs-layout'>)</span><span class='hs-keyglyph'>]</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>m</span> <span class='hs-varid'>v</span>
+<span class='hs-definition'>f</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>MonadThrow</span> <span class='hs-varid'>m</span> <span class='hs-keyglyph'>=&gt;</span> <span class='hs-conid'>SomeVal</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>SomeVal</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>SomeVal</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>m</span> <span class='hs-conid'>F'sResult</span></pre><p>Versus the <code>Either</code> signature, we lose some information, namely the
+type of exception that could be thrown. However, we gain composability
+and unification with <code>Maybe</code> (as well as many other useful instances
+of <code>MonadThrow</code>, like <code>IO</code>).</p><p>The <code>MonadThrow</code> typeclass is a tradeoff, but it&#39;s a well thought out
+tradeoff, and usually the right one. It&#39;s also in line with Haskell&#39;s
+runtime exception system, which does not capture the types of
+exceptions that can be thrown.</p><h3 id="transformers">Transformers</h3><p>The following type signature is overly restrictive:</p><pre><span class='hs-definition'>foo</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Int</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>IO</span> <span class='hs-conid'>String</span></pre><p>This can always be generalized with a usage of <code>liftIO</code> to:</p><pre><span class='hs-definition'>foo</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>MonadIO</span> <span class='hs-varid'>m</span> <span class='hs-keyglyph'>=&gt;</span> <span class='hs-conid'>Int</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>m</span> <span class='hs-conid'>String</span></pre><p>This allows our function to easily work with any transformer on top of
+<code>IO</code>.  However, given how easy it is to apply <code>liftIO</code>, it&#39;s not too
+horrible a restriction. However, consider this function:</p><pre><span class='hs-definition'>bar</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>FilePath</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-layout'>(</span><span class='hs-conid'>Handle</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>IO</span> <span class='hs-varid'>a</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>IO</span> <span class='hs-varid'>a</span></pre><p>If you want your inner function to live in a transformer on top of
+<code>IO</code>, you&#39;ll find it difficult to make it work. It can be done with
+<code>lifted-base</code>, but it&#39;s non-trivial. Instead, it&#39;s much better to
+express this function in terms of functions from either the
+safe-exceptions library, and get the following more generalized type
+signatures:</p><pre><span class='hs-definition'>bar</span> <span class='hs-keyglyph'>::</span> <span class='hs-layout'>(</span><span class='hs-conid'>MonadIO</span> <span class='hs-varid'>m</span><span class='hs-layout'>,</span> <span class='hs-conid'>MonadMask</span> <span class='hs-varid'>m</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>=&gt;</span> <span class='hs-conid'>FilePath</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-layout'>(</span><span class='hs-conid'>Handle</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>m</span> <span class='hs-varid'>a</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>m</span> <span class='hs-varid'>a</span></pre><p>This doesn&#39;t just apply to exception handling, but also to dealing
+with things like forking threads. Another thing to consider in these
+cases is to use the <code>Acquire</code> type from resourcet.</p><h3 id="custom-exception-types">Custom exception types</h3><p>The following is bad practice:</p><pre><span class='hs-definition'>foo</span> <span class='hs-keyglyph'>=</span> <span class='hs-keyword'>do</span>
+    <span class='hs-keyword'>if</span> <span class='hs-varid'>x</span> <span class='hs-keyword'>then</span> <span class='hs-varid'>return</span> <span class='hs-varid'>y</span> <span class='hs-keyword'>else</span> <span class='hs-varid'>error</span> <span class='hs-str'>"something bad happened"</span></pre><p>The problem is the usage of arbitrary string-based error
+messages. This makes it difficult to handle this exceptional case
+directly in a higher level in the call stack. Instead, despite the
+boilerplate overhead involved, it&#39;s best to define a custom exception
+type:</p><pre><span class='hs-keyword'>data</span> <span class='hs-conid'>SomethingBad</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>SomethingBad</span>
+    <span class='hs-keyword'>deriving</span> <span class='hs-conid'>Typeable</span>
+<span class='hs-keyword'>instance</span> <span class='hs-conid'>Show</span> <span class='hs-conid'>SomethingBad</span> <span class='hs-keyword'>where</span>
+    <span class='hs-varid'>show</span> <span class='hs-conid'>SomethingBad</span> <span class='hs-keyglyph'>=</span> <span class='hs-str'>"something bad happened"</span>
+<span class='hs-keyword'>instance</span> <span class='hs-conid'>Exception</span> <span class='hs-conid'>SomethingBad</span>
+<span class='hs-definition'>foo</span> <span class='hs-keyglyph'>=</span> <span class='hs-keyword'>do</span>
+    <span class='hs-keyword'>if</span> <span class='hs-varid'>x</span> <span class='hs-keyword'>then</span> <span class='hs-varid'>return</span> <span class='hs-varid'>y</span> <span class='hs-keyword'>else</span> <span class='hs-varid'>throwM</span> <span class='hs-conid'>SomethingBad</span></pre><p>Now it&#39;s trivial to catch the <code>SomethingBad</code> exception type at a
+higher level.  Additionally, <code>throwM</code> gives better exception ordering
+guarantees than <code>error</code>, which creates an exception in a pure value
+that needs to be evaluated before it&#39;s thrown.</p><p>One sore point is that some people strongly oppose a <code>Show</code> instance
+like this.  This is an open discussion, but for now I believe we need
+to make the tradeoff at this point in the spectrum. The
+<code>displayException</code> method in the <code>Exception</code> typeclass may allow for a
+better resolution to this point in the future.</p><h2 id="why-ghc39s-point-in-the-design-space-is-great">Why GHC&#39;s point in the design space is great</h2><p>This section is adapted from
+<a href="https://www.reddit.com/r/haskell/comments/2ety9f/new_blog_post_dealing_with_asynchronous/ck3fkbp/" rel="nofollow">a comment I made on Reddit in 2014</a>.</p><p>I <i>don&#39;t</i> believe there is a better solution to sync exceptions,
+actually. That&#39;s because most of the time I see people complaining
+about <code>IO</code> throwing exceptions, what they <i>really</i> mean is &quot;this
+specific exception just bit me, why isn&#39;t this exception explicit in
+the type signature?&quot; To clarify my point further:</p><ul><li>There are virtually 0 <code>IO</code> actions that can&#39;t fail for some reason.</li><li>If every <code>IO</code> action returned a <code>IO (Either UniqueExceptionType a)</code>,
+the programming model would become <i>incredibly</i> tedious.
+* Also, it would become very likely that when <code>a</code> is <code>()</code>, it would
+  be easy to forget to check the return type to see if an exception
+  occurred.</li><li>If instead every <code>IO</code> action returned <code>IO (Either SomeException a)</code>,
+we&#39;d at least not have to deal with wrangling different exception
+types, and could use <code>ErrorT</code> to make our code simpler, but...</li><li>Then we&#39;ve just reinvented exactly what <code>IO</code> does today, only less
+efficiently!</li></ul><p>My belief is that people are simply ignoring the reality of the
+situation: the contract for <code>IO</code> implicitly includes &quot;this action may
+also fail.&quot; And I mean in every single case. Built in, runtime
+exceptions hide that in the type, but you need to be aware of
+it. Runtime exceptions <i>also</i> happen to be far more efficient than
+using <code>ErrorT</code> everywhere.</p><p>And as much as some people complain that exceptions are difficult to
+handle correctly, I highly doubt <code>ErrorT</code> or anything else would be
+easier to work with, we&#39;d just be trading in a well-developed,
+mostly-understood system for a system we think we understand.</p><h2 id="concrete-example:-readline">Concrete example: readLine</h2><p>After a
+<a href="https://twitter.com/zoran119/status/795493171576717312" rel="nofollow">request on Twitter</a>,
+I decided to add a little section here showing a pragmatic example:
+how should we implement a function to read a line from stdin and parse
+it? Let&#39;s start with a simpler question: how about just parsing an
+input <code>String</code>?  We&#39;d like to have a meaningful exception that tells
+us which value didn&#39;t parse (the input <code>String</code>) and what type we
+tried to parse it as. We&#39;ll implement this as a <code>readM</code> function:</p><pre><span class='hs-cpp'>#!/</span><span class='hs-varid'>usr</span><span class='hs-varop'>/</span><span class='hs-varid'>bin</span><span class='hs-varop'>/</span><span class='hs-varid'>env</span> <span class='hs-varid'>stack</span>
+<span class='hs-comment'>-- stack --resolver lts-7.8 runghc --package safe-exceptions</span>
+<span class='hs-comment'>{-# OPTIONS_GHC -Wall -Werror #-}</span>
+<span class='hs-keyword'>import</span> <span class='hs-conid'>Control</span><span class='hs-varop'>.</span><span class='hs-conid'>Exception</span><span class='hs-varop'>.</span><span class='hs-conid'>Safe</span> <span class='hs-layout'>(</span><span class='hs-conid'>Exception</span><span class='hs-layout'>,</span> <span class='hs-conid'>MonadThrow</span><span class='hs-layout'>,</span> <span class='hs-conid'>SomeException</span><span class='hs-layout'>,</span> <span class='hs-varid'>throwM</span><span class='hs-layout'>)</span>
+<span class='hs-keyword'>import</span> <span class='hs-conid'>Data</span><span class='hs-varop'>.</span><span class='hs-conid'>Typeable</span>          <span class='hs-layout'>(</span><span class='hs-conid'>TypeRep</span><span class='hs-layout'>,</span> <span class='hs-conid'>Typeable</span><span class='hs-layout'>,</span> <span class='hs-varid'>typeRep</span><span class='hs-layout'>)</span>
+<span class='hs-keyword'>import</span> <span class='hs-conid'>Text</span><span class='hs-varop'>.</span><span class='hs-conid'>Read</span>              <span class='hs-layout'>(</span><span class='hs-varid'>readMaybe</span><span class='hs-layout'>)</span>
+
+<span class='hs-keyword'>data</span> <span class='hs-conid'>ReadException</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>ReadException</span> <span class='hs-conid'>String</span> <span class='hs-conid'>TypeRep</span>
+  <span class='hs-keyword'>deriving</span> <span class='hs-layout'>(</span><span class='hs-conid'>Typeable</span><span class='hs-layout'>)</span>
+
+<span class='hs-keyword'>instance</span> <span class='hs-conid'>Show</span> <span class='hs-conid'>ReadException</span> <span class='hs-keyword'>where</span>
+  <span class='hs-varid'>show</span> <span class='hs-layout'>(</span><span class='hs-conid'>ReadException</span> <span class='hs-varid'>s</span> <span class='hs-varid'>typ</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>concat</span>
+    <span class='hs-keyglyph'>[</span> <span class='hs-str'>"Unable to parse as "</span>
+    <span class='hs-layout'>,</span> <span class='hs-varid'>show</span> <span class='hs-varid'>typ</span>
+    <span class='hs-layout'>,</span> <span class='hs-str'>": "</span>
+    <span class='hs-layout'>,</span> <span class='hs-varid'>show</span> <span class='hs-varid'>s</span>
+    <span class='hs-keyglyph'>]</span>
+
+<span class='hs-keyword'>instance</span> <span class='hs-conid'>Exception</span> <span class='hs-conid'>ReadException</span>
+
+<span class='hs-definition'>readM</span> <span class='hs-keyglyph'>::</span> <span class='hs-layout'>(</span><span class='hs-conid'>MonadThrow</span> <span class='hs-varid'>m</span><span class='hs-layout'>,</span> <span class='hs-conid'>Read</span> <span class='hs-varid'>a</span><span class='hs-layout'>,</span> <span class='hs-conid'>Typeable</span> <span class='hs-varid'>a</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>=&gt;</span> <span class='hs-conid'>String</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>m</span> <span class='hs-varid'>a</span>
+<span class='hs-definition'>readM</span> <span class='hs-varid'>s</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>res</span>
+  <span class='hs-keyword'>where</span>
+    <span class='hs-varid'>res</span> <span class='hs-keyglyph'>=</span>
+      <span class='hs-keyword'>case</span> <span class='hs-varid'>readMaybe</span> <span class='hs-varid'>s</span> <span class='hs-keyword'>of</span>
+        <span class='hs-conid'>Just</span> <span class='hs-varid'>x</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>return</span> <span class='hs-varid'>x</span>
+        <span class='hs-conid'>Nothing</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>throwM</span> <span class='hs-varop'>$</span> <span class='hs-conid'>ReadException</span> <span class='hs-varid'>s</span> <span class='hs-layout'>(</span><span class='hs-varid'>typeRep</span> <span class='hs-varid'>res</span><span class='hs-layout'>)</span>
+
+<span class='hs-definition'>main</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>IO</span> <span class='hs-conid'>()</span>
+<span class='hs-definition'>main</span> <span class='hs-keyglyph'>=</span> <span class='hs-keyword'>do</span>
+  <span class='hs-varid'>print</span> <span class='hs-layout'>(</span><span class='hs-varid'>readM</span> <span class='hs-str'>"hello"</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Either</span> <span class='hs-conid'>SomeException</span> <span class='hs-conid'>Int</span><span class='hs-layout'>)</span>
+  <span class='hs-varid'>print</span> <span class='hs-layout'>(</span><span class='hs-varid'>readM</span> <span class='hs-str'>"5"</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Either</span> <span class='hs-conid'>SomeException</span> <span class='hs-conid'>Int</span><span class='hs-layout'>)</span>
+  <span class='hs-varid'>print</span> <span class='hs-layout'>(</span><span class='hs-varid'>readM</span> <span class='hs-str'>"5"</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Either</span> <span class='hs-conid'>SomeException</span> <span class='hs-conid'>Bool</span><span class='hs-layout'>)</span>
+
+  <span class='hs-comment'>-- Also works in plain IO</span>
+  <span class='hs-varid'>res1</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>readM</span> <span class='hs-str'>"6"</span>
+  <span class='hs-varid'>print</span> <span class='hs-layout'>(</span><span class='hs-varid'>res1</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Int</span><span class='hs-layout'>)</span>
+  <span class='hs-varid'>res2</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>readM</span> <span class='hs-str'>"not an int"</span>
+  <span class='hs-varid'>print</span> <span class='hs-layout'>(</span><span class='hs-varid'>res2</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Int</span><span class='hs-layout'>)</span> <span class='hs-comment'>-- will never get called</span></pre><p>This meets our criteria of having a generalizable function to multiple
+monads and useful exceptions. If we now make a <code>readLine</code> function
+that reads from stdin, we have essentially two different choices of
+type signature:</p><ul><li><code>readLine1 :: (MonadIO m, MonadThrow n, Read a, Typeable a) =&gt; m (n
+a)</code>: With this signature, we&#39;re saying &quot;the case of failure is
+pretty common, and we therefore don&#39;t want to mix it in with the
+same monad that&#39;s handling <code>IO</code> side-effects.</li><li><code>readLine2 :: (MonadIO m, MonadThrow m, Read a, Typeable a) =&gt; m a</code>:
+By contrast, we can actually combine the two different monads (<code>IO</code>
+side-effects and failure) into one layer. This is implicitly saying
+&quot;failure is a case we don&#39;t usually want to deal with, and therefore
+the user should explicitly use <code>tryAny</code> or similar to extract such
+failures. That said, in practice, there&#39;s not much point in having
+both <code>MonadIO</code> and <code>MonadThrow</code>, since you can just use <code>liftIO</code> to
+combine them (as you&#39;ll see in a moment). So instead, our signature
+is <code>readLine2 :: (MonadIO m, Read a, Typeable a) =&gt; m a</code>.</li></ul><p>Which one of these you choose in practice really does depend on your
+personal preferences. The former is much more explicit about the
+failure. However, in general I&#39;d steer away from it, since - like
+<code>ExceptT</code> over <code>IO</code> - it gives the false impression that all failures
+are captured by the inner value. Still, I thought it was worth
+demonstrating both options:</p><pre><span class='hs-cpp'>#!/</span><span class='hs-varid'>usr</span><span class='hs-varop'>/</span><span class='hs-varid'>bin</span><span class='hs-varop'>/</span><span class='hs-varid'>env</span> <span class='hs-varid'>stack</span>
+<span class='hs-comment'>-- stack --resolver lts-7.8 runghc --package safe-exceptions</span>
+<span class='hs-comment'>{-# OPTIONS_GHC -Wall -Werror #-}</span>
+<span class='hs-keyword'>import</span> <span class='hs-conid'>Control</span><span class='hs-varop'>.</span><span class='hs-conid'>Exception</span><span class='hs-varop'>.</span><span class='hs-conid'>Safe</span> <span class='hs-layout'>(</span><span class='hs-conid'>Exception</span><span class='hs-layout'>,</span> <span class='hs-conid'>MonadThrow</span><span class='hs-layout'>,</span> <span class='hs-conid'>SomeException</span><span class='hs-layout'>,</span> <span class='hs-varid'>throwM</span><span class='hs-layout'>)</span>
+<span class='hs-keyword'>import</span> <span class='hs-conid'>Control</span><span class='hs-varop'>.</span><span class='hs-conid'>Monad</span>          <span class='hs-layout'>(</span><span class='hs-varid'>join</span><span class='hs-layout'>)</span>
+<span class='hs-keyword'>import</span> <span class='hs-conid'>Control</span><span class='hs-varop'>.</span><span class='hs-conid'>Monad</span><span class='hs-varop'>.</span><span class='hs-conid'>IO</span><span class='hs-varop'>.</span><span class='hs-conid'>Class</span> <span class='hs-layout'>(</span><span class='hs-conid'>MonadIO</span><span class='hs-layout'>,</span> <span class='hs-varid'>liftIO</span><span class='hs-layout'>)</span>
+<span class='hs-keyword'>import</span> <span class='hs-conid'>Data</span><span class='hs-varop'>.</span><span class='hs-conid'>Typeable</span>          <span class='hs-layout'>(</span><span class='hs-conid'>TypeRep</span><span class='hs-layout'>,</span> <span class='hs-conid'>Typeable</span><span class='hs-layout'>,</span> <span class='hs-varid'>typeRep</span><span class='hs-layout'>)</span>
+<span class='hs-keyword'>import</span> <span class='hs-conid'>Text</span><span class='hs-varop'>.</span><span class='hs-conid'>Read</span>              <span class='hs-layout'>(</span><span class='hs-varid'>readMaybe</span><span class='hs-layout'>)</span>
+
+<span class='hs-keyword'>data</span> <span class='hs-conid'>ReadException</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>ReadException</span> <span class='hs-conid'>String</span> <span class='hs-conid'>TypeRep</span>
+  <span class='hs-keyword'>deriving</span> <span class='hs-layout'>(</span><span class='hs-conid'>Typeable</span><span class='hs-layout'>)</span>
+
+<span class='hs-keyword'>instance</span> <span class='hs-conid'>Show</span> <span class='hs-conid'>ReadException</span> <span class='hs-keyword'>where</span>
+  <span class='hs-varid'>show</span> <span class='hs-layout'>(</span><span class='hs-conid'>ReadException</span> <span class='hs-varid'>s</span> <span class='hs-varid'>typ</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>concat</span>
+    <span class='hs-keyglyph'>[</span> <span class='hs-str'>"Unable to parse as "</span>
+    <span class='hs-layout'>,</span> <span class='hs-varid'>show</span> <span class='hs-varid'>typ</span>
+    <span class='hs-layout'>,</span> <span class='hs-str'>": "</span>
+    <span class='hs-layout'>,</span> <span class='hs-varid'>show</span> <span class='hs-varid'>s</span>
+    <span class='hs-keyglyph'>]</span>
+
+<span class='hs-keyword'>instance</span> <span class='hs-conid'>Exception</span> <span class='hs-conid'>ReadException</span>
+
+<span class='hs-definition'>readM</span> <span class='hs-keyglyph'>::</span> <span class='hs-layout'>(</span><span class='hs-conid'>MonadThrow</span> <span class='hs-varid'>m</span><span class='hs-layout'>,</span> <span class='hs-conid'>Read</span> <span class='hs-varid'>a</span><span class='hs-layout'>,</span> <span class='hs-conid'>Typeable</span> <span class='hs-varid'>a</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>=&gt;</span> <span class='hs-conid'>String</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>m</span> <span class='hs-varid'>a</span>
+<span class='hs-definition'>readM</span> <span class='hs-varid'>s</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>res</span>
+  <span class='hs-keyword'>where</span>
+    <span class='hs-varid'>res</span> <span class='hs-keyglyph'>=</span>
+      <span class='hs-keyword'>case</span> <span class='hs-varid'>readMaybe</span> <span class='hs-varid'>s</span> <span class='hs-keyword'>of</span>
+        <span class='hs-conid'>Just</span> <span class='hs-varid'>x</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>return</span> <span class='hs-varid'>x</span>
+        <span class='hs-conid'>Nothing</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>throwM</span> <span class='hs-varop'>$</span> <span class='hs-conid'>ReadException</span> <span class='hs-varid'>s</span> <span class='hs-layout'>(</span><span class='hs-varid'>typeRep</span> <span class='hs-varid'>res</span><span class='hs-layout'>)</span>
+
+<span class='hs-definition'>readLine1</span> <span class='hs-keyglyph'>::</span> <span class='hs-layout'>(</span><span class='hs-conid'>MonadIO</span> <span class='hs-varid'>m</span><span class='hs-layout'>,</span> <span class='hs-conid'>MonadThrow</span> <span class='hs-varid'>n</span><span class='hs-layout'>,</span> <span class='hs-conid'>Read</span> <span class='hs-varid'>a</span><span class='hs-layout'>,</span> <span class='hs-conid'>Typeable</span> <span class='hs-varid'>a</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>=&gt;</span> <span class='hs-varid'>m</span> <span class='hs-layout'>(</span><span class='hs-varid'>n</span> <span class='hs-varid'>a</span><span class='hs-layout'>)</span>
+<span class='hs-definition'>readLine1</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>fmap</span> <span class='hs-varid'>readM</span> <span class='hs-layout'>(</span><span class='hs-varid'>liftIO</span> <span class='hs-varid'>getLine</span><span class='hs-layout'>)</span>
+
+<span class='hs-comment'>-- Without the usage of liftIO here, we'd need both MonadIO and</span>
+<span class='hs-comment'>-- MonadThrow constraints.</span>
+<span class='hs-definition'>readLine2</span> <span class='hs-keyglyph'>::</span> <span class='hs-layout'>(</span><span class='hs-conid'>MonadIO</span> <span class='hs-varid'>m</span><span class='hs-layout'>,</span> <span class='hs-conid'>Read</span> <span class='hs-varid'>a</span><span class='hs-layout'>,</span> <span class='hs-conid'>Typeable</span> <span class='hs-varid'>a</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>=&gt;</span> <span class='hs-varid'>m</span> <span class='hs-varid'>a</span>
+<span class='hs-definition'>readLine2</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>liftIO</span> <span class='hs-layout'>(</span><span class='hs-varid'>join</span> <span class='hs-varid'>readLine1</span><span class='hs-layout'>)</span>
+
+<span class='hs-definition'>main</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>IO</span> <span class='hs-conid'>()</span>
+<span class='hs-definition'>main</span> <span class='hs-keyglyph'>=</span> <span class='hs-keyword'>do</span>
+  <span class='hs-varid'>putStrLn</span> <span class='hs-str'>"Enter an Int (non-runtime exception)"</span>
+  <span class='hs-varid'>res1</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>readLine1</span>
+  <span class='hs-varid'>print</span> <span class='hs-layout'>(</span><span class='hs-varid'>res1</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Either</span> <span class='hs-conid'>SomeException</span> <span class='hs-conid'>Int</span><span class='hs-layout'>)</span>
+  <span class='hs-varid'>putStrLn</span> <span class='hs-str'>"Enter an Int (runtime exception)"</span>
+  <span class='hs-varid'>res2</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>readLine2</span>
+  <span class='hs-varid'>print</span> <span class='hs-layout'>(</span><span class='hs-varid'>res2</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Int</span><span class='hs-layout'>)</span></pre><h2 id="see-also">See also</h2><ul><li><a href="http://www.yesodweb.com/blog/2014/05/exceptions-cont-monads" rel="nofollow">Exceptions in continuation-based monads</a></li><li><a href="http://stackoverflow.com/questions/25752900/exceptions-and-monad-transformers/25753497#25753497" rel="nofollow">A Stack Overflow answer on this subject</a></li></ul><p>Like what you learned here? Please check out the rest of our <a href="https://www.fpcomplete.com/haskell-syllabus">Haskell
+Syllabus</a> or learn about <a href="https://www.fpcomplete.com/training">FP Complete training</a>.</p></article>
+</div>
+<div class="col-md-4"><ul class="list-group"><li class="list-group-item"><b>December 2016</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/12/concurrency-and-node" title=" 7 Dec 2016">Concurrency and Node</a>
+</li>
+<li class="list-group-item"><b>November 2016</b>
+</li>
+<li class="list-group-item"><a href="comparison-scala-and-haskell.html" title="29 Nov 2016">Do you like Scala?  Give Haskell a try!</a>
+</li>
+<li class="list-group-item"><a href="devops-best-practices-multifaceted-testing.html" title="28 Nov 2016">Devops best practices: Multifaceted Testing</a>
+</li>
+<li class="list-group-item"><a href="scripting-in-haskell.html" title="22 Nov 2016">Scripting in Haskell</a>
+</li>
+<li class="list-group-item"><a href="comparative-concurrency-with-haskell.html" title="22 Nov 2016">Comparative Concurrency with Haskell</a>
+</li>
+<li class="list-group-item"><a href="mastering-time-to-market-haskell.html" title="21 Nov 2016">Mastering Time-to-Market with Haskell</a>
+</li>
+<li class="list-group-item"><a href="devops-best-practices-immutability.html" title="13 Nov 2016">Devops best practices: Immutability</a>
+</li>
+<li class="list-group-item"><a href="covariance-contravariance.html" title=" 9 Nov 2016">Covariance and Contravariance</a>
+</li>
+<li class="list-group-item"><a href="exceptions-best-practices-haskell.html" title=" 7 Nov 2016">Exceptions Best Practices in Haskell</a>
+</li>
+<li class="list-group-item"><b>October 2016</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/10/static-compilation-with-stack" title=" 7 Oct 2016">Static compilation with Stack</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/10/docker-demons-pid1-orphans-zombies-signals" title=" 5 Oct 2016">Docker demons: PID-1, orphans, zombies, and signals</a>
+</li>
+<li class="list-group-item"><b>September 2016</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/09/updated-hackage-mirroring" title="27 Sep 2016">Updated Hackage mirroring</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/09/practical-haskell-simple-file-mirror-2" title="21 Sep 2016">Practical Haskell: Simple File Mirror (Part 2)</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/09/data-haskell" title="14 Sep 2016">Working with data in Haskell</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/09/practical-haskell-simple-file-mirror-1" title="14 Sep 2016">Practical Haskell: Simple File Mirror (Part 1)</a>
+</li>
+<li class="list-group-item"><b>August 2016</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/08/bitrot-free-scripts" title="11 Aug 2016">Practical Haskell: Bitrot-free Scripts</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/08/public-jenkins-server" title=" 1 Aug 2016">Announce: public Jenkins CI server</a>
+</li>
+<li class="list-group-item"><b>June 2016</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/06/announce-safe-exceptions" title="29 Jun 2016">Announce: safe-exceptions, for async exception safety</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/06/async-exceptions-stm-deadlocks" title="20 Jun 2016">async exceptions, STM, and deadlocks</a>
+</li>
+<li class="list-group-item"><b>May 2016</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/05/weigh-package" title="27 May 2016">weigh: Measuring allocations in Haskell</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/05/moving-stackage-nightly-ghc-8" title="26 May 2016">Moving Stackage Nightly to GHC 8.0</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/05/store-package" title="24 May 2016">store: a new and efficient binary serialization library</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/05/stack-security-gnupg-keys" title=" 5 May 2016">Stack Security GnuPG Keys</a>
+</li>
+<li class="list-group-item"><b>April 2016</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/04/stackage-data-flow" title="14 Apr 2016">The Stackage data flow</a>
+</li>
+<li class="list-group-item"><b>March 2016</b>
+</li>
+<li class="list-group-item"><a href="../03/efficient-binary-serialization.html" title="14 Mar 2016">Efficient binary serialization</a>
+</li>
+<li class="list-group-item"><b>February 2016</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/02/testing-ghc-with-stackage" title="22 Feb 2016">Testing GHC with Stackage</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/02/updated-haskell-travis-config" title="17 Feb 2016">Updated Haskell Travis config</a>
+</li>
+<li class="list-group-item"><b>January 2016</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/01/soh-status" title=" 6 Jan 2016">Status of School of Haskell 2.0</a>
+</li>
+<li class="list-group-item"><b>December 2015</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/12/stack-travis" title="21 Dec 2015">Using Stack on Travis CI</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/12/docker-split-images" title="15 Dec 2015">The split-image approach to building minimal runtime Docker images</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/12/stack-with-ghc-7-10-3" title="11 Dec 2015">Using Stack with GHC 7.10.3</a>
+</li>
+<li class="list-group-item"><b>November 2015</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/11/kubernetes" title="19 Nov 2015">Kubernetes for Haskell Services</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/11/stack-stabilization" title=" 7 Nov 2015">Stack entering stabilization phase</a>
+</li>
+<li class="list-group-item"><b>October 2015</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/10/new-haskell-ide-repo" title="26 Oct 2015">The new haskell-ide repo</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/10/stackage-badges" title="19 Oct 2015">Stackage Badges</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/10/seeking-software-and-systems-engineers" title=" 7 Oct 2015">Seeking Software and Systems Engineers (Telecommute)</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/10/retiring-fphc" title=" 2 Oct 2015">Retiring FP Haskell Center</a>
+</li>
+<li class="list-group-item"><b>September 2015</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/09/stack-pvp" title="21 Sep 2015">stack and the PVP</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/09/stack-more-binary-package-sharing" title=" 1 Sep 2015">stack: more binary package sharing</a>
+</li>
+<li class="list-group-item"><b>August 2015</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/08/new-in-depth-guide-stack" title="31 Aug 2015">New in-depth guide to stack</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/08/stack-ghc-windows" title="24 Aug 2015">stack and GHC on Windows</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/08/stack-docker" title=" 5 Aug 2015">How stack can use Docker under the hood</a>
+</li>
+<li class="list-group-item"><b>July 2015</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/07/package-security-in-stack" title="20 Jul 2015">Package security in stack</a>
+</li>
+<li class="list-group-item"><b>June 2015</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/06/why-is-stack-not-cabal" title="24 Jun 2015">Why is stack not cabal?</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/06/stack-0-1-release" title="23 Jun 2015">stack 0.1 released</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/06/announcing-first-public-beta-stack" title=" 9 Jun 2015">ANNOUNCING: first public beta of stack</a>
+</li>
+<li class="list-group-item"><b>May 2015</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/05/thousand-user-haskell-survey" title="22 May 2015">What do Haskellers want? Over a thousand tell us</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/05/new-stackage-server" title="22 May 2015">The new Stackage Server</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/05/inline-c" title="20 May 2015">Call C functions from Haskell without bindings</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/05/psa-ghc-710-cabal-windows" title="19 May 2015">PSA: GHC 7.10, cabal, and Windows</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/05/distributing-packages-without-sysadmin" title="13 May 2015">Distributing our packages without a sysadmin</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/05/secure-package-distribution" title="11 May 2015">Secure package distribution: ready to roll</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/05/haskell-at-front-row" title=" 9 May 2015">Guest post: Haskell at Front Row</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/05/haskell-web-server-in-5mb" title=" 6 May 2015">Haskell Web Server in a 5MB Docker Image</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/05/school-of-haskell-2.0" title=" 4 May 2015">School of Haskell 2.0</a>
+</li>
+<li class="list-group-item"><b>April 2015</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/04/update-ghc-7-10-stackage" title="30 Apr 2015">Update on GHC 7.10 in Stackage</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/04/announcing-stackage-install" title="29 Apr 2015">Announcing: stackage-install</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/04/announcing-stackage-upload" title="28 Apr 2015">Announcing: stackage-upload</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/04/ghc-prof-flamegraph" title="27 Apr 2015">Flame graphs for GHC time profiles with ghc-prof-flamegraph</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/04/announcing-stackage-cli" title="20 Apr 2015">Announcing: first release of Stackage CLI (Command Line Tools)</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/04/future-of-soh-fphc" title="15 Apr 2015">The future of School of Haskell and FP Haskell Center</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/04/stackage-view" title="14 Apr 2015">Announcing: stackage-view</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/04/announcing-monad-unlift" title=" 8 Apr 2015">Announcing: monad-unlift</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/04/announcing-lts-2" title=" 2 Apr 2015">Announcing: LTS (Long Term Support) Haskell 2</a>
+</li>
+<li class="list-group-item"><b>March 2015</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/03/announce-ide-backend" title="30 Mar 2015">Announcing: open sourcing of ide-backend</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/03/minghc-ghc-7-10" title="27 Mar 2015">MinGHC for GHC 7.10</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/03/composable-community-infrastructure" title="26 Mar 2015">Our composable community infrastructure</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/03/hackage-mirror" title="25 Mar 2015">FP Complete&#39;s Hackage mirror</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/03/stackage-ghc-7-10" title="18 Mar 2015">Stackage and GHC 7.10 update</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/03/announcing-executable-hash" title="18 Mar 2015">Announcing executable-hash</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/03/upcoming-stackage-lts-2-0" title=" 9 Mar 2015">Upcoming Stackage LTS 2.0</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/03/hiring-systems-engineer" title=" 3 Mar 2015">Hiring: Systems Engineer</a>
+</li>
+<li class="list-group-item"><b>February 2015</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/02/primitive-haskell" title="17 Feb 2015">Primitive Haskell</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/02/Hiring-test-engineers" title=" 5 Feb 2015">FP Complete is Hiring Test Engineers</a>
+</li>
+<li class="list-group-item"><b>January 2015</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/01/commercial-haskell-sig" title="22 Jan 2015">Commercial Haskell Special Interest Group</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/01/fp-complete-software-pipeline" title="13 Jan 2015">FP Complete&#39;s software pipeline</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/01/hiring-software-engineer" title="13 Jan 2015">We&#39;re hiring: Software Engineer</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/01/announcing-mutable-containers-0-2" title=" 7 Jan 2015">Announcing: mutable-containers 0.2</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/01/fphc-release-3.2" title=" 6 Jan 2015">A New Release for the New Year: Announcing Release 3.2</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/01/announcing-lts-haskell-1-0" title=" 4 Jan 2015">Announcing LTS Haskell 1.0</a>
+</li>
+<li class="list-group-item"><b>December 2014</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/12/ghc-7-10-stackage-build" title="24 Dec 2014">GHC 7.10RC1 Stackage build results</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/12/stackage-survey-results" title="15 Dec 2014">Stackage: Survey results, easier usage, and LTS Haskell 0.X</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/12/dropping-ghc-74-support-fphc" title=" 8 Dec 2014">Dropping GHC 7.4 support in FP Haskell Center</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/12/backporting-bug-fixes" title=" 7 Dec 2014">Backporting bug fixes: Towards LTS Haskell</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/12/experimental-packages-stackage" title=" 1 Dec 2014">Experimental package releases via Stackage Server</a>
+</li>
+<li class="list-group-item"><b>November 2014</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/11/stackage-open-source" title="20 Nov 2014">Stackage server: new features and open source</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/11/seeking-haskell-dev-dist-hpc" title="13 Nov 2014">Seeking a Haskell developer for high performance, distributed computing</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/11/release-3.1" title=" 6 Nov 2014">3.1 release changes</a>
+</li>
+<li class="list-group-item"><b>October 2014</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/10/new-stackage-features" title="20 Oct 2014">New Stackage features</a>
+</li>
+<li class="list-group-item"><b>September 2014</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/09/hiring-haskell-web-ui-dev" title="11 Sep 2014">We&#39;re hiring: Haskell web UI developer</a>
+</li>
+<li class="list-group-item"><b>August 2014</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/08/conduit-stream-fusion" title="27 Aug 2014">IAP: conduit stream fusion</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/08/iap-speeding-up-conduit" title="21 Aug 2014">IAP: Speeding up conduit</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/08/announcing-stackage-server" title="14 Aug 2014">Announcing Stackage Server</a>
+</li>
+<li class="list-group-item"><b>July 2014</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/07/fphc-open-publish-announcement" title="31 Jul 2014">FP Haskell Center is Going Free</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/07/vectorbuilder-packed-conduit-yielding" title="30 Jul 2014">vectorBuilder: packed-representation yielding for conduit</a>
+</li>
+<li class="list-group-item"><b>May 2014</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/05/stackage-server" title="20 May 2014">Stackage Server</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/05/lenient-lower-bounds" title="12 May 2014">GHC 7.8, transformers 0.3, and lenient lower bounds</a>
+</li>
+<li class="list-group-item"><b>April 2014</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/04/heartbleed" title="14 Apr 2014">The heartbleed bug and FP Haskell Center</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/04/mvp" title=" 4 Apr 2014">Calculating the Minimum Variance Portfolio in R, Pandas and IAP</a>
+</li>
+<li class="list-group-item"><b>March 2014</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/03/monte-carlo-haskell" title="20 Mar 2014">Monte carlo analysis in Haskell</a>
+</li>
+<li class="list-group-item"><b>December 2013</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/12/api-emacs" title="18 Dec 2013">Emacs and our API</a>
+</li>
+<li class="list-group-item"><b>November 2013</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/11/call-for-entries" title="25 Nov 2013">Call For Entries</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/11/community-edition-announcement" title="18 Nov 2013">Announcing FP Haskell Center Community Edition and Feature Upgrades</a>
+</li>
+<li class="list-group-item"><b>September 2013</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/09/state-of-stackage" title="30 Sep 2013">The State of Stackage</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/09/august-competition-winners" title="17 Sep 2013">August Competition Winners</a>
+</li>
+<li class="list-group-item"><b>August 2013</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/08/webinar-announcement" title="28 Aug 2013">FP Haskell Center Launch Event</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/08/beta-discount-last-call" title="27 Aug 2013">4 Days Left to Get Beta User Discount</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/08/snap-happstack-anything-else" title=" 5 Aug 2013">Snap, Happstack and anything else</a>
+</li>
+<li class="list-group-item"><b>July 2013</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/07/academic-accounts" title="25 Jul 2013">FP Complete Announces Free Academic Accounts</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/07/beta-refresh-one" title="17 Jul 2013">FP Haskell Center Beta Refresh</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/07/ide-stackage" title="17 Jul 2013">IDE and Stackage</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/07/competition-announcement" title="16 Jul 2013">FP Complete Launches FP Haskell Competition with $1,000 Cash Prize Each Month</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/07/beta-activation-update" title=" 5 Jul 2013">FP Haskell Center Beta Sign-Up Still Open. Scheduled Activations Ongoing</a>
+</li>
+<li class="list-group-item"><b>June 2013</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/06/fp-haskell-center-beta-announcement" title="30 Jun 2013">FP Haskell Center Beta Released, and Beta Accounts Activated</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/06/fp-haskell-center-beta-demo" title="27 Jun 2013">FP Haskell Center Beta Demo</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/06/fp-haskell-center-video-blog" title="24 Jun 2013">FP Haskell Center Video Blog</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/06/beta-sign-up" title="17 Jun 2013">FP Haskell Center Beta Sign-Up</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/06/interim-web-site" title="17 Jun 2013">Interim Web Site</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/06/call-for-submissions" title=" 7 Jun 2013">FP Complete Launches Haskell in Real World Competition</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/06/haskell-from-c" title=" 2 Jun 2013">Haskell from C: Where are the for Loops?</a>
+</li>
+<li class="list-group-item"><b>March 2013</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/03/learning-through-koans" title="19 Mar 2013">Learning Haskell Through Koans</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/03/SoH-Goes-Public" title=" 4 Mar 2013">School of Haskell Goes Public</a>
+</li>
+<li class="list-group-item"><b>February 2013</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/02/announcing-case-studies" title="17 Feb 2013">Case studies of commercial Haskell use</a>
+</li>
+<li class="list-group-item"><b>January 2013</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/01/school-of-haskell-goes-beta" title="31 Jan 2013">School of Haskell Goes Beta</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/01/joining-fp-complete" title="21 Jan 2013">Joining FP Complete</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/01/why-im-investing-in-fp-complete" title=" 3 Jan 2013">Why I&#39;m investing in FP Complete</a>
+</li>
+<li class="list-group-item"><b>December 2012</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2012/12/solving_the_software_crisis" title="17 Dec 2012">Solving the Global Software Crisis</a>
+</li>
+<li class="list-group-item"><b>November 2012</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2012/11/designing-the-haskell-ide" title="19 Nov 2012">Designing the Haskell IDE</a>
+</li>
+<li class="list-group-item"><b>October 2012</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2012/10/yesod-tutorial-2-playing-with-routes-and-links" title="17 Oct 2012">Yesod Tutorial 2. Playing with Routes and Links</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2012/10/yesod-tutorial-1-my-first-web-site" title=" 1 Oct 2012">Yesod Tutorial 1. My First Web Site</a>
+</li>
+<li class="list-group-item"><b>September 2012</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2012/09/commercialuserneeds" title="27 Sep 2012">What do commercial users want from Haskell?</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2012/09/functional-patterns-in-c" title="24 Sep 2012">Functional Patterns in C++</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2012/09/ten-things-you-should-know-about-haskell-syntax" title=" 5 Sep 2012">Ten Things You Should Know About Haskell Syntax</a>
+</li>
+<li class="list-group-item"><b>August 2012</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2012/08/5-day-haskell-course" title="22 Aug 2012">5-Day Haskell Course</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2012/08/joining-forces-to-advance-haskell" title="13 Aug 2012">Joining forces to advance Haskell </a>
+</li>
+<li class="list-group-item"><b>July 2012</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2012/07/the-functor-pattern-in-c" title="16 Jul 2012">The Functor Pattern in C++</a>
+</li>
+<li class="list-group-item"><b>June 2012</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2012/06/asynchronous-api-in-c-and-the-continuation-monad" title="20 Jun 2012">Asynchronous API in C++ and the Continuation Monad</a>
+</li>
+<li class="list-group-item"><b>April 2012</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2012/04/the-downfall-of-imperative-programming" title=" 9 Apr 2012">The Downfall of Imperative Programming</a>
+</li>
+<li class="list-group-item"><b>March 2012</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2012/03/onamission" title=" 9 Mar 2012">It&#39;s time for Functional Programming</a>
+</li>
+</ul>
+</div>
+</div>
+<div class="row"><div class="col-md-12"><div id="disqus_thread"><script>var disqus_shortname = 'fpcomplete'; (function() { var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true; dsq.src = 'https://' + disqus_shortname + '.disqus.com/embed.js'; (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq); })();</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<a class="dsq-brlink" href="https://disqus.com/">comments powered by <span class="logo-disqus">Disqus</span></a></a>
+</div>
+</div>
+</div>
+</div>
+<div class="container"><div class="row"><div class="col-md-2"></div>
+<div class="col-md-8"><div id="social"><div class="twitter-share"><a class="twitter-share-button" href="https://twitter.com/share" data-show-count="false">Tweet</a>
+</div>
+<div class="reddit"><script type="text/javascript" src="http://www.redditstatic.com/button/button1.js"></script>
+</div>
+<div class="linkedin"><script src="http://platform.linkedin.com/in.js" type="text/javascript">lang: en_US</script>
+<script type="IN/Share" data-counter="right"></script>
+</div>
+<div class="googleplus"><script src="https://apis.google.com/js/platform.js" async defer></script>
+<g:plusone></g:plusone>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="container"><div class="row"><div class="col-md-12"><hr>
+<footer class="text-center">Copyright &copy; 2013-2016 FP Complete Corp. All rights reserved</footer>
+<ul class="nav navbar-nav"><li><a href="https://www.fpcomplete.com/pages">Sitemap</a>
+</li>
+<li><a href="https://www.fpcomplete.com/about-us">About Us</a>
+</li>
+<li><a href="https://www.fpcomplete.com/jobs">Jobs</a>
+</li>
+</ul>
+</div>
+</div>
+<div class="row"><div class="col-md-12"><div id="twitter"><div class="follow"><a class="twitter-follow-button" href="https://twitter.com/fpcomplete" data-show-count="false">Follow @fpcomplete</a>
+</div>
+<div class="mention"><a class="twitter-mention-button" href="https://twitter.com/intent/tweet?screen_name=fpcomplete" data-show-count="false">Tweet to @fpcomplete</a>
+<script async src="http://platform.twitter.com/widgets.js" charset="utf-8"></script>
+</div>
+</div>
+</div>
+</div>
+</div>
+<script src="https://code.jquery.com/jquery-3.1.1.slim.min.js"></script><script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script><script src="http://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.8.0/highlight.min.js"></script><script>hljs.initHighlightingOnLoad();</script><script>(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){(i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)})(window,document,'script','https://www.google-analytics.com/analytics.js','ga');ga('create', 'UA-36928035-3', 'auto');ga('send', 'pageview');</script></body>
+<!-- Mirrored from www.fpcomplete.com/blog/2016/11/exceptions-best-practices-haskell by HTTrack Website Copier/3.x [XR&CO'2014], Fri, 30 Dec 2016 16:24:26 GMT -->
+</html>

@@ -1,0 +1,779 @@
+<!doctype html><!--[if lt IE 7]> <html class="no-js ie6 oldie" lang="en"> <![endif]--><!--[if IE 7]>    <html class="no-js ie7 oldie" lang="en"> <![endif]--><!--[if IE 8]>    <html class="no-js ie8 oldie" lang="en"> <![endif]--><!--[if gt IE 8]><!--><html class="no-js" lang="en"> <!--<![endif]-->
+<!-- Mirrored from www.fpcomplete.com/blog/2016/11/covariance-contravariance by HTTrack Website Copier/3.x [XR&CO'2014], Fri, 30 Dec 2016 15:26:11 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head><meta charset="UTF-8"><meta name="google-site-verification" content="DAcj3V2VPIWbiY2qQJaztufXD7u4kY75RlyH2zhIHsk" /><title>Covariance and Contravariance :: FP Complete</title><meta name="google-site-verification" content="DAcj3V2VPIWbiY2qQJaztufXD7u4kY75RlyH2zhIHsk" /><meta name="viewport" content="width=device-width,initial-scale=1"><link href="https://www.fpcomplete.com/feed" type="application/atom+xml" rel="alternate" title="FP Complete Blog">
+<link href="https://www.fpcomplete.com/feed" type="application/rss+xml" rel="alternate" title="FP Complete Blog">
+<meta name="author" content="Michael Snoyman">
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css"><link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css"><link rel="stylesheet" href="https://www.fpcomplete.com/static/css/code-highlighting.css?etag=OmhFiN9e"><link rel="stylesheet" href="http://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.8.0/styles/default.min.css"><style>#social{margin:1em 0;padding:0.25em}#social > div{margin-right:1em;display:inline-block}#social{margin:1em 0;padding:0.25em}#social > div{margin-right:1em;display:inline-block}.container{font-family:"Segoe UI", Candara, "Bitstream Vera Sans", "DejaVu Sans", "Bitstream Vera Sans", "Trebuchet MS", Verdana, "Verdana Ref", sans-serif;font-size:1.1em}#twitter > div{margin-right:1em;display:inline-block}</style><!--[if lt IE 9]><script src="http://html5shiv.googlecode.com/svn/trunk/html5.js"></script><![endif]--></head><body><nav class="navbar navbar-inverse"><div class="container"><div class="row"><div class="col-md-12"><div class="navbar-header"><button class="navbar-toggle collapsed" type="button" data-toggle="collapse" data-target="#top-navbar" aria-expanded="false"><span class="sr-only">Toggle navigation</span>
+<span class="icon-bar"></span>
+<span class="icon-bar"></span>
+<span class="icon-bar"></span>
+</button>
+<ul class="nav navbar-nav collapse navbar-collapse" id="top-navbar"><li><a href="https://www.fpcomplete.com/"><img src="https://www.fpcomplete.com/static/fpcomplete-logo-transparent.png?etag=5QQp_9Ic" alt="FP Complete" title="FP Complete" style="max-height:100%;height:2em">
+</a>
+</li>
+<li><a href="https://www.fpcomplete.com/blog">Blog</a>
+</li>
+<li><a href="https://www.fpcomplete.com/haskell">Haskell</a>
+</li>
+<li><a href="https://www.fpcomplete.com/devops">Devops</a>
+</li>
+<li><a href="https://www.fpcomplete.com/consulting">Consulting</a>
+</li>
+<li><a href="https://www.fpcomplete.com/training">Training</a>
+</li>
+<li><a href="https://www.fpcomplete.com/contact-us">Contact</a>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+</nav>
+<div class="container"><div class="row"><div class="col-md-12"><h1 itemprop="name">Covariance and Contravariance</h1>
+<div id="social"><div class="twitter-share"><a class="twitter-share-button" href="https://twitter.com/share" data-show-count="false">Tweet</a>
+</div>
+<div class="reddit"><script type="text/javascript" src="http://www.redditstatic.com/button/button1.js"></script>
+</div>
+<div class="linkedin"><script src="http://platform.linkedin.com/in.js" type="text/javascript">lang: en_US</script>
+<script type="IN/Share" data-counter="right"></script>
+</div>
+<div class="googleplus"><script src="https://apis.google.com/js/platform.js" async defer></script>
+<g:plusone></g:plusone>
+</div>
+</div>
+</div>
+</div>
+<div class="row"><div class="col-md-8"><p><span class="date"> 9 Nov 2016</span>
+<span class="author"><em>Michael Snoyman</em>
+</span>
+</p>
+<article itemprop="desc"><p>Typeclasses such as
+<a href="https://www.stackage.org/haddock/lts-7.7/base-4.9.0.0/Data-Bifunctor.html#t:Bifunctor" rel="nofollow">Bifunctor</a>
+are often expressed in terms of whether they are <i>covariant</i> or
+<i>contravariant</i>. While these terms may appear intimidating to the unfamiliar,
+they are a precise language for discussing these concepts, and once explained
+are relatively easy to understand. Furthermore, the related topics of <i>positive
+and negative position</i> can greatly simplify how you think about complex data
+structures. This topic also naturally leads into <i>subtyping</i>.</p><p>This post is intended to give a developer-focused explanation of the terms
+without diving into the category theory behind them too much. For more
+information, please see <a href="../../../../en.wikipedia.org/wiki/Covariance_and_contravariance_(computer_science).html" rel="nofollow">the Wikipedia page on covariance and
+contravariance</a>.</p><p>This blog post is also part of the <a href="https://www.fpcomplete.com/haskell-syllabus">FP Complete Haskell
+Syllabus</a> and part of our <a href="https://www.fpcomplete.com/training">Haskell training</a>.</p><h2 id="the-functor-typeclass:-covariant-functor">The Functor typeclass: covariant functor</h2><p>Let&#39;s consider the following functions (made monomorphic for clarity):</p><pre><span class='hs-definition'>showInt</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Int</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>String</span>
+<span class='hs-definition'>showInt</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>show</span>
+
+<span class='hs-definition'>floorInt</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Double</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>Int</span>
+<span class='hs-definition'>floorInt</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>floor</span></pre><p>Now suppose that we have a value:</p><pre><span class='hs-definition'>maybeInt</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Maybe</span> <span class='hs-conid'>Int</span>
+<span class='hs-definition'>maybeInt</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>Just</span> <span class='hs-num'>5</span></pre><p>We know <code>Maybe</code> is an instance of <code>Functor</code>, providing us with the following function:</p><pre><span class='hs-definition'>fmapMaybe</span> <span class='hs-keyglyph'>::</span> <span class='hs-layout'>(</span><span class='hs-varid'>a</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>b</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>Maybe</span> <span class='hs-varid'>a</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>Maybe</span> <span class='hs-varid'>b</span>
+<span class='hs-definition'>fmapMaybe</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>fmap</span></pre><p>We can use <code>fmapMaybe</code> and <code>showInt</code> together to get a new, valid, well-typed value:</p><pre><span class='hs-definition'>maybeString</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Maybe</span> <span class='hs-conid'>String</span>
+<span class='hs-definition'>maybeString</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>fmapMaybe</span> <span class='hs-varid'>showInt</span> <span class='hs-varid'>maybeInt</span></pre><p>However, we can&#39;t do the same thing with <code>floorInt</code>. The reason for this is
+relatively straightforward: in order to use <code>fmapMaybe</code> on our <code>Maybe Int</code>, we
+need to provide a function that takes an <code>Int</code> as an input, whereas <code>floorInt</code>
+returns an <code>Int</code> as an output. This is a long-winded way of saying that <code>Maybe</code>
+is covariant on its type argument, or that the <code>Functor</code> typeclass is a
+covariant functor.</p><p>Doesn&#39;t make sense yet? Don&#39;t worry, it shouldn&#39;t. In order to understand this
+better, let&#39;s contrast it with something different.</p><h2 id="a-non-covariant-data-type">A non-covariant data type</h2><p>Consider the following data structure representing how to create a <code>String</code>
+from something:</p><pre><span class='hs-keyword'>newtype</span> <span class='hs-conid'>MakeString</span> <span class='hs-varid'>a</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>MakeString</span> <span class='hs-layout'>{</span> <span class='hs-varid'>makeString</span> <span class='hs-keyglyph'>::</span> <span class='hs-varid'>a</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>String</span> <span class='hs-layout'>}</span></pre><p>We can use this to convert an <code>Int</code> into a <code>String</code>:</p><pre><span class='hs-keyword'>newtype</span> <span class='hs-conid'>MakeString</span> <span class='hs-varid'>a</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>MakeString</span> <span class='hs-layout'>{</span> <span class='hs-varid'>makeString</span> <span class='hs-keyglyph'>::</span> <span class='hs-varid'>a</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>String</span> <span class='hs-layout'>}</span>
+
+<span class='hs-definition'>showInt</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>MakeString</span> <span class='hs-conid'>Int</span>
+<span class='hs-definition'>showInt</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>MakeString</span> <span class='hs-varid'>show</span>
+
+<span class='hs-definition'>main</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>IO</span> <span class='hs-conid'>()</span>
+<span class='hs-definition'>main</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>putStrLn</span> <span class='hs-varop'>$</span> <span class='hs-varid'>makeString</span> <span class='hs-varid'>showInt</span> <span class='hs-num'>5</span></pre><p>The output for this program is, as expected, <code>5</code>. But suppose we want to both
+add <code>3</code> to the <code>Int</code> and turn it into a <code>String</code>. We can do:</p><pre><span class='hs-keyword'>newtype</span> <span class='hs-conid'>MakeString</span> <span class='hs-varid'>a</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>MakeString</span> <span class='hs-layout'>{</span> <span class='hs-varid'>makeString</span> <span class='hs-keyglyph'>::</span> <span class='hs-varid'>a</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>String</span> <span class='hs-layout'>}</span>
+
+<span class='hs-definition'>plus3ShowInt</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>MakeString</span> <span class='hs-conid'>Int</span>
+<span class='hs-definition'>plus3ShowInt</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>MakeString</span> <span class='hs-layout'>(</span><span class='hs-varid'>show</span> <span class='hs-varop'>.</span> <span class='hs-layout'>(</span><span class='hs-varop'>+</span> <span class='hs-num'>3</span><span class='hs-layout'>)</span><span class='hs-layout'>)</span>
+
+<span class='hs-definition'>main</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>IO</span> <span class='hs-conid'>()</span>
+<span class='hs-definition'>main</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>putStrLn</span> <span class='hs-varop'>$</span> <span class='hs-varid'>makeString</span> <span class='hs-varid'>plus3ShowInt</span> <span class='hs-num'>5</span></pre><p>But this approach is quite non-compositional. We&#39;d ideally like to be able to
+just apply more functions to this data structure. Let&#39;s first write that up
+without any typeclasses:</p><pre><span class='hs-keyword'>newtype</span> <span class='hs-conid'>MakeString</span> <span class='hs-varid'>a</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>MakeString</span> <span class='hs-layout'>{</span> <span class='hs-varid'>makeString</span> <span class='hs-keyglyph'>::</span> <span class='hs-varid'>a</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>String</span> <span class='hs-layout'>}</span>
+
+<span class='hs-definition'>mapMakeString</span> <span class='hs-keyglyph'>::</span> <span class='hs-layout'>(</span><span class='hs-varid'>b</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>a</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>MakeString</span> <span class='hs-varid'>a</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>MakeString</span> <span class='hs-varid'>b</span>
+<span class='hs-definition'>mapMakeString</span> <span class='hs-varid'>f</span> <span class='hs-layout'>(</span><span class='hs-conid'>MakeString</span> <span class='hs-varid'>g</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>MakeString</span> <span class='hs-layout'>(</span><span class='hs-varid'>g</span> <span class='hs-varop'>.</span> <span class='hs-varid'>f</span><span class='hs-layout'>)</span>
+
+<span class='hs-definition'>showInt</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>MakeString</span> <span class='hs-conid'>Int</span>
+<span class='hs-definition'>showInt</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>MakeString</span> <span class='hs-varid'>show</span>
+
+<span class='hs-definition'>plus3ShowInt</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>MakeString</span> <span class='hs-conid'>Int</span>
+<span class='hs-definition'>plus3ShowInt</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>mapMakeString</span> <span class='hs-layout'>(</span><span class='hs-varop'>+</span> <span class='hs-num'>3</span><span class='hs-layout'>)</span> <span class='hs-varid'>showInt</span>
+
+<span class='hs-definition'>main</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>IO</span> <span class='hs-conid'>()</span>
+<span class='hs-definition'>main</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>putStrLn</span> <span class='hs-varop'>$</span> <span class='hs-varid'>makeString</span> <span class='hs-varid'>plus3ShowInt</span> <span class='hs-num'>5</span></pre><p>But this kind of mapping inside a data structure is exactly what we use the
+<code>Functor</code> type class for, right? So let&#39;s try to write an instance!</p><pre><span class='hs-keyword'>instance</span> <span class='hs-conid'>Functor</span> <span class='hs-conid'>MakeString</span> <span class='hs-keyword'>where</span>
+    <span class='hs-varid'>fmap</span> <span class='hs-varid'>f</span> <span class='hs-layout'>(</span><span class='hs-conid'>MakeString</span> <span class='hs-varid'>g</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>MakeString</span> <span class='hs-layout'>(</span><span class='hs-varid'>g</span> <span class='hs-varop'>.</span> <span class='hs-varid'>f</span><span class='hs-layout'>)</span></pre><p>Unfortunately, this doesn&#39;t work:</p><pre><code>Main.hs:4:45:
+    Couldn&#39;t match type ‘b’ with ‘a’
+      ‘b’ is a rigid type variable bound by
+          the type signature for
+            fmap :: (a -&gt; b) -&gt; MakeString a -&gt; MakeString b
+          at Main.hs:4:5
+      ‘a’ is a rigid type variable bound by
+          the type signature for
+            fmap :: (a -&gt; b) -&gt; MakeString a -&gt; MakeString b
+          at Main.hs:4:5
+    Expected type: b -&gt; a
+      Actual type: a -&gt; b
+    Relevant bindings include
+      g :: a -&gt; String (bound at Main.hs:4:24)
+      f :: a -&gt; b (bound at Main.hs:4:10)
+      fmap :: (a -&gt; b) -&gt; MakeString a -&gt; MakeString b
+        (bound at Main.hs:4:5)
+    In the second argument of ‘(.)’, namely ‘f’
+    In the first argument of ‘MakeString’, namely ‘(g . f)’</code></pre><p>To understand why, let&#39;s compare the type for <code>fmap</code> (specialized to
+<code>MakeString</code>) with our <code>mapMakeString</code> type:</p><pre><span class='hs-definition'>mapMakeString</span> <span class='hs-keyglyph'>::</span> <span class='hs-layout'>(</span><span class='hs-varid'>b</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>a</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>MakeString</span> <span class='hs-varid'>a</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>MakeString</span> <span class='hs-varid'>b</span>
+<span class='hs-definition'>fmap</span>          <span class='hs-keyglyph'>::</span> <span class='hs-layout'>(</span><span class='hs-varid'>a</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>b</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>MakeString</span> <span class='hs-varid'>a</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>MakeString</span> <span class='hs-varid'>b</span></pre><p>Notice that <code>fmap</code> has the usual <code>a -&gt; b</code> parameter, whereas <code>mapMakeString</code>
+instead has a <code>b -&gt; a</code>, which goes in the opposite direction. More on that
+next.</p><p><b>Exercise</b>: Convince yourself that the <code>mapMakeString</code> function has the only
+valid type signature we could apply to it, and that the implementation is the
+only valid implementation of that signature. (It&#39;s true that you can change the
+variable names around to cheat and make the first parameter <code>a -&gt; b</code>, but then
+you&#39;d also have to modify the rest of the type signature.)</p><h2 id="contravariance">Contravariance</h2><p>What we just saw is that <code>fmap</code> takes a function from <code>a -&gt; b</code>, and lifts it to
+<code>f a -&gt; f b</code>. Notice that the <code>a</code> is always the &quot;input&quot; in both cases, whereas
+the <code>b</code> is the &quot;output&quot; in both cases. By contrast, <code>mapMakeString</code> has the
+normal <code>f a -&gt; f b</code>, but the initial function has its types reversed: <code>b -&gt; a</code>.
+This is the core of covariance vs contravariance:</p><ul><li>In covariance, both the original and lifted functions point in the same
+direction (from <code>a</code> to <code>b</code>)</li><li>In contravariance, the original and lifted functions point in <i>opposite</i>
+directions (one goes from <code>a</code> to <code>b</code>, the other from <code>b</code> to <code>a</code>)</li></ul><p>This is what is meant when we refer to the normal <code>Functor</code> typeclass in
+Haskell as a covariant functor. And as you can probably guess, we can just as
+easily define a contravariant functor. In fact, <a href="http://haddock.stackage.org/lts-3.10/contravariant-1.3.3/Data-Functor-Contravariant.html#t:Contravariant" rel="nofollow">it exists in the contravariant
+package</a>.
+Let&#39;s go ahead and use that typeclass in our toy example:</p><pre><span class='hs-keyword'>import</span> <span class='hs-conid'>Data</span><span class='hs-varop'>.</span><span class='hs-conid'>Functor</span><span class='hs-varop'>.</span><span class='hs-conid'>Contravariant</span>
+
+<span class='hs-keyword'>newtype</span> <span class='hs-conid'>MakeString</span> <span class='hs-varid'>a</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>MakeString</span> <span class='hs-layout'>{</span> <span class='hs-varid'>makeString</span> <span class='hs-keyglyph'>::</span> <span class='hs-varid'>a</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>String</span> <span class='hs-layout'>}</span>
+
+<span class='hs-keyword'>instance</span> <span class='hs-conid'>Contravariant</span> <span class='hs-conid'>MakeString</span> <span class='hs-keyword'>where</span>
+    <span class='hs-varid'>contramap</span> <span class='hs-varid'>f</span> <span class='hs-layout'>(</span><span class='hs-conid'>MakeString</span> <span class='hs-varid'>g</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>MakeString</span> <span class='hs-layout'>(</span><span class='hs-varid'>g</span> <span class='hs-varop'>.</span> <span class='hs-varid'>f</span><span class='hs-layout'>)</span>
+
+<span class='hs-definition'>showInt</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>MakeString</span> <span class='hs-conid'>Int</span>
+<span class='hs-definition'>showInt</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>MakeString</span> <span class='hs-varid'>show</span>
+
+<span class='hs-definition'>plus3ShowInt</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>MakeString</span> <span class='hs-conid'>Int</span>
+<span class='hs-definition'>plus3ShowInt</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>contramap</span> <span class='hs-layout'>(</span><span class='hs-varop'>+</span> <span class='hs-num'>3</span><span class='hs-layout'>)</span> <span class='hs-varid'>showInt</span>
+
+<span class='hs-definition'>main</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>IO</span> <span class='hs-conid'>()</span>
+<span class='hs-definition'>main</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>putStrLn</span> <span class='hs-varop'>$</span> <span class='hs-varid'>makeString</span> <span class='hs-varid'>plus3ShowInt</span> <span class='hs-num'>5</span></pre><p>Our implementation of <code>contramap</code> is identical to the <code>mapMakeString</code> used
+before, which hopefully isn&#39;t too surprising.</p><h3 id="example:-filtering-with-codepredicatecode">Example: filtering with <code>Predicate</code></h3><p>Let&#39;s say we want to print out all of the numbers from 1 to 10, where the
+English word for that number is more than three characters long. Using a simple
+helper function <code>english :: Int -&gt; String</code> and <code>filter</code>, this is pretty simple:</p><pre><code>greaterThanThree :: Int -&gt; Bool
+greaterThanThree = (&gt; 3)
+
+lengthGTThree :: [a] -&gt; Bool
+lengthGTThree = greaterThanThree . length
+
+englishGTThree :: Int -&gt; Bool
+englishGTThree = lengthGTThree . english
+
+english :: Int -&gt; String
+english 1 = &quot;one&quot;
+english 2 = &quot;two&quot;
+english 3 = &quot;three&quot;
+english 4 = &quot;four&quot;
+english 5 = &quot;five&quot;
+english 6 = &quot;six&quot;
+english 7 = &quot;seven&quot;
+english 8 = &quot;eight&quot;
+english 9 = &quot;nine&quot;
+english 10 = &quot;ten&quot;
+
+main :: IO ()
+main = print $ filter englishGTThree [1..10]</code></pre><p>The contravariant package provides a newtype wrapper around such <code>a -&gt; Bool</code>
+functions, called <code>Predicate</code>. We can use this newtype to wrap up our helper
+functions and avoid explicit function composition:</p><pre><span class='hs-keyword'>import</span> <span class='hs-conid'>Data</span><span class='hs-varop'>.</span><span class='hs-conid'>Functor</span><span class='hs-varop'>.</span><span class='hs-conid'>Contravariant</span>
+
+<span class='hs-definition'>greaterThanThree</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Predicate</span> <span class='hs-conid'>Int</span>
+<span class='hs-definition'>greaterThanThree</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>Predicate</span> <span class='hs-layout'>(</span><span class='hs-varop'>&gt;</span> <span class='hs-num'>3</span><span class='hs-layout'>)</span>
+
+<span class='hs-definition'>lengthGTThree</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Predicate</span> <span class='hs-keyglyph'>[</span><span class='hs-varid'>a</span><span class='hs-keyglyph'>]</span>
+<span class='hs-definition'>lengthGTThree</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>contramap</span> <span class='hs-varid'>length</span> <span class='hs-varid'>greaterThanThree</span>
+
+<span class='hs-definition'>englishGTThree</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Predicate</span> <span class='hs-conid'>Int</span>
+<span class='hs-definition'>englishGTThree</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>contramap</span> <span class='hs-varid'>english</span> <span class='hs-varid'>lengthGTThree</span>
+
+<span class='hs-definition'>english</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Int</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>String</span>
+<span class='hs-definition'>english</span> <span class='hs-num'>1</span> <span class='hs-keyglyph'>=</span> <span class='hs-str'>"one"</span>
+<span class='hs-definition'>english</span> <span class='hs-num'>2</span> <span class='hs-keyglyph'>=</span> <span class='hs-str'>"two"</span>
+<span class='hs-definition'>english</span> <span class='hs-num'>3</span> <span class='hs-keyglyph'>=</span> <span class='hs-str'>"three"</span>
+<span class='hs-definition'>english</span> <span class='hs-num'>4</span> <span class='hs-keyglyph'>=</span> <span class='hs-str'>"four"</span>
+<span class='hs-definition'>english</span> <span class='hs-num'>5</span> <span class='hs-keyglyph'>=</span> <span class='hs-str'>"five"</span>
+<span class='hs-definition'>english</span> <span class='hs-num'>6</span> <span class='hs-keyglyph'>=</span> <span class='hs-str'>"six"</span>
+<span class='hs-definition'>english</span> <span class='hs-num'>7</span> <span class='hs-keyglyph'>=</span> <span class='hs-str'>"seven"</span>
+<span class='hs-definition'>english</span> <span class='hs-num'>8</span> <span class='hs-keyglyph'>=</span> <span class='hs-str'>"eight"</span>
+<span class='hs-definition'>english</span> <span class='hs-num'>9</span> <span class='hs-keyglyph'>=</span> <span class='hs-str'>"nine"</span>
+<span class='hs-definition'>english</span> <span class='hs-num'>10</span> <span class='hs-keyglyph'>=</span> <span class='hs-str'>"ten"</span>
+
+<span class='hs-definition'>main</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>IO</span> <span class='hs-conid'>()</span>
+<span class='hs-definition'>main</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>print</span> <span class='hs-varop'>$</span> <span class='hs-varid'>filter</span> <span class='hs-layout'>(</span><span class='hs-varid'>getPredicate</span> <span class='hs-varid'>englishGTThree</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>[</span><span class='hs-num'>1</span><span class='hs-keyglyph'>..</span><span class='hs-num'>10</span><span class='hs-keyglyph'>]</span></pre><p><b>NOTE</b>: I&#39;m not actually recommending this as a better practice than the
+original, simpler version. This is just to demonstrate the capability of the
+abstraction.</p><h2 id="bifunctor-and-profunctor">Bifunctor and Profunctor</h2><p>We&#39;re now ready to look at something a bit more complicated. Consider the
+following two typeclasses:
+<a href="http://haddock.stackage.org/lts-3.10/profunctors-5.1.1/Data-Profunctor.html" rel="nofollow">Profunctor</a>
+and
+<a href="http://haddock.stackage.org/lts-3.10/base-4.8.1.0/Data-Bifunctor.html" rel="nofollow">Bifunctor</a>.
+Both of these typeclasses apply to types of kind <code>* -&gt; * -&gt; *</code>, also known as
+&quot;a type constructor that takes two arguments.&quot; But let&#39;s look at their
+(simplified) definitions:</p><pre><span class='hs-keyword'>class</span> <span class='hs-conid'>Bifunctor</span> <span class='hs-varid'>p</span> <span class='hs-keyword'>where</span>
+    <span class='hs-varid'>bimap</span> <span class='hs-keyglyph'>::</span> <span class='hs-layout'>(</span><span class='hs-varid'>a</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>b</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-layout'>(</span><span class='hs-varid'>c</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>d</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>p</span> <span class='hs-varid'>a</span> <span class='hs-varid'>c</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>p</span> <span class='hs-varid'>b</span> <span class='hs-varid'>d</span>
+
+<span class='hs-keyword'>class</span> <span class='hs-conid'>Profunctor</span> <span class='hs-varid'>p</span> <span class='hs-keyword'>where</span>
+    <span class='hs-varid'>dimap</span> <span class='hs-keyglyph'>::</span> <span class='hs-layout'>(</span><span class='hs-varid'>b</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>a</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-layout'>(</span><span class='hs-varid'>c</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>d</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>p</span> <span class='hs-varid'>a</span> <span class='hs-varid'>c</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>p</span> <span class='hs-varid'>b</span> <span class='hs-varid'>d</span></pre><p>They&#39;re identical, except that <code>bimap</code> takes a first parameter of type <code>a -&gt;
+b</code>, whereas <code>dimap</code> takes a first parameter of type <code>b -&gt; a</code>. Based on this
+observation, and what we&#39;ve learned previously, we can now understand the
+documentation for these two typeclasses:</p><blockquote><p><code>Bifunctor</code>: Intuitively it is a bifunctor where both the first and second
+arguments are covariant.</p><p><code>Profunctor</code>: Intuitively it is a bifunctor where the first argument is
+contravariant and the second argument is covariant.</p></blockquote><p>These are both bifunctors since they take two type parameters. They both treat
+their second parameter in the same way: covariantly. However, the first
+parameter is treated differently by the two: <code>Bifunctor</code> is covariant, and
+<code>Profunctor</code> is contravariant.</p><p><b>Exercise</b> Try to think of a few common datatypes in Haskell that would be
+either a <code>Bifunctor</code> or <code>Profunctor</code>, and write the instance.</p><p><b>Hint</b> Some examples are <code>Either</code>, <code>(,)</code>, and <code>-&gt;</code> (a normal function from
+<code>a</code> to <code>b</code>). Figure out which is a <code>Bifunctor</code> and which is a <code>Profunctor</code>.</p><p><b>Solution</b></p><pre><span class='hs-keyword'>class</span> <span class='hs-conid'>Bifunctor</span> <span class='hs-varid'>p</span> <span class='hs-keyword'>where</span>
+    <span class='hs-varid'>bimap</span> <span class='hs-keyglyph'>::</span> <span class='hs-layout'>(</span><span class='hs-varid'>a</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>b</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-layout'>(</span><span class='hs-varid'>c</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>d</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>p</span> <span class='hs-varid'>a</span> <span class='hs-varid'>c</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>p</span> <span class='hs-varid'>b</span> <span class='hs-varid'>d</span>
+
+<span class='hs-keyword'>class</span> <span class='hs-conid'>Profunctor</span> <span class='hs-varid'>p</span> <span class='hs-keyword'>where</span>
+    <span class='hs-varid'>dimap</span> <span class='hs-keyglyph'>::</span> <span class='hs-layout'>(</span><span class='hs-varid'>b</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>a</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-layout'>(</span><span class='hs-varid'>c</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>d</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>p</span> <span class='hs-varid'>a</span> <span class='hs-varid'>c</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>p</span> <span class='hs-varid'>b</span> <span class='hs-varid'>d</span>
+
+
+<span class='hs-keyword'>instance</span> <span class='hs-conid'>Bifunctor</span> <span class='hs-conid'>Either</span> <span class='hs-keyword'>where</span>
+    <span class='hs-varid'>bimap</span> <span class='hs-varid'>f</span> <span class='hs-keyword'>_</span> <span class='hs-layout'>(</span><span class='hs-conid'>Left</span> <span class='hs-varid'>x</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>Left</span> <span class='hs-layout'>(</span><span class='hs-varid'>f</span> <span class='hs-varid'>x</span><span class='hs-layout'>)</span>
+    <span class='hs-varid'>bimap</span> <span class='hs-keyword'>_</span> <span class='hs-varid'>f</span> <span class='hs-layout'>(</span><span class='hs-conid'>Right</span> <span class='hs-varid'>x</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>Right</span> <span class='hs-layout'>(</span><span class='hs-varid'>f</span> <span class='hs-varid'>x</span><span class='hs-layout'>)</span>
+<span class='hs-keyword'>instance</span> <span class='hs-conid'>Bifunctor</span> <span class='hs-conid'>(,)</span> <span class='hs-keyword'>where</span>
+    <span class='hs-varid'>bimap</span> <span class='hs-varid'>f</span> <span class='hs-varid'>g</span> <span class='hs-layout'>(</span><span class='hs-varid'>x</span><span class='hs-layout'>,</span> <span class='hs-varid'>y</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>=</span> <span class='hs-layout'>(</span><span class='hs-varid'>f</span> <span class='hs-varid'>x</span><span class='hs-layout'>,</span> <span class='hs-varid'>g</span> <span class='hs-varid'>y</span><span class='hs-layout'>)</span>
+
+<span class='hs-keyword'>instance</span> <span class='hs-conid'>Profunctor</span> <span class='hs-layout'>(</span><span class='hs-keyglyph'>-&gt;</span><span class='hs-layout'>)</span> <span class='hs-keyword'>where</span> <span class='hs-comment'>-- functions</span>
+    <span class='hs-varid'>dimap</span> <span class='hs-varid'>f</span> <span class='hs-varid'>g</span> <span class='hs-varid'>h</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>g</span> <span class='hs-varop'>.</span> <span class='hs-varid'>h</span> <span class='hs-varop'>.</span> <span class='hs-varid'>f</span></pre><p>Make sure you understand <i>why</i> these instances work the way they do before
+moving on.</p><h2 id="bivariant-and-invariant">Bivariant and invariant</h2><p>There are two more special cases for variance: bivariant means &quot;both covariant
+and contravariant,&quot; whereas invariant means &quot;neither covariant nor
+contravariant.&quot; The only types which can be bivariant are <i>phantoms</i>, where the
+type doesn&#39;t actually exist. As an example:</p><pre><span class='hs-keyword'>import</span> <span class='hs-conid'>Data</span><span class='hs-varop'>.</span><span class='hs-conid'>Functor</span><span class='hs-varop'>.</span><span class='hs-conid'>Contravariant</span> <span class='hs-layout'>(</span><span class='hs-conid'>Contravariant</span> <span class='hs-layout'>(</span><span class='hs-keyglyph'>..</span><span class='hs-layout'>)</span><span class='hs-layout'>)</span>
+
+<span class='hs-keyword'>data</span> <span class='hs-conid'>Phantom</span> <span class='hs-varid'>a</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>Phantom</span>
+<span class='hs-keyword'>instance</span> <span class='hs-conid'>Functor</span> <span class='hs-conid'>Phantom</span> <span class='hs-keyword'>where</span>
+    <span class='hs-varid'>fmap</span> <span class='hs-keyword'>_</span> <span class='hs-conid'>Phantom</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>Phantom</span>
+<span class='hs-keyword'>instance</span> <span class='hs-conid'>Contravariant</span> <span class='hs-conid'>Phantom</span> <span class='hs-keyword'>where</span>
+    <span class='hs-varid'>contramap</span> <span class='hs-keyword'>_</span> <span class='hs-conid'>Phantom</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>Phantom</span></pre><p>Invariance will occur if:</p><ul><li><p>A type parameter is used multiple times in a data structure, both
+positively and negatively, e.g.:</p><pre><span class='hs-keyword'>data</span> <span class='hs-conid'>ToFrom</span> <span class='hs-varid'>a</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>ToFrom</span> <span class='hs-layout'>(</span><span class='hs-varid'>a</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>Int</span><span class='hs-layout'>)</span> <span class='hs-layout'>(</span><span class='hs-conid'>Int</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>a</span><span class='hs-layout'>)</span></pre></li><li><p>A type parameter is used in type which is itself invariant in the
+parameter, e.g.:</p><pre><span class='hs-keyword'>newtype</span> <span class='hs-conid'>ToFromWrapper</span> <span class='hs-varid'>a</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>ToFromWrapper</span> <span class='hs-layout'>(</span><span class='hs-conid'>ToFrom</span> <span class='hs-varid'>a</span><span class='hs-layout'>)</span></pre><p>Note that even though the parameter only appears once here, it appears
+twice in <code>ToFrom</code> itself.</p></li><li><p>In special types like references, e.g.:</p><pre><span class='hs-keyword'>data</span> <span class='hs-conid'>IORef</span> <span class='hs-varid'>a</span> <span class='hs-comment'>-- a is invariant</span>
+<span class='hs-keyword'>newtype</span> <span class='hs-conid'>RefWrapper</span> <span class='hs-varid'>a</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>RefWrapper</span> <span class='hs-layout'>(</span><span class='hs-conid'>IORef</span> <span class='hs-varid'>a</span><span class='hs-layout'>)</span> <span class='hs-comment'>-- also invariant</span></pre></li></ul><p><b>Exercise</b> Convince yourself that you can not make an instance of either <code>Functor</code> nor <code>Contravariant</code> for <code>ToFrom</code> or <code>IORef</code>.</p><p><b>Exercise</b> Explain why there&#39;s also no way to make an instance of <code>Bifunctor</code> or <code>Profunctor</code> for these datatypes.</p><p>As you can see, the <code>a</code> parameter is used as both the input to a function and
+output from a function in <code>ToFrom</code>. This leads directly to our next set of
+terms.</p><p><b>NOTE</b> There&#39;s a <a href="https://www.reddit.com/r/haskell/comments/5c0g5n/covariance_and_contravariance_fp_complete/d9u6d8v/" rel="nofollow">good Reddit
+discussion</a>
+which led to clarification of these section.</p><h2 id="positive-and-negative-position">Positive and negative position</h2><p>Let&#39;s look at some basic covariant and contravariant data types:</p><pre><span class='hs-keyword'>data</span> <span class='hs-conid'>WithInt</span> <span class='hs-varid'>a</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>WithInt</span> <span class='hs-layout'>(</span><span class='hs-conid'>Int</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>a</span><span class='hs-layout'>)</span>
+<span class='hs-keyword'>data</span> <span class='hs-conid'>MakeInt</span> <span class='hs-varid'>a</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>MakeInt</span> <span class='hs-layout'>(</span><span class='hs-varid'>a</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>Int</span><span class='hs-layout'>)</span></pre><p>By now, you should hopefully be able to identify that <code>WithInt</code> is covariant on
+its type parameter <code>a</code>, whereas <code>MakeInt</code> is contravariant. Please make sure
+you&#39;re confident of that fact, and that you know what the relevant <code>Functor</code>
+and <code>Contravariant</code> instance will be.</p><p>Can we give a simple explanation of why each of these is covariant and
+contravariant? Fortunately, yes: it has to do with the position the type
+variable appears in the function. In fact, we can even get GHC to tell us this
+by using <code>Functor</code> deriving:</p><pre><span class='hs-comment'>{-# LANGUAGE DeriveFunctor #-}</span>
+
+<span class='hs-keyword'>data</span> <span class='hs-conid'>MakeInt</span> <span class='hs-varid'>a</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>MakeInt</span> <span class='hs-layout'>(</span><span class='hs-varid'>a</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>Int</span><span class='hs-layout'>)</span>
+    <span class='hs-keyword'>deriving</span> <span class='hs-conid'>Functor</span></pre><p>This results in the (actually quite readable) error message:</p><pre><code>Can&#39;t make a derived instance of ‘Functor MakeInt’:
+  Constructor ‘MakeInt’ must not use the type variable in a function argument
+In the data declaration for ‘MakeInt’</code></pre><p>Another way to say this is &quot;<code>a</code> appears as an input to the function.&quot; An even
+better way to say this is that &quot;<code>a</code> appears in negative position.&quot; And now we
+get to define two new terms:</p><ul><li>Positive position: the type variable is the result/output/range/codomain of the function</li><li>Negative position: the type variable is the argument/input/domain of the function</li></ul><p>When a type variable appears in positive position, the data type is covariant
+with that variable. When the variable appears in negative position, the data
+type is contravariant with that variable. To convince yourself that this is
+true, go review the various data types we&#39;ve used above, and see if this logic
+applies.</p><p>But why use the terms positive and negative? This is where things get quite
+powerful, and drastically simplify your life. Consider the following newtype
+wrapper intended for running callbacks:</p><pre><span class='hs-keyword'>type</span> <span class='hs-conid'>Callback</span> <span class='hs-varid'>a</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>a</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>IO</span> <span class='hs-conid'>()</span>
+<span class='hs-comment'>-- newtype CallbackRunner a = CallbackRunner (Callback a -&gt; IO ())</span>
+<span class='hs-comment'>-- Expands to:</span>
+<span class='hs-keyword'>newtype</span> <span class='hs-conid'>CallbackRunner</span> <span class='hs-varid'>a</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>CallbackRunner</span> <span class='hs-layout'>(</span><span class='hs-layout'>(</span><span class='hs-varid'>a</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>IO</span> <span class='hs-conid'>()</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>IO</span> <span class='hs-conid'>()</span><span class='hs-layout'>)</span></pre><p>Is it covariant or contravariant on <code>a</code>? Your first instinct may be to say
+&quot;well, <code>a</code> is a function parameter, and therefore it&#39;s contravariant. However,
+let&#39;s break things down a bit further.</p><p>Suppose we&#39;re just trying to deal with <code>a -&gt; IO ()</code>. As we&#39;ve established many
+times above: this function is contravariant on <code>a</code>, and equivalently <code>a</code> is in
+negative position. This means that this function expects on input of type <code>a</code>.</p><p>But now, we wrap up this entire function as the input to a new function, via:
+<code>(a -&gt; IO ()) -&gt; IO ()</code>. As a whole, does this function <i>consume</i> an <code>a</code>, or
+does it <i>produce</i> an <code>a</code>? To get an intuition, let&#39;s look at an
+implementation of <code>CallbackRunner Int</code> for random numbers:</p><pre><span class='hs-definition'>supplyRandom</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>CallbackRunner</span> <span class='hs-conid'>Int</span>
+<span class='hs-definition'>supplyRandom</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>CallbackRunner</span> <span class='hs-varop'>$</span> <span class='hs-keyglyph'>\</span><span class='hs-varid'>callback</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-keyword'>do</span>
+    <span class='hs-varid'>int</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>randomRIO</span> <span class='hs-layout'>(</span><span class='hs-num'>1</span><span class='hs-layout'>,</span> <span class='hs-num'>10</span><span class='hs-layout'>)</span>
+    <span class='hs-varid'>callback</span> <span class='hs-varid'>int</span></pre><p>It&#39;s clear from this implementation that <code>supplyRandom</code> is, in fact,
+<i>producing</i> an <code>Int</code>. This is similar to <code>Maybe</code>, meaning we have a solid
+argument for this also being covariant. So let&#39;s go back to our
+positive/negative terminology and see if it explains why.</p><p>In <code>a -&gt; IO ()</code>, <code>a</code> is in negative position. In <code>(a -&gt; IO ()) -&gt; IO ()</code>, <code>a -&gt;
+IO ()</code> is in negative position. Now we just follow multiplication rules: when
+you multiply two negatives, you get a positive. As a result, in <code>(a -&gt; IO ())
+-&gt; IO ()</code>, <code>a</code> is in positive position, meaning that <code>CallbackRunner</code> is covariant on
+<code>a</code>, and we can define a <code>Functor</code> instance. And in fact, GHC agrees with us:</p><pre><span class='hs-comment'>{-# LANGUAGE DeriveFunctor #-}</span>
+<span class='hs-keyword'>import</span> <span class='hs-conid'>System</span><span class='hs-varop'>.</span><span class='hs-conid'>Random</span>
+
+<span class='hs-keyword'>newtype</span> <span class='hs-conid'>CallbackRunner</span> <span class='hs-varid'>a</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>CallbackRunner</span>
+    <span class='hs-layout'>{</span> <span class='hs-varid'>runCallback</span> <span class='hs-keyglyph'>::</span> <span class='hs-layout'>(</span><span class='hs-varid'>a</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>IO</span> <span class='hs-conid'>()</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>IO</span> <span class='hs-conid'>()</span>
+    <span class='hs-layout'>}</span>
+    <span class='hs-keyword'>deriving</span> <span class='hs-conid'>Functor</span>
+
+<span class='hs-definition'>supplyRandom</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>CallbackRunner</span> <span class='hs-conid'>Int</span>
+<span class='hs-definition'>supplyRandom</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>CallbackRunner</span> <span class='hs-varop'>$</span> <span class='hs-keyglyph'>\</span><span class='hs-varid'>callback</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-keyword'>do</span>
+    <span class='hs-varid'>int</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>randomRIO</span> <span class='hs-layout'>(</span><span class='hs-num'>1</span><span class='hs-layout'>,</span> <span class='hs-num'>10</span><span class='hs-layout'>)</span>
+    <span class='hs-varid'>callback</span> <span class='hs-varid'>int</span>
+
+<span class='hs-definition'>main</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>IO</span> <span class='hs-conid'>()</span>
+<span class='hs-definition'>main</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>runCallback</span> <span class='hs-varid'>supplyRandom</span> <span class='hs-varid'>print</span></pre><p>Let&#39;s unwrap the magic, though, and define our <code>Functor</code> instance explicitly:</p><pre><span class='hs-keyword'>newtype</span> <span class='hs-conid'>CallbackRunner</span> <span class='hs-varid'>a</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>CallbackRunner</span>
+    <span class='hs-layout'>{</span> <span class='hs-varid'>runCallback</span> <span class='hs-keyglyph'>::</span> <span class='hs-layout'>(</span><span class='hs-varid'>a</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>IO</span> <span class='hs-conid'>()</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>IO</span> <span class='hs-conid'>()</span>
+    <span class='hs-layout'>}</span>
+
+<span class='hs-keyword'>instance</span> <span class='hs-conid'>Functor</span> <span class='hs-conid'>CallbackRunner</span> <span class='hs-keyword'>where</span>
+    <span class='hs-varid'>fmap</span> <span class='hs-varid'>f</span> <span class='hs-layout'>(</span><span class='hs-conid'>CallbackRunner</span> <span class='hs-varid'>aCallbackRunner</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>=</span>
+        <span class='hs-conid'>CallbackRunner</span> <span class='hs-varop'>$</span> <span class='hs-keyglyph'>\</span><span class='hs-varid'>bCallback</span> <span class='hs-keyglyph'>-&gt;</span>
+            <span class='hs-varid'>aCallbackRunner</span> <span class='hs-layout'>(</span><span class='hs-varid'>bCallback</span> <span class='hs-varop'>.</span> <span class='hs-varid'>f</span><span class='hs-layout'>)</span></pre><p><b>Exercise 1</b>: Analyze the above <code>Functor</code> instance and understand what is occurring.</p><p><b>Exercise 2</b>: Convince yourself that the above implementation is the only one
+that makes sense, and similarly that there is no valid <code>Contravariant</code>
+instance.</p><p><b>Exercise 3</b>: For each of the following newtype wrappers, determine if they
+are covariant or contravariant in their arguments:</p><pre><span class='hs-keyword'>newtype</span> <span class='hs-conid'>E1</span> <span class='hs-varid'>a</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>E1</span> <span class='hs-layout'>(</span><span class='hs-varid'>a</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>()</span><span class='hs-layout'>)</span>
+<span class='hs-keyword'>newtype</span> <span class='hs-conid'>E2</span> <span class='hs-varid'>a</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>E2</span> <span class='hs-layout'>(</span><span class='hs-varid'>a</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>()</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>()</span><span class='hs-layout'>)</span>
+<span class='hs-keyword'>newtype</span> <span class='hs-conid'>E3</span> <span class='hs-varid'>a</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>E3</span> <span class='hs-layout'>(</span><span class='hs-layout'>(</span><span class='hs-varid'>a</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>()</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>()</span><span class='hs-layout'>)</span>
+<span class='hs-keyword'>newtype</span> <span class='hs-conid'>E4</span> <span class='hs-varid'>a</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>E4</span> <span class='hs-layout'>(</span><span class='hs-layout'>(</span><span class='hs-varid'>a</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>()</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>()</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>()</span><span class='hs-layout'>)</span>
+<span class='hs-keyword'>newtype</span> <span class='hs-conid'>E5</span> <span class='hs-varid'>a</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>E5</span> <span class='hs-layout'>(</span><span class='hs-layout'>(</span><span class='hs-conid'>()</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>()</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>a</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>()</span><span class='hs-layout'>)</span>
+
+<span class='hs-comment'>-- trickier:</span>
+<span class='hs-keyword'>newtype</span> <span class='hs-conid'>E6</span> <span class='hs-varid'>a</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>E6</span> <span class='hs-layout'>(</span><span class='hs-layout'>(</span><span class='hs-conid'>()</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>a</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>a</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>()</span><span class='hs-layout'>)</span>
+<span class='hs-keyword'>newtype</span> <span class='hs-conid'>E7</span> <span class='hs-varid'>a</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>E7</span> <span class='hs-layout'>(</span><span class='hs-layout'>(</span><span class='hs-conid'>()</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>()</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>a</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>a</span><span class='hs-layout'>)</span>
+<span class='hs-keyword'>newtype</span> <span class='hs-conid'>E8</span> <span class='hs-varid'>a</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>E8</span> <span class='hs-layout'>(</span><span class='hs-layout'>(</span><span class='hs-conid'>()</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>a</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>()</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>a</span><span class='hs-layout'>)</span>
+<span class='hs-keyword'>newtype</span> <span class='hs-conid'>E9</span> <span class='hs-varid'>a</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>E8</span> <span class='hs-layout'>(</span><span class='hs-layout'>(</span><span class='hs-conid'>()</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>()</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>()</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>()</span><span class='hs-layout'>)</span></pre><h2 id="lifting-codeiocode-to-codemonadiocode">Lifting <code>IO</code> to <code>MonadIO</code></h2><p>Let&#39;s look at something seemingly unrelated to get a feel for the power of our
+new analysis tools. Consider the base function <code>openFile</code>:</p><pre><span class='hs-definition'>openFile</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>FilePath</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>IOMode</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>IO</span> <span class='hs-conid'>Handle</span></pre><p>We may want to use this from a monad transformer stack based on top of the <code>IO</code>
+monad. The standard approach to that is to use the <code>MonadIO</code> typeclass as a
+constraint, and its <code>liftIO</code> function. This is all rather straightforward:</p><pre><span class='hs-keyword'>import</span> <span class='hs-conid'>System</span><span class='hs-varop'>.</span><span class='hs-conid'>IO</span>
+<span class='hs-keyword'>import</span> <span class='hs-conid'>Control</span><span class='hs-varop'>.</span><span class='hs-conid'>Monad</span><span class='hs-varop'>.</span><span class='hs-conid'>IO</span><span class='hs-varop'>.</span><span class='hs-conid'>Class</span>
+
+<span class='hs-definition'>openFileLifted</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>MonadIO</span> <span class='hs-varid'>m</span> <span class='hs-keyglyph'>=&gt;</span> <span class='hs-conid'>FilePath</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>IOMode</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>m</span> <span class='hs-conid'>Handle</span>
+<span class='hs-definition'>openFileLifted</span> <span class='hs-varid'>fp</span> <span class='hs-varid'>mode</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>liftIO</span> <span class='hs-layout'>(</span><span class='hs-varid'>openFile</span> <span class='hs-varid'>fp</span> <span class='hs-varid'>mode</span><span class='hs-layout'>)</span></pre><p>But of course, we all prefer using the <code>withFile</code> function instead of
+<code>openFile</code> to ensure resources are cleaned up in the presence of exceptions. As
+a reminder, that function has a type signature:</p><pre><span class='hs-definition'>withFile</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>FilePath</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>IOMode</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-layout'>(</span><span class='hs-conid'>Handle</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>IO</span> <span class='hs-varid'>a</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>IO</span> <span class='hs-varid'>a</span></pre><p>So can we somehow write our lifted version with type signature:</p><pre><span class='hs-definition'>withFileLifted</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>MonadIO</span> <span class='hs-varid'>m</span> <span class='hs-keyglyph'>=&gt;</span> <span class='hs-conid'>FilePath</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>IOMode</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-layout'>(</span><span class='hs-conid'>Handle</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>m</span> <span class='hs-varid'>a</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>m</span> <span class='hs-varid'>a</span></pre><p>Try as we might, this can&#39;t be done, at least not directly (if you&#39;re really
+curious, see <a href="http://www.stackage.org/package/lifted-base" rel="nofollow">lifted-base</a> and its
+implementation of <code>bracket</code>). And now, we have the vocabulary to explain this
+succinctly: the <code>IO</code> type appears in both positive and negative position in
+<code>withFile</code>&#39;s type signature. By contrast, with <code>openFile</code>, <code>IO</code> appears
+exclusively in positive position, meaning our transformation function
+(<code>liftIO</code>) can be applied to it.</p><p>Like what you learned here? Please check out the rest of our <a href="https://www.fpcomplete.com/haskell-syllabus">Haskell
+Syllabus</a> or learn about <a href="https://www.fpcomplete.com/training">FP Complete training</a>.</p></article>
+</div>
+<div class="col-md-4"><ul class="list-group"><li class="list-group-item"><b>December 2016</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/12/concurrency-and-node" title=" 7 Dec 2016">Concurrency and Node</a>
+</li>
+<li class="list-group-item"><b>November 2016</b>
+</li>
+<li class="list-group-item"><a href="comparison-scala-and-haskell.html" title="29 Nov 2016">Do you like Scala?  Give Haskell a try!</a>
+</li>
+<li class="list-group-item"><a href="devops-best-practices-multifaceted-testing.html" title="28 Nov 2016">Devops best practices: Multifaceted Testing</a>
+</li>
+<li class="list-group-item"><a href="scripting-in-haskell.html" title="22 Nov 2016">Scripting in Haskell</a>
+</li>
+<li class="list-group-item"><a href="comparative-concurrency-with-haskell.html" title="22 Nov 2016">Comparative Concurrency with Haskell</a>
+</li>
+<li class="list-group-item"><a href="mastering-time-to-market-haskell.html" title="21 Nov 2016">Mastering Time-to-Market with Haskell</a>
+</li>
+<li class="list-group-item"><a href="devops-best-practices-immutability.html" title="13 Nov 2016">Devops best practices: Immutability</a>
+</li>
+<li class="list-group-item"><a href="covariance-contravariance.html" title=" 9 Nov 2016">Covariance and Contravariance</a>
+</li>
+<li class="list-group-item"><a href="exceptions-best-practices-haskell.html" title=" 7 Nov 2016">Exceptions Best Practices in Haskell</a>
+</li>
+<li class="list-group-item"><b>October 2016</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/10/static-compilation-with-stack" title=" 7 Oct 2016">Static compilation with Stack</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/10/docker-demons-pid1-orphans-zombies-signals" title=" 5 Oct 2016">Docker demons: PID-1, orphans, zombies, and signals</a>
+</li>
+<li class="list-group-item"><b>September 2016</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/09/updated-hackage-mirroring" title="27 Sep 2016">Updated Hackage mirroring</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/09/practical-haskell-simple-file-mirror-2" title="21 Sep 2016">Practical Haskell: Simple File Mirror (Part 2)</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/09/data-haskell" title="14 Sep 2016">Working with data in Haskell</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/09/practical-haskell-simple-file-mirror-1" title="14 Sep 2016">Practical Haskell: Simple File Mirror (Part 1)</a>
+</li>
+<li class="list-group-item"><b>August 2016</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/08/bitrot-free-scripts" title="11 Aug 2016">Practical Haskell: Bitrot-free Scripts</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/08/public-jenkins-server" title=" 1 Aug 2016">Announce: public Jenkins CI server</a>
+</li>
+<li class="list-group-item"><b>June 2016</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/06/announce-safe-exceptions" title="29 Jun 2016">Announce: safe-exceptions, for async exception safety</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/06/async-exceptions-stm-deadlocks" title="20 Jun 2016">async exceptions, STM, and deadlocks</a>
+</li>
+<li class="list-group-item"><b>May 2016</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/05/weigh-package" title="27 May 2016">weigh: Measuring allocations in Haskell</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/05/moving-stackage-nightly-ghc-8" title="26 May 2016">Moving Stackage Nightly to GHC 8.0</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/05/store-package" title="24 May 2016">store: a new and efficient binary serialization library</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/05/stack-security-gnupg-keys" title=" 5 May 2016">Stack Security GnuPG Keys</a>
+</li>
+<li class="list-group-item"><b>April 2016</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/04/stackage-data-flow" title="14 Apr 2016">The Stackage data flow</a>
+</li>
+<li class="list-group-item"><b>March 2016</b>
+</li>
+<li class="list-group-item"><a href="../03/efficient-binary-serialization.html" title="14 Mar 2016">Efficient binary serialization</a>
+</li>
+<li class="list-group-item"><b>February 2016</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/02/testing-ghc-with-stackage" title="22 Feb 2016">Testing GHC with Stackage</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/02/updated-haskell-travis-config" title="17 Feb 2016">Updated Haskell Travis config</a>
+</li>
+<li class="list-group-item"><b>January 2016</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/01/soh-status" title=" 6 Jan 2016">Status of School of Haskell 2.0</a>
+</li>
+<li class="list-group-item"><b>December 2015</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/12/stack-travis" title="21 Dec 2015">Using Stack on Travis CI</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/12/docker-split-images" title="15 Dec 2015">The split-image approach to building minimal runtime Docker images</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/12/stack-with-ghc-7-10-3" title="11 Dec 2015">Using Stack with GHC 7.10.3</a>
+</li>
+<li class="list-group-item"><b>November 2015</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/11/kubernetes" title="19 Nov 2015">Kubernetes for Haskell Services</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/11/stack-stabilization" title=" 7 Nov 2015">Stack entering stabilization phase</a>
+</li>
+<li class="list-group-item"><b>October 2015</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/10/new-haskell-ide-repo" title="26 Oct 2015">The new haskell-ide repo</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/10/stackage-badges" title="19 Oct 2015">Stackage Badges</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/10/seeking-software-and-systems-engineers" title=" 7 Oct 2015">Seeking Software and Systems Engineers (Telecommute)</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/10/retiring-fphc" title=" 2 Oct 2015">Retiring FP Haskell Center</a>
+</li>
+<li class="list-group-item"><b>September 2015</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/09/stack-pvp" title="21 Sep 2015">stack and the PVP</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/09/stack-more-binary-package-sharing" title=" 1 Sep 2015">stack: more binary package sharing</a>
+</li>
+<li class="list-group-item"><b>August 2015</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/08/new-in-depth-guide-stack" title="31 Aug 2015">New in-depth guide to stack</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/08/stack-ghc-windows" title="24 Aug 2015">stack and GHC on Windows</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/08/stack-docker" title=" 5 Aug 2015">How stack can use Docker under the hood</a>
+</li>
+<li class="list-group-item"><b>July 2015</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/07/package-security-in-stack" title="20 Jul 2015">Package security in stack</a>
+</li>
+<li class="list-group-item"><b>June 2015</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/06/why-is-stack-not-cabal" title="24 Jun 2015">Why is stack not cabal?</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/06/stack-0-1-release" title="23 Jun 2015">stack 0.1 released</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/06/announcing-first-public-beta-stack" title=" 9 Jun 2015">ANNOUNCING: first public beta of stack</a>
+</li>
+<li class="list-group-item"><b>May 2015</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/05/thousand-user-haskell-survey" title="22 May 2015">What do Haskellers want? Over a thousand tell us</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/05/new-stackage-server" title="22 May 2015">The new Stackage Server</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/05/inline-c" title="20 May 2015">Call C functions from Haskell without bindings</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/05/psa-ghc-710-cabal-windows" title="19 May 2015">PSA: GHC 7.10, cabal, and Windows</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/05/distributing-packages-without-sysadmin" title="13 May 2015">Distributing our packages without a sysadmin</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/05/secure-package-distribution" title="11 May 2015">Secure package distribution: ready to roll</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/05/haskell-at-front-row" title=" 9 May 2015">Guest post: Haskell at Front Row</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/05/haskell-web-server-in-5mb" title=" 6 May 2015">Haskell Web Server in a 5MB Docker Image</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/05/school-of-haskell-2.0" title=" 4 May 2015">School of Haskell 2.0</a>
+</li>
+<li class="list-group-item"><b>April 2015</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/04/update-ghc-7-10-stackage" title="30 Apr 2015">Update on GHC 7.10 in Stackage</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/04/announcing-stackage-install" title="29 Apr 2015">Announcing: stackage-install</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/04/announcing-stackage-upload" title="28 Apr 2015">Announcing: stackage-upload</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/04/ghc-prof-flamegraph" title="27 Apr 2015">Flame graphs for GHC time profiles with ghc-prof-flamegraph</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/04/announcing-stackage-cli" title="20 Apr 2015">Announcing: first release of Stackage CLI (Command Line Tools)</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/04/future-of-soh-fphc" title="15 Apr 2015">The future of School of Haskell and FP Haskell Center</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/04/stackage-view" title="14 Apr 2015">Announcing: stackage-view</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/04/announcing-monad-unlift" title=" 8 Apr 2015">Announcing: monad-unlift</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/04/announcing-lts-2" title=" 2 Apr 2015">Announcing: LTS (Long Term Support) Haskell 2</a>
+</li>
+<li class="list-group-item"><b>March 2015</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/03/announce-ide-backend" title="30 Mar 2015">Announcing: open sourcing of ide-backend</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/03/minghc-ghc-7-10" title="27 Mar 2015">MinGHC for GHC 7.10</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/03/composable-community-infrastructure" title="26 Mar 2015">Our composable community infrastructure</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/03/hackage-mirror" title="25 Mar 2015">FP Complete&#39;s Hackage mirror</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/03/stackage-ghc-7-10" title="18 Mar 2015">Stackage and GHC 7.10 update</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/03/announcing-executable-hash" title="18 Mar 2015">Announcing executable-hash</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/03/upcoming-stackage-lts-2-0" title=" 9 Mar 2015">Upcoming Stackage LTS 2.0</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/03/hiring-systems-engineer" title=" 3 Mar 2015">Hiring: Systems Engineer</a>
+</li>
+<li class="list-group-item"><b>February 2015</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/02/primitive-haskell" title="17 Feb 2015">Primitive Haskell</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/02/Hiring-test-engineers" title=" 5 Feb 2015">FP Complete is Hiring Test Engineers</a>
+</li>
+<li class="list-group-item"><b>January 2015</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/01/commercial-haskell-sig" title="22 Jan 2015">Commercial Haskell Special Interest Group</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/01/fp-complete-software-pipeline" title="13 Jan 2015">FP Complete&#39;s software pipeline</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/01/hiring-software-engineer" title="13 Jan 2015">We&#39;re hiring: Software Engineer</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/01/announcing-mutable-containers-0-2" title=" 7 Jan 2015">Announcing: mutable-containers 0.2</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/01/fphc-release-3.2" title=" 6 Jan 2015">A New Release for the New Year: Announcing Release 3.2</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/01/announcing-lts-haskell-1-0" title=" 4 Jan 2015">Announcing LTS Haskell 1.0</a>
+</li>
+<li class="list-group-item"><b>December 2014</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/12/ghc-7-10-stackage-build" title="24 Dec 2014">GHC 7.10RC1 Stackage build results</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/12/stackage-survey-results" title="15 Dec 2014">Stackage: Survey results, easier usage, and LTS Haskell 0.X</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/12/dropping-ghc-74-support-fphc" title=" 8 Dec 2014">Dropping GHC 7.4 support in FP Haskell Center</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/12/backporting-bug-fixes" title=" 7 Dec 2014">Backporting bug fixes: Towards LTS Haskell</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/12/experimental-packages-stackage" title=" 1 Dec 2014">Experimental package releases via Stackage Server</a>
+</li>
+<li class="list-group-item"><b>November 2014</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/11/stackage-open-source" title="20 Nov 2014">Stackage server: new features and open source</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/11/seeking-haskell-dev-dist-hpc" title="13 Nov 2014">Seeking a Haskell developer for high performance, distributed computing</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/11/release-3.1" title=" 6 Nov 2014">3.1 release changes</a>
+</li>
+<li class="list-group-item"><b>October 2014</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/10/new-stackage-features" title="20 Oct 2014">New Stackage features</a>
+</li>
+<li class="list-group-item"><b>September 2014</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/09/hiring-haskell-web-ui-dev" title="11 Sep 2014">We&#39;re hiring: Haskell web UI developer</a>
+</li>
+<li class="list-group-item"><b>August 2014</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/08/conduit-stream-fusion" title="27 Aug 2014">IAP: conduit stream fusion</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/08/iap-speeding-up-conduit" title="21 Aug 2014">IAP: Speeding up conduit</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/08/announcing-stackage-server" title="14 Aug 2014">Announcing Stackage Server</a>
+</li>
+<li class="list-group-item"><b>July 2014</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/07/fphc-open-publish-announcement" title="31 Jul 2014">FP Haskell Center is Going Free</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/07/vectorbuilder-packed-conduit-yielding" title="30 Jul 2014">vectorBuilder: packed-representation yielding for conduit</a>
+</li>
+<li class="list-group-item"><b>May 2014</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/05/stackage-server" title="20 May 2014">Stackage Server</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/05/lenient-lower-bounds" title="12 May 2014">GHC 7.8, transformers 0.3, and lenient lower bounds</a>
+</li>
+<li class="list-group-item"><b>April 2014</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/04/heartbleed" title="14 Apr 2014">The heartbleed bug and FP Haskell Center</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/04/mvp" title=" 4 Apr 2014">Calculating the Minimum Variance Portfolio in R, Pandas and IAP</a>
+</li>
+<li class="list-group-item"><b>March 2014</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/03/monte-carlo-haskell" title="20 Mar 2014">Monte carlo analysis in Haskell</a>
+</li>
+<li class="list-group-item"><b>December 2013</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/12/api-emacs" title="18 Dec 2013">Emacs and our API</a>
+</li>
+<li class="list-group-item"><b>November 2013</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/11/call-for-entries" title="25 Nov 2013">Call For Entries</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/11/community-edition-announcement" title="18 Nov 2013">Announcing FP Haskell Center Community Edition and Feature Upgrades</a>
+</li>
+<li class="list-group-item"><b>September 2013</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/09/state-of-stackage" title="30 Sep 2013">The State of Stackage</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/09/august-competition-winners" title="17 Sep 2013">August Competition Winners</a>
+</li>
+<li class="list-group-item"><b>August 2013</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/08/webinar-announcement" title="28 Aug 2013">FP Haskell Center Launch Event</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/08/beta-discount-last-call" title="27 Aug 2013">4 Days Left to Get Beta User Discount</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/08/snap-happstack-anything-else" title=" 5 Aug 2013">Snap, Happstack and anything else</a>
+</li>
+<li class="list-group-item"><b>July 2013</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/07/academic-accounts" title="25 Jul 2013">FP Complete Announces Free Academic Accounts</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/07/beta-refresh-one" title="17 Jul 2013">FP Haskell Center Beta Refresh</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/07/ide-stackage" title="17 Jul 2013">IDE and Stackage</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/07/competition-announcement" title="16 Jul 2013">FP Complete Launches FP Haskell Competition with $1,000 Cash Prize Each Month</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/07/beta-activation-update" title=" 5 Jul 2013">FP Haskell Center Beta Sign-Up Still Open. Scheduled Activations Ongoing</a>
+</li>
+<li class="list-group-item"><b>June 2013</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/06/fp-haskell-center-beta-announcement" title="30 Jun 2013">FP Haskell Center Beta Released, and Beta Accounts Activated</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/06/fp-haskell-center-beta-demo" title="27 Jun 2013">FP Haskell Center Beta Demo</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/06/fp-haskell-center-video-blog" title="24 Jun 2013">FP Haskell Center Video Blog</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/06/beta-sign-up" title="17 Jun 2013">FP Haskell Center Beta Sign-Up</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/06/interim-web-site" title="17 Jun 2013">Interim Web Site</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/06/call-for-submissions" title=" 7 Jun 2013">FP Complete Launches Haskell in Real World Competition</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/06/haskell-from-c" title=" 2 Jun 2013">Haskell from C: Where are the for Loops?</a>
+</li>
+<li class="list-group-item"><b>March 2013</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/03/learning-through-koans" title="19 Mar 2013">Learning Haskell Through Koans</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/03/SoH-Goes-Public" title=" 4 Mar 2013">School of Haskell Goes Public</a>
+</li>
+<li class="list-group-item"><b>February 2013</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/02/announcing-case-studies" title="17 Feb 2013">Case studies of commercial Haskell use</a>
+</li>
+<li class="list-group-item"><b>January 2013</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/01/school-of-haskell-goes-beta" title="31 Jan 2013">School of Haskell Goes Beta</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/01/joining-fp-complete" title="21 Jan 2013">Joining FP Complete</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/01/why-im-investing-in-fp-complete" title=" 3 Jan 2013">Why I&#39;m investing in FP Complete</a>
+</li>
+<li class="list-group-item"><b>December 2012</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2012/12/solving_the_software_crisis" title="17 Dec 2012">Solving the Global Software Crisis</a>
+</li>
+<li class="list-group-item"><b>November 2012</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2012/11/designing-the-haskell-ide" title="19 Nov 2012">Designing the Haskell IDE</a>
+</li>
+<li class="list-group-item"><b>October 2012</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2012/10/yesod-tutorial-2-playing-with-routes-and-links" title="17 Oct 2012">Yesod Tutorial 2. Playing with Routes and Links</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2012/10/yesod-tutorial-1-my-first-web-site" title=" 1 Oct 2012">Yesod Tutorial 1. My First Web Site</a>
+</li>
+<li class="list-group-item"><b>September 2012</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2012/09/commercialuserneeds" title="27 Sep 2012">What do commercial users want from Haskell?</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2012/09/functional-patterns-in-c" title="24 Sep 2012">Functional Patterns in C++</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2012/09/ten-things-you-should-know-about-haskell-syntax" title=" 5 Sep 2012">Ten Things You Should Know About Haskell Syntax</a>
+</li>
+<li class="list-group-item"><b>August 2012</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2012/08/5-day-haskell-course" title="22 Aug 2012">5-Day Haskell Course</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2012/08/joining-forces-to-advance-haskell" title="13 Aug 2012">Joining forces to advance Haskell </a>
+</li>
+<li class="list-group-item"><b>July 2012</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2012/07/the-functor-pattern-in-c" title="16 Jul 2012">The Functor Pattern in C++</a>
+</li>
+<li class="list-group-item"><b>June 2012</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2012/06/asynchronous-api-in-c-and-the-continuation-monad" title="20 Jun 2012">Asynchronous API in C++ and the Continuation Monad</a>
+</li>
+<li class="list-group-item"><b>April 2012</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2012/04/the-downfall-of-imperative-programming" title=" 9 Apr 2012">The Downfall of Imperative Programming</a>
+</li>
+<li class="list-group-item"><b>March 2012</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2012/03/onamission" title=" 9 Mar 2012">It&#39;s time for Functional Programming</a>
+</li>
+</ul>
+</div>
+</div>
+<div class="row"><div class="col-md-12"><div id="disqus_thread"><script>var disqus_shortname = 'fpcomplete'; (function() { var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true; dsq.src = 'https://' + disqus_shortname + '.disqus.com/embed.js'; (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq); })();</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<a class="dsq-brlink" href="https://disqus.com/">comments powered by <span class="logo-disqus">Disqus</span></a></a>
+</div>
+</div>
+</div>
+</div>
+<div class="container"><div class="row"><div class="col-md-2"></div>
+<div class="col-md-8"><div id="social"><div class="twitter-share"><a class="twitter-share-button" href="https://twitter.com/share" data-show-count="false">Tweet</a>
+</div>
+<div class="reddit"><script type="text/javascript" src="http://www.redditstatic.com/button/button1.js"></script>
+</div>
+<div class="linkedin"><script src="http://platform.linkedin.com/in.js" type="text/javascript">lang: en_US</script>
+<script type="IN/Share" data-counter="right"></script>
+</div>
+<div class="googleplus"><script src="https://apis.google.com/js/platform.js" async defer></script>
+<g:plusone></g:plusone>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="container"><div class="row"><div class="col-md-12"><hr>
+<footer class="text-center">Copyright &copy; 2013-2016 FP Complete Corp. All rights reserved</footer>
+<ul class="nav navbar-nav"><li><a href="https://www.fpcomplete.com/pages">Sitemap</a>
+</li>
+<li><a href="https://www.fpcomplete.com/about-us">About Us</a>
+</li>
+<li><a href="https://www.fpcomplete.com/jobs">Jobs</a>
+</li>
+</ul>
+</div>
+</div>
+<div class="row"><div class="col-md-12"><div id="twitter"><div class="follow"><a class="twitter-follow-button" href="https://twitter.com/fpcomplete" data-show-count="false">Follow @fpcomplete</a>
+</div>
+<div class="mention"><a class="twitter-mention-button" href="https://twitter.com/intent/tweet?screen_name=fpcomplete" data-show-count="false">Tweet to @fpcomplete</a>
+<script async src="http://platform.twitter.com/widgets.js" charset="utf-8"></script>
+</div>
+</div>
+</div>
+</div>
+</div>
+<script src="https://code.jquery.com/jquery-3.1.1.slim.min.js"></script><script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script><script src="http://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.8.0/highlight.min.js"></script><script>hljs.initHighlightingOnLoad();</script><script>(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){(i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)})(window,document,'script','https://www.google-analytics.com/analytics.js','ga');ga('create', 'UA-36928035-3', 'auto');ga('send', 'pageview');</script></body>
+<!-- Mirrored from www.fpcomplete.com/blog/2016/11/covariance-contravariance by HTTrack Website Copier/3.x [XR&CO'2014], Fri, 30 Dec 2016 15:26:32 GMT -->
+</html>

@@ -1,0 +1,627 @@
+<!doctype html><!--[if lt IE 7]> <html class="no-js ie6 oldie" lang="en"> <![endif]--><!--[if IE 7]>    <html class="no-js ie7 oldie" lang="en"> <![endif]--><!--[if IE 8]>    <html class="no-js ie8 oldie" lang="en"> <![endif]--><!--[if gt IE 8]><!--><html class="no-js" lang="en"> <!--<![endif]-->
+<!-- Mirrored from www.fpcomplete.com/blog/2016/11/devops-best-practices-multifaceted-testing by HTTrack Website Copier/3.x [XR&CO'2014], Fri, 30 Dec 2016 16:24:26 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head><meta charset="UTF-8"><meta name="google-site-verification" content="DAcj3V2VPIWbiY2qQJaztufXD7u4kY75RlyH2zhIHsk" /><title>Devops best practices: Multifaceted Testing :: FP Complete</title><meta name="google-site-verification" content="DAcj3V2VPIWbiY2qQJaztufXD7u4kY75RlyH2zhIHsk" /><meta name="viewport" content="width=device-width,initial-scale=1"><link href="https://www.fpcomplete.com/feed" type="application/atom+xml" rel="alternate" title="FP Complete Blog">
+<link href="https://www.fpcomplete.com/feed" type="application/rss+xml" rel="alternate" title="FP Complete Blog">
+<meta name="author" content="Aaron Contorer">
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css"><link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css"><link rel="stylesheet" href="https://www.fpcomplete.com/static/css/code-highlighting.css?etag=OmhFiN9e"><link rel="stylesheet" href="http://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.8.0/styles/default.min.css"><style>#social{margin:1em 0;padding:0.25em}#social > div{margin-right:1em;display:inline-block}#social{margin:1em 0;padding:0.25em}#social > div{margin-right:1em;display:inline-block}.container{font-family:"Segoe UI", Candara, "Bitstream Vera Sans", "DejaVu Sans", "Bitstream Vera Sans", "Trebuchet MS", Verdana, "Verdana Ref", sans-serif;font-size:1.1em}#twitter > div{margin-right:1em;display:inline-block}</style><!--[if lt IE 9]><script src="http://html5shiv.googlecode.com/svn/trunk/html5.js"></script><![endif]--></head><body><nav class="navbar navbar-inverse"><div class="container"><div class="row"><div class="col-md-12"><div class="navbar-header"><button class="navbar-toggle collapsed" type="button" data-toggle="collapse" data-target="#top-navbar" aria-expanded="false"><span class="sr-only">Toggle navigation</span>
+<span class="icon-bar"></span>
+<span class="icon-bar"></span>
+<span class="icon-bar"></span>
+</button>
+<ul class="nav navbar-nav collapse navbar-collapse" id="top-navbar"><li><a href="https://www.fpcomplete.com/"><img src="https://www.fpcomplete.com/static/fpcomplete-logo-transparent.png?etag=5QQp_9Ic" alt="FP Complete" title="FP Complete" style="max-height:100%;height:2em">
+</a>
+</li>
+<li><a href="https://www.fpcomplete.com/blog">Blog</a>
+</li>
+<li><a href="https://www.fpcomplete.com/haskell">Haskell</a>
+</li>
+<li><a href="https://www.fpcomplete.com/devops">Devops</a>
+</li>
+<li><a href="https://www.fpcomplete.com/consulting">Consulting</a>
+</li>
+<li><a href="https://www.fpcomplete.com/training">Training</a>
+</li>
+<li><a href="https://www.fpcomplete.com/contact-us">Contact</a>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+</nav>
+<div class="container"><div class="row"><div class="col-md-12"><h1 itemprop="name">Devops best practices: Multifaceted Testing</h1>
+<div id="social"><div class="twitter-share"><a class="twitter-share-button" href="https://twitter.com/share" data-show-count="false">Tweet</a>
+</div>
+<div class="reddit"><script type="text/javascript" src="http://www.redditstatic.com/button/button1.js"></script>
+</div>
+<div class="linkedin"><script src="http://platform.linkedin.com/in.js" type="text/javascript">lang: en_US</script>
+<script type="IN/Share" data-counter="right"></script>
+</div>
+<div class="googleplus"><script src="https://apis.google.com/js/platform.js" async defer></script>
+<g:plusone></g:plusone>
+</div>
+</div>
+</div>
+</div>
+<div class="row"><div class="col-md-8"><p><span class="date">28 Nov 2016</span>
+<span class="author"><em>Aaron Contorer</em>
+</span>
+</p>
+<article itemprop="desc"><p>Even among skilled enterprise IT departments, it is too rare that software is
+thoroughly tested before deployment. Failed deployments mean costly downtime,
+service failures, upset users, and even security breaches. How can we verify
+that a solution is actually ready to deploy, free of serious defects?</p><p class="text-center">
+<a href="mailto:sales@fpcomplete.com?subject=I'd like some help with devops and quality" class="btn btn-primary">Contact us for
+professional assistance</a></p><h1 id="you-probably-need-more-kinds-of-tests">You probably need more kinds of tests</h1><p>We’ve all seen “ready to deploy” applications that do not work as expected
+once deployed. Often it’s because the production system is not in fact
+identical to the staging system, so the testing wasn’t valid. This can be
+prevented with another devops best practice, automated deployments -- which we
+talked about in <a href="devops-best-practices-immutability.html">this recent
+post</a> and will return to
+again.</p><p>But often the problem is that the software, even on a properly configured test
+system and staging system, <i>was never fully tested.</i> Before an app is approved
+for deployment, your QA system (mostly automated) should complete:</p><ul><li>Success tests</li><li>Failure tests</li><li>Corner-case tests</li><li>Randomized tests (also called mutation tests, fuzz tests)</li><li>Load and performance tests</li><li>Usability tests</li><li>Security tests</li></ul><p>(If you were not using automated, reproducible deployments, you would also have
+to do explicit pre-tests of the deployment script itself -- but you <i>are</i> doing
+fully automated deployments, right? If you aren’t, consider moving to the
+sorts of tools we use in FP Deploy -- like Docker and Kubernetes, Puppet and
+Ansible.)</p><p>In the rest of this article we’ll see how each kind of testing adds something
+different and important.</p><h2 id="success-testing:-run-with-realistic-inputs">Success testing: run with realistic inputs</h2><p>Most operations teams won’t accept a deployment from the engineering group
+(dev or test or QA) unless the system has <i>at least</i> passed success testing.
+When presented with correct inputs, does the system generate correct outputs and
+not crash?</p><p>It’s the most basic testing. Yet it’s often left incomplete. To avoid
+serious omissions, use at least this checklist:</p><p>Did you play back a realistic workload, based on a real sample of typical
+inputs? If not, your test’s idea of what to try may be very different from
+what your users will actually do in the first day in production. Huge source of
+real-world failures.
+Did you test through both the UI and the API? Automated testing only through the
+UI may mask problems that the UI prevents or corrects. Automated testing only
+through the API can’t find pure UI bugs.
+Were your tests updated when the spec was updated? For that matter, was the spec
+even updated when the software’s intended function was updated? If “no” on
+either of these, you are not actually testing the software’s correct function.
+Do you have coverage? Has someone gone back through the spec and identified all
+the promised functionality, and verified that some test actually tests each item
+-- and that it was run on the latest build, and passed?
+Did you test in a system that’s configured the same as your production system?
+Especially if deployments are not automated, it is crucial to ensure that
+nothing was done in the staging system to make it easier to pass than the
+production system. Common examples: omitting firewalls that would be present
+between layers in production; running test services under accounts with
+excessive permissions; having a manual security checklist for production
+deployments that is not used on staging deployments; sequencing inputs so that
+multiple simulated users cannot appear concurrently. Passing tests may not mean
+much if the environment is rigged to ensure success.</p><p>Believe it or not, that was the easy part. For enterprise production quality,
+you still want to test your system six more ways. Jumping right in to number
+two...</p><h2 id="failure-testing:-when-you-break-the-law-do-you-go-to-jail">Failure testing: when you break the law, do you go to jail?</h2><p>Your testing is all under an automated set of continuous integration (CI)
+scripts, right? (If not, time to look into that.) But do you have tests that
+force all of the specified error conditions to occur? Do you pass in every
+identified kind of prohibited/invalid input? Do you also create all the
+realistic external error conditions, like a network link failure, a timeout, a
+full disk, low memory (with a tool like Chaos Monkey)?</p><p>A test suite doesn’t check whether specified error conditions actually
+generate the right errors is not complete. We recommend that the QA team present
+a report showing a list of all existing tests, what conditions they purport to
+test, and when they were last run and passed.</p><h2 id="corner-case-testing:-try-something-crazy">Corner-case testing: try something crazy</h2><p>Maybe you’ve heard the joke: a QA engineer walks into a bar, and orders a
+beer, and 2 beers, and 20 beers, and 0 beers, and a million beers, and -1 beers.
+And a duck.</p><p>Corner-case testing means success testing using <i>unrealistic but legal</i> inputs.
+Often, developers write code that works correctly in typical cases, but fails in
+the extremes.</p><p>Before deploying, consider: are any of your users going to try anything crazy?
+What would be the oddest things still permitted, and what happens if you try?
+Who tested that and verified that the output was correct? Correct code works on
+<i>all</i> permitted inputs, not just <i>average</i> ones. This is a fast way to find bugs
+before deployment -- push the system right to the edge of what it should be able
+to do.</p><p>Corner cases vary by application, but here are some typical examples to spark
+your thinking.
+Where strings are permitted, what happens if they are in a very differently
+structured language, like Chinese or Arabic? What happens if they are extremely
+long? 
+Where numbers are permitted, what happens if they are very large, very small,
+zero, negative? And why is the permitted range as big as it is; should it be
+reduced? Is it legal to request output of a billion records, and what happens if
+I do?
+Where options are permitted, what if someone chooses all of them, or a bizarre
+mixture? Can I order a pizza with 30 toppings? Can I prescribe 50 medicines, at
+50 bottles each, for a sample patient?
+What happens if nested or structured inputs are extremely complex? Can I send an
+email with 100 embeddings, each of which is an email with 100 embeddings?</p><p>If an application hasn’t been tested with ridiculous-but-legal inputs, no one
+really knows if it’s going to hold up in production.</p><h2 id="randomized-testing:-never-saw-ithati-before">Randomized testing: never saw <i>that</i> before!</h2><p>No human team can test every possible combination of cases and actions. And that
+may be okay, because many projects find more bugs per unit of effort through
+<i>randomized</i> generation of test cases than any other way.</p><p>This means writing scripts that start with well-understood inputs, and then
+letting them make random, arbitrary changes to these inputs and run again, then
+change and run again, many thousands of times. Even if it’s not realistic to
+test the outputs for correctness (because the script may be unable to tell what
+its crazy inputs were supposed to do), the outputs can be tested for structural
+validity -- and the system can be watched for not crashing, and not generating
+any admin alerts or unhandled errors or side effects.</p><p>It’s downright surprising how fast you can find bugs in a typical unsafe
+language (like Python or C or Java) through simple mutation testing. Extremely
+safe languages like Haskell tend to find these bugs at compile time, but it may
+still be worth trying some randomized testing. Remember, machine time is cheap;
+holes in deployed code are very expensive.</p><h2 id="load-and-performance-testing:-now-that39s-heavy">Load and performance testing: now that&#39;s heavy</h2><p>Companies with good devops say heavy load is one of the top remaining sources of
+failure. The app works for a while, but fails when peak user workload hits. Be
+on the lookout for conditions that could overload your servers, and make sure
+someone is forcing them to happen on the staging system -- before they happen in
+production.</p><p>Consider whether your test and staging systems are similar enough to your
+production system. If your production system accepts 5000 requests per second on
+10 big machines, and your test system accepts 5 per second on one tiny VM, how
+will you know about database capacity issues or network problems?</p><p>A good practice is to throw enormous, concurrent, simulated load at your test
+system that (1) exceeds any observed real-world load and (2) includes a wide mix
+of realistic inputs, perhaps a stream of historic real captured inputs as well
+as random ones. This reduces the chance that you threw a softball at the system
+when real users are going to throw a hardball.</p><p>Performance testing can include sending faster and faster inputs until some
+hardware resource becomes saturated. (You may enjoy watching system monitor
+screens as this is happening!) Find the bottleneck -- what resource can you
+expect to fail first in production? How will you prevent it? Do your deployment
+scripts specify an abundance of this resource? Have you implemented cloud
+auto-scaling so that new parallel servers are fired up when the typically scarce
+resource (CPU, RAM, network link, …) gets too busy?</p><h2 id="usability-testing:-it-doesn39t-work-if-people-can39t-use-it">Usability testing: it doesn&#39;t work if people can&#39;t use it</h2><p>Most people consider this to be outside the realm of devops. Who cares if users
+find your system confusing and hard to use? Well, lots of people, but why should
+a devops person care?</p><p>What will happen to your production environment if a new feature is deployed and
+suddenly user confusion goes through the roof? Will they think there’s a bug?
+Will support calls double in an hour, and stay doubled? Will you be forced to do
+a rollback?</p><p>User interface design probably isn’t your job. But if you are deploying
+user-facing software that has not been usability tested, you’re going to hear
+about it. Encourage your colleagues to do real testing of their UI on realistic,
+uninitiated users (not just team members who know what the feature is supposed
+to do), or at least skeptical test staff who know how to try naive things on
+purpose, before declaring a new feature ready to deploy.</p><h2 id="security-testing:-before-it39s-too-late">Security testing: before it&#39;s too late</h2><p>One of the worst things you can do is to cause a major security breach, leading
+to a loss of trust and exposure of users’ private data.</p><p>Testing a major, public-facing, multi-server device (a distributed app) for
+security is a big topic, and I’d be doing a disservice by trying to summarize
+it in just a couple of paragraphs. We’ll return in future posts to both the
+verification and testing side, and the design and implementation side, of
+security. A best practice is to push quality requirements upstream, letting
+developers know that security is their concern too, and ensuring that
+integration-test systems use a secure automated deployment similar or identical
+to the production system. Don’t let developers say “I assume you’ll secure
+this later.”</p><p>Meanwhile, as a devops best practice, your deployment and operations team should
+have at least one identified security expert, a person whose job includes
+knowing about all the latest security test tools and ensuring that they are
+being used where appropriate. Are you checking for XSS attacks and SQL injection
+attacks? DDoS attacks? Port-scan attacks? Misconfigured default accounts? It’s
+easy to neglect security until it’s too late, so make someone responsible.</p><p>Security holes can appear in application code, or in the platform itself
+(operating system, library packages, and middleware). At a minimum, security
+testing should include running standard off-the-shelf automated scanning
+software that looks for known ways to intrude, most often taking advantage of
+poor default configurations, or of platform components that have not been
+upgraded to the latest patch level. Run an automated security scan before moving
+a substantially changed system from staging into production. Automated testing
+is almost free, in stark contrast to the costly manual clean-up after a breach.</p><h1 id="conclusions">Conclusions</h1><p>Wow, that’s a lot of testing! More than a lot of companies actually do. Yet
+it’s quite hard to look back through that list and find something that’s
+okay to omit. Clearly the devops pipeline doesn’t begin at the moment of
+deployment, but sooner, in the development team itself. That means developers
+and testers taking responsibility for delivering a quality product that’s
+actually ready to deploy.</p><p>As usual, systems thinking wins. A good operations team doesn’t say “give us
+what you’ve got, and we’ll somehow get it online.” A good operations team
+says “we offer deployment and operation services, and here’s how you can
+give us software that will deploy successfully into our production
+environment.”</p><p>We hope you’ll keep reading our blog and making use of what we have learned.
+Thanks for spending time with FP Complete.</p><p class="text-center">
+<a href="mailto:sales@fpcomplete.com?subject=I'd like some help with devops and quality" class="btn btn-primary">Contact us to help
+your engineering and devops teams</a></p></article>
+</div>
+<div class="col-md-4"><ul class="list-group"><li class="list-group-item"><b>December 2016</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/12/concurrency-and-node" title=" 7 Dec 2016">Concurrency and Node</a>
+</li>
+<li class="list-group-item"><b>November 2016</b>
+</li>
+<li class="list-group-item"><a href="comparison-scala-and-haskell.html" title="29 Nov 2016">Do you like Scala?  Give Haskell a try!</a>
+</li>
+<li class="list-group-item"><a href="devops-best-practices-multifaceted-testing.html" title="28 Nov 2016">Devops best practices: Multifaceted Testing</a>
+</li>
+<li class="list-group-item"><a href="scripting-in-haskell.html" title="22 Nov 2016">Scripting in Haskell</a>
+</li>
+<li class="list-group-item"><a href="comparative-concurrency-with-haskell.html" title="22 Nov 2016">Comparative Concurrency with Haskell</a>
+</li>
+<li class="list-group-item"><a href="mastering-time-to-market-haskell.html" title="21 Nov 2016">Mastering Time-to-Market with Haskell</a>
+</li>
+<li class="list-group-item"><a href="devops-best-practices-immutability.html" title="13 Nov 2016">Devops best practices: Immutability</a>
+</li>
+<li class="list-group-item"><a href="covariance-contravariance.html" title=" 9 Nov 2016">Covariance and Contravariance</a>
+</li>
+<li class="list-group-item"><a href="exceptions-best-practices-haskell.html" title=" 7 Nov 2016">Exceptions Best Practices in Haskell</a>
+</li>
+<li class="list-group-item"><b>October 2016</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/10/static-compilation-with-stack" title=" 7 Oct 2016">Static compilation with Stack</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/10/docker-demons-pid1-orphans-zombies-signals" title=" 5 Oct 2016">Docker demons: PID-1, orphans, zombies, and signals</a>
+</li>
+<li class="list-group-item"><b>September 2016</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/09/updated-hackage-mirroring" title="27 Sep 2016">Updated Hackage mirroring</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/09/practical-haskell-simple-file-mirror-2" title="21 Sep 2016">Practical Haskell: Simple File Mirror (Part 2)</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/09/data-haskell" title="14 Sep 2016">Working with data in Haskell</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/09/practical-haskell-simple-file-mirror-1" title="14 Sep 2016">Practical Haskell: Simple File Mirror (Part 1)</a>
+</li>
+<li class="list-group-item"><b>August 2016</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/08/bitrot-free-scripts" title="11 Aug 2016">Practical Haskell: Bitrot-free Scripts</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/08/public-jenkins-server" title=" 1 Aug 2016">Announce: public Jenkins CI server</a>
+</li>
+<li class="list-group-item"><b>June 2016</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/06/announce-safe-exceptions" title="29 Jun 2016">Announce: safe-exceptions, for async exception safety</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/06/async-exceptions-stm-deadlocks" title="20 Jun 2016">async exceptions, STM, and deadlocks</a>
+</li>
+<li class="list-group-item"><b>May 2016</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/05/weigh-package" title="27 May 2016">weigh: Measuring allocations in Haskell</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/05/moving-stackage-nightly-ghc-8" title="26 May 2016">Moving Stackage Nightly to GHC 8.0</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/05/store-package" title="24 May 2016">store: a new and efficient binary serialization library</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/05/stack-security-gnupg-keys" title=" 5 May 2016">Stack Security GnuPG Keys</a>
+</li>
+<li class="list-group-item"><b>April 2016</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/04/stackage-data-flow" title="14 Apr 2016">The Stackage data flow</a>
+</li>
+<li class="list-group-item"><b>March 2016</b>
+</li>
+<li class="list-group-item"><a href="../03/efficient-binary-serialization.html" title="14 Mar 2016">Efficient binary serialization</a>
+</li>
+<li class="list-group-item"><b>February 2016</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/02/testing-ghc-with-stackage" title="22 Feb 2016">Testing GHC with Stackage</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/02/updated-haskell-travis-config" title="17 Feb 2016">Updated Haskell Travis config</a>
+</li>
+<li class="list-group-item"><b>January 2016</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2016/01/soh-status" title=" 6 Jan 2016">Status of School of Haskell 2.0</a>
+</li>
+<li class="list-group-item"><b>December 2015</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/12/stack-travis" title="21 Dec 2015">Using Stack on Travis CI</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/12/docker-split-images" title="15 Dec 2015">The split-image approach to building minimal runtime Docker images</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/12/stack-with-ghc-7-10-3" title="11 Dec 2015">Using Stack with GHC 7.10.3</a>
+</li>
+<li class="list-group-item"><b>November 2015</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/11/kubernetes" title="19 Nov 2015">Kubernetes for Haskell Services</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/11/stack-stabilization" title=" 7 Nov 2015">Stack entering stabilization phase</a>
+</li>
+<li class="list-group-item"><b>October 2015</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/10/new-haskell-ide-repo" title="26 Oct 2015">The new haskell-ide repo</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/10/stackage-badges" title="19 Oct 2015">Stackage Badges</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/10/seeking-software-and-systems-engineers" title=" 7 Oct 2015">Seeking Software and Systems Engineers (Telecommute)</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/10/retiring-fphc" title=" 2 Oct 2015">Retiring FP Haskell Center</a>
+</li>
+<li class="list-group-item"><b>September 2015</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/09/stack-pvp" title="21 Sep 2015">stack and the PVP</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/09/stack-more-binary-package-sharing" title=" 1 Sep 2015">stack: more binary package sharing</a>
+</li>
+<li class="list-group-item"><b>August 2015</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/08/new-in-depth-guide-stack" title="31 Aug 2015">New in-depth guide to stack</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/08/stack-ghc-windows" title="24 Aug 2015">stack and GHC on Windows</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/08/stack-docker" title=" 5 Aug 2015">How stack can use Docker under the hood</a>
+</li>
+<li class="list-group-item"><b>July 2015</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/07/package-security-in-stack" title="20 Jul 2015">Package security in stack</a>
+</li>
+<li class="list-group-item"><b>June 2015</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/06/why-is-stack-not-cabal" title="24 Jun 2015">Why is stack not cabal?</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/06/stack-0-1-release" title="23 Jun 2015">stack 0.1 released</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/06/announcing-first-public-beta-stack" title=" 9 Jun 2015">ANNOUNCING: first public beta of stack</a>
+</li>
+<li class="list-group-item"><b>May 2015</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/05/thousand-user-haskell-survey" title="22 May 2015">What do Haskellers want? Over a thousand tell us</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/05/new-stackage-server" title="22 May 2015">The new Stackage Server</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/05/inline-c" title="20 May 2015">Call C functions from Haskell without bindings</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/05/psa-ghc-710-cabal-windows" title="19 May 2015">PSA: GHC 7.10, cabal, and Windows</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/05/distributing-packages-without-sysadmin" title="13 May 2015">Distributing our packages without a sysadmin</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/05/secure-package-distribution" title="11 May 2015">Secure package distribution: ready to roll</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/05/haskell-at-front-row" title=" 9 May 2015">Guest post: Haskell at Front Row</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/05/haskell-web-server-in-5mb" title=" 6 May 2015">Haskell Web Server in a 5MB Docker Image</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/05/school-of-haskell-2.0" title=" 4 May 2015">School of Haskell 2.0</a>
+</li>
+<li class="list-group-item"><b>April 2015</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/04/update-ghc-7-10-stackage" title="30 Apr 2015">Update on GHC 7.10 in Stackage</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/04/announcing-stackage-install" title="29 Apr 2015">Announcing: stackage-install</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/04/announcing-stackage-upload" title="28 Apr 2015">Announcing: stackage-upload</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/04/ghc-prof-flamegraph" title="27 Apr 2015">Flame graphs for GHC time profiles with ghc-prof-flamegraph</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/04/announcing-stackage-cli" title="20 Apr 2015">Announcing: first release of Stackage CLI (Command Line Tools)</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/04/future-of-soh-fphc" title="15 Apr 2015">The future of School of Haskell and FP Haskell Center</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/04/stackage-view" title="14 Apr 2015">Announcing: stackage-view</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/04/announcing-monad-unlift" title=" 8 Apr 2015">Announcing: monad-unlift</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/04/announcing-lts-2" title=" 2 Apr 2015">Announcing: LTS (Long Term Support) Haskell 2</a>
+</li>
+<li class="list-group-item"><b>March 2015</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/03/announce-ide-backend" title="30 Mar 2015">Announcing: open sourcing of ide-backend</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/03/minghc-ghc-7-10" title="27 Mar 2015">MinGHC for GHC 7.10</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/03/composable-community-infrastructure" title="26 Mar 2015">Our composable community infrastructure</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/03/hackage-mirror" title="25 Mar 2015">FP Complete&#39;s Hackage mirror</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/03/stackage-ghc-7-10" title="18 Mar 2015">Stackage and GHC 7.10 update</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/03/announcing-executable-hash" title="18 Mar 2015">Announcing executable-hash</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/03/upcoming-stackage-lts-2-0" title=" 9 Mar 2015">Upcoming Stackage LTS 2.0</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/03/hiring-systems-engineer" title=" 3 Mar 2015">Hiring: Systems Engineer</a>
+</li>
+<li class="list-group-item"><b>February 2015</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/02/primitive-haskell" title="17 Feb 2015">Primitive Haskell</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/02/Hiring-test-engineers" title=" 5 Feb 2015">FP Complete is Hiring Test Engineers</a>
+</li>
+<li class="list-group-item"><b>January 2015</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/01/commercial-haskell-sig" title="22 Jan 2015">Commercial Haskell Special Interest Group</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/01/fp-complete-software-pipeline" title="13 Jan 2015">FP Complete&#39;s software pipeline</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/01/hiring-software-engineer" title="13 Jan 2015">We&#39;re hiring: Software Engineer</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/01/announcing-mutable-containers-0-2" title=" 7 Jan 2015">Announcing: mutable-containers 0.2</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/01/fphc-release-3.2" title=" 6 Jan 2015">A New Release for the New Year: Announcing Release 3.2</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2015/01/announcing-lts-haskell-1-0" title=" 4 Jan 2015">Announcing LTS Haskell 1.0</a>
+</li>
+<li class="list-group-item"><b>December 2014</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/12/ghc-7-10-stackage-build" title="24 Dec 2014">GHC 7.10RC1 Stackage build results</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/12/stackage-survey-results" title="15 Dec 2014">Stackage: Survey results, easier usage, and LTS Haskell 0.X</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/12/dropping-ghc-74-support-fphc" title=" 8 Dec 2014">Dropping GHC 7.4 support in FP Haskell Center</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/12/backporting-bug-fixes" title=" 7 Dec 2014">Backporting bug fixes: Towards LTS Haskell</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/12/experimental-packages-stackage" title=" 1 Dec 2014">Experimental package releases via Stackage Server</a>
+</li>
+<li class="list-group-item"><b>November 2014</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/11/stackage-open-source" title="20 Nov 2014">Stackage server: new features and open source</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/11/seeking-haskell-dev-dist-hpc" title="13 Nov 2014">Seeking a Haskell developer for high performance, distributed computing</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/11/release-3.1" title=" 6 Nov 2014">3.1 release changes</a>
+</li>
+<li class="list-group-item"><b>October 2014</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/10/new-stackage-features" title="20 Oct 2014">New Stackage features</a>
+</li>
+<li class="list-group-item"><b>September 2014</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/09/hiring-haskell-web-ui-dev" title="11 Sep 2014">We&#39;re hiring: Haskell web UI developer</a>
+</li>
+<li class="list-group-item"><b>August 2014</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/08/conduit-stream-fusion" title="27 Aug 2014">IAP: conduit stream fusion</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/08/iap-speeding-up-conduit" title="21 Aug 2014">IAP: Speeding up conduit</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/08/announcing-stackage-server" title="14 Aug 2014">Announcing Stackage Server</a>
+</li>
+<li class="list-group-item"><b>July 2014</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/07/fphc-open-publish-announcement" title="31 Jul 2014">FP Haskell Center is Going Free</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/07/vectorbuilder-packed-conduit-yielding" title="30 Jul 2014">vectorBuilder: packed-representation yielding for conduit</a>
+</li>
+<li class="list-group-item"><b>May 2014</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/05/stackage-server" title="20 May 2014">Stackage Server</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/05/lenient-lower-bounds" title="12 May 2014">GHC 7.8, transformers 0.3, and lenient lower bounds</a>
+</li>
+<li class="list-group-item"><b>April 2014</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/04/heartbleed" title="14 Apr 2014">The heartbleed bug and FP Haskell Center</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/04/mvp" title=" 4 Apr 2014">Calculating the Minimum Variance Portfolio in R, Pandas and IAP</a>
+</li>
+<li class="list-group-item"><b>March 2014</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2014/03/monte-carlo-haskell" title="20 Mar 2014">Monte carlo analysis in Haskell</a>
+</li>
+<li class="list-group-item"><b>December 2013</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/12/api-emacs" title="18 Dec 2013">Emacs and our API</a>
+</li>
+<li class="list-group-item"><b>November 2013</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/11/call-for-entries" title="25 Nov 2013">Call For Entries</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/11/community-edition-announcement" title="18 Nov 2013">Announcing FP Haskell Center Community Edition and Feature Upgrades</a>
+</li>
+<li class="list-group-item"><b>September 2013</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/09/state-of-stackage" title="30 Sep 2013">The State of Stackage</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/09/august-competition-winners" title="17 Sep 2013">August Competition Winners</a>
+</li>
+<li class="list-group-item"><b>August 2013</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/08/webinar-announcement" title="28 Aug 2013">FP Haskell Center Launch Event</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/08/beta-discount-last-call" title="27 Aug 2013">4 Days Left to Get Beta User Discount</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/08/snap-happstack-anything-else" title=" 5 Aug 2013">Snap, Happstack and anything else</a>
+</li>
+<li class="list-group-item"><b>July 2013</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/07/academic-accounts" title="25 Jul 2013">FP Complete Announces Free Academic Accounts</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/07/beta-refresh-one" title="17 Jul 2013">FP Haskell Center Beta Refresh</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/07/ide-stackage" title="17 Jul 2013">IDE and Stackage</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/07/competition-announcement" title="16 Jul 2013">FP Complete Launches FP Haskell Competition with $1,000 Cash Prize Each Month</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/07/beta-activation-update" title=" 5 Jul 2013">FP Haskell Center Beta Sign-Up Still Open. Scheduled Activations Ongoing</a>
+</li>
+<li class="list-group-item"><b>June 2013</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/06/fp-haskell-center-beta-announcement" title="30 Jun 2013">FP Haskell Center Beta Released, and Beta Accounts Activated</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/06/fp-haskell-center-beta-demo" title="27 Jun 2013">FP Haskell Center Beta Demo</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/06/fp-haskell-center-video-blog" title="24 Jun 2013">FP Haskell Center Video Blog</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/06/beta-sign-up" title="17 Jun 2013">FP Haskell Center Beta Sign-Up</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/06/interim-web-site" title="17 Jun 2013">Interim Web Site</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/06/call-for-submissions" title=" 7 Jun 2013">FP Complete Launches Haskell in Real World Competition</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/06/haskell-from-c" title=" 2 Jun 2013">Haskell from C: Where are the for Loops?</a>
+</li>
+<li class="list-group-item"><b>March 2013</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/03/learning-through-koans" title="19 Mar 2013">Learning Haskell Through Koans</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/03/SoH-Goes-Public" title=" 4 Mar 2013">School of Haskell Goes Public</a>
+</li>
+<li class="list-group-item"><b>February 2013</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/02/announcing-case-studies" title="17 Feb 2013">Case studies of commercial Haskell use</a>
+</li>
+<li class="list-group-item"><b>January 2013</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/01/school-of-haskell-goes-beta" title="31 Jan 2013">School of Haskell Goes Beta</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/01/joining-fp-complete" title="21 Jan 2013">Joining FP Complete</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2013/01/why-im-investing-in-fp-complete" title=" 3 Jan 2013">Why I&#39;m investing in FP Complete</a>
+</li>
+<li class="list-group-item"><b>December 2012</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2012/12/solving_the_software_crisis" title="17 Dec 2012">Solving the Global Software Crisis</a>
+</li>
+<li class="list-group-item"><b>November 2012</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2012/11/designing-the-haskell-ide" title="19 Nov 2012">Designing the Haskell IDE</a>
+</li>
+<li class="list-group-item"><b>October 2012</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2012/10/yesod-tutorial-2-playing-with-routes-and-links" title="17 Oct 2012">Yesod Tutorial 2. Playing with Routes and Links</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2012/10/yesod-tutorial-1-my-first-web-site" title=" 1 Oct 2012">Yesod Tutorial 1. My First Web Site</a>
+</li>
+<li class="list-group-item"><b>September 2012</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2012/09/commercialuserneeds" title="27 Sep 2012">What do commercial users want from Haskell?</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2012/09/functional-patterns-in-c" title="24 Sep 2012">Functional Patterns in C++</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2012/09/ten-things-you-should-know-about-haskell-syntax" title=" 5 Sep 2012">Ten Things You Should Know About Haskell Syntax</a>
+</li>
+<li class="list-group-item"><b>August 2012</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2012/08/5-day-haskell-course" title="22 Aug 2012">5-Day Haskell Course</a>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2012/08/joining-forces-to-advance-haskell" title="13 Aug 2012">Joining forces to advance Haskell </a>
+</li>
+<li class="list-group-item"><b>July 2012</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2012/07/the-functor-pattern-in-c" title="16 Jul 2012">The Functor Pattern in C++</a>
+</li>
+<li class="list-group-item"><b>June 2012</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2012/06/asynchronous-api-in-c-and-the-continuation-monad" title="20 Jun 2012">Asynchronous API in C++ and the Continuation Monad</a>
+</li>
+<li class="list-group-item"><b>April 2012</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2012/04/the-downfall-of-imperative-programming" title=" 9 Apr 2012">The Downfall of Imperative Programming</a>
+</li>
+<li class="list-group-item"><b>March 2012</b>
+</li>
+<li class="list-group-item"><a href="https://www.fpcomplete.com/blog/2012/03/onamission" title=" 9 Mar 2012">It&#39;s time for Functional Programming</a>
+</li>
+</ul>
+</div>
+</div>
+<div class="row"><div class="col-md-12"><div id="disqus_thread"><script>var disqus_shortname = 'fpcomplete'; (function() { var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true; dsq.src = 'https://' + disqus_shortname + '.disqus.com/embed.js'; (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq); })();</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<a class="dsq-brlink" href="https://disqus.com/">comments powered by <span class="logo-disqus">Disqus</span></a></a>
+</div>
+</div>
+</div>
+</div>
+<div class="container"><div class="row"><div class="col-md-2"></div>
+<div class="col-md-8"><div id="social"><div class="twitter-share"><a class="twitter-share-button" href="https://twitter.com/share" data-show-count="false">Tweet</a>
+</div>
+<div class="reddit"><script type="text/javascript" src="http://www.redditstatic.com/button/button1.js"></script>
+</div>
+<div class="linkedin"><script src="http://platform.linkedin.com/in.js" type="text/javascript">lang: en_US</script>
+<script type="IN/Share" data-counter="right"></script>
+</div>
+<div class="googleplus"><script src="https://apis.google.com/js/platform.js" async defer></script>
+<g:plusone></g:plusone>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="container"><div class="row"><div class="col-md-12"><hr>
+<footer class="text-center">Copyright &copy; 2013-2016 FP Complete Corp. All rights reserved</footer>
+<ul class="nav navbar-nav"><li><a href="https://www.fpcomplete.com/pages">Sitemap</a>
+</li>
+<li><a href="https://www.fpcomplete.com/about-us">About Us</a>
+</li>
+<li><a href="https://www.fpcomplete.com/jobs">Jobs</a>
+</li>
+</ul>
+</div>
+</div>
+<div class="row"><div class="col-md-12"><div id="twitter"><div class="follow"><a class="twitter-follow-button" href="https://twitter.com/fpcomplete" data-show-count="false">Follow @fpcomplete</a>
+</div>
+<div class="mention"><a class="twitter-mention-button" href="https://twitter.com/intent/tweet?screen_name=fpcomplete" data-show-count="false">Tweet to @fpcomplete</a>
+<script async src="http://platform.twitter.com/widgets.js" charset="utf-8"></script>
+</div>
+</div>
+</div>
+</div>
+</div>
+<script src="https://code.jquery.com/jquery-3.1.1.slim.min.js"></script><script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script><script src="http://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.8.0/highlight.min.js"></script><script>hljs.initHighlightingOnLoad();</script><script>(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){(i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)})(window,document,'script','https://www.google-analytics.com/analytics.js','ga');ga('create', 'UA-36928035-3', 'auto');ga('send', 'pageview');</script></body>
+<!-- Mirrored from www.fpcomplete.com/blog/2016/11/devops-best-practices-multifaceted-testing by HTTrack Website Copier/3.x [XR&CO'2014], Fri, 30 Dec 2016 16:24:26 GMT -->
+</html>
