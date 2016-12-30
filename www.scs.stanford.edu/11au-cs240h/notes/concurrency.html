@@ -1,7 +1,7 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 
-<!-- Mirrored from www.scs.stanford.edu/11au-cs240h/notes/concurrency.html by HTTrack Website Copier/3.x [XR&CO'2014], Fri, 30 Dec 2016 15:38:03 GMT -->
+<!-- Mirrored from www.scs.stanford.edu/11au-cs240h/notes/concurrency.html by HTTrack Website Copier/3.x [XR&CO'2014], Fri, 30 Dec 2016 18:19:02 GMT -->
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
   <meta name="generator" content="pandoc" />
@@ -416,5 +416,5 @@ std dev: 912.0979 us, lb 731.0661 us, ub 1.226794 ms, ci 0.950
 <pre class="sourceCode"><code class="sourceCode haskell"><span class="ot">netcat </span><span class="ot">::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> ()<br />netcat host port <span class="fu">=</span> <span class="kw">do</span><br />  <span class="co">-- Extract address from first AddrInfo in list</span><br />  <span class="dt">AddrInfo</span>{addrAddress <span class="fu">=</span> addr}<span class="fu">:</span>_<br />      <span class="ot">&lt;-</span> getAddrInfo <span class="kw">Nothing</span> (<span class="kw">Just</span> host) (<span class="kw">Just</span> port)<br /><br />  <span class="co">-- Create a TCP socket connected to server</span><br />  s <span class="ot">&lt;-</span> socket <span class="dt">AF_INET</span> <span class="dt">Stream</span> <span class="dv">0</span><br />  connect s addr<br /><br />  <span class="co">-- Convert socket to handle</span><br />  h <span class="ot">&lt;-</span> socketToHandle s <span class="dt">ReadWriteMode</span><br />  hSetBuffering h <span class="dt">NoBuffering</span>  <span class="co">-- THIS IS IMPORTANT</span><br /><br />  <span class="co">-- Deal w. broken unicode</span><br />  hSetBinaryMode stdout <span class="kw">True</span><br /><br />  <span class="co">-- Copy data back and forth</span><br />  done <span class="ot">&lt;-</span> newEmptyMVar<br />  forkIO <span class="fu">$</span> (hGetContents h <span class="fu">&gt;&gt;=</span> <span class="fu">putStr</span>) <span class="ot">`finally`</span> putMVar done ()<br />  <span class="fu">getContents</span> <span class="fu">&gt;&gt;=</span> hPutStr h<br />  takeMVar done</code></pre>
 </body>
 
-<!-- Mirrored from www.scs.stanford.edu/11au-cs240h/notes/concurrency.html by HTTrack Website Copier/3.x [XR&CO'2014], Fri, 30 Dec 2016 15:38:03 GMT -->
+<!-- Mirrored from www.scs.stanford.edu/11au-cs240h/notes/concurrency.html by HTTrack Website Copier/3.x [XR&CO'2014], Fri, 30 Dec 2016 18:19:02 GMT -->
 </html>
