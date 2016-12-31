@@ -1,0 +1,243 @@
+<!DOCTYPE HTML><html>
+<!-- Mirrored from haskell-lang.org/library/async by HTTrack Website Copier/3.x [XR&CO'2014], Fri, 30 Dec 2016 20:18:41 GMT -->
+<head><title>Asynchronous and Concurrent Programming - async library</title><meta charset="utf-8"><meta content="IE edge" http-equiv="X-UA-Compatible"><meta content="width=device-width, initial-scale=1" name="viewport"><meta content="haskell,functional,pure,programming,lazy" name="keywords"><meta content="The Haskell purely functional programming language home page." name="description"><link href="https://haskell-lang.org/static/img/favicon.ico?etag=-4XQV6tt" rel="shortcut icon"><link href="https://fonts.googleapis.com/css?family=Open+Sans" type="text/css" rel="stylesheet"><link href="https://haskell-lang.org/static/css/bootstrap.min.css?etag=v2T_duyo" type="text/css" rel="stylesheet"><link href="https://haskell-lang.org/static/css/haskell.font.css?etag=KfGgGYw4" type="text/css" rel="stylesheet"><link href="https://haskell-lang.org/static/css/hscolour.css?etag=nWACVWsm" type="text/css" rel="stylesheet"><link href="https://haskell-lang.org/static/css/hl.css?etag=FaQ3KHjA" type="text/css" rel="stylesheet"><link href="https://haskell-lang.org/feed" title="Haskell Language News Feed" type="application/atom+xml" rel="alternate"></head><body class="page-libraries-async"><div class="wrap"><div class="template"><nav class="navbar navbar-default"><div class="container"><div class="navbar-header"><a href="https://haskell-lang.org/" class="navbar-brand"><span class="logo"></span>Haskell</a></div><div class="collapse navbar-collapse"><ul class="nav navbar-nav"><li><a href="https://haskell-lang.org/get-started">Get Started</a></li><li class="active"><a href="https://haskell-lang.org/libraries">Libraries</a></li><li class="active"><a href="https://haskell-lang.org/documentation">Documentation</a></li><li><a href="https://haskell-lang.org/community">Community</a></li></ul></div></div></nav><div class=" container "><ol class="breadcrumb"><li><a href="https://haskell-lang.org/documentation">Documentation</a></li><li><a href="https://haskell-lang.org/libraries">Libraries</a></li><li><a href="async.html">Tutorial: Asynchronous and Concurrent Programming - async library</a></li></ol></div><div class=" container "><div class=" row "><div class=" span12 col-md-12"><p><a href="https://github.com/haskell-lang/haskell-lang/blob/master/static/tutorial/package-async.md"><b>View and edit this tutorial on Github</b></a> | <a href="https://www.reddit.com/submit?url=https%3A%2F%2Fhaskell-lang.org%2Flibrary%2Fasync">Discuss on Reddit</a> | <a href="https://twitter.com/home?status=https%3A%2F%2Fhaskell-lang.org%2Flibrary%2Fasync">Tweet this</a></p><h1>Asynchronous and Concurrent Programming - async library</h1><p>The <a href="https://www.stackage.org/package/async">async package</a> provides
+functionality for performing actions asynchronously, across multiple threads.
+While it's built on top of the <code>forkIO</code> function from base (in
+<code>Control.Concurrent</code>), the async package improves on this in many ways:</p><ul><li>It has graceful and thorough handling of exceptions</li><li>It builds in a way to get results back from a child thread</li><li>There is an <code>STM</code> interface for accessing thread results, providing for a
+convenient way to deal with such things as blocking operations waiting for
+results</li><li>Thread cancelation is made easy and reliable</li><li>For some very common use cases, the <code>race</code> and <code>concurrently</code> functions, as
+well as the <code>Concurrently</code> newtype wrapper, can give you a huge bang for your
+buck.</li></ul><h2>Concepts</h2><p>There is little cognitive overhead to using this package. The primary datatype
+it exposes is <code>Async</code>. An <code>Async a</code> value represents a separate thread which
+will ultimately generate a value of type <code>a</code>. The package follows some pretty
+standard naming conventions:</p><ul><li><code>async*</code> forks a thread and returns an <code>Async</code> value</li><li><code>withAsync*</code> forks a thread and provides the <code>Async</code> value to the provided
+inner action. The forked thread is killed when the inner action exits.</li><li>You can <code>wait</code> for the result of an <code>Async</code>, <code>poll</code> to check if it's
+complete, or <code>cancel</code> it</li><li>By default, <code>wait</code>ing will rethrow any exceptions thrown by the forked
+thread. Use the variants that say <code>Catch</code> to catch the exceptions.</li><li>Many wait operations have <code>STM</code> variants to make them more easily composable</li></ul><h2>Concurrently</h2><p>To warm up, we'll start with examples of using <code>concurrently</code>, <code>race</code>, and the
+<code>Concurrently</code> newtype. These are simpler (and more efficient) variants of the
+more general <code>Async</code>-based interface. The general rule with this library is: if
+you can get away with <code>concurrently</code>/<code>race</code>/<code>Concurrently</code>, you should.</p><h3>Basics</h3><pre><span class="hs-cpp">#!/</span><span class="hs-varid">usr</span><span class="hs-varop">/</span><span class="hs-varid">bin</span><span class="hs-varop">/</span><span class="hs-varid">env</span> <span class="hs-varid">stack</span>
+<span class="hs-comment">-- stack --install-ghc --resolver lts-5.10 runghc --package async</span>
+<span class="hs-keyword">import</span> <span class="hs-conid">Control</span><span class="hs-varop">.</span><span class="hs-conid">Concurrent</span>
+<span class="hs-keyword">import</span> <span class="hs-conid">Control</span><span class="hs-varop">.</span><span class="hs-conid">Concurrent</span><span class="hs-varop">.</span><span class="hs-conid">Async</span>
+
+<span class="hs-definition">action1</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">IO</span> <span class="hs-conid">Int</span>
+<span class="hs-definition">action1</span> <span class="hs-keyglyph">=</span> <span class="hs-keyword">do</span>
+    <span class="hs-varid">threadDelay</span> <span class="hs-num">500000</span> <span class="hs-comment">-- just to make it interesting</span>
+    <span class="hs-varid">return</span> <span class="hs-num">5</span>
+
+<span class="hs-definition">action2</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">IO</span> <span class="hs-conid">String</span>
+<span class="hs-definition">action2</span> <span class="hs-keyglyph">=</span> <span class="hs-keyword">do</span>
+    <span class="hs-varid">threadDelay</span> <span class="hs-num">1000000</span>
+    <span class="hs-varid">return</span> <span class="hs-str">&quot;action2 result&quot;</span>
+
+<span class="hs-definition">main</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">IO</span> <span class="hs-conid">()</span>
+<span class="hs-definition">main</span> <span class="hs-keyglyph">=</span> <span class="hs-keyword">do</span>
+    <span class="hs-varid">res</span> <span class="hs-keyglyph">&lt;-</span> <span class="hs-varid">concurrently</span> <span class="hs-varid">action1</span> <span class="hs-varid">action2</span>
+    <span class="hs-varid">print</span> <span class="hs-layout">(</span><span class="hs-varid">res</span> <span class="hs-keyglyph">::</span> <span class="hs-layout">(</span><span class="hs-conid">Int</span><span class="hs-layout">,</span> <span class="hs-conid">String</span><span class="hs-layout">)</span><span class="hs-layout">)</span></pre><p>As you can see, the <code>concurrently</code> function waits until both operations
+complete, and then returns both results in a tuple. In contrast, the <code>race</code>
+function returns only the first one to complete:</p><pre><span class="hs-cpp">#!/</span><span class="hs-varid">usr</span><span class="hs-varop">/</span><span class="hs-varid">bin</span><span class="hs-varop">/</span><span class="hs-varid">env</span> <span class="hs-varid">stack</span>
+<span class="hs-comment">-- stack --install-ghc --resolver lts-5.10 runghc --package async</span>
+<span class="hs-keyword">import</span> <span class="hs-conid">Control</span><span class="hs-varop">.</span><span class="hs-conid">Concurrent</span>
+<span class="hs-keyword">import</span> <span class="hs-conid">Control</span><span class="hs-varop">.</span><span class="hs-conid">Concurrent</span><span class="hs-varop">.</span><span class="hs-conid">Async</span>
+
+<span class="hs-definition">action1</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">IO</span> <span class="hs-conid">Int</span>
+<span class="hs-definition">action1</span> <span class="hs-keyglyph">=</span> <span class="hs-keyword">do</span>
+    <span class="hs-varid">threadDelay</span> <span class="hs-num">500000</span> <span class="hs-comment">-- just to make it interesting</span>
+    <span class="hs-varid">return</span> <span class="hs-num">5</span>
+
+<span class="hs-definition">action2</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">IO</span> <span class="hs-conid">String</span>
+<span class="hs-definition">action2</span> <span class="hs-keyglyph">=</span> <span class="hs-keyword">do</span>
+    <span class="hs-varid">threadDelay</span> <span class="hs-num">1000000</span>
+    <span class="hs-varid">return</span> <span class="hs-str">&quot;action2 result&quot;</span>
+
+<span class="hs-definition">main</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">IO</span> <span class="hs-conid">()</span>
+<span class="hs-definition">main</span> <span class="hs-keyglyph">=</span> <span class="hs-keyword">do</span>
+    <span class="hs-varid">res</span> <span class="hs-keyglyph">&lt;-</span> <span class="hs-varid">race</span> <span class="hs-varid">action1</span> <span class="hs-varid">action2</span>
+    <span class="hs-varid">print</span> <span class="hs-layout">(</span><span class="hs-varid">res</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">Either</span> <span class="hs-conid">Int</span> <span class="hs-conid">String</span><span class="hs-layout">)</span></pre><p>Exercise: what will this program output?</p><p>The <code>Concurrently</code> newtype wrapper uses the <code>concurrently</code> function to
+implement its <code>Applicative</code> instance, and <code>race</code> to implement its <code>Alternative</code>
+instance. We can demonstrate that, though the code will be quite a bit more
+verbose:</p><pre><span class="hs-cpp">#!/</span><span class="hs-varid">usr</span><span class="hs-varop">/</span><span class="hs-varid">bin</span><span class="hs-varop">/</span><span class="hs-varid">env</span> <span class="hs-varid">stack</span>
+<span class="hs-comment">-- stack --install-ghc --resolver lts-5.10 runghc --package async</span>
+<span class="hs-keyword">import</span> <span class="hs-conid">Control</span><span class="hs-varop">.</span><span class="hs-conid">Applicative</span>
+<span class="hs-keyword">import</span> <span class="hs-conid">Control</span><span class="hs-varop">.</span><span class="hs-conid">Concurrent</span>
+<span class="hs-keyword">import</span> <span class="hs-conid">Control</span><span class="hs-varop">.</span><span class="hs-conid">Concurrent</span><span class="hs-varop">.</span><span class="hs-conid">Async</span>
+
+<span class="hs-definition">action1</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">IO</span> <span class="hs-conid">Int</span>
+<span class="hs-definition">action1</span> <span class="hs-keyglyph">=</span> <span class="hs-keyword">do</span>
+    <span class="hs-varid">threadDelay</span> <span class="hs-num">500000</span> <span class="hs-comment">-- just to make it interesting</span>
+    <span class="hs-varid">return</span> <span class="hs-num">5</span>
+
+<span class="hs-definition">action2</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">IO</span> <span class="hs-conid">String</span>
+<span class="hs-definition">action2</span> <span class="hs-keyglyph">=</span> <span class="hs-keyword">do</span>
+    <span class="hs-varid">threadDelay</span> <span class="hs-num">1000000</span>
+    <span class="hs-varid">return</span> <span class="hs-str">&quot;action2 result&quot;</span>
+
+<span class="hs-definition">main</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">IO</span> <span class="hs-conid">()</span>
+<span class="hs-definition">main</span> <span class="hs-keyglyph">=</span> <span class="hs-keyword">do</span>
+    <span class="hs-varid">res1</span> <span class="hs-keyglyph">&lt;-</span> <span class="hs-varid">runConcurrently</span> <span class="hs-varop">$</span> <span class="hs-conid">(,)</span>
+        <span class="hs-varop">&lt;$&gt;</span> <span class="hs-conid">Concurrently</span> <span class="hs-varid">action1</span>
+        <span class="hs-varop">&lt;*&gt;</span> <span class="hs-conid">Concurrently</span> <span class="hs-varid">action2</span>
+    <span class="hs-varid">print</span> <span class="hs-layout">(</span><span class="hs-varid">res1</span> <span class="hs-keyglyph">::</span> <span class="hs-layout">(</span><span class="hs-conid">Int</span><span class="hs-layout">,</span> <span class="hs-conid">String</span><span class="hs-layout">)</span><span class="hs-layout">)</span>
+
+    <span class="hs-varid">res2</span> <span class="hs-keyglyph">&lt;-</span> <span class="hs-varid">runConcurrently</span>
+          <span class="hs-varop">$</span> <span class="hs-layout">(</span><span class="hs-conid">Left</span> <span class="hs-varop">&lt;$&gt;</span> <span class="hs-conid">Concurrently</span> <span class="hs-varid">action1</span><span class="hs-layout">)</span>
+        <span class="hs-varop">&lt;|&gt;</span> <span class="hs-layout">(</span><span class="hs-conid">Right</span> <span class="hs-varop">&lt;$&gt;</span> <span class="hs-conid">Concurrently</span> <span class="hs-varid">action2</span><span class="hs-layout">)</span>
+    <span class="hs-varid">print</span> <span class="hs-layout">(</span><span class="hs-varid">res2</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">Either</span> <span class="hs-conid">Int</span> <span class="hs-conid">String</span><span class="hs-layout">)</span></pre><p>While this seems tedious for such an example, the <code>Concurrently</code> newtype can be
+great for larger scale cases, such as when we want to discard some results.</p><pre><span class="hs-cpp">#!/</span><span class="hs-varid">usr</span><span class="hs-varop">/</span><span class="hs-varid">bin</span><span class="hs-varop">/</span><span class="hs-varid">env</span> <span class="hs-varid">stack</span>
+<span class="hs-comment">-- stack --install-ghc --resolver lts-5.10 runghc --package async</span>
+<span class="hs-keyword">import</span> <span class="hs-conid">Control</span><span class="hs-varop">.</span><span class="hs-conid">Concurrent</span><span class="hs-varop">.</span><span class="hs-conid">Async</span>
+<span class="hs-keyword">import</span> <span class="hs-conid">Data</span><span class="hs-varop">.</span><span class="hs-conid">Foldable</span> <span class="hs-layout">(</span><span class="hs-varid">traverse_</span><span class="hs-layout">)</span>
+
+<span class="hs-keyword">type</span> <span class="hs-conid">Score</span> <span class="hs-keyglyph">=</span> <span class="hs-conid">Int</span>
+<span class="hs-keyword">data</span> <span class="hs-conid">Person</span> <span class="hs-keyglyph">=</span> <span class="hs-conid">Person</span> <span class="hs-conid">FilePath</span> <span class="hs-conid">Score</span>
+
+<span class="hs-definition">people</span> <span class="hs-keyglyph">::</span> <span class="hs-keyglyph">[</span><span class="hs-conid">Person</span><span class="hs-keyglyph">]</span>
+<span class="hs-definition">people</span> <span class="hs-keyglyph">=</span>
+    <span class="hs-keyglyph">[</span> <span class="hs-conid">Person</span> <span class="hs-str">&quot;alice.txt&quot;</span> <span class="hs-num">50</span>
+    <span class="hs-layout">,</span> <span class="hs-conid">Person</span> <span class="hs-str">&quot;bob.txt&quot;</span> <span class="hs-num">60</span>
+    <span class="hs-layout">,</span> <span class="hs-conid">Person</span> <span class="hs-str">&quot;charlie.txt&quot;</span> <span class="hs-num">70</span>
+    <span class="hs-keyglyph">]</span>
+
+<span class="hs-comment">-- | This function returns a unit value that we don't care about. Using</span>
+<span class="hs-comment">-- concurrently on two such actions would give us ((), ()).</span>
+<span class="hs-definition">writePerson</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">Person</span> <span class="hs-keyglyph">-&gt;</span> <span class="hs-conid">IO</span> <span class="hs-conid">()</span>
+<span class="hs-definition">writePerson</span> <span class="hs-layout">(</span><span class="hs-conid">Person</span> <span class="hs-varid">fp</span> <span class="hs-varid">score</span><span class="hs-layout">)</span> <span class="hs-keyglyph">=</span> <span class="hs-varid">writeFile</span> <span class="hs-varid">fp</span> <span class="hs-layout">(</span><span class="hs-varid">show</span> <span class="hs-varid">score</span><span class="hs-layout">)</span>
+
+<span class="hs-comment">-- | Let's write lots of people to their respective files in parallel, instead</span>
+<span class="hs-comment">-- of sequentially.</span>
+<span class="hs-definition">writePeople</span> <span class="hs-keyglyph">::</span> <span class="hs-keyglyph">[</span><span class="hs-conid">Person</span><span class="hs-keyglyph">]</span> <span class="hs-keyglyph">-&gt;</span> <span class="hs-conid">IO</span> <span class="hs-conid">()</span>
+<span class="hs-definition">writePeople</span> <span class="hs-keyglyph">=</span> <span class="hs-varid">runConcurrently</span> <span class="hs-varop">.</span> <span class="hs-varid">traverse_</span> <span class="hs-layout">(</span><span class="hs-conid">Concurrently</span> <span class="hs-varop">.</span> <span class="hs-varid">writePerson</span><span class="hs-layout">)</span>
+
+<span class="hs-comment">-- Note: traverse_ is just mapM_ for Applicative instead instead of Monad.</span>
+<span class="hs-comment">-- Remember, Concurrently is _not_ a Monad instance.</span>
+
+<span class="hs-definition">main</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">IO</span> <span class="hs-conid">()</span>
+<span class="hs-definition">main</span> <span class="hs-keyglyph">=</span> <span class="hs-varid">writePeople</span> <span class="hs-varid">people</span></pre><h3>Exceptions</h3><p>When either child thread throws an exception, that exception is thrown to the
+other thread:</p><pre><span class="hs-cpp">#!/</span><span class="hs-varid">usr</span><span class="hs-varop">/</span><span class="hs-varid">bin</span><span class="hs-varop">/</span><span class="hs-varid">env</span> <span class="hs-varid">stack</span>
+<span class="hs-comment">-- stack --install-ghc --resolver lts-5.10 runghc --package async</span>
+<span class="hs-keyword">import</span> <span class="hs-conid">Control</span><span class="hs-varop">.</span><span class="hs-conid">Concurrent</span>
+<span class="hs-keyword">import</span> <span class="hs-conid">Control</span><span class="hs-varop">.</span><span class="hs-conid">Concurrent</span><span class="hs-varop">.</span><span class="hs-conid">Async</span>
+<span class="hs-keyword">import</span> <span class="hs-conid">Control</span><span class="hs-varop">.</span><span class="hs-conid">Exception</span>
+
+<span class="hs-definition">action1</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">IO</span> <span class="hs-conid">Int</span>
+<span class="hs-definition">action1</span> <span class="hs-keyglyph">=</span> <span class="hs-varid">error</span> <span class="hs-str">&quot;action1 errored&quot;</span>
+
+<span class="hs-definition">action2</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">IO</span> <span class="hs-conid">String</span>
+<span class="hs-definition">action2</span> <span class="hs-keyglyph">=</span> <span class="hs-varid">handle</span> <span class="hs-varid">onErr</span> <span class="hs-varop">$</span> <span class="hs-keyword">do</span>
+    <span class="hs-varid">threadDelay</span> <span class="hs-num">500000</span>
+    <span class="hs-varid">return</span> <span class="hs-str">&quot;action2 completed&quot;</span>
+  <span class="hs-keyword">where</span>
+    <span class="hs-varid">onErr</span> <span class="hs-varid">e</span> <span class="hs-keyglyph">=</span> <span class="hs-keyword">do</span>
+        <span class="hs-varid">putStrLn</span> <span class="hs-varop">$</span> <span class="hs-str">&quot;action2 was killed by: &quot;</span> <span class="hs-varop">++</span> <span class="hs-varid">displayException</span> <span class="hs-varid">e</span>
+        <span class="hs-varid">throwIO</span> <span class="hs-layout">(</span><span class="hs-varid">e</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">SomeException</span><span class="hs-layout">)</span>
+
+<span class="hs-definition">main</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">IO</span> <span class="hs-conid">()</span>
+<span class="hs-definition">main</span> <span class="hs-keyglyph">=</span> <span class="hs-keyword">do</span>
+    <span class="hs-varid">res</span> <span class="hs-keyglyph">&lt;-</span> <span class="hs-varid">concurrently</span> <span class="hs-varid">action1</span> <span class="hs-varid">action2</span>
+    <span class="hs-varid">print</span> <span class="hs-varid">res</span></pre><p>You'll get some interleaving of output most likely since string-based I/O work
+character-by-character, but you should get the idea from running this.</p><p>Exercises:</p><ul><li>Use <code>Data.Text.IO</code> instead of string-based I/O to avoid the interleaved output</li><li>Replace <code>concurrently</code> with <code>race</code>. What result do you get?</li></ul><h3>Companion infinite threads</h3><p>There's a neat trick you can accomplish with <code>race</code> when you want a companion
+thread to continue running as long as the main thread is in operation:</p><pre><span class="hs-cpp">#!/</span><span class="hs-varid">usr</span><span class="hs-varop">/</span><span class="hs-varid">bin</span><span class="hs-varop">/</span><span class="hs-varid">env</span> <span class="hs-varid">stack</span>
+<span class="hs-comment">-- stack --install-ghc --resolver lts-5.10 runghc --package async</span>
+<span class="hs-keyword">import</span> <span class="hs-conid">Control</span><span class="hs-varop">.</span><span class="hs-conid">Concurrent</span>
+<span class="hs-keyword">import</span> <span class="hs-conid">Control</span><span class="hs-varop">.</span><span class="hs-conid">Concurrent</span><span class="hs-varop">.</span><span class="hs-conid">Async</span>
+<span class="hs-keyword">import</span> <span class="hs-conid">Control</span><span class="hs-varop">.</span><span class="hs-conid">Exception</span>
+
+<span class="hs-comment">-- | Print successive numbers to stdout. Notice how it returns @a@ instead of</span>
+<span class="hs-comment">-- @()@. This lets the type system know that, under normal circumstances, this</span>
+<span class="hs-comment">-- function will never exit.</span>
+<span class="hs-definition">counter</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">IO</span> <span class="hs-varid">a</span>
+<span class="hs-definition">counter</span> <span class="hs-keyglyph">=</span>
+    <span class="hs-keyword">let</span> <span class="hs-varid">loop</span> <span class="hs-varid">i</span> <span class="hs-keyglyph">=</span> <span class="hs-keyword">do</span>
+            <span class="hs-varid">putStrLn</span> <span class="hs-varop">$</span> <span class="hs-str">&quot;counter: &quot;</span> <span class="hs-varop">++</span> <span class="hs-varid">show</span> <span class="hs-varid">i</span>
+            <span class="hs-varid">threadDelay</span> <span class="hs-num">1000000</span>
+            <span class="hs-varid">loop</span> <span class="hs-varop">$!</span> <span class="hs-varid">i</span> <span class="hs-varop">+</span> <span class="hs-num">1</span>
+     <span class="hs-keyword">in</span> <span class="hs-varid">loop</span> <span class="hs-num">1</span>
+
+<span class="hs-comment">-- | This function will continue to run counter with whatever action you've</span>
+<span class="hs-comment">-- provided, and stop running counter once that action exits. If by some chance</span>
+<span class="hs-comment">-- counter throws an exception, it will take down your thread as well.</span>
+<span class="hs-definition">withCounter</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">IO</span> <span class="hs-varid">a</span> <span class="hs-keyglyph">-&gt;</span> <span class="hs-conid">IO</span> <span class="hs-varid">a</span>
+<span class="hs-definition">withCounter</span> <span class="hs-varid">inner</span> <span class="hs-keyglyph">=</span> <span class="hs-keyword">do</span>
+    <span class="hs-varid">res</span> <span class="hs-keyglyph">&lt;-</span> <span class="hs-varid">race</span> <span class="hs-varid">counter</span> <span class="hs-varid">inner</span>
+    <span class="hs-keyword">case</span> <span class="hs-varid">res</span> <span class="hs-keyword">of</span>
+        <span class="hs-conid">Left</span> <span class="hs-varid">x</span> <span class="hs-keyglyph">-&gt;</span> <span class="hs-varid">assert</span> <span class="hs-conid">False</span> <span class="hs-varid">x</span>
+        <span class="hs-conid">Right</span> <span class="hs-varid">x</span> <span class="hs-keyglyph">-&gt;</span> <span class="hs-varid">return</span> <span class="hs-varid">x</span>
+
+<span class="hs-comment">-- More succintly</span>
+<span class="hs-comment">-- withCounter = fmap (either id id) . race counter</span>
+
+<span class="hs-definition">main</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">IO</span> <span class="hs-conid">()</span>
+<span class="hs-definition">main</span> <span class="hs-keyglyph">=</span> <span class="hs-keyword">do</span>
+    <span class="hs-varid">putStrLn</span> <span class="hs-str">&quot;Before withCounter&quot;</span>
+    <span class="hs-varid">threadDelay</span> <span class="hs-num">2000000</span>
+    <span class="hs-varid">withCounter</span> <span class="hs-varop">$</span> <span class="hs-keyword">do</span>
+        <span class="hs-varid">threadDelay</span> <span class="hs-num">2000000</span>
+        <span class="hs-varid">putStrLn</span> <span class="hs-str">&quot;Inside withCounter&quot;</span>
+        <span class="hs-varid">threadDelay</span> <span class="hs-num">2000000</span>
+    <span class="hs-varid">threadDelay</span> <span class="hs-num">2000000</span>
+    <span class="hs-varid">putStrLn</span> <span class="hs-str">&quot;After withCounter&quot;</span>
+    <span class="hs-varid">threadDelay</span> <span class="hs-num">2000000</span>
+    <span class="hs-varid">putStrLn</span> <span class="hs-str">&quot;Exiting!&quot;</span></pre><p>Exercises:</p><ul><li>Why does the <code>assert False</code> never get triggered (aka, why does <code>race</code> never
+return a <code>Left</code> value)?</li><li>In the &quot;more succinct&quot; version of the code, how does the <code>either id id</code>
+accomplish the same job as the pattern matching?</li><li>Extra credit: could you replace one of the <code>id</code>s in <code>either id id</code> with
+<code>Data.Void.absurd</code>?</li></ul><p><b>Advanced</b> While it's nice to be able to run companion threads, it can be
+restricting to require that your main thread live in <code>IO</code>. Perhaps you want to
+have your main thread live in some monad transformer stack on top of <code>IO</code>
+instead. Using the powerful (and complex) monad-control package, we can capture
+the monadic state to make this work.</p><pre><span class="hs-cpp">#!/</span><span class="hs-varid">usr</span><span class="hs-varop">/</span><span class="hs-varid">bin</span><span class="hs-varop">/</span><span class="hs-varid">env</span> <span class="hs-varid">stack</span>
+<span class="hs-comment">-- stack --install-ghc --resolver lts-5.10 runghc --package async</span>
+<span class="hs-comment">{-# LANGUAGE FlexibleContexts #-}</span>
+<span class="hs-keyword">import</span> <span class="hs-conid">Control</span><span class="hs-varop">.</span><span class="hs-conid">Concurrent</span>
+<span class="hs-keyword">import</span> <span class="hs-conid">Control</span><span class="hs-varop">.</span><span class="hs-conid">Concurrent</span><span class="hs-varop">.</span><span class="hs-conid">Async</span>
+<span class="hs-keyword">import</span> <span class="hs-conid">Control</span><span class="hs-varop">.</span><span class="hs-conid">Exception</span>
+<span class="hs-keyword">import</span> <span class="hs-conid">Control</span><span class="hs-varop">.</span><span class="hs-conid">Monad</span><span class="hs-varop">.</span><span class="hs-conid">Reader</span>
+<span class="hs-keyword">import</span> <span class="hs-conid">Control</span><span class="hs-varop">.</span><span class="hs-conid">Monad</span><span class="hs-varop">.</span><span class="hs-conid">Trans</span><span class="hs-varop">.</span><span class="hs-conid">Control</span>
+
+<span class="hs-comment">-- | Print successive numbers to stdout. Notice how it returns @a@ instead of</span>
+<span class="hs-comment">-- @()@. This lets the type system know that, under normal circumstances, this</span>
+<span class="hs-comment">-- function will never exit.</span>
+<span class="hs-definition">counter</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">IO</span> <span class="hs-varid">a</span>
+<span class="hs-definition">counter</span> <span class="hs-keyglyph">=</span>
+    <span class="hs-keyword">let</span> <span class="hs-varid">loop</span> <span class="hs-varid">i</span> <span class="hs-keyglyph">=</span> <span class="hs-keyword">do</span>
+            <span class="hs-varid">putStrLn</span> <span class="hs-varop">$</span> <span class="hs-str">&quot;counter: &quot;</span> <span class="hs-varop">++</span> <span class="hs-varid">show</span> <span class="hs-varid">i</span>
+            <span class="hs-varid">threadDelay</span> <span class="hs-num">1000000</span>
+            <span class="hs-varid">loop</span> <span class="hs-varop">$!</span> <span class="hs-varid">i</span> <span class="hs-varop">+</span> <span class="hs-num">1</span>
+     <span class="hs-keyword">in</span> <span class="hs-varid">loop</span> <span class="hs-num">1</span>
+
+<span class="hs-comment">-- | This function will continue to run counter with whatever action you've</span>
+<span class="hs-comment">-- provided, and stop running counter once that action exits. If by some chance</span>
+<span class="hs-comment">-- counter throws an exception, it will take down your thread as well.</span>
+<span class="hs-definition">withCounter</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">MonadBaseControl</span> <span class="hs-conid">IO</span> <span class="hs-varid">m</span> <span class="hs-keyglyph">=&gt;</span> <span class="hs-varid">m</span> <span class="hs-varid">a</span> <span class="hs-keyglyph">-&gt;</span> <span class="hs-varid">m</span> <span class="hs-varid">a</span>
+<span class="hs-definition">withCounter</span> <span class="hs-varid">inner</span> <span class="hs-keyglyph">=</span> <span class="hs-varid">control</span> <span class="hs-varop">$</span> <span class="hs-keyglyph">\</span><span class="hs-varid">runInIO</span> <span class="hs-keyglyph">-&gt;</span> <span class="hs-keyword">do</span>
+    <span class="hs-varid">res</span> <span class="hs-keyglyph">&lt;-</span> <span class="hs-varid">race</span> <span class="hs-varid">counter</span> <span class="hs-layout">(</span><span class="hs-varid">runInIO</span> <span class="hs-varid">inner</span><span class="hs-layout">)</span>
+    <span class="hs-keyword">case</span> <span class="hs-varid">res</span> <span class="hs-keyword">of</span>
+        <span class="hs-conid">Left</span> <span class="hs-varid">x</span> <span class="hs-keyglyph">-&gt;</span> <span class="hs-varid">assert</span> <span class="hs-conid">False</span> <span class="hs-varid">x</span>
+        <span class="hs-conid">Right</span> <span class="hs-varid">x</span> <span class="hs-keyglyph">-&gt;</span> <span class="hs-varid">return</span> <span class="hs-varid">x</span>
+
+<span class="hs-comment">-- More succintly</span>
+<span class="hs-comment">-- withCounter = fmap (either id id) . race counter</span>
+
+<span class="hs-definition">main</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">IO</span> <span class="hs-conid">()</span>
+<span class="hs-definition">main</span> <span class="hs-keyglyph">=</span> <span class="hs-keyword">do</span>
+    <span class="hs-varid">putStrLn</span> <span class="hs-str">&quot;Before withCounter&quot;</span>
+    <span class="hs-varid">threadDelay</span> <span class="hs-num">2000000</span>
+    <span class="hs-varid">flip</span> <span class="hs-varid">runReaderT</span> <span class="hs-str">&quot;some string&quot;</span> <span class="hs-varop">$</span> <span class="hs-varid">withCounter</span> <span class="hs-varop">$</span> <span class="hs-keyword">do</span>
+        <span class="hs-varid">liftIO</span> <span class="hs-varop">$</span> <span class="hs-varid">threadDelay</span> <span class="hs-num">2000000</span>
+        <span class="hs-varid">str</span> <span class="hs-keyglyph">&lt;-</span> <span class="hs-varid">ask</span>
+        <span class="hs-varid">liftIO</span> <span class="hs-varop">$</span> <span class="hs-varid">putStrLn</span> <span class="hs-varop">$</span> <span class="hs-str">&quot;Inside withCounter, str == &quot;</span> <span class="hs-varop">++</span> <span class="hs-varid">str</span>
+        <span class="hs-varid">liftIO</span> <span class="hs-varop">$</span> <span class="hs-varid">threadDelay</span> <span class="hs-num">2000000</span>
+    <span class="hs-varid">threadDelay</span> <span class="hs-num">2000000</span>
+    <span class="hs-varid">putStrLn</span> <span class="hs-str">&quot;After withCounter&quot;</span>
+    <span class="hs-varid">threadDelay</span> <span class="hs-num">2000000</span>
+    <span class="hs-varid">putStrLn</span> <span class="hs-str">&quot;Exiting!&quot;</span></pre><h2>Async</h2><p><b>FIXME</b> Needs to be written</p></div></div></div></div></div><div class="footer"><div class="container"><p><span class="item">© 2014-2016 haskell-lang.org</span><span class="item footer-contribute pull-right">Got changes to contribute? <a href="https://github.com/haskell-lang/haskell-lang">Fork or comment on Github</a></span></p></div></div><script src="https://haskell-lang.org/static/js/jquery.js?etag=j8JeJ9Qn"></script><script src="https://haskell-lang.org/static/js/bootstrap.min.js?etag=SxgsLh7a"></script><script src="https://haskell-lang.org/static/js/home.js?etag=4qrdm8eK"></script><script>var _gaq = _gaq || [];
+_gaq.push(['_setAccount', 'UA-51440536-1']);
+_gaq.push(['_trackPageview']);
+(function() {
+ var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+ ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+ var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+})();
+</script></body>
+<!-- Mirrored from haskell-lang.org/library/async by HTTrack Website Copier/3.x [XR&CO'2014], Fri, 30 Dec 2016 20:18:41 GMT -->
+</html>

@@ -1,0 +1,386 @@
+<!DOCTYPE HTML><html>
+<!-- Mirrored from haskell-lang.org/library/vector by HTTrack Website Copier/3.x [XR&CO'2014], Fri, 30 Dec 2016 18:50:34 GMT -->
+<head><title>Efficient Packed-Memory Data Representations - vector library</title><meta charset="utf-8"><meta content="IE edge" http-equiv="X-UA-Compatible"><meta content="width=device-width, initial-scale=1" name="viewport"><meta content="haskell,functional,pure,programming,lazy" name="keywords"><meta content="The Haskell purely functional programming language home page." name="description"><link href="https://haskell-lang.org/static/img/favicon.ico?etag=-4XQV6tt" rel="shortcut icon"><link href="https://fonts.googleapis.com/css?family=Open+Sans" type="text/css" rel="stylesheet"><link href="https://haskell-lang.org/static/css/bootstrap.min.css?etag=v2T_duyo" type="text/css" rel="stylesheet"><link href="https://haskell-lang.org/static/css/haskell.font.css?etag=KfGgGYw4" type="text/css" rel="stylesheet"><link href="https://haskell-lang.org/static/css/hscolour.css?etag=nWACVWsm" type="text/css" rel="stylesheet"><link href="https://haskell-lang.org/static/css/hl.css?etag=FaQ3KHjA" type="text/css" rel="stylesheet"><link href="https://haskell-lang.org/feed" title="Haskell Language News Feed" type="application/atom+xml" rel="alternate"></head><body class="page-libraries-vector"><div class="wrap"><div class="template"><nav class="navbar navbar-default"><div class="container"><div class="navbar-header"><a href="https://haskell-lang.org/" class="navbar-brand"><span class="logo"></span>Haskell</a></div><div class="collapse navbar-collapse"><ul class="nav navbar-nav"><li><a href="https://haskell-lang.org/get-started">Get Started</a></li><li class="active"><a href="https://haskell-lang.org/libraries">Libraries</a></li><li class="active"><a href="https://haskell-lang.org/documentation">Documentation</a></li><li><a href="https://haskell-lang.org/community">Community</a></li></ul></div></div></nav><div class=" container "><ol class="breadcrumb"><li><a href="https://haskell-lang.org/documentation">Documentation</a></li><li><a href="https://haskell-lang.org/libraries">Libraries</a></li><li><a href="vector.html">Tutorial: Efficient Packed-Memory Data Representations - vector library</a></li></ol></div><div class=" container "><div class=" row "><div class=" span12 col-md-12"><p><a href="https://github.com/haskell-lang/haskell-lang/blob/master/static/tutorial/package-vector.md"><b>View and edit this tutorial on Github</b></a> | <a href="https://www.reddit.com/submit?url=https%3A%2F%2Fhaskell-lang.org%2Flibrary%2Fvector">Discuss on Reddit</a> | <a href="https://twitter.com/home?status=https%3A%2F%2Fhaskell-lang.org%2Flibrary%2Fvector">Tweet this</a></p><h1>Efficient Packed-Memory Data Representations - vector library</h1><p>The de facto standard package in the Haskell ecosystem for integer-indexed
+array data is the <a href="http://www.stackage.org/package/vector">vector package</a>.
+This corresponds at a high level to arrays in C, or the vector class in C++'s
+STL. However, the vector package offers quite a bit of functionality not
+familiar to those used to the options in imperative and mutable languages.</p><p>While the interface for vector is relatively straightforward, the abundance of
+different modules can be daunting. This article will start off with an overview
+of terminology to guide you, and then step through a number of concrete
+examples of using the package.</p><h2>Example</h2><p>Since we're about to jump into a few sections of descriptive text, let's kick
+this off with a concrete example to whet your appetite. We're going to count
+the frequency of different bytes that appear on standard input, and then
+display this content.</p><p>Note that this example is purposely written in a very generic form. We'll build
+up to handling this form throughout this article.</p><pre><span class="hs-comment">{-# LANGUAGE FlexibleContexts #-}</span>
+<span class="hs-keyword">import</span>           <span class="hs-conid">Control</span><span class="hs-varop">.</span><span class="hs-conid">Monad</span><span class="hs-varop">.</span><span class="hs-conid">Primitive</span>     <span class="hs-layout">(</span><span class="hs-conid">PrimMonad</span><span class="hs-layout">,</span> <span class="hs-conid">PrimState</span><span class="hs-layout">)</span>
+<span class="hs-keyword">import</span> <span class="hs-keyword">qualified</span> <span class="hs-conid">Data</span><span class="hs-varop">.</span><span class="hs-conid">ByteString</span><span class="hs-varop">.</span><span class="hs-conid">Lazy</span>        <span class="hs-keyword">as</span> <span class="hs-conid">L</span>
+<span class="hs-keyword">import</span> <span class="hs-keyword">qualified</span> <span class="hs-conid">Data</span><span class="hs-varop">.</span><span class="hs-conid">Vector</span><span class="hs-varop">.</span><span class="hs-conid">Generic</span><span class="hs-varop">.</span><span class="hs-conid">Mutable</span> <span class="hs-keyword">as</span> <span class="hs-conid">M</span>
+<span class="hs-keyword">import</span> <span class="hs-keyword">qualified</span> <span class="hs-conid">Data</span><span class="hs-varop">.</span><span class="hs-conid">Vector</span><span class="hs-varop">.</span><span class="hs-conid">Unboxed</span>         <span class="hs-keyword">as</span> <span class="hs-conid">U</span>
+<span class="hs-keyword">import</span>           <span class="hs-conid">Data</span><span class="hs-varop">.</span><span class="hs-conid">Word</span>                   <span class="hs-layout">(</span><span class="hs-conid">Word8</span><span class="hs-layout">)</span>
+
+<span class="hs-definition">main</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">IO</span> <span class="hs-conid">()</span>
+<span class="hs-definition">main</span> <span class="hs-keyglyph">=</span> <span class="hs-keyword">do</span>
+    <span class="hs-comment">-- Get all of the contents from stdin</span>
+    <span class="hs-varid">lbs</span> <span class="hs-keyglyph">&lt;-</span> <span class="hs-conid">L</span><span class="hs-varop">.</span><span class="hs-varid">getContents</span>
+
+    <span class="hs-comment">-- Create a new 256-size mutable vector</span>
+    <span class="hs-comment">-- Fill the vector with zeros</span>
+    <span class="hs-varid">mutable</span> <span class="hs-keyglyph">&lt;-</span> <span class="hs-conid">M</span><span class="hs-varop">.</span><span class="hs-varid">replicate</span> <span class="hs-num">256</span> <span class="hs-num">0</span>
+
+    <span class="hs-comment">-- Add all of the bytes from stdin</span>
+    <span class="hs-varid">addBytes</span> <span class="hs-varid">mutable</span> <span class="hs-varid">lbs</span>
+
+    <span class="hs-comment">-- Freeze to get an immutable version</span>
+    <span class="hs-varid">vector</span> <span class="hs-keyglyph">&lt;-</span> <span class="hs-conid">U</span><span class="hs-varop">.</span><span class="hs-varid">unsafeFreeze</span> <span class="hs-varid">mutable</span>
+
+    <span class="hs-comment">-- Print the frequency of each byte</span>
+    <span class="hs-comment">-- In newer vectors: we can use imapM_</span>
+    <span class="hs-conid">U</span><span class="hs-varop">.</span><span class="hs-varid">zipWithM_</span> <span class="hs-varid">printFreq</span> <span class="hs-layout">(</span><span class="hs-conid">U</span><span class="hs-varop">.</span><span class="hs-varid">enumFromTo</span> <span class="hs-num">0</span> <span class="hs-num">255</span><span class="hs-layout">)</span> <span class="hs-varid">vector</span>
+
+<span class="hs-definition">addBytes</span> <span class="hs-keyglyph">::</span> <span class="hs-layout">(</span><span class="hs-conid">PrimMonad</span> <span class="hs-varid">m</span><span class="hs-layout">,</span> <span class="hs-conid">M</span><span class="hs-varop">.</span><span class="hs-conid">MVector</span> <span class="hs-varid">v</span> <span class="hs-conid">Int</span><span class="hs-layout">)</span>
+         <span class="hs-keyglyph">=&gt;</span> <span class="hs-varid">v</span> <span class="hs-layout">(</span><span class="hs-conid">PrimState</span> <span class="hs-varid">m</span><span class="hs-layout">)</span> <span class="hs-conid">Int</span>
+         <span class="hs-keyglyph">-&gt;</span> <span class="hs-conid">L</span><span class="hs-varop">.</span><span class="hs-conid">ByteString</span>
+         <span class="hs-keyglyph">-&gt;</span> <span class="hs-varid">m</span> <span class="hs-conid">()</span>
+<span class="hs-definition">addBytes</span> <span class="hs-varid">v</span> <span class="hs-varid">lbs</span> <span class="hs-keyglyph">=</span> <span class="hs-varid">mapM_</span> <span class="hs-layout">(</span><span class="hs-varid">addByte</span> <span class="hs-varid">v</span><span class="hs-layout">)</span> <span class="hs-layout">(</span><span class="hs-conid">L</span><span class="hs-varop">.</span><span class="hs-varid">unpack</span> <span class="hs-varid">lbs</span><span class="hs-layout">)</span>
+
+<span class="hs-definition">addByte</span> <span class="hs-keyglyph">::</span> <span class="hs-layout">(</span><span class="hs-conid">PrimMonad</span> <span class="hs-varid">m</span><span class="hs-layout">,</span> <span class="hs-conid">M</span><span class="hs-varop">.</span><span class="hs-conid">MVector</span> <span class="hs-varid">v</span> <span class="hs-conid">Int</span><span class="hs-layout">)</span>
+        <span class="hs-keyglyph">=&gt;</span> <span class="hs-varid">v</span> <span class="hs-layout">(</span><span class="hs-conid">PrimState</span> <span class="hs-varid">m</span><span class="hs-layout">)</span> <span class="hs-conid">Int</span>
+        <span class="hs-keyglyph">-&gt;</span> <span class="hs-conid">Word8</span>
+        <span class="hs-keyglyph">-&gt;</span> <span class="hs-varid">m</span> <span class="hs-conid">()</span>
+<span class="hs-definition">addByte</span> <span class="hs-varid">v</span> <span class="hs-varid">w</span> <span class="hs-keyglyph">=</span> <span class="hs-keyword">do</span>
+    <span class="hs-comment">-- Read out the old count value</span>
+    <span class="hs-varid">oldCount</span> <span class="hs-keyglyph">&lt;-</span> <span class="hs-conid">M</span><span class="hs-varop">.</span><span class="hs-varid">read</span> <span class="hs-varid">v</span> <span class="hs-varid">index</span>
+    <span class="hs-comment">-- Write back the updated count value</span>
+    <span class="hs-conid">M</span><span class="hs-varop">.</span><span class="hs-varid">write</span> <span class="hs-varid">v</span> <span class="hs-varid">index</span> <span class="hs-layout">(</span><span class="hs-varid">oldCount</span> <span class="hs-varop">+</span> <span class="hs-num">1</span><span class="hs-layout">)</span>
+  <span class="hs-keyword">where</span>
+    <span class="hs-comment">-- Indices in vectors are always Ints. Our bytes come in as Word8, so we</span>
+    <span class="hs-comment">-- need to convert them.</span>
+    <span class="hs-varid">index</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">Int</span>
+    <span class="hs-varid">index</span> <span class="hs-keyglyph">=</span> <span class="hs-varid">fromIntegral</span> <span class="hs-varid">w</span>
+
+<span class="hs-definition">printFreq</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">Int</span> <span class="hs-keyglyph">-&gt;</span> <span class="hs-conid">Int</span> <span class="hs-keyglyph">-&gt;</span> <span class="hs-conid">IO</span> <span class="hs-conid">()</span>
+<span class="hs-definition">printFreq</span> <span class="hs-varid">index</span> <span class="hs-varid">count</span> <span class="hs-keyglyph">=</span> <span class="hs-varid">putStrLn</span> <span class="hs-varop">$</span> <span class="hs-varid">concat</span>
+    <span class="hs-keyglyph">[</span> <span class="hs-str">&quot;Frequency of byte &quot;</span>
+    <span class="hs-layout">,</span> <span class="hs-varid">show</span> <span class="hs-varid">index</span>
+    <span class="hs-layout">,</span> <span class="hs-str">&quot;: &quot;</span>
+    <span class="hs-layout">,</span> <span class="hs-varid">show</span> <span class="hs-varid">count</span>
+    <span class="hs-keyglyph">]</span></pre><h2>Terminology</h2><p>There are two different varieties of vectors: immutable and mutable. Immutable
+vectors (such as provided by the <code>Data.Vector</code> module) are essentially
+swappable with normal lists in Haskell, though with drastically different
+performance characteristics (discussed below). The high-level API is similar to
+lists, it implements common typeclasses like <code>Functor</code> and <code>Foldable</code>, and
+plays quite nicely with parallel code.</p><p>By contrast, mutable vectors are much closer to C-style arrays. Operations
+working on these values must live in the <code>IO</code> or <code>ST</code> monads (see <code>PrimMonad</code>
+below for more details). Concurrent access from multiple threads has all of the
+normal concerns of shared mutable state. And perhaps most importantly for
+usage: mutable vectors can be <i>much</i> more efficient for certain use cases.</p><p>However, that's not the only dimension of choice you get in the vector package.
+vector itself defines three flavors: boxed
+(<code>Data.Vector</code>/<code>Data.Vector.Mutable</code>), storable (<code>Data.Vector.Storable</code> and
+<code>Data.Vector.Storable.Mutable</code>), and unboxed (<code>Data.Vector.Unboxed</code> and
+<code>Data.Vector.Unboxed.Mutable</code>). (There's also technically primitive vectors,
+but in practice you should always prefer unboxed vectors; see the module
+documentation for more information on the distinction here.)</p><p>And our final point: in addition to having these three flavors, the vector
+package provides a typeclass-based interface which allows you to write code
+that works in any of these three (plus other vector types that may be defined
+in other packages, like
+<a href="http://www.stackage.org/package/hybrid-vectors">hybrid-vectors</a>). These
+interfaces are in <code>Data.Vector.Generic</code> and <code>Data.Vector.Generic.Mutable</code>. When
+using these interfaces, you must still eventually choose a concrete
+representation, but your helper code can be agnostic to what it is.</p><p>What's nice is that - with small differences - all four mutable modules have
+the same interface, and all four immutable modules have the same interface.
+This means you can focus on learning one type of vector, and almost for free
+have that knowledge apply to other types as well. It then just becomes a
+question of choosing the representation that best fits your use case, which
+we'll get to shortly.</p><h2>Efficiency</h2><p>Standard lists in Haskell are immutable, singly-linked lists. Every time you
+add another value to the front of the list, it has to allocate another heap
+object for that cell, create a pointer to the head of the original list, and
+create a pointer to the value in the current cell. This takes up a lot of
+memory for holding pointers, and makes it inefficient to index or traverse the
+list (indexing to position N requires N pointer dereferences).</p><p>In contrast, vectors are stored in a contiguous set of memory locations, meaning random access
+is a constant time operation, and the memory overhead per additional item in the vector
+is much smaller (depending on the type of vector, which we'll cover in a
+moment). However, compared to lists, prepending an item to a vector is
+relatively expensive: it requires creating a new buffer in memory, copying the
+old values, and then adding the new value.</p><p>There are other data structures that can be considered for list-like data, such
+as <code>Seq</code> from containers, or in some cases a <code>Set</code>, <code>IntMap</code>, or <code>Map</code>.
+Figuring out the best choice for each use case can only be reliably determined
+via profiling and benchmarking. As a general rule though, a densely populated
+collection requiring integral or random access to the values will be best served by
+a vector.</p><p>Now let's talk about some of the other things that make vector so efficient.</p><h3>Boxed, storable and unboxed</h3><p>Boxed vectors hold normal Haskell values. These can be <i>any</i> values at all, and
+are stored on the heap with pointers kept in the vector. The advantage is that
+this works for all datatypes, but the extra memory overhead for the pointers
+and the indirection of needing to dereference those pointers makes them
+(relative to the next two types) inefficient.</p><p>Storable and unboxed vectors both store their data in a byte array, avoiding
+pointer indirection. This is more memory efficient and allows better usage of
+caches. The distinction between storable and unboxed vectors is subtle:</p><ul><li>Storable vectors require data which is an instance of the <a href="http://haddock.stackage.org/lts-3.11/base-4.8.1.0/Foreign-Storable.html#t:Storable"><code>Storable</code> type
+class</a>.
+This data is stored in <code>malloc</code>ed memory, which is <i>pinned</i> (the garbage
+collector can't move it around). This can lead to memory fragmentation, but
+allows the data to be shared over the C FFI.</li><li>Unboxed vectors require data which is an instance of the <a href="http://haddock.stackage.org/lts-3.11/primitive-0.6.1.0/Data-Primitive-Types.html"><code>Prim</code> type
+class</a>.
+This data is stored in GC-managed <i>unpinned</i> memory, which helps avoid memory
+fragmentation. However, this data cannot be shared over the C FFI.</li></ul><p>Both the <code>Storable</code> and <code>Prim</code> typeclasses provide a way to store a value as
+bytes, and to load bytes into a value. The distinction is what type of
+bytearray is used.</p><p>As usual, the only true measure of performance will be benchmarking. However,
+as a general guideline:</p><ul><li>If you don't need to pass values to a C FFI, and you have a <code>Prim</code> instance,
+use unboxed vectors.</li><li>If you have a <code>Storable</code> instance, use a storable vector.</li><li>Otherwise, use a boxed vector.</li></ul><p>There are also other issues to consider, such as the fact that boxed vectors
+are instances of <code>Functor</code> while storable and unboxed vectors are not.</p><h3>Stream fusion</h3><p>Take a guess how much memory the following program will take to run:</p><pre><span class="hs-keyword">import</span> <span class="hs-keyword">qualified</span> <span class="hs-conid">Data</span><span class="hs-varop">.</span><span class="hs-conid">Vector</span><span class="hs-varop">.</span><span class="hs-conid">Unboxed</span> <span class="hs-keyword">as</span> <span class="hs-conid">V</span>
+
+<span class="hs-definition">main</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">IO</span> <span class="hs-conid">()</span>
+<span class="hs-definition">main</span> <span class="hs-keyglyph">=</span> <span class="hs-varid">print</span> <span class="hs-varop">$</span> <span class="hs-conid">V</span><span class="hs-varop">.</span><span class="hs-varid">sum</span> <span class="hs-varop">$</span> <span class="hs-conid">V</span><span class="hs-varop">.</span><span class="hs-varid">enumFromTo</span> <span class="hs-num">1</span> <span class="hs-layout">(</span><span class="hs-num">10</span><span class="hs-varop">^</span><span class="hs-num">9</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">Int</span><span class="hs-layout">)</span></pre><p>A valid guess may be <code>10^9 * sizeof int</code> bytes. However, when compiled with
+optimizations (<code>-O2</code>) on my system, it allocates a total of only 52kb! How it
+is possible to create a one billion integer array without using up 4-8GB of
+memory?</p><p>The vector package has a powerful technique: stream fusion. Using GHC rewrite
+rules, it's able to find many cases where creating a vector is unnecessary, and
+instead create a tight inner loop. In our case, GHC will end up generating code
+that can avoid touching system memory, and instead work on just the <a href="../../en.wikipedia.org/wiki/Processor_register.html">registers</a>,
+yielding not only a tiny memory footprint, but performance close to a for-loop
+in C. This is one of the beauties of this library: you can write high-level
+code, and optimizations can churn out something much more CPU-friendly.</p><h3>Slicing</h3><p>Above we discussed the problem of appending values to the front of a vector.
+However, one place where vector shines is with <i>slicing</i>, or taking a subset of
+the vector. When dealing with immutable vectors, slicing is a safe operation,
+with slices being sharable with multiple threads. Slicing also works with
+mutable vectors, but as usual you need to be a bit more careful.</p><h2>Replacing lists</h2><p>Enough talk! Let's start using vector. Assuming you're familiar with the list
+API, this should look rather boring.</p><pre><span class="hs-keyword">import</span> <span class="hs-keyword">qualified</span> <span class="hs-conid">Data</span><span class="hs-varop">.</span><span class="hs-conid">Vector</span> <span class="hs-keyword">as</span> <span class="hs-conid">V</span>
+
+<span class="hs-definition">main</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">IO</span> <span class="hs-conid">()</span>
+<span class="hs-definition">main</span> <span class="hs-keyglyph">=</span> <span class="hs-keyword">do</span>
+    <span class="hs-keyword">let</span> <span class="hs-varid">list</span> <span class="hs-keyglyph">=</span> <span class="hs-keyglyph">[</span><span class="hs-num">1</span><span class="hs-keyglyph">..</span><span class="hs-num">10</span><span class="hs-keyglyph">]</span> <span class="hs-keyglyph">::</span> <span class="hs-keyglyph">[</span><span class="hs-conid">Int</span><span class="hs-keyglyph">]</span>
+        <span class="hs-varid">vector</span> <span class="hs-keyglyph">=</span> <span class="hs-conid">V</span><span class="hs-varop">.</span><span class="hs-varid">fromList</span> <span class="hs-varid">list</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">V</span><span class="hs-varop">.</span><span class="hs-conid">Vector</span> <span class="hs-conid">Int</span>
+        <span class="hs-varid">vector2</span> <span class="hs-keyglyph">=</span> <span class="hs-conid">V</span><span class="hs-varop">.</span><span class="hs-varid">enumFromTo</span> <span class="hs-num">1</span> <span class="hs-num">10</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">V</span><span class="hs-varop">.</span><span class="hs-conid">Vector</span> <span class="hs-conid">Int</span>
+    <span class="hs-varid">print</span> <span class="hs-varop">$</span> <span class="hs-varid">vector</span> <span class="hs-varop">==</span> <span class="hs-varid">vector2</span> <span class="hs-comment">-- True</span>
+    <span class="hs-varid">print</span> <span class="hs-varop">$</span> <span class="hs-varid">list</span> <span class="hs-varop">==</span> <span class="hs-conid">V</span><span class="hs-varop">.</span><span class="hs-varid">toList</span> <span class="hs-varid">vector</span> <span class="hs-comment">-- also True</span>
+    <span class="hs-varid">print</span> <span class="hs-varop">$</span> <span class="hs-conid">V</span><span class="hs-varop">.</span><span class="hs-varid">filter</span> <span class="hs-varid">odd</span> <span class="hs-varid">vector</span> <span class="hs-comment">-- 1,3,5,7,9</span>
+    <span class="hs-varid">print</span> <span class="hs-varop">$</span> <span class="hs-conid">V</span><span class="hs-varop">.</span><span class="hs-varid">map</span> <span class="hs-layout">(</span><span class="hs-varop">*</span> <span class="hs-num">2</span><span class="hs-layout">)</span> <span class="hs-varid">vector</span> <span class="hs-comment">-- 2,4,6,...,20</span>
+    <span class="hs-varid">print</span> <span class="hs-varop">$</span> <span class="hs-conid">V</span><span class="hs-varop">.</span><span class="hs-varid">zip</span> <span class="hs-varid">vector</span> <span class="hs-varid">vector</span> <span class="hs-comment">-- (1,1),(2,2),...(10,10)</span>
+    <span class="hs-varid">print</span> <span class="hs-varop">$</span> <span class="hs-conid">V</span><span class="hs-varop">.</span><span class="hs-varid">zipWith</span> <span class="hs-layout">(</span><span class="hs-varop">*</span><span class="hs-layout">)</span> <span class="hs-varid">vector</span> <span class="hs-varid">vector</span> <span class="hs-comment">-- (1,4,9,16,...,100)</span>
+    <span class="hs-varid">print</span> <span class="hs-varop">$</span> <span class="hs-conid">V</span><span class="hs-varop">.</span><span class="hs-varid">reverse</span> <span class="hs-varid">vector</span> <span class="hs-comment">-- 10,9,...,1</span>
+    <span class="hs-varid">print</span> <span class="hs-varop">$</span> <span class="hs-conid">V</span><span class="hs-varop">.</span><span class="hs-varid">takeWhile</span> <span class="hs-layout">(</span><span class="hs-varop">&lt;</span> <span class="hs-num">6</span><span class="hs-layout">)</span> <span class="hs-varid">vector</span> <span class="hs-comment">-- 1,2,3,4,5</span>
+    <span class="hs-varid">print</span> <span class="hs-varop">$</span> <span class="hs-conid">V</span><span class="hs-varop">.</span><span class="hs-varid">takeWhile</span> <span class="hs-varid">odd</span> <span class="hs-varid">vector</span> <span class="hs-comment">-- 1</span>
+    <span class="hs-varid">print</span> <span class="hs-varop">$</span> <span class="hs-conid">V</span><span class="hs-varop">.</span><span class="hs-varid">takeWhile</span> <span class="hs-varid">even</span> <span class="hs-varid">vector</span> <span class="hs-comment">-- []</span>
+    <span class="hs-varid">print</span> <span class="hs-varop">$</span> <span class="hs-conid">V</span><span class="hs-varop">.</span><span class="hs-varid">dropWhile</span> <span class="hs-layout">(</span><span class="hs-varop">&lt;</span> <span class="hs-num">6</span><span class="hs-layout">)</span> <span class="hs-varid">vector</span> <span class="hs-comment">-- 6,7,8,9,10</span>
+    <span class="hs-varid">print</span> <span class="hs-varop">$</span> <span class="hs-conid">V</span><span class="hs-varop">.</span><span class="hs-varid">head</span> <span class="hs-varid">vector</span> <span class="hs-comment">-- 1</span>
+    <span class="hs-varid">print</span> <span class="hs-varop">$</span> <span class="hs-conid">V</span><span class="hs-varop">.</span><span class="hs-varid">tail</span> <span class="hs-varid">vector</span> <span class="hs-comment">-- 2,3,4,...,10</span>
+    <span class="hs-varid">print</span> <span class="hs-varop">$</span> <span class="hs-conid">V</span><span class="hs-varop">.</span><span class="hs-varid">head</span> <span class="hs-varop">$</span> <span class="hs-conid">V</span><span class="hs-varop">.</span><span class="hs-varid">takeWhile</span> <span class="hs-varid">even</span> <span class="hs-varid">vector</span> <span class="hs-comment">-- exception!</span></pre><p>Hopefully there's nothing too surprising about this. Most <code>Prelude</code> functions
+that apply to lists have a corresponding vector function. If you know what a
+function does in <code>Prelude</code>, you probably know what it does in <code>Data.Vector</code>.
+This is the simplest usage of the vector package: import <code>Data.Vector</code>
+qualified, convert to/from lists with <code>V.fromList</code> and <code>V.toList</code>, and then
+prefix your function calls with <code>V.</code>.</p><ul><li><p>Exercise 1: Try out some other functions available in the <a href="http://haddock.stackage.org/lts-3.11/vector-0.10.12.3/Data-Vector.html"><code>Data.Vector</code>
+module</a>.
+In particular, try some of the fold functions, which we haven't covered here.</p></li><li><p>Exercise 2: Try using the <code>Functor</code>, <code>Foldable</code>, and <code>Traversable</code> versions of
+functions with a vector</p></li><li><p>Exercise 3: Use an unboxed (or storable) vector instead of the boxed vectors
+we were using above. What code did you have to change from the original
+example?  Do all of your examples from exercise 2 still work?</p></li></ul><p>There are also a number of functions in the <code>Data.Vector</code> module with no
+corresponding function in <code>Prelude</code>. Many of these are related to mutable
+vectors (which we'll cover shortly). Others are present to provide more
+efficient means of manipulating a vector, based on their special in-memory
+representation.</p><h2>Mutable vectors</h2><p>I want to test how fair the <code>System.Random</code> number generator is at generating
+numbers between 0 and 9, inclusive. I want to generate 1,000,000 random values,
+count the frequency of each result, and then print how often each value
+appeared. Let's first implement this using immutable vectors:</p><pre><span class="hs-keyword">import</span>           <span class="hs-conid">Data</span><span class="hs-varop">.</span><span class="hs-conid">Vector</span><span class="hs-varop">.</span><span class="hs-conid">Unboxed</span> <span class="hs-layout">(</span><span class="hs-layout">(</span><span class="hs-varop">!</span><span class="hs-layout">)</span><span class="hs-layout">,</span> <span class="hs-layout">(</span><span class="hs-varop">//</span><span class="hs-layout">)</span><span class="hs-layout">)</span>
+<span class="hs-keyword">import</span> <span class="hs-keyword">qualified</span> <span class="hs-conid">Data</span><span class="hs-varop">.</span><span class="hs-conid">Vector</span><span class="hs-varop">.</span><span class="hs-conid">Unboxed</span> <span class="hs-keyword">as</span> <span class="hs-conid">V</span>
+<span class="hs-keyword">import</span>           <span class="hs-conid">System</span><span class="hs-varop">.</span><span class="hs-conid">Random</span>       <span class="hs-layout">(</span><span class="hs-varid">randomRIO</span><span class="hs-layout">)</span>
+
+<span class="hs-definition">main</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">IO</span> <span class="hs-conid">()</span>
+<span class="hs-definition">main</span> <span class="hs-keyglyph">=</span> <span class="hs-keyword">do</span>
+    <span class="hs-keyword">let</span> <span class="hs-varid">v0</span> <span class="hs-keyglyph">=</span> <span class="hs-conid">V</span><span class="hs-varop">.</span><span class="hs-varid">replicate</span> <span class="hs-num">10</span> <span class="hs-layout">(</span><span class="hs-num">0</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">Int</span><span class="hs-layout">)</span>
+
+        <span class="hs-varid">loop</span> <span class="hs-varid">v</span> <span class="hs-num">0</span> <span class="hs-keyglyph">=</span> <span class="hs-varid">return</span> <span class="hs-varid">v</span>
+        <span class="hs-varid">loop</span> <span class="hs-varid">v</span> <span class="hs-varid">rest</span> <span class="hs-keyglyph">=</span> <span class="hs-keyword">do</span>
+            <span class="hs-varid">i</span> <span class="hs-keyglyph">&lt;-</span> <span class="hs-varid">randomRIO</span> <span class="hs-layout">(</span><span class="hs-num">0</span><span class="hs-layout">,</span> <span class="hs-num">9</span><span class="hs-layout">)</span>
+            <span class="hs-keyword">let</span> <span class="hs-varid">oldCount</span> <span class="hs-keyglyph">=</span> <span class="hs-varid">v</span> <span class="hs-varop">!</span> <span class="hs-varid">i</span>
+                <span class="hs-varid">v'</span> <span class="hs-keyglyph">=</span> <span class="hs-varid">v</span> <span class="hs-varop">//</span> <span class="hs-keyglyph">[</span><span class="hs-layout">(</span><span class="hs-varid">i</span><span class="hs-layout">,</span> <span class="hs-varid">oldCount</span> <span class="hs-varop">+</span> <span class="hs-num">1</span><span class="hs-layout">)</span><span class="hs-keyglyph">]</span>
+            <span class="hs-varid">loop</span> <span class="hs-varid">v'</span> <span class="hs-layout">(</span><span class="hs-varid">rest</span> <span class="hs-comment">-</span> <span class="hs-num">1</span><span class="hs-layout">)</span>
+
+    <span class="hs-varid">vector</span> <span class="hs-keyglyph">&lt;-</span> <span class="hs-varid">loop</span> <span class="hs-varid">v0</span> <span class="hs-layout">(</span><span class="hs-num">10</span><span class="hs-varop">^</span><span class="hs-num">6</span><span class="hs-layout">)</span>
+    <span class="hs-varid">print</span> <span class="hs-varid">vector</span></pre><p>We've introduced the <code>!</code> operator for indexing, and the <code>//</code> operator for
+updating. Other than that, this is fairly straightforward code. When I ran this
+on my system, it had 48MB maximum memory residency, and took 1.968s to
+complete. Surely we can do better.</p><p>This problem is inherently better as a mutable state one: instead of generating
+a new immutable <code>Vector</code> for each random number generated, we'd like to simply
+increment a piece of memory. Let's rewrite this to use a mutable, unboxed
+vector:</p><pre><span class="hs-keyword">import</span>           <span class="hs-conid">Control</span><span class="hs-varop">.</span><span class="hs-conid">Monad</span>               <span class="hs-layout">(</span><span class="hs-varid">replicateM_</span><span class="hs-layout">)</span>
+<span class="hs-keyword">import</span>           <span class="hs-conid">Data</span><span class="hs-varop">.</span><span class="hs-conid">Vector</span><span class="hs-varop">.</span><span class="hs-conid">Unboxed</span>         <span class="hs-layout">(</span><span class="hs-varid">freeze</span><span class="hs-layout">)</span>
+<span class="hs-keyword">import</span> <span class="hs-keyword">qualified</span> <span class="hs-conid">Data</span><span class="hs-varop">.</span><span class="hs-conid">Vector</span><span class="hs-varop">.</span><span class="hs-conid">Unboxed</span><span class="hs-varop">.</span><span class="hs-conid">Mutable</span> <span class="hs-keyword">as</span> <span class="hs-conid">V</span>
+<span class="hs-keyword">import</span>           <span class="hs-conid">System</span><span class="hs-varop">.</span><span class="hs-conid">Random</span>               <span class="hs-layout">(</span><span class="hs-varid">randomRIO</span><span class="hs-layout">)</span>
+
+<span class="hs-definition">main</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">IO</span> <span class="hs-conid">()</span>
+<span class="hs-definition">main</span> <span class="hs-keyglyph">=</span> <span class="hs-keyword">do</span>
+    <span class="hs-varid">vector</span> <span class="hs-keyglyph">&lt;-</span> <span class="hs-conid">V</span><span class="hs-varop">.</span><span class="hs-varid">replicate</span> <span class="hs-num">10</span> <span class="hs-layout">(</span><span class="hs-num">0</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">Int</span><span class="hs-layout">)</span>
+
+    <span class="hs-varid">replicateM_</span> <span class="hs-layout">(</span><span class="hs-num">10</span><span class="hs-varop">^</span><span class="hs-num">6</span><span class="hs-layout">)</span> <span class="hs-varop">$</span> <span class="hs-keyword">do</span>
+        <span class="hs-varid">i</span> <span class="hs-keyglyph">&lt;-</span> <span class="hs-varid">randomRIO</span> <span class="hs-layout">(</span><span class="hs-num">0</span><span class="hs-layout">,</span> <span class="hs-num">9</span><span class="hs-layout">)</span>
+        <span class="hs-varid">oldCount</span> <span class="hs-keyglyph">&lt;-</span> <span class="hs-conid">V</span><span class="hs-varop">.</span><span class="hs-varid">read</span> <span class="hs-varid">vector</span> <span class="hs-varid">i</span>
+        <span class="hs-conid">V</span><span class="hs-varop">.</span><span class="hs-varid">write</span> <span class="hs-varid">vector</span> <span class="hs-varid">i</span> <span class="hs-layout">(</span><span class="hs-varid">oldCount</span> <span class="hs-varop">+</span> <span class="hs-num">1</span><span class="hs-layout">)</span>
+
+    <span class="hs-varid">ivector</span> <span class="hs-keyglyph">&lt;-</span> <span class="hs-varid">freeze</span> <span class="hs-varid">vector</span>
+    <span class="hs-varid">print</span> <span class="hs-varid">ivector</span></pre><p>Once again, we use <code>replicate</code> to create a size-10 vector filled with 0. But
+now we've created a mutable vector (note the change in import). We then use
+<code>replicateM_</code> to perform the inner action 1,000,000 times, namely: generate a
+random index, read the old value at that index, increment it, and write it
+back.</p><p>After we're finished, we <i>freeze</i> the vector (more on that in the next section)
+and print it. The resulting distribution of values is the same (or close - we are dealing with random
+numbers here) as the previous calculation using an immutable vector. But instead of 48MB and 1.968s,
+this program has a maximum residency of 44KB and runs in 0.247s! That's a
+significant improvement!</p><p>If we feel like being even more adventurous, we can replace our <code>read</code> and
+<code>write</code> calls with <code>unsafeRead</code> and <code>unsafeWrite</code>. That will disable some
+bounds checks before reading and writing. This can be a nice performance boost
+in very tight loops, but has the potential to <a href="../../en.wikipedia.org/wiki/Segmentation_fault.html">segfault</a>
+your program, so caveat
+emptor! For example, try replacing <code>replicate 10</code> with <code>replicate 9</code>, change
+the <code>read</code> for an <code>unsafeRead</code>, and run your program. You'll see something
+like:</p><pre>internal error: evacuate: strange closure type -1944718914
+    (GHC version 7.10.2 for x86_64_unknown_linux)
+    Please report this as a GHC bug:  http://www.haskell.org/ghc/reportabug
+Aborted (core dumped)</pre><p>The same logic applies to the other <code>unsafe</code> functions in vector. The
+nomenclature means: <code>unsafe</code> may segfault your whole process, while
+not-marked-unsafe may just throw an impure exception (also not great, but
+certainly better than a segfault).</p><p>And if you were curious: on my system using <code>unsafeRead</code> and <code>unsafeWrite</code>
+speeds the program up marginally, from 0.247s to 0.233s. In our example, most
+of our time is spent on generating the random numbers, so taking off the safety
+checks does not have a significant impact.</p><h2>Freezing and thawing</h2><p>We used the <code>freeze</code> function above. The behavior of this may not be
+immediately obvious. When you freeze a mutable vector, what happens is:</p><ol><li>A new mutable vector of the same size is created</li><li>Each value in the original mutable vector is copied to the new mutable vector</li><li>A new immutable vector is created out of the memory space used by the new mutable vector</li></ol><p>Why not just freeze it in place? Two reasons, actually:</p><ol><li><p>It has the potential to break referential transparency. Consider this code:</p><pre><span class="hs-keyword">import</span>           <span class="hs-conid">Data</span><span class="hs-varop">.</span><span class="hs-conid">Vector</span><span class="hs-varop">.</span><span class="hs-conid">Unboxed</span>         <span class="hs-layout">(</span><span class="hs-varid">freeze</span><span class="hs-layout">)</span>
+<span class="hs-keyword">import</span> <span class="hs-keyword">qualified</span> <span class="hs-conid">Data</span><span class="hs-varop">.</span><span class="hs-conid">Vector</span><span class="hs-varop">.</span><span class="hs-conid">Unboxed</span><span class="hs-varop">.</span><span class="hs-conid">Mutable</span> <span class="hs-keyword">as</span> <span class="hs-conid">V</span>
+
+<span class="hs-definition">main</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">IO</span> <span class="hs-conid">()</span>
+<span class="hs-definition">main</span> <span class="hs-keyglyph">=</span> <span class="hs-keyword">do</span>
+    <span class="hs-varid">vector</span> <span class="hs-keyglyph">&lt;-</span> <span class="hs-conid">V</span><span class="hs-varop">.</span><span class="hs-varid">replicate</span> <span class="hs-num">1</span> <span class="hs-layout">(</span><span class="hs-num">0</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">Int</span><span class="hs-layout">)</span>
+    <span class="hs-conid">V</span><span class="hs-varop">.</span><span class="hs-varid">write</span> <span class="hs-varid">vector</span> <span class="hs-num">0</span> <span class="hs-num">1</span>
+    <span class="hs-varid">ivector</span> <span class="hs-keyglyph">&lt;-</span> <span class="hs-varid">freeze</span> <span class="hs-varid">vector</span>
+    <span class="hs-varid">print</span> <span class="hs-varid">ivector</span>
+    <span class="hs-conid">V</span><span class="hs-varop">.</span><span class="hs-varid">write</span> <span class="hs-varid">vector</span> <span class="hs-num">0</span> <span class="hs-num">2</span>
+    <span class="hs-varid">print</span> <span class="hs-varid">ivector</span></pre><p>If we froze the vector in-place in the call to <code>freeze</code>, then the second
+<code>write</code> call would modify our <code>ivector</code> value, meaning that the first and
+second call to <code>print ivector</code> would have different results!</p></li><li><p>When you freeze a mutable vector, its memory is marked differently for
+garbage collection purposes. Later attempts to write to that same memory can
+lead to a segfault.</p></li></ol><p>However, if you really want to avoid that extra buffer copy, and are certain
+it's safe, you can use <code>unsafeFreeze</code>. And in fact, our random number example
+above is a case where <code>freeze</code> can be safely replaced by <code>unsafeFreeze</code>, since
+after the freeze, the original mutable vector is never used again.</p><ul><li>Exercise 1: Go ahead and make that swap and confirm that your program works
+as expected.</li><li>Exercise 2: In the program just above (with <code>V.replicate 1 (0 :: Int)</code>),
+replace <code>freeze</code> with <code>unsafeFreeze</code>. What result do you see?</li></ul><p>The opposite of <code>freeze</code> is <code>thaw</code>. Similar to <code>freeze</code>, <code>thaw</code> will copy to a
+new mutable vector instead of exposing the current memory buffer. And also,
+like <code>freeze</code>, there's an <code>unsafeThaw</code> that turns off the safety measures. Like
+everything <code>unsafe</code>: caveat emptor!</p><p>(We'll cover some functions like <code>create</code> that provide safe wrappers around
+<code>unsafeFreeze</code> and <code>unsafeThaw</code> later.)</p><h2>PrimMonad</h2><p>If you look at the mutation functions we used above like <code>read</code> and <code>write</code>,
+you can tell that they were looking in the <code>IO</code> monad. However, vector is more
+generic than that, and will allow your mutations to live in any <i>primitive
+monad</i>, meaning: <code>IO</code>, strict <code>ST s</code>, and transformers sitting on top of those
+two. The type class controlling this is <code>PrimMonad</code>.</p><p>You can get more information on <code>PrimMonad</code> in the <a href="https://haskell-lang.org/tutorial/primitive-haskell">Primitive
+Haskell</a> article. Without diving into details: every
+primitive monad also has an associated primitive state token type, which is
+captured with <code>PrimState</code>. As a result, the type signatures for <code>read</code> and
+<code>write</code> (for boxed vectors) look like:</p><pre><span class="hs-definition">read</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">PrimMonad</span> <span class="hs-varid">m</span> <span class="hs-keyglyph">=&gt;</span> <span class="hs-conid">MVector</span> <span class="hs-layout">(</span><span class="hs-conid">PrimState</span> <span class="hs-varid">m</span><span class="hs-layout">)</span> <span class="hs-varid">a</span> <span class="hs-keyglyph">-&gt;</span> <span class="hs-conid">Int</span> <span class="hs-keyglyph">-&gt;</span> <span class="hs-varid">m</span> <span class="hs-varid">a</span>
+<span class="hs-definition">write</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">PrimMonad</span> <span class="hs-varid">m</span> <span class="hs-keyglyph">=&gt;</span> <span class="hs-conid">MVector</span> <span class="hs-layout">(</span><span class="hs-conid">PrimState</span> <span class="hs-varid">m</span><span class="hs-layout">)</span> <span class="hs-varid">a</span> <span class="hs-keyglyph">-&gt;</span> <span class="hs-conid">Int</span> <span class="hs-keyglyph">-&gt;</span> <span class="hs-varid">a</span> <span class="hs-keyglyph">-&gt;</span> <span class="hs-varid">m</span> <span class="hs-conid">()</span></pre><p>Every mutable vector takes two type parameters: the state token of the monad it
+lives in, and the type of value it holds. These gymnastics may seem overkill
+now, but are necessary for making mutable vectors both versatile in multiple
+monads, and type safe.</p><h2>modify and the ST monad</h2><p>Let's check out a particularly complicated type signature (for unboxed vectors):</p><pre><span class="hs-definition">modify</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">Unbox</span> <span class="hs-varid">a</span> <span class="hs-keyglyph">=&gt;</span> <span class="hs-layout">(</span><span class="hs-keyword">forall</span> <span class="hs-varid">s</span><span class="hs-varop">.</span> <span class="hs-conid">MVector</span> <span class="hs-varid">s</span> <span class="hs-varid">a</span> <span class="hs-keyglyph">-&gt;</span> <span class="hs-conid">ST</span> <span class="hs-varid">s</span> <span class="hs-conid">()</span><span class="hs-layout">)</span> <span class="hs-keyglyph">-&gt;</span> <span class="hs-conid">Vector</span> <span class="hs-varid">a</span> <span class="hs-keyglyph">-&gt;</span> <span class="hs-conid">Vector</span> <span class="hs-varid">a</span></pre><p>What this function does is:</p><ol><li>Creates a new mutable buffer the same length as the original vector</li><li>Copies the values from the original vector into the new mutable vector</li><li>Runs the provided <code>ST</code> action on the provided mutable vector</li><li>Unsafely freezes the mutable vector and returns it.</li></ol><p>What's great about this function is that it does the minimal amount of buffer
+copying to be safe, and that it can be used from pure code (since all
+side-effects are captured inside the <code>ST</code> action you provide).</p><ul><li>Exercise 1: Steps 1 and 2 should look pretty similar to a function we
+discussed above. Can you figure out which one it is?</li><li>Exercise 2: Implement <code>modify</code> yourself using functions we've discussed and
+<code>runST</code> from <code>Control.Monad.ST</code>.</li></ul><p>Let's use our new function to implement a Fisher-Yates shuffle. If we start
+with a vector of size 20, we'll generate a random number between 0 and 19. Then
+we'll swap position 19 with that generated random number. Then we'll loop, but
+this time with a random number between 0 and 18 and swapping with position 18.
+We continue until we get down to 0.</p><pre><span class="hs-keyword">import</span>           <span class="hs-conid">Control</span><span class="hs-varop">.</span><span class="hs-conid">Monad</span><span class="hs-varop">.</span><span class="hs-conid">Primitive</span>     <span class="hs-layout">(</span><span class="hs-conid">PrimMonad</span><span class="hs-layout">,</span> <span class="hs-conid">PrimState</span><span class="hs-layout">)</span>
+<span class="hs-keyword">import</span> <span class="hs-keyword">qualified</span> <span class="hs-conid">Data</span><span class="hs-varop">.</span><span class="hs-conid">Vector</span><span class="hs-varop">.</span><span class="hs-conid">Unboxed</span>         <span class="hs-keyword">as</span> <span class="hs-conid">V</span>
+<span class="hs-keyword">import</span> <span class="hs-keyword">qualified</span> <span class="hs-conid">Data</span><span class="hs-varop">.</span><span class="hs-conid">Vector</span><span class="hs-varop">.</span><span class="hs-conid">Unboxed</span><span class="hs-varop">.</span><span class="hs-conid">Mutable</span> <span class="hs-keyword">as</span> <span class="hs-conid">M</span>
+<span class="hs-keyword">import</span>           <span class="hs-conid">System</span><span class="hs-varop">.</span><span class="hs-conid">Random</span>               <span class="hs-layout">(</span><span class="hs-conid">StdGen</span><span class="hs-layout">,</span> <span class="hs-varid">getStdGen</span><span class="hs-layout">,</span> <span class="hs-varid">randomR</span><span class="hs-layout">)</span>
+
+<span class="hs-definition">shuffleM</span> <span class="hs-keyglyph">::</span> <span class="hs-layout">(</span><span class="hs-conid">PrimMonad</span> <span class="hs-varid">m</span><span class="hs-layout">,</span> <span class="hs-conid">V</span><span class="hs-varop">.</span><span class="hs-conid">Unbox</span> <span class="hs-varid">a</span><span class="hs-layout">)</span>
+         <span class="hs-keyglyph">=&gt;</span> <span class="hs-conid">StdGen</span>
+         <span class="hs-keyglyph">-&gt;</span> <span class="hs-conid">Int</span> <span class="hs-comment">-- ^ count to shuffle</span>
+         <span class="hs-keyglyph">-&gt;</span> <span class="hs-conid">M</span><span class="hs-varop">.</span><span class="hs-conid">MVector</span> <span class="hs-layout">(</span><span class="hs-conid">PrimState</span> <span class="hs-varid">m</span><span class="hs-layout">)</span> <span class="hs-varid">a</span>
+         <span class="hs-keyglyph">-&gt;</span> <span class="hs-varid">m</span> <span class="hs-conid">()</span>
+<span class="hs-definition">shuffleM</span> <span class="hs-keyword">_</span> <span class="hs-varid">i</span> <span class="hs-keyword">_</span> <span class="hs-keyglyph">|</span> <span class="hs-varid">i</span> <span class="hs-varop">&lt;=</span> <span class="hs-num">1</span> <span class="hs-keyglyph">=</span> <span class="hs-varid">return</span> <span class="hs-conid">()</span>
+<span class="hs-definition">shuffleM</span> <span class="hs-varid">gen</span> <span class="hs-varid">i</span> <span class="hs-varid">v</span> <span class="hs-keyglyph">=</span> <span class="hs-keyword">do</span>
+    <span class="hs-conid">M</span><span class="hs-varop">.</span><span class="hs-varid">swap</span> <span class="hs-varid">v</span> <span class="hs-varid">i'</span> <span class="hs-varid">index</span>
+    <span class="hs-varid">shuffleM</span> <span class="hs-varid">gen'</span> <span class="hs-varid">i'</span> <span class="hs-varid">v</span>
+  <span class="hs-keyword">where</span>
+    <span class="hs-layout">(</span><span class="hs-varid">index</span><span class="hs-layout">,</span> <span class="hs-varid">gen'</span><span class="hs-layout">)</span> <span class="hs-keyglyph">=</span> <span class="hs-varid">randomR</span> <span class="hs-layout">(</span><span class="hs-num">0</span><span class="hs-layout">,</span> <span class="hs-varid">i'</span><span class="hs-layout">)</span> <span class="hs-varid">gen</span>
+    <span class="hs-varid">i'</span> <span class="hs-keyglyph">=</span> <span class="hs-varid">i</span> <span class="hs-comment">-</span> <span class="hs-num">1</span>
+
+<span class="hs-definition">shuffle</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">V</span><span class="hs-varop">.</span><span class="hs-conid">Unbox</span> <span class="hs-varid">a</span>
+        <span class="hs-keyglyph">=&gt;</span> <span class="hs-conid">StdGen</span>
+        <span class="hs-keyglyph">-&gt;</span> <span class="hs-conid">V</span><span class="hs-varop">.</span><span class="hs-conid">Vector</span> <span class="hs-varid">a</span>
+        <span class="hs-keyglyph">-&gt;</span> <span class="hs-conid">V</span><span class="hs-varop">.</span><span class="hs-conid">Vector</span> <span class="hs-varid">a</span>
+<span class="hs-definition">shuffle</span> <span class="hs-varid">gen</span> <span class="hs-varid">vector</span> <span class="hs-keyglyph">=</span> <span class="hs-conid">V</span><span class="hs-varop">.</span><span class="hs-varid">modify</span> <span class="hs-layout">(</span><span class="hs-varid">shuffleM</span> <span class="hs-varid">gen</span> <span class="hs-layout">(</span><span class="hs-conid">V</span><span class="hs-varop">.</span><span class="hs-varid">length</span> <span class="hs-varid">vector</span><span class="hs-layout">)</span><span class="hs-layout">)</span> <span class="hs-varid">vector</span>
+
+<span class="hs-definition">main</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">IO</span> <span class="hs-conid">()</span>
+<span class="hs-definition">main</span> <span class="hs-keyglyph">=</span> <span class="hs-keyword">do</span>
+    <span class="hs-varid">gen</span> <span class="hs-keyglyph">&lt;-</span> <span class="hs-varid">getStdGen</span>
+    <span class="hs-varid">print</span> <span class="hs-varop">$</span> <span class="hs-varid">shuffle</span> <span class="hs-varid">gen</span> <span class="hs-varop">$</span> <span class="hs-conid">V</span><span class="hs-varop">.</span><span class="hs-varid">enumFromTo</span> <span class="hs-num">1</span> <span class="hs-layout">(</span><span class="hs-num">20</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">Int</span><span class="hs-layout">)</span></pre><p>Notice how <code>shuffleM</code> is a mutable, side-effecting function. However, <code>shuffle</code>
+itself is pure.</p><h2>Generic</h2><p>After everything else we've dealt with, <code>Generic</code> is a relatively easy
+addition. We introduce two new typeclasses:</p><pre><span class="hs-keyword">class</span> <span class="hs-conid">MVector</span> <span class="hs-varid">v</span> <span class="hs-varid">a</span>
+<span class="hs-keyword">class</span> <span class="hs-conid">MVector</span> <span class="hs-layout">(</span><span class="hs-conid">Mutable</span> <span class="hs-varid">v</span><span class="hs-layout">)</span> <span class="hs-varid">a</span> <span class="hs-keyglyph">=&gt;</span> <span class="hs-conid">Vector</span> <span class="hs-varid">v</span> <span class="hs-varid">a</span></pre><p>Said in English: an instance <code>MVector v a</code> is a mutable vector of type <code>v</code> that
+can hold values of type <code>a</code>. The <code>Vector v a</code> is the immutable counterpart to
+some mutable vector. You can find the mutable version with <code>Mutable v</code>.</p><p>One important thing to keep in mind is <i>kinds</i>. The kind of the <code>v</code> is <code>MVector
+v a</code> is <code>* -&gt; * -&gt; *</code>, since it takes parameters for both the state token and
+the value it holds. With the immutable <code>Vector v a</code>, the <code>v</code> is of kind <code>* -&gt;
+*</code>. Was that a little abstract? No problem, some type signatures should help:</p><pre><span class="hs-definition">length</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">MVector</span> <span class="hs-varid">v</span> <span class="hs-varid">a</span> <span class="hs-keyglyph">=&gt;</span> <span class="hs-varid">v</span> <span class="hs-varid">s</span> <span class="hs-varid">a</span> <span class="hs-keyglyph">-&gt;</span> <span class="hs-conid">Int</span>
+<span class="hs-definition">length</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">Vector</span> <span class="hs-varid">v</span> <span class="hs-varid">a</span> <span class="hs-keyglyph">=&gt;</span> <span class="hs-varid">v</span> <span class="hs-varid">a</span> <span class="hs-keyglyph">-&gt;</span> <span class="hs-conid">Int</span>
+
+<span class="hs-definition">read</span> <span class="hs-keyglyph">::</span> <span class="hs-layout">(</span><span class="hs-conid">PrimMonad</span> <span class="hs-varid">m</span><span class="hs-layout">,</span> <span class="hs-conid">MVector</span> <span class="hs-varid">v</span> <span class="hs-varid">a</span><span class="hs-layout">)</span> <span class="hs-keyglyph">=&gt;</span> <span class="hs-varid">v</span> <span class="hs-layout">(</span><span class="hs-conid">PrimState</span> <span class="hs-varid">m</span><span class="hs-layout">)</span> <span class="hs-varid">a</span> <span class="hs-keyglyph">-&gt;</span> <span class="hs-conid">Int</span> <span class="hs-keyglyph">-&gt;</span> <span class="hs-varid">m</span> <span class="hs-varid">a</span></pre><p>It takes a bit of time to get used to these generic classes, but once you do
+it's fairly easy to use them. The best advice is to practice! And as such:</p><ul><li><p>Exercise: modify the <code>shuffle</code> program above to work on a generic vector
+instead of specifically on an unboxed vector.</p></li></ul><p>The final trick when working with generic vectors is that, ultimately, you will
+need to provide a concrete type. If you forget to do so, you'll end up with
+error messages that look like the following:</p><pre><span class="hs-definition">stream</span><span class="hs-varop">.</span><span class="hs-varid">hs</span><span class="hs-conop">:</span><span class="hs-num">28</span><span class="hs-conop">:</span><span class="hs-num">13</span><span class="hs-conop">:</span>
+    <span class="hs-conid">No</span> <span class="hs-keyword">instance</span> <span class="hs-varid">for</span> <span class="hs-layout">(</span><span class="hs-conid">V</span><span class="hs-varop">.</span><span class="hs-conid">Vector</span> <span class="hs-varid">v0</span> <span class="hs-conid">Int</span><span class="hs-layout">)</span> <span class="hs-varid">arising</span> <span class="hs-varid">from</span> <span class="hs-varid">a</span> <span class="hs-varid">use</span> <span class="hs-keyword">of</span> <span class="hs-sel">‘</span><span class="hs-varid">shuffle</span><span class="hs-sel">’</span>
+    <span class="hs-conid">In</span> <span class="hs-varid">the</span> <span class="hs-varid">expression</span><span class="hs-conop">:</span> <span class="hs-varid">shuffle</span> <span class="hs-varid">gen</span>
+    <span class="hs-conid">In</span> <span class="hs-varid">the</span> <span class="hs-varid">second</span> <span class="hs-varid">argument</span> <span class="hs-keyword">of</span> <span class="hs-sel">‘</span><span class="hs-layout">(</span><span class="hs-varop">$</span><span class="hs-layout">)</span><span class="hs-sel">’</span><span class="hs-layout">,</span> <span class="hs-varid">namely</span>
+      <span class="hs-sel">‘</span><span class="hs-varid">shuffle</span> <span class="hs-varid">gen</span> <span class="hs-varop">$</span> <span class="hs-conid">V</span><span class="hs-varop">.</span><span class="hs-varid">enumFromTo</span> <span class="hs-num">1</span> <span class="hs-layout">(</span><span class="hs-num">20</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">Int</span><span class="hs-layout">)</span><span class="hs-sel">’</span>
+    <span class="hs-conid">In</span> <span class="hs-varid">a</span> <span class="hs-varid">stmt</span> <span class="hs-keyword">of</span> <span class="hs-varid">a</span> <span class="hs-chr">'</span><span class="hs-varid">do'</span> <span class="hs-varid">block</span><span class="hs-conop">:</span>
+      <span class="hs-varid">print</span> <span class="hs-varop">$</span> <span class="hs-varid">shuffle</span> <span class="hs-varid">gen</span> <span class="hs-varop">$</span> <span class="hs-conid">V</span><span class="hs-varop">.</span><span class="hs-varid">enumFromTo</span> <span class="hs-num">1</span> <span class="hs-layout">(</span><span class="hs-num">20</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">Int</span><span class="hs-layout">)</span></pre><h2>vector-algorithms</h2><p>A package of note is
+<a href="http://www.stackage.org/package/vector-algorithms">vector-algorithms</a>, which
+provides some algorithms (mostly sort) on mutable vectors. For example, let's
+generate 100 random numbers and then sort them.</p><pre><span class="hs-keyword">import</span>           <span class="hs-conid">Data</span><span class="hs-varop">.</span><span class="hs-conid">Vector</span><span class="hs-varop">.</span><span class="hs-conid">Algorithms</span><span class="hs-varop">.</span><span class="hs-conid">Merge</span> <span class="hs-layout">(</span><span class="hs-varid">sort</span><span class="hs-layout">)</span>
+<span class="hs-keyword">import</span> <span class="hs-keyword">qualified</span> <span class="hs-conid">Data</span><span class="hs-varop">.</span><span class="hs-conid">Vector</span><span class="hs-varop">.</span><span class="hs-conid">Generic</span><span class="hs-varop">.</span><span class="hs-conid">Mutable</span>  <span class="hs-keyword">as</span> <span class="hs-conid">M</span>
+<span class="hs-keyword">import</span> <span class="hs-keyword">qualified</span> <span class="hs-conid">Data</span><span class="hs-varop">.</span><span class="hs-conid">Vector</span><span class="hs-varop">.</span><span class="hs-conid">Unboxed</span>          <span class="hs-keyword">as</span> <span class="hs-conid">V</span>
+<span class="hs-keyword">import</span>           <span class="hs-conid">System</span><span class="hs-varop">.</span><span class="hs-conid">Random</span>                <span class="hs-layout">(</span><span class="hs-varid">randomRIO</span><span class="hs-layout">)</span>
+
+<span class="hs-definition">main</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">IO</span> <span class="hs-conid">()</span>
+<span class="hs-definition">main</span> <span class="hs-keyglyph">=</span> <span class="hs-keyword">do</span>
+    <span class="hs-varid">vector</span> <span class="hs-keyglyph">&lt;-</span> <span class="hs-conid">M</span><span class="hs-varop">.</span><span class="hs-varid">replicateM</span> <span class="hs-num">100</span> <span class="hs-varop">$</span> <span class="hs-varid">randomRIO</span> <span class="hs-layout">(</span><span class="hs-num">0</span><span class="hs-layout">,</span> <span class="hs-num">999</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">Int</span><span class="hs-layout">)</span>
+    <span class="hs-varid">sort</span> <span class="hs-varid">vector</span>
+    <span class="hs-conid">V</span><span class="hs-varop">.</span><span class="hs-varid">unsafeFreeze</span> <span class="hs-varid">vector</span> <span class="hs-varop">&gt;&gt;=</span> <span class="hs-varid">print</span></pre><ul><li>Exercise 1: write a helper function <code>sortImmutable</code> that uses <code>modify</code> and <code>sort</code> from vector-algorithms to sort an immutable vector safely</li><li>Exercise 2: rewrite the main function above to use <code>sortImmutable</code> and only the immutable vector API</li><li>Exercise 3: is your new version more efficient, less efficient, or the same? Explain.</li></ul><h2>mwc-random</h2><p>One final library to mention now is mwc-random, a random number generation
+library built on top of vector and primitive. Its API can be a bit daunting
+initially, but given your newfound understanding of the vector package, the API
+might make a lot more sense now. It provides a <code>Gen s</code> type, where <code>s</code> is some
+state token. You can then use <code>uniform</code> and <code>uniformR</code> to get random numbers
+out of that generator.</p><p>As a final example, here's how we can shuffle the numbers 1-20 using
+mwc-random.</p><pre><span class="hs-keyword">import</span>           <span class="hs-conid">Control</span><span class="hs-varop">.</span><span class="hs-conid">Monad</span><span class="hs-varop">.</span><span class="hs-conid">ST</span>            <span class="hs-layout">(</span><span class="hs-conid">ST</span><span class="hs-layout">)</span>
+<span class="hs-keyword">import</span> <span class="hs-keyword">qualified</span> <span class="hs-conid">Data</span><span class="hs-varop">.</span><span class="hs-conid">Vector</span><span class="hs-varop">.</span><span class="hs-conid">Unboxed</span>         <span class="hs-keyword">as</span> <span class="hs-conid">V</span>
+<span class="hs-keyword">import</span> <span class="hs-keyword">qualified</span> <span class="hs-conid">Data</span><span class="hs-varop">.</span><span class="hs-conid">Vector</span><span class="hs-varop">.</span><span class="hs-conid">Unboxed</span><span class="hs-varop">.</span><span class="hs-conid">Mutable</span> <span class="hs-keyword">as</span> <span class="hs-conid">M</span>
+<span class="hs-keyword">import</span>           <span class="hs-conid">System</span><span class="hs-varop">.</span><span class="hs-conid">Random</span><span class="hs-varop">.</span><span class="hs-conid">MWC</span>           <span class="hs-layout">(</span><span class="hs-conid">Gen</span><span class="hs-layout">,</span> <span class="hs-varid">uniformR</span><span class="hs-layout">,</span> <span class="hs-varid">withSystemRandom</span><span class="hs-layout">)</span>
+
+<span class="hs-definition">shuffleM</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">V</span><span class="hs-varop">.</span><span class="hs-conid">Unbox</span> <span class="hs-varid">a</span>
+         <span class="hs-keyglyph">=&gt;</span> <span class="hs-conid">Gen</span> <span class="hs-varid">s</span>
+         <span class="hs-keyglyph">-&gt;</span> <span class="hs-conid">Int</span> <span class="hs-comment">-- ^ count to shuffle</span>
+         <span class="hs-keyglyph">-&gt;</span> <span class="hs-conid">M</span><span class="hs-varop">.</span><span class="hs-conid">MVector</span> <span class="hs-varid">s</span> <span class="hs-varid">a</span>
+         <span class="hs-keyglyph">-&gt;</span> <span class="hs-conid">ST</span> <span class="hs-varid">s</span> <span class="hs-conid">()</span>
+<span class="hs-definition">shuffleM</span> <span class="hs-keyword">_</span> <span class="hs-varid">i</span> <span class="hs-keyword">_</span> <span class="hs-keyglyph">|</span> <span class="hs-varid">i</span> <span class="hs-varop">&lt;=</span> <span class="hs-num">1</span> <span class="hs-keyglyph">=</span> <span class="hs-varid">return</span> <span class="hs-conid">()</span>
+<span class="hs-definition">shuffleM</span> <span class="hs-varid">gen</span> <span class="hs-varid">i</span> <span class="hs-varid">v</span> <span class="hs-keyglyph">=</span> <span class="hs-keyword">do</span>
+    <span class="hs-varid">index</span> <span class="hs-keyglyph">&lt;-</span> <span class="hs-varid">uniformR</span> <span class="hs-layout">(</span><span class="hs-num">0</span><span class="hs-layout">,</span> <span class="hs-varid">i'</span><span class="hs-layout">)</span> <span class="hs-varid">gen</span>
+    <span class="hs-conid">M</span><span class="hs-varop">.</span><span class="hs-varid">swap</span> <span class="hs-varid">v</span> <span class="hs-varid">i'</span> <span class="hs-varid">index</span>
+    <span class="hs-varid">shuffleM</span> <span class="hs-varid">gen</span> <span class="hs-varid">i'</span> <span class="hs-varid">v</span>
+  <span class="hs-keyword">where</span>
+    <span class="hs-varid">i'</span> <span class="hs-keyglyph">=</span> <span class="hs-varid">i</span> <span class="hs-comment">-</span> <span class="hs-num">1</span>
+
+<span class="hs-definition">main</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">IO</span> <span class="hs-conid">()</span>
+<span class="hs-definition">main</span> <span class="hs-keyglyph">=</span> <span class="hs-keyword">do</span>
+    <span class="hs-varid">vector</span> <span class="hs-keyglyph">&lt;-</span> <span class="hs-varid">withSystemRandom</span> <span class="hs-varop">$</span> <span class="hs-keyglyph">\</span><span class="hs-varid">gen</span> <span class="hs-keyglyph">-&gt;</span> <span class="hs-keyword">do</span>
+        <span class="hs-varid">vector</span> <span class="hs-keyglyph">&lt;-</span> <span class="hs-conid">V</span><span class="hs-varop">.</span><span class="hs-varid">unsafeThaw</span> <span class="hs-varop">$</span> <span class="hs-conid">V</span><span class="hs-varop">.</span><span class="hs-varid">enumFromTo</span> <span class="hs-num">1</span> <span class="hs-layout">(</span><span class="hs-num">20</span> <span class="hs-keyglyph">::</span> <span class="hs-conid">Int</span><span class="hs-layout">)</span>
+        <span class="hs-varid">shuffleM</span> <span class="hs-varid">gen</span> <span class="hs-layout">(</span><span class="hs-conid">M</span><span class="hs-varop">.</span><span class="hs-varid">length</span> <span class="hs-varid">vector</span><span class="hs-layout">)</span> <span class="hs-varid">vector</span>
+        <span class="hs-conid">V</span><span class="hs-varop">.</span><span class="hs-varid">unsafeFreeze</span> <span class="hs-varid">vector</span>
+    <span class="hs-varid">print</span> <span class="hs-varid">vector</span></pre></div></div></div></div></div><div class="footer"><div class="container"><p><span class="item">© 2014-2016 haskell-lang.org</span><span class="item footer-contribute pull-right">Got changes to contribute? <a href="https://github.com/haskell-lang/haskell-lang">Fork or comment on Github</a></span></p></div></div><script src="https://haskell-lang.org/static/js/jquery.js?etag=j8JeJ9Qn"></script><script src="https://haskell-lang.org/static/js/bootstrap.min.js?etag=SxgsLh7a"></script><script src="https://haskell-lang.org/static/js/home.js?etag=4qrdm8eK"></script><script>var _gaq = _gaq || [];
+_gaq.push(['_setAccount', 'UA-51440536-1']);
+_gaq.push(['_trackPageview']);
+(function() {
+ var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+ ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+ var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+})();
+</script></body>
+<!-- Mirrored from haskell-lang.org/library/vector by HTTrack Website Copier/3.x [XR&CO'2014], Fri, 30 Dec 2016 18:50:37 GMT -->
+</html>
