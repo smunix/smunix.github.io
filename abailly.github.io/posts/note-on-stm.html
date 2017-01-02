@@ -1,0 +1,112 @@
+<!doctype html>
+<!--[if lt IE 7]> <html class="no-js lt-ie9 lt-ie8 lt-ie7" lang="en"> <![endif]-->
+<!--[if IE 7]>    <html class="no-js lt-ie9 lt-ie8" lang="en"> <![endif]-->
+<!--[if IE 8]>    <html class="no-js lt-ie9" lang="en"> <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en"> <!--<![endif]-->
+
+Providence Salumu
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+  <meta charset="utf-8">
+
+  <title>Arnaud Bailly - Notes on Failing to Understand Software Transactional Memory</title>
+  <meta name="description" content="We craft code">
+  <meta name="author" content="Arnaud Bailly, Thomas Queste">
+
+  <link rel="stylesheet" type="text/css" href="http://abailly.github.io/css/style.css?v=3">
+  <link rel="stylesheet" type="text/css" href="http://abailly.github.io/css/default.css">
+  <link rel="stylesheet" type="text/css" href="http://abailly.github.io/css/syntax.css">
+  <link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css?family=Lato">
+  <script src="http://abailly.github.io/js/modernizr-2.0.6.min.js"></script>
+</head>
+<body>
+  <div id="container">
+    <header>
+      <div id="company-title">
+        <a href="http://abailly.github.io/"><img id="company-logo" src="http://abailly.github.io/images/logo.png" width="259" height="75" title="igitur.io" /></a>
+      </div>
+      <div>
+        <nav class="clearfix">
+        <ul id="menu">
+          <li>
+          <a href="#">About</a>
+          </li>
+        </ul>
+        </nav>
+      </div>
+    </header>
+    <div id="main" role="main">
+<h1>Notes on Failing to Understand Software Transactional Memory</h1>
+<div class="info">Posted on May 22, 2016</div>
+
+<p>I am writing some library to easily implement event sourced services in Haskell based on previous experience at Capital Match, and while doing so I rewrote a simple file-based event store. This store communicates with core service using <a href="https://hackage.haskell.org/package/stm-2.4.4.1/docs/Control-Concurrent-STM-TBQueue.html">TBQueue</a>, a bounded queue implemented over Haskell’s STM. It took me couple of hours on Friday to solve a <a href="http://hackage.haskell.org/package/base-4.8.2.0/docs/Control-Exception-Base.html#t:BlockedIndefinitelyOnSTM">BlockedIndefinitelyOnSTM</a> bug I was facing while testing this simple store. So today I posted a <a href="http://stackoverflow.com/questions/37376419/what-is-the-precise-reason-i-got-blocked-on-stm">question about STM</a> on Stack Overflow, as I did not have a clear intuition on why my code was failing, hence why my fix was correct.</p>
+<p>The code of the store boils down to the following simple model.</p>
+<p>First some useful imports…</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">{-# LANGUAGE ScopedTypeVariables #-}</span>
+<span class="kw">module</span> <span class="dt">Main</span> <span class="kw">where</span>
+
+<span class="kw">import           </span><span class="dt">Control.Concurrent.Async</span>
+<span class="kw">import           </span><span class="dt">Control.Concurrent.STM</span>
+<span class="kw">import           </span><span class="dt">Control.Exception</span>
+<span class="kw">import           </span><span class="dt">Control.Monad</span>            (forever)
+<span class="kw">import           </span><span class="dt">Hevents.Eff</span>
+<span class="kw">import           </span><span class="dt">System.IO</span></code></pre></div>
+<p>The store dequeues some <em>operation</em> from a given queue, writes the operation’s string to <code>stdout</code> then put back the length of the written string into a <a href="http://hackage.haskell.org/package/stm-2.4.4.1/docs/Control-Concurrent-STM-TMVar.html">TMVar</a>, which models communicating the result of the operation back to the caller.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Op</span> <span class="fu">=</span> <span class="dt">Op</span> <span class="dt">String</span> (<span class="dt">TMVar</span> <span class="dt">Int</span>)
+
+<span class="ot">storerun ::</span> <span class="dt">TBQueue</span> <span class="dt">Op</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
+storerun q <span class="fu">=</span> <span class="kw">do</span>
+  h <span class="ot">&lt;-</span> openFile <span class="st">&quot;store.test&quot;</span> <span class="dt">ReadWriteMode</span>
+  hSetBuffering h <span class="dt">NoBuffering</span>
+  forever <span class="fu">$</span> <span class="kw">do</span>
+    <span class="dt">Op</span> s v <span class="ot">&lt;-</span> atomically <span class="fu">$</span> readTBQueue q
+    hPutStrLn h s
+    atomically <span class="fu">$</span> putTMVar v (length s)</code></pre></div>
+<p>The <code>main</code> function is responsible for creating the jobs queue, starting the “store” in a separate thread then reading lines from <code>stdin</code> and feeding them as “operations” for the store.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> <span class="kw">do</span>
+  q <span class="ot">&lt;-</span> newTBQueueIO <span class="dv">100</span>
+  _ <span class="ot">&lt;-</span> async <span class="fu">$</span> storerun q
+  storeInput q
+  <span class="kw">where</span>
+    storeInput q <span class="fu">=</span> forever <span class="fu">$</span> <span class="kw">do</span>
+      l <span class="ot">&lt;-</span> getLine
+      v <span class="ot">&lt;-</span> newEmptyTMVarIO
+      r <span class="ot">&lt;-</span> atomically <span class="fu">$</span> <span class="kw">do</span>
+        writeTBQueue q (<span class="dt">Op</span> l v)
+        takeTMVar v</code></pre></div>
+<p>This code deadlocks because STM are actually - surprise! - <strong>transactions</strong>: They do all of their operations, or nothing, and they are serialized. Hence the following block:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">r <span class="ot">&lt;-</span> atomically <span class="fu">$</span> <span class="kw">do</span>
+  writeTBQueue q (<span class="dt">Op</span> l v)
+  takeTMVar v</code></pre></div>
+<p>…can succeeds <em>if and only if</em> it can <strong>atomically</strong> put an operation in the queue and read the result back from <code>v</code>. Which of course is not possible because the result is put back after the operation is read from the queue in another transaction. The correct code is:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">atomically <span class="fu">$</span> writeTBQueue q (<span class="dt">Op</span> l v)
+r <span class="ot">&lt;-</span> atomically <span class="fu">$</span> takeTMVar v</code></pre></div>
+<p>Pretty obvious, in retrospect. As the person who answered my question on SO, there is no way for two STM transactions to <em>exchange</em> information.</p>
+
+
+<div id="disqus_thread"></div>
+<script>
+  (function() {  // DON'T EDIT BELOW THIS LINE
+    var d = document, s = d.createElement('script');
+  
+    s.src = 'http://arnaudsblog.disqus.com/embed.js';
+  
+    s.setAttribute('data-timestamp', +new Date());
+  (d.head || d.body).appendChild(s);
+  })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a></noscript>
+
+
+
+    </div>
+    <footer>
+       <a href="https://fr.linkedin.com/in/arnaudbailly"> <img src="http://abailly.github.io/images/linkedin.png" width="28" /></a>  <a href="https://twitter.com/abailly"> <img width="32" src="http://abailly.github.io/images/twitter.png" /></a>  <a href="http://abailly.github.io/atom.xml"><img src="http://abailly.github.io/images/feed-icon.svg" width="24px" /></a>  <a href="http://jaspervdj.be/hakyll"><img src="http://abailly.github.io/images/lambda.png" width="24px" /></a>
+    </footer>
+    
+  </div>
+</body>
+
+Providence Salumu
+</html>

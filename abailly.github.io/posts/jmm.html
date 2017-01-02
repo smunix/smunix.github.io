@@ -1,0 +1,218 @@
+<!doctype html>
+<!--[if lt IE 7]> <html class="no-js lt-ie9 lt-ie8 lt-ie7" lang="en"> <![endif]-->
+<!--[if IE 7]>    <html class="no-js lt-ie9 lt-ie8" lang="en"> <![endif]-->
+<!--[if IE 8]>    <html class="no-js lt-ie9" lang="en"> <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en"> <!--<![endif]-->
+
+Providence Salumu
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+  <meta charset="utf-8">
+
+  <title>Arnaud Bailly - Understanding the Java Memory Model</title>
+  <meta name="description" content="We craft code">
+  <meta name="author" content="Arnaud Bailly, Thomas Queste">
+
+  <link rel="stylesheet" type="text/css" href="http://abailly.github.io/css/style.css?v=3">
+  <link rel="stylesheet" type="text/css" href="http://abailly.github.io/css/default.css">
+  <link rel="stylesheet" type="text/css" href="http://abailly.github.io/css/syntax.css">
+  <link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css?family=Lato">
+  <script src="http://abailly.github.io/js/modernizr-2.0.6.min.js"></script>
+</head>
+<body>
+  <div id="container">
+    <header>
+      <div id="company-title">
+        <a href="http://abailly.github.io/"><img id="company-logo" src="http://abailly.github.io/images/logo.png" width="259" height="75" title="igitur.io" /></a>
+      </div>
+      <div>
+        <nav class="clearfix">
+        <ul id="menu">
+          <li>
+          <a href="#">About</a>
+          </li>
+        </ul>
+        </nav>
+      </div>
+    </header>
+    <div id="main" role="main">
+<h1>Understanding the Java Memory Model</h1>
+<div class="info">Posted on April 16, 2013</div>
+
+<p>Like most Java developer I have been accustomed over the years to use the concurrency capabilities of the Java language and platform to build multi-threaded programs. I understand <code>Thread</code> and <code>Runnable</code>, I (think I) know how to use <code>volatile</code> fields and <code>synchronized</code> blocks and methods, I have explored the <code>java.util.concurrent.*</code> utilities and used most of the high-level constructs in it, I even used <a href="http://code.google.com/p/guava">Google’s Guava</a> concurrency features and <a href="http://akka.io/">Akka</a> actors library.</p>
+<p>Exploring concurrency, I went to the point of trying to understand the <a href="http://jsr166/">ForkJoinPool</a> implemented by Doug Lea as part of the JSR 166 effort, and other interesting structures like <a href>lock-free</a> queues or <a href>work-stealing</a> thread pools. And when you study concurrency in Java you unavoidably end trying to understand its foundation which lies in the Java Memory Model.</p>
+<p>This article reflects my understanding of this model. It first explains why a memory model is needed, then exposes the consequences for the developer of this model, following with the burden the model puts on the shoulders of JVM implementors. Some references are given at the end of this article.</p>
+<h1 id="the-need-for-a-memory-model">The need for a Memory Model</h1>
+<h2 id="program-optimizations">Program Optimizations</h2>
+<p>Compilers and CPUs can and do optimize programs. These optimizations may be very aggressive and in the context of multithreading may lead to unexpected results. Transformations are always (or nearly always) local to a single thread of execution (or one CPU) hence transformations affecting reading and writing values of shared variables can have surprising effects on the behaviour of other threads of execution.</p>
+<p>Among the possible transformations zoo, we can list:</p>
+<ul>
+<li>Register allocation: Reading from a register is much faster than reading from memory location, hence compilers strive to maximize allocation of variables to register.</li>
+<li>Read reuse: A variable is read in two different registers (eg. local variables), the optimizer can detect that no write occurs in between the two reads and <em>reuse</em> the result of the first read for the second</li>
+<li>Reordering: Independent writes/reads can be moved to different locations, eg. at beginning of a sequence of instructions, for example to reduce memory bandwidth usage. This can be done if the compiler detects that the write is independent of intervening reads</li>
+<li>Control flow simplification:
+<ul>
+<li>Conditional execution can be removed if the value is guaranteed to be set to some known value. Constant propagation can yield such optimzations</li>
+<li>Loop unrolling: When the number of loops is known to be short, or constant, compiler can remove the loop and inline its body, with further optimizations possible</li>
+</ul></li>
+<li>Synchronization elimination and simplification: Actions can be moved “inside” synchronized regions to merge several locks/unlocks (lock coarsening)</li>
+</ul>
+<p>Such transformations can be motivated by:</p>
+<ul>
+<li>Optimizing cache access: Reading/writing several values located in the same cache line sequentially is much more efficient as it reduces the risk of cache line evictions</li>
+<li>Optimizing instructions pipelines and cache: Modifiying branching behaviour can optimize instruction cache usage by ensuring cache flush occurs less often</li>
+<li>Optimizing memory access: reusing values from a register, or a cache, is much more efficient than directly accessing the cache or the RAM</li>
+</ul>
+<p>It is the essence of high-level programming language like Java to insulate the developer from all those details while still providing good performances. After all, if we chose to program in Java and not say in C, Forth or Assembler, it is because we do not want to take care of all those low-level optimizations.</p>
+<h2 id="computer-architecture">Computer Architecture</h2>
+<p>MESI (modified/exclusive/shared/invalid) is the main <strong>Cache Coherence</strong> protocol implemented in modern hardware. It optimizes the use of the cache in multiprocessor systems by identifying which transitions require change notifications to other processors, issuing RFOs when some processor needs to change the value of a shared variable (<em>Request For Ownership</em>).</p>
+<p>Note that because a cache coherence protocol exists does not mean the result of memory operations on cache are always coherent! While processing instructions to some memory region processors do not wait for <em>exclusive</em> access, which implies two concurrent modifications can collide and one gets lost. Cache refresh only occurs with certainty when a cache line is marked invalid, in which case the processor will read it from memory (this is known as a cache miss) before marking it shared or modified.</p>
+<p>Hence even in the presence of a coherence protocol, different processors can and do see different values of the same variable. At the CPU level, synchronization instructions are also mandatory if one needs to ensure consistent semantics of program execution in the presence of multiple threads.</p>
+<p>This is actually the same situation than a distributed systems where nodes are connected by a network: One needs explicit protocols and instructions to ensure that all nodes share a common global state, and maintaining this global state is expensive, requiring more bandwidth, more messages, more exchanges between nodes</p>
+<p>Hence JVM implementors for different architectures and different needs must be able to have a clear understanding of the requirements of the language and how they relate to the underlying platform.</p>
+<h1 id="programmers-guarantee">Programmer’s Guarantee</h1>
+<h2 id="sequential-consistency">Sequential Consistency</h2>
+<p><strong>Sequential consistency</strong> as defined by <a href="http://research.microsoft.com/en-us/um/people/lamport/pubs/multi.pdf">Lamport</a> offers the most guarantee to developers. It states two properties over the result of any execution of a piece of software (result is here understood as the state of the memory at each step of the program, or more abstractly the value assigned to each variable):</p>
+<ul>
+<li>From the point of view of a single thread, the execution is consistent with the <em>program order</em></li>
+<li>The complete execution trace appears in a single unique order from the point of view of all the threads</li>
+</ul>
+<p>Formally, sequential consistency is quite intuitive as it can be understood by stating that any execution is an <em>interleaving</em> of the program order of each thread/process, each read seeing the value of the immediately preceding write in the execution instantaneously. In other words: Take each thread/process instructions, mix them freely, and you have sequential consistency.</p>
+<p>Sequential consistency is very strong as it requires that all memory operations effect be propagated <em>instantaneously</em> and visible to all threads <em>atomically</em>: This has a strong impact on what optimizations can be done and how performant memory operations are, as it effectively implies they are all <em>synchronous</em>, or <em>synchronized</em> globally across all threads. Given each threads is mapped to a processor on the underlying host, this requirements propagates automatically at the hardware level.</p>
+<p>Requiring sequential consistency eschew most interesting optimizations that could be done by the compiler and the hardware and severely hinders peformances of any but the most trivial programs. The system must be able to reorder instructions as given by the program in order to minimize latency of memory accesses:</p>
+<ul>
+<li>Access time for various levels of cache (L1, L2, L3) increases exponentially hence it is always advantageous to try to hit the lowest level of cache possible: This can be achieved most of the time by ensuring memory accesses are “linear”,</li>
+<li>Requiring atomicity of writes severely reduces the usefulness of caches and increases latency: Writers have to wait acknowledgements of all other processors to proceed with write (which makes Write-back caches effectively useless).</li>
+</ul>
+<h2 id="data-race-free-guarantee">Data-Race Free Guarantee</h2>
+<p>The Java Memory Model proposes a weaker guarantee called <em>Data-Race Free Guarantee</em>:</p>
+<blockquote>
+<p>If all sequentially consistent executions of a program are free of data-races then all executions appear to be sequentially consistent</p>
+</blockquote>
+<p>This guarantee is defined through the <em>happens-before</em> relation: If two conflicting accesses (at least one access is a write to the same memory location) are not ordered w.r.t. <em>happens-before</em> relation, then this is a data race. A program whose all sequentially consistent executions are devoid of data races is said to be <em>properly synchronized</em>.</p>
+<p>Happens-before is the transitive closure of 2 other relations:</p>
+<ul>
+<li><em>Program order</em> which is the partial order of actions as specified by the program’s source code. It is partial because actions executed by different threads can be interleaved: The underlying memory model respects program order only in an <em>intra-thread</em> context</li>
+<li><em>Synchronization order</em> which is the total order over all synchronization actions: monitor exit → monitor enter, volatile writes → volatile reads, thread start → first action in thread, last action in thread → thread isAlive(), interrupt → interruption catching, default value write → first action of thread,…</li>
+</ul>
+<p>All these orders apply to couple of actions within an <em>execution</em> of the program (eg. they are not ordering relations on the program’s source itself). Given these definitions and some program, there exists a minimal set of synchronization actions that ensures all executions are data-race free</p>
+<p>Just because one uses <em>volatile</em> variables does not means there won’t be any race conditions in the program: The execution order is dependent on the scheduler hence different executions can observe different values of the variable.</p>
+<h3 id="some-examples">Some Examples</h3>
+<p>Note that a program can be properly synchronized (eg. free of data races) even without explicit or implicit synchronization actions. The following program is correctly synchronized hence its only possible outcome is <code>r1 = r2 = x = y = 0</code>. This is so because there is no sequentially consistent execution where any of the x and y assignments occurs, hence there is no conflict.</p>
+<div class="sourceCode"><pre class="sourceCode java"><code class="sourceCode java"><span class="kw">public</span> <span class="dt">int</span> x = <span class="dv">0</span>;
+<span class="kw">public</span> <span class="dt">int</span> y = <span class="dv">0</span>;
+
+<span class="kw">public</span> <span class="dt">void</span> <span class="fu">run</span> () {
+  Thread p1 = <span class="kw">new</span> Thread() {
+    <span class="kw">public</span> <span class="dt">void</span> <span class="fu">run</span>() {
+       <span class="dt">int</span> r1 = x;
+       <span class="kw">if</span>(r1 != <span class="dv">0</span>) y = <span class="dv">42</span>;
+    }
+  };
+
+  Thread p2 = <span class="kw">new</span> Thread() {
+    <span class="kw">public</span> <span class="dt">void</span> <span class="fu">run</span>() {
+       <span class="dt">int</span> r2 = y;
+       <span class="kw">if</span>(r2 != <span class="dv">0</span>) x = <span class="dv">42</span>;
+    }
+  };
+  p1.<span class="fu">start</span>();
+  p2.<span class="fu">start</span>();
+}</code></pre></div>
+<p>The converse is also true: A code can be improperly synchronized even in the presence of synchronization actions. Consider the classical example of the flawed lazy Singleton pattern:</p>
+<div class="sourceCode"><pre class="sourceCode java"><code class="sourceCode java"><span class="kw">public</span> <span class="kw">class</span> MySingleton {
+   <span class="kw">private</span> <span class="dt">static</span> MySingleton instance;
+   
+   <span class="kw">public</span> <span class="dt">static</span> MySingleton <span class="fu">instance</span>() {
+     <span class="kw">if</span>(instance == <span class="kw">null</span>) {
+       <span class="kw">synchronized</span>(MySingleton.<span class="fu">class</span>) {
+         <span class="kw">if</span>(instance == <span class="kw">null</span>) {
+           instance = <span class="kw">new</span> <span class="fu">MySingleton</span>();
+         }
+       }
+     }
+     <span class="kw">return</span> instance;
+  }
+}</code></pre></div>
+<p>The read and write of <code>instance</code> occur without an <em>happens-before</em> relation exists between both actions which can occur in different threads, hence code contains a data-race</p>
+<h3 id="final-objects">Final Objects</h3>
+<p>Final (immutable objects) are handled with special care: There exists a conceptual <em>freeze</em> action after which publication of the object’s reference is guaranteed to see the final value. This freeze action is effective at the end of the constructor of the object containing final fields.</p>
+<p>If the reference to a final object is published to other thread before the freeze barrier, then the guarantee is dropped and different values than the final one can be seen. This may be caused by not propagating cached values, reading stale data…</p>
+<h1 id="implementors-details">Implementors’ Details</h1>
+<h2 id="happens-before">Happens-Before</h2>
+<p>One consequence of the <em>happens-before</em> relation is that it is possible for reads to see writes occuring “later” in the execution, which actually means the two threads see different orders of actions or equivalently that values propagation is not serialized. This is exactly what can happens in a distributed system where messages are not guaranteed to arrive at each node at the same time nor in the same order in all nodes, especially when they come from different nodes (eg. there is no total order over all exchanged messages in the system)</p>
+<h2 id="causality">Causality</h2>
+<p>Data-race freeness cannot be guaranteed if the JVM only obeys <em>happens-before</em> consistency. Given the above properly synchronized program, there exists an execution which is happens-before consistent but not sequentially consistent:</p>
+<pre><code>p1: r1 = x;  //  sees a value of 42, eg. write of x in p2
+p1: y = 42; 
+p2: r2 = y;  // sees value of 42 above
+p2: x = 42; </code></pre>
+<p>Yet allowing such behavior is impossible, hence the <em>Java Memory Model</em> requires implementations to respect a <em>non circular causality principle</em>: actions cannot be ordered in such a way that occurence of an action is caused by a circular dependence with another action, as this is the case in the above trace. The formal details of the specification is beyond my understanding (it is given in terms of an increasing sequence of committed actions which respect some properties) but my intuition is simply that the execution order should be causaly consistent (eg. it is a DAG).</p>
+<p>It should be noted that reads of “later” writes may still be possible if it respects the causality constraints. In the example, this may not happen but the following program makes it perfectly admissible (by the way, this program is not data-race free):</p>
+<div class="sourceCode"><pre class="sourceCode java"><code class="sourceCode java">  <span class="dt">int</span> x = <span class="dv">0</span>;
+  <span class="dt">int</span> y = <span class="dv">0</span>;
+  Thread p1 = <span class="kw">new</span> Thread() {
+    <span class="kw">public</span> <span class="dt">void</span> <span class="fu">run</span>() {
+       <span class="dt">int</span> r1 = x;
+       <span class="kw">if</span>(r1 == <span class="dv">1</span>) y = <span class="dv">1</span>;
+    }
+  };
+
+  Thread p2 = <span class="kw">new</span> Thread() {
+    <span class="kw">public</span> <span class="dt">void</span> <span class="fu">run</span>() {
+       <span class="dt">int</span> r2 = y;
+       <span class="kw">if</span>(r2 == <span class="dv">1</span>) x = <span class="dv">1</span>;
+       <span class="kw">if</span>(r2 == <span class="dv">0</span>) x = <span class="dv">1</span>;
+    }
+  };
+  p1.<span class="fu">start</span>();
+  p2.<span class="fu">start</span>();</code></pre></div>
+<p>In this case, it is possible that <code>r1 = r2 = 1</code>: The compiler should be given the freedom to infer that because <code>y</code> never has a value different from 0 or 1, <code>x = 1</code> will always occur, hence does not depend anymore on the read of y and can be moved earlier, resulting in <code>p1</code> observing it and writing <code>y = 1</code>.</p>
+<h1 id="consequences-for-the-programmer">Consequences for the Programmer</h1>
+<p>It should be apparent from the above discussion and examples that understanding how the Java Memory Model works is not trivial, and I would never pretend having accomplished such a feat. But what is of interest to me is: What consequences does this have for programmers? What are the practical advices one can use to avoid bad surprises when writing concurrent programs? A lot of wisdom can be extracted from Brian Goetz’ book and the thread model has been thorougly debunked in <em>The Problem with Threads</em>.</p>
+<p><em>Minimize sharing</em>: All troubles come from the fact some memory locations are shared between different threads, leading to potential data races. An obvious solution to this problem is the to minimize sharing, even to the point of <em>no sharing</em> at all between threads.</p>
+<p>This is the basic strategic choice behing actors’ based concurrency: By ensuring only immutable (hence perfectly shareable) objects are exchanged between actors, and encapsulating the state within each actor behind an unbreakable mailbox barrier removes all data-races problem. Of course this is true only if the mailboxes themselves are properly synchronized.</p>
+<p><em>Use higher-level constructs</em>: Why care about the nitty-gritty details of managing shared memory access when you can use more abstract concepts which handle the complexity for you? This is a generalization of the above and applies to quite a lot of possible concurrency constructs.</p>
+<ul>
+<li><a href="http://www.haskell.org/haskellwiki/Software_transactional_memory">Software Transactional Memory</a>: Variables are transactional with transactions working optimistically (rollback if someone else has changed the world behind your back). The nice thing with transactional memory is that it composes gracefully. There even is a <a href="http://multiverse.codehaus.org/overview.html">Java implementation</a> (actually there are several of them)</li>
+<li><a href="http://gpars.codehaus.org/Dataflow">Data Flow</a> programming is another interesting model where concurrency is handled declaratively and implicitly: Data flow variables can be written once and reading is blocking. it allows concise and elegant expression of fork/join type and other kind of distributed computations</li>
+<li><a href="http://clojure.org/agents">Agents</a> (see also the <a href="http://gpars.org/1.0.0/guide/guide/agents.html">Gpars version</a> are a kind of actors who guards mutable state: Modifying this state means passing a function whose execution is serialized within the agent itself in its own thread</li>
+</ul>
+<p><em>Reason locally</em>: When sharing is needed (for example when implementing an actor’s mailbox!) then it helps to keep the reasoning local: Put all the potentially concurrent in the same place (eg. class) and carefully analyze and test the code to ensure it is properly synchronized. There is nothing worse than scattering locks acquire and release, or <code>synchronized</code> blocks across several obejcts and a deeply nested call tree for breeding concurrency bugs. Moreover, <em>locality</em> might helps reduce the needed contention and improve the performance, for example by replacing locking constructs by lock-free ones (eg. CAS operations or <code>volatile</code> variables).</p>
+<h1 id="references">References</h1>
+<ul>
+<li><a href="http://dl.dropbox.com/u/1011627/journal.pdf">The Java Memory Model</a>, J.Manson, W.Pugh and S.Adve, POPL</li>
+<li><a href="http://www.akkadia.org/drepper/cpumemory.pdf">What Every Programmer Should know About Memory</a>, U. Drepper, 2007</li>
+<li><a href="http://docs.oracle.com/javase/specs/jls/se7/jls7.pdf">The Java Language Specification, 7th Ed</a></li>
+<li><a href="http://research.compaq.com/wrl/techreports/abstracts/95.7.html">Shared Memory Consistency Models: A Tutorial</a>, S.Adve and K.Gharachorloo, WRL Research Report 95/7</li>
+<li><a href="http://javarevisited.blogspot.fr/2011/06/volatile-keyword-java-example-tutorial.html">A Volatile tutorial</a></li>
+<li><em>Java Concurrency in Practice</em>, B.Goetz, 2006</li>
+<li><a href="http://www.eecs.berkeley.edu/Pubs/TechRpts/2006/EECS-2006-1.pdf">The Problem with Threads</a>, Ed. Lee, 2006</li>
+</ul>
+
+
+<div id="disqus_thread"></div>
+<script>
+  (function() {  // DON'T EDIT BELOW THIS LINE
+    var d = document, s = d.createElement('script');
+  
+    s.src = 'http://arnaudsblog.disqus.com/embed.js';
+  
+    s.setAttribute('data-timestamp', +new Date());
+  (d.head || d.body).appendChild(s);
+  })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a></noscript>
+
+
+
+    </div>
+    <footer>
+       <a href="https://fr.linkedin.com/in/arnaudbailly"> <img src="http://abailly.github.io/images/linkedin.png" width="28" /></a>  <a href="https://twitter.com/abailly"> <img width="32" src="http://abailly.github.io/images/twitter.png" /></a>  <a href="http://abailly.github.io/atom.xml"><img src="http://abailly.github.io/images/feed-icon.svg" width="24px" /></a>  <a href="http://jaspervdj.be/hakyll"><img src="http://abailly.github.io/images/lambda.png" width="24px" /></a>
+    </footer>
+    
+  </div>
+</body>
+
+Providence Salumu
+</html>

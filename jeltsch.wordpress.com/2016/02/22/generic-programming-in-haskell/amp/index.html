@@ -1,0 +1,831 @@
+<!doctype html>
+<html amp lang="en">
+
+Providence Salumu
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=UTF-8" /><!-- /Added by HTTrack -->
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no">
+	
+<!-- Jetpack Open Graph Tags -->
+<meta property="og:type" content="article" />
+<meta property="og:title" content="Generic programming in Haskell" />
+<meta property="og:url" content="../index.html" />
+<meta property="og:description" content="Generic programming is a powerful way to define a function that works in an analogous way for a class of types. In this article, I describe the latest approach to generic programming that is implem…" />
+<meta property="article:published_time" content="2016-02-22T18:07:16+00:00" />
+<meta property="article:modified_time" content="2016-02-22T18:07:16+00:00" />
+<meta property="og:site_name" content="Wolfgang Jeltsch" />
+<meta property="og:image" content="https://s0.wp.com/i/blank.jpg" />
+<meta property="og:locale" content="en_US" />
+<meta name="twitter:site" content="@wordpressdotcom" />
+<meta name="twitter:card" content="summary" />
+<meta property="fb:app_id" content="249643311490" />
+<meta property="article:publisher" content="https://www.facebook.com/WordPresscom" />
+	<title>Generic programming in Haskell &#8211; Wolfgang Jeltsch</title>
+		<link rel="canonical" href="../index.html" />
+			<script custom-element="amp-ad" src="https://cdn.ampproject.org/v0/amp-ad-0.1.js" async></script>
+		<script src="https://cdn.ampproject.org/v0.js" async></script>
+			<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Merriweather:400,400italic,700,700italic">
+		<style amp-boilerplate>body{-webkit-animation:-amp-start 8s steps(1,end) 0s 1 normal both;-moz-animation:-amp-start 8s steps(1,end) 0s 1 normal both;-ms-animation:-amp-start 8s steps(1,end) 0s 1 normal both;animation:-amp-start 8s steps(1,end) 0s 1 normal both}@-webkit-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@-moz-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@-ms-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@-o-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}</style><noscript><style amp-boilerplate>body{-webkit-animation:none;-moz-animation:none;-ms-animation:none;animation:none}</style></noscript>
+		<script type="application/ld+json">{"@context":"http:\/\/schema.org","@type":"BlogPosting","mainEntityOfPage":"https:\/\/jeltsch.wordpress.com\/2016\/02\/22\/generic-programming-in-haskell\/","publisher":{"@type":"Organization","name":"Wolfgang Jeltsch","logo":{"@type":"ImageObject","url":"https:\/\/s2.wp.com\/i\/favicons\/apple-touch-icon-60x60.png","width":60,"height":60}},"headline":"Generic programming in Haskell","datePublished":"2016-02-22T18:07:16+00:00","dateModified":"2016-02-22T18:07:16+00:00","author":{"@type":"Person","name":"Wolfgang Jeltsch"},"image":{"@type":"ImageObject","url":"https:\/\/2.gravatar.com\/avatar\/bf139729e2f2ed2494653dda9da99a38?s=200&amp;d=identicon&amp;r=G","width":200,"height":200}}</script>
+		<style amp-custom>
+		/* Generic WP styling */
+
+.alignright {
+	float: right;
+}
+
+.alignleft {
+	float: left;
+}
+
+.aligncenter {
+	display: block;
+	margin-left: auto;
+	margin-right: auto;
+}
+
+.amp-wp-enforced-sizes {
+	/** Our sizes fallback is 100vw, and we have a padding on the container; the max-width here prevents the element from overflowing. **/
+	max-width: 100%;
+	margin: 0 auto;
+}
+
+.amp-wp-unknown-size img {
+	/** Worst case scenario when we can't figure out dimensions for an image. **/
+	/** Force the image into a box of fixed dimensions and use object-fit to scale. **/
+	object-fit: contain;
+}
+
+/* Template Styles */
+
+.amp-wp-content,
+.amp-wp-title-bar div {
+		margin: 0 auto;
+	max-width: 640px;
+	}
+
+html {
+	background: #0a89c0;
+}
+
+body {
+	background: #fff;
+	color: #353535;
+	font-family: 'Merriweather', 'Times New Roman', Times, Serif;
+	font-weight: 300;
+	line-height: 1.75em;
+}
+
+p,
+ol,
+ul,
+figure {
+	margin: 0 0 1em;
+	padding: 0;
+}
+
+a,
+a:visited {
+	color: #0a89c0;
+}
+
+a:hover,
+a:active,
+a:focus {
+	color: #353535;
+}
+
+/* Quotes */
+
+blockquote {
+	color: #353535;
+	background: rgba(127,127,127,.125);
+	border-left: 2px solid #0a89c0;
+	margin: 8px 0 24px 0;
+	padding: 16px;
+}
+
+blockquote p:last-child {
+	margin-bottom: 0;
+}
+
+/* UI Fonts */
+
+.amp-wp-meta,
+.amp-wp-header div,
+.amp-wp-title,
+.wp-caption-text,
+.amp-wp-tax-category,
+.amp-wp-tax-tag,
+.amp-wp-comments-link,
+.amp-wp-footer p,
+.back-to-top {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen-Sans", "Ubuntu", "Cantarell", "Helvetica Neue", sans-serif;
+}
+
+/* Header */
+
+.amp-wp-header {
+	background-color: #0a89c0;
+}
+
+.amp-wp-header div {
+	color: #fff;
+	font-size: 1em;
+	font-weight: 400;
+	margin: 0 auto;
+	max-width: calc(840px - 32px);
+	padding: .875em 16px;
+	position: relative;
+}
+
+.amp-wp-header a {
+	color: #fff;
+	text-decoration: none;
+}
+
+/* Site Icon */
+
+.amp-wp-header .amp-wp-site-icon {
+	/** site icon is 32px **/
+	background-color: #fff;
+	border: 1px solid #fff;
+	border-radius: 50%;
+	position: absolute;
+	right: 18px;
+	top: 10px;
+}
+
+/* Article */
+
+.amp-wp-article {
+	color: #353535;
+	font-weight: 400;
+	margin: 1.5em auto;
+	max-width: 840px;
+	overflow-wrap: break-word;
+	word-wrap: break-word;
+}
+
+/* Article Header */
+
+.amp-wp-article-header {
+	align-items: center;
+	align-content: stretch;
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: space-between;
+	margin: 1.5em 16px 1.5em;
+}
+
+.amp-wp-title {
+	color: #353535;
+	display: block;
+	flex: 1 0 100%;
+	font-weight: 900;
+	margin: 0 0 .625em;
+	width: 100%;
+}
+
+/* Article Meta */
+
+.amp-wp-meta {
+	color: #696969;
+	display: inline-block;
+	flex: 2 1 50%;
+	font-size: .875em;
+	line-height: 1.5em;
+	margin: 0;
+	padding: 0;
+}
+
+.amp-wp-article-header .amp-wp-meta:last-of-type {
+	text-align: right;
+}
+
+.amp-wp-article-header .amp-wp-meta:first-of-type {
+	text-align: left;
+}
+
+.amp-wp-byline amp-img,
+.amp-wp-byline .amp-wp-author {
+	display: inline-block;
+	vertical-align: middle;
+}
+
+.amp-wp-byline amp-img {
+	border: 1px solid #0a89c0;
+	border-radius: 50%;
+	position: relative;
+	margin-right: 6px;
+}
+
+.amp-wp-posted-on {
+	text-align: right;
+}
+
+/* Featured image */
+
+.amp-wp-article-featured-image {
+	margin: 0 0 1em;
+}
+.amp-wp-article-featured-image amp-img {
+	margin: 0 auto;
+}
+.amp-wp-article-featured-image.wp-caption .wp-caption-text {
+	margin: 0 18px;
+}
+
+/* Article Content */
+
+.amp-wp-article-content {
+	margin: 0 16px;
+}
+
+.amp-wp-article-content ul,
+.amp-wp-article-content ol {
+	margin-left: 1em;
+}
+
+.amp-wp-article-content amp-img {
+	margin: 0 auto;
+}
+
+.amp-wp-article-content amp-img.alignright {
+	margin: 0 0 1em 16px;
+}
+
+.amp-wp-article-content amp-img.alignleft {
+	margin: 0 16px 1em 0;
+}
+
+/* Captions */
+
+.wp-caption {
+	padding: 0;
+}
+
+.wp-caption.alignleft {
+	margin-right: 16px;
+}
+
+.wp-caption.alignright {
+	margin-left: 16px;
+}
+
+.wp-caption .wp-caption-text {
+	border-bottom: 1px solid #c2c2c2;
+	color: #696969;
+	font-size: .875em;
+	line-height: 1.5em;
+	margin: 0;
+	padding: .66em 10px .75em;
+}
+
+/* AMP Media */
+
+amp-carousel {
+	background: #c2c2c2;
+	margin: 0 -16px 1.5em;
+}
+amp-iframe,
+amp-youtube,
+amp-instagram,
+amp-vine {
+	background: #c2c2c2;
+	margin: 0 -16px 1.5em;
+}
+
+.amp-wp-article-content amp-carousel amp-img {
+	border: none;
+}
+
+amp-carousel > amp-img > img {
+	object-fit: contain;
+}
+
+.amp-wp-iframe-placeholder {
+	background: #c2c2c2 url( https://s2.wp.com/wp-content/plugins/amp/assets/images/placeholder-icon.png) no-repeat center 40%;
+	background-size: 48px 48px;
+	min-height: 48px;
+}
+
+/* Article Footer Meta */
+
+.amp-wp-article-footer .amp-wp-meta {
+	display: block;
+}
+
+.amp-wp-tax-category,
+.amp-wp-tax-tag {
+	color: #696969;
+	font-size: .875em;
+	line-height: 1.5em;
+	margin: 1.5em 16px;
+}
+
+.amp-wp-comments-link {
+	color: #696969;
+	font-size: .875em;
+	line-height: 1.5em;
+	text-align: center;
+	margin: 2.25em 0 1.5em;
+}
+
+.amp-wp-comments-link a {
+	border-style: solid;
+	border-color: #c2c2c2;
+	border-width: 1px 1px 2px;
+	border-radius: 4px;
+	background-color: transparent;
+	color: #0a89c0;
+	cursor: pointer;
+	display: block;
+	font-size: 14px;
+	font-weight: 600;
+	line-height: 18px;
+	margin: 0 auto;
+	max-width: 200px;
+	padding: 11px 16px;
+	text-decoration: none;
+	width: 50%;
+	-webkit-transition: background-color 0.2s ease;
+			transition: background-color 0.2s ease;
+}
+
+/* AMP Footer */
+
+.amp-wp-footer {
+	border-top: 1px solid #c2c2c2;
+	margin: calc(1.5em - 1px) 0 0;
+}
+
+.amp-wp-footer div {
+	margin: 0 auto;
+	max-width: calc(840px - 32px);
+	padding: 1.25em 16px 1.25em;
+	position: relative;
+}
+
+.amp-wp-footer h2 {
+	font-size: 1em;
+	line-height: 1.375em;
+	margin: 0 0 .5em;
+}
+
+.amp-wp-footer p {
+	color: #696969;
+	font-size: .8em;
+	line-height: 1.5em;
+	margin: 0 85px 0 0;
+}
+
+.amp-wp-footer a {
+	text-decoration: none;
+}
+
+.back-to-top {
+	bottom: 1.275em;
+	font-size: .8em;
+	font-weight: 600;
+	line-height: 2em;
+	position: absolute;
+	right: 16px;
+}
+				/* WordAds */
+		.wpcnt {
+			text-align: center;
+			line-height: 0;
+			display: block;
+			clear: both;
+			margin: 1em 0;
+		}
+
+		.rtl .wpcnt {
+			direction: ltr;
+		}
+
+		.wpa {
+			position: relative;
+			display: inline-block;
+			max-width: 100%;
+			text-align: left;
+			padding: 10px 0 0;
+			min-width: 300px;
+			-webkit-transform: translate3d(0, 0, 0);
+			transform: translate3d(0, 0, 0);
+		}
+
+		.wpa-about {
+			position: absolute;
+			top: 5px;
+			left: 0;
+			right: 0;
+			display: block;
+			min-width: 160px;
+			border-bottom: none;
+			font: 10px/1 "Open Sans", Arial, sans-serif;
+			text-align: left;
+			text-decoration: none;
+			opacity: 0.85;
+		}
+
+		.wpa-about:hover {
+			text-decoration: underline;
+			opacity: 1;
+		}
+
+		.wpa-about:hover, .wa_infobox a:hover {
+			text-decoration: underline;
+			color: #444;
+		}
+
+		.wpa .u>div, .wpadvert>div>* {
+			display: block;
+			margin-top: 5px;
+			margin-bottom: 1em;
+		}
+
+		div.wpa>div {
+			margin-top: 10px;
+		}	</style>
+</head>
+
+<body class="">
+
+<header id="#top" class="amp-wp-header">
+	<div>
+		<a href="https://jeltsch.wordpress.com/">
+						Wolfgang Jeltsch		</a>
+	</div>
+</header>
+
+<article class="amp-wp-article">
+
+	<header class="amp-wp-article-header">
+		<h1 class="amp-wp-title">Generic programming in Haskell</h1>
+				<div class="amp-wp-meta amp-wp-byline">
+					<amp-img src="https://secure.gravatar.com/avatar/bf139729e2f2ed2494653dda9da99a38?s=24&amp;d=identicon&amp;r=g" width="24" height="24" layout="fixed"></amp-img>
+				<span class="amp-wp-author author vcard">Wolfgang Jeltsch</span>
+	</div>
+<div class="amp-wp-meta amp-wp-posted-on">
+	<time datetime="2016-02-22T18:07:16+00:00">
+		10 months ago	</time>
+</div>
+	</header>
+
+	
+	<div class="amp-wp-article-content">
+		<p>Generic programming is a powerful way to define a function that works in an analogous way for a class of types. In this article, I describe <a href="https://downloads.haskell.org/~ghc/latest/docs/html/users_guide/generic-programming.html" title="Generic programming">the latest approach to generic programming that is implemented in GHC</a>. This approach goes back to the paper <a href="http://dreixel.net/research/pdf/gdmh.pdf" title="A Generic Deriving Mechanism for Haskell"><em>A Generic Deriving Mechanism for Haskell</em></a> by José Pedro Magalhães, Atze Dijkstra, Johan Jeuring, and Andres Löh.<!--more--></p>
+<p>This article is a writeup of a <a href="http://theorylunch.wordpress.com/" title="Theory Lunch">Theory Lunch</a> talk I gave on 4 February 2016. As usual, the source of this article is a literate Haskell file, which you can <a href="http://darcs.wolfgang.jeltsch.info/blog/2016/02/19/generic-programming-in-haskell.lhs" title="Generic programming in Haskell">download</a>, load into GHCi, and play with.</p>
+<h2 id="motivation">Motivation</h2>
+<p>Parametric polymorphism allows you to write functions that deal with values of any type. An example of such a function is the <code>reverse</code> function, whose type is <code>[a] -&gt; [a]</code>. You can apply <code>reverse</code> to any list, no matter what types the elements have.</p>
+<p>However, parametric polymorphism does not allow your functions to depend on the structure of the concrete types that are used in place of type variables. So values of these types are always treated as black boxes. For example, the <code>reverse</code> function only reorders the elements of the given list. A function of type <code>[a] -&gt; [a]</code> could also drop elements (like the <code>tail</code> function does) or duplicate elements (like the <code>cycle</code> function does), but it could never invent new elements (except for ⊥) or analyze elements.</p>
+<p>Now there are situation where a function is suitable for a class of types that share certain properties. For example, the <code>sum</code> function works for all types that have a notion of binary addition. Haskell uses type classes to support such functions. For example, the <code>Num</code> class provides the method <code>(+)</code>, which is used in the definition of <code>sum</code>, whose type <code>Num a =&gt; [a] -&gt; a</code> contains a respective class constraint.</p>
+<p>The methods of a class have to be implemented separately for every type that is an instance of the class. This is reasonable for methods like <code>(+)</code>, where the implementations for the different instances differ fundamentally. However, it is unfortunate for methods that are implemented in an analogous way for most of the class instances. An example of such a method is <code>(==)</code>, since there is a canonical way of checking values of algebraic data types for equality. It works by first comparing the outermost data constructors of the two given values and if they match, the individual fields. Only when the data constructors and all the fields match, the two values are considered equal.</p>
+<p>For several standard classes, including <code>Eq</code>, Haskell provides the deriving mechanism to generate instances with default method implementations whose precise functionality depends on the structure of the type. Unfortunately, there is no possibility in standard Haskell to extend this deriving mechanism to user-defined classes. Generic programming is a way out of this problem.</p>
+<h2 id="prerequisites">Prerequisites</h2>
+<p>For generic programming, we need several language extensions. The good thing is that only one of them, <code>DeriveGeneric</code>, is specific to generic programming. The other ones have uses in other areas as well. Furthermore, <code>DeriveGeneric</code> is a very small extension. So the generic programming approach we describe here can be considered very lightweight.</p>
+<p>We state the full set of necessary extensions with the following pragma:</p>
+<div class="sourceCode">
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="co">{-# LANGUAGE DefaultSignatures,</span>&#13;
+<span class="co">             DeriveGeneric,</span>&#13;
+<span class="co">             FlexibleContexts,</span>&#13;
+<span class="co">             TypeFamilies,</span>&#13;
+<span class="co">             TypeOperators #-}</span></code></pre>
+</div>
+<p>Apart from these language extensions, we need the module <code>GHC.Generics</code>:</p>
+<div class="sourceCode">
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">import </span><span class="dt">GHC.Generics</span></code></pre>
+</div>
+<h2 id="our-running-example">Our running example</h2>
+<p>As our running example, we pick serialization and deserialization of values. Serialization means converting a value into a bit string, and deserialization means parsing a bit string in order to get back a value.</p>
+<p>We introduce a type <code>Bit</code> for representing bits:</p>
+<div class="sourceCode">
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Bit</span> <span class="fu">=</span> <span class="dt">O</span> <span class="fu">|</span> <span class="dt">I</span> <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Show</span>)</code></pre>
+</div>
+<p>Furthermore, we define the class of all types that support serialization and deserialization as follows:</p>
+<div class="sourceCode">
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Serializable</span> a <span class="kw">where</span>&#13;
+&#13;
+<span class="ot">    put ::</span> a <span class="ot">-&gt;</span> [<span class="dt">Bit</span>]&#13;
+&#13;
+<span class="ot">    get ::</span> [<span class="dt">Bit</span>] <span class="ot">-&gt;</span> (a, [<span class="dt">Bit</span>])</code></pre>
+</div>
+<p>There is a canonical way of serializing values of algebraic data types. It works by first encoding the data constructor of the given value as a sequence of bits and then serializing the individual fields. To show this approach in action, we define an algebraic data type <code>Tree</code>, which is a type of labeled binary trees:</p>
+<div class="sourceCode">
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Tree</span> a <span class="fu">=</span> <span class="dt">Leaf</span> <span class="fu">|</span> <span class="dt">Branch</span> (<span class="dt">Tree</span> a) a (<span class="dt">Tree</span> a) <span class="kw">deriving</span> <span class="dt">Show</span></code></pre>
+</div>
+<p>An instantiation of <code>Serializable</code> for <code>Tree</code> that follows the canonical serialization approach can be carried out as follows:</p>
+<div class="sourceCode">
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Serializable</span> a <span class="ot">=&gt;</span> <span class="dt">Serializable</span> (<span class="dt">Tree</span> a) <span class="kw">where</span>&#13;
+&#13;
+    put <span class="dt">Leaf</span>                     <span class="fu">=</span> [<span class="dt">O</span>]&#13;
+    put (<span class="dt">Branch</span> left root right) <span class="fu">=</span> [<span class="dt">I</span>]       <span class="fu">++</span>&#13;
+                                   put left  <span class="fu">++</span>&#13;
+                                   put root  <span class="fu">++</span>&#13;
+                                   put right&#13;
+&#13;
+    get (<span class="dt">O</span> <span class="fu">:</span> bits) <span class="fu">=</span> (<span class="dt">Leaf</span>, bits)&#13;
+    get (<span class="dt">I</span> <span class="fu">:</span> bits) <span class="fu">=</span> (<span class="dt">Branch</span> left root right, bits''') <span class="kw">where</span>&#13;
+&#13;
+        (left,  bits')   <span class="fu">=</span> get bits&#13;
+        (root,  bits'')  <span class="fu">=</span> get bits'&#13;
+        (right, bits''') <span class="fu">=</span> get bits''</code></pre>
+</div>
+<p>Of course, it quickly becomes cumbersome to provide such an instance declaration for every algebraic data type that should use the canonical serialization approach. So we want to implement the canonical approach once and for all and make it easily usable for arbitrary types that are amenable to it. Generic programming makes this possible.</p>
+<h2 id="representations">Representations</h2>
+<p>An algebraic data type is essentially a sum of products where the terms “sum” and “product” are understood as follows:</p>
+<ul><li>
+<p>A sum is a variant type. In Haskell, <code>Either</code> is the canonical type constructor for binary sums, and the empty type <code>Void</code> from <a href="http://hackage.haskell.org/package/void" title="void: A Haskell 2010 logically uninhabited data type">the <code>void</code> package</a> is the nullary sum.</p>
+</li>
+<li>
+<p>A product is a tuple type. In Haskell, <code>(,)</code> is the canonical type constructor for binary products, and <code>()</code> is the nullary product.</p>
+</li>
+</ul><p>The key idea of generic programming is to map types to representations that make the sum-of-products structure explicit and to implement canonical behavior based on these representations instead of the actual types.</p>
+<p>The <code>GHC.Generics</code> module defines a number of type constructors for constructing representations:</p>
+<div class="sourceCode">
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">V1</span> p&#13;
+&#13;
+<span class="kw">infixr</span> <span class="dv">5</span> <span class="fu">:+:</span>&#13;
+<span class="kw">data</span> (<span class="fu">:+:</span>) f g p <span class="fu">=</span> <span class="dt">L1</span> (f p) <span class="fu">|</span> <span class="dt">R1</span> (g p)&#13;
+&#13;
+<span class="kw">data</span> <span class="dt">U1</span> p <span class="fu">=</span> <span class="dt">U1</span>&#13;
+&#13;
+<span class="kw">infixr</span> <span class="dv">6</span> <span class="fu">:*:</span>&#13;
+<span class="kw">data</span> (<span class="fu">:*:</span>) f g p <span class="fu">=</span> f p <span class="fu">:*:</span> g p&#13;
+&#13;
+<span class="kw">newtype</span> <span class="dt">K1</span> i a p <span class="fu">=</span> <span class="dt">K1</span> {<span class="ot"> unK1 ::</span> a }&#13;
+&#13;
+<span class="kw">newtype</span> <span class="dt">M1</span> i a f p <span class="fu">=</span> <span class="dt">M1</span> {<span class="ot"> unM1 ::</span> f p }</code></pre>
+</div>
+<p>All of these type constructors take a final parameter <code>p</code>. This parameter is relevant only when dealing with higher-order classes. In this article, however, we only discuss generic programming with first-order classes. In this case, the parameter <code>p</code> is ignored. The different type constructors play the following roles:</p>
+<ul><li>
+<p><code>V1</code> is for the nullary sum.</p>
+</li>
+<li>
+<p><code>(:+:)</code> is for binary sums.</p>
+</li>
+<li>
+<p><code>U1</code> is for the nullary product.</p>
+</li>
+<li>
+<p><code>(:*:)</code> is for binary products.</p>
+</li>
+<li>
+<p><code>K1</code> is a wrapper for fields of algebraic data types. Its parameter <code>i</code> used to provide some information about the field at the type level, but is now obsolete.</p>
+</li>
+<li>
+<p><code>M1</code> is a wrapper for attaching meta information at the type level. Its parameter <code>i</code> denotes the kind of the language construct the meta information refers to, and its parameter <code>c</code> provides access to the meta information.</p>
+</li>
+</ul><p>The <code>GHC.Generics</code> module furthermore introduces a class <code>Generic</code>, whose instances are the types for which a representation exists. Its definition is as follows:</p>
+<div class="sourceCode">
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Generic</span> a <span class="kw">where</span>&#13;
+&#13;
+  <span class="kw">type</span> <span class="dt">Rep</span><span class="ot"> a ::</span> <span class="fu">*</span> <span class="ot">-&gt;</span> <span class="fu">*</span>&#13;
+&#13;
+<span class="ot">  from ::</span> a <span class="ot">-&gt;</span> (<span class="dt">Rep</span> a) p&#13;
+&#13;
+<span class="ot">  to ::</span> (<span class="dt">Rep</span> a) p <span class="ot">-&gt;</span> a</code></pre>
+</div>
+<p>A type <code>Rep a</code> is the representation of the type <code>a</code>. The methods <code>from</code> and <code>to</code> convert from values of the actual type to values of the representation type and vice versa.</p>
+<p>To see all this in action, we make <code>Tree a</code> an instance of <code>Generic</code>:</p>
+<div class="sourceCode">
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Generic</span> (<span class="dt">Tree</span> a) <span class="kw">where</span>&#13;
+&#13;
+    <span class="kw">type</span> <span class="dt">Rep</span> (<span class="dt">Tree</span> a) <span class="fu">=</span>&#13;
+        <span class="dt">M1</span> <span class="dt">D</span> <span class="dt">D1_Tree</span> (&#13;
+            <span class="dt">M1</span> <span class="dt">C</span> <span class="dt">C1_Tree_Leaf</span> <span class="dt">U1</span>&#13;
+            <span class="fu">:+:</span>&#13;
+            <span class="dt">M1</span> <span class="dt">C</span> <span class="dt">C1_Tree_Branch</span> (&#13;
+                <span class="dt">M1</span> <span class="dt">S</span> <span class="dt">NoSelector</span> (<span class="dt">K1</span> <span class="dt">R</span> (<span class="dt">Tree</span> a))&#13;
+                <span class="fu">:*:</span>&#13;
+                <span class="dt">M1</span> <span class="dt">S</span> <span class="dt">NoSelector</span> (<span class="dt">K1</span> <span class="dt">R</span> a)&#13;
+                <span class="fu">:*:</span>&#13;
+                <span class="dt">M1</span> <span class="dt">S</span> <span class="dt">NoSelector</span> (<span class="dt">K1</span> <span class="dt">R</span> (<span class="dt">Tree</span> a))&#13;
+            )&#13;
+        )&#13;
+&#13;
+    from <span class="dt">Leaf</span>                     <span class="fu">=</span> <span class="dt">M1</span> (<span class="dt">L1</span> (<span class="dt">M1</span> <span class="dt">U1</span>))&#13;
+    from (<span class="dt">Branch</span> left root right) <span class="fu">=</span> <span class="dt">M1</span> (&#13;
+                                        <span class="dt">R1</span> (&#13;
+                                        <span class="dt">M1</span> (&#13;
+                                            <span class="dt">M1</span> (<span class="dt">K1</span> left)&#13;
+                                            <span class="fu">:*:</span>&#13;
+                                            <span class="dt">M1</span> (<span class="dt">K1</span> root)&#13;
+                                            <span class="fu">:*:</span>&#13;
+                                            <span class="dt">M1</span> (<span class="dt">K1</span> right)&#13;
+                                        ))&#13;
+                                    )&#13;
+&#13;
+    to (<span class="dt">M1</span> (<span class="dt">L1</span> (<span class="dt">M1</span> <span class="dt">U1</span>)))      <span class="fu">=</span> <span class="dt">Leaf</span>&#13;
+    to (<span class="dt">M1</span> (&#13;
+            <span class="dt">R1</span> (&#13;
+            <span class="dt">M1</span> (&#13;
+                <span class="dt">M1</span> (<span class="dt">K1</span> left)&#13;
+                <span class="fu">:*:</span>&#13;
+                <span class="dt">M1</span> (<span class="dt">K1</span> root)&#13;
+                <span class="fu">:*:</span>&#13;
+                <span class="dt">M1</span> (<span class="dt">K1</span> right)&#13;
+            ))&#13;
+        ))                    <span class="fu">=</span> <span class="dt">Branch</span> left root right</code></pre>
+</div>
+<p>The types <code>D1_Tree</code>, <code>C1_Tree_Leaf</code>, and <code>C1_Tree_Branch</code> are type-level representations of the type constructor <code>Tree</code>, the data constructor <code>Leaf</code>, and the data constructor <code>Branch</code>, respectively. We declare them as empty types:</p>
+<div class="sourceCode">
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">D1_Tree</span>&#13;
+<span class="kw">data</span> <span class="dt">C1_Tree_Leaf</span>&#13;
+<span class="kw">data</span> <span class="dt">C1_Tree_Branch</span></code></pre>
+</div>
+<p>We need to make these types instances of the classes <code>Datatype</code> and <code>Constructor</code>, which are part of <code>GHC.Generics</code> as well. These classes provide a link between the type-level representations of type and data constructors and the meta information related to them. This meta information particularly covers the identifiers of the type and data constructors, which are needed when implementing canonical implementations for methods like <code>show</code> and <code>read</code>. The instance declarations for the <code>Tree</code>-related types are as follows:</p>
+<div class="sourceCode">
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Datatype</span> <span class="dt">D1_Tree</span> <span class="kw">where</span>&#13;
+&#13;
+  datatypeName _ <span class="fu">=</span> <span class="st">"Tree"</span>&#13;
+&#13;
+  moduleName _ <span class="fu">=</span> <span class="st">"Main"</span>&#13;
+&#13;
+<span class="kw">instance</span> <span class="dt">Constructor</span> <span class="dt">C1_Tree_Leaf</span> <span class="kw">where</span>&#13;
+&#13;
+  conName _ <span class="fu">=</span> <span class="st">"Leaf"</span>&#13;
+&#13;
+<span class="kw">instance</span> <span class="dt">Constructor</span> <span class="dt">C1_Tree_Branch</span> <span class="kw">where</span>&#13;
+&#13;
+  conName _ <span class="fu">=</span> <span class="st">"Branch"</span></code></pre>
+</div>
+<p>Instantiating the <code>Generic</code> class as shown above is obviously an extremely tedious task. However, it is possible to instantiate <code>Generic</code> completely automatically for any given algebraic data type, using the <code class="sourceCode haskell"><span class="kw">deriving</span></code> syntax. This is what the <code>DeriveGeneric</code> language extension makes possible.</p>
+<p>So instead of making <code>Tree a</code> an instance of <code>Generic</code> by hand, as we have done above, we could have declared the <code>Tree</code> type as follows in the first place:</p>
+<div class="sourceCode">
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Tree</span> a <span class="fu">=</span> <span class="dt">Leaf</span> <span class="fu">|</span> <span class="dt">Branch</span> (<span class="dt">Tree</span> a) a (<span class="dt">Tree</span> a)&#13;
+              <span class="kw">deriving</span> (<span class="dt">Show</span>, <span class="dt">Generic</span>)</code></pre>
+</div>
+<h2 id="implementing-canonical-behavior">Implementing canonical behavior</h2>
+<p>As mentioned above, we implement canonical behavior based on representations. Let us see how this works in the case of the <code>Serializable</code> class.</p>
+<p>We introduce a new class <code>Serializable'</code> whose methods provide serialization and deserialization for representation types:</p>
+<div class="sourceCode">
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Serializable'</span> f <span class="kw">where</span>&#13;
+&#13;
+<span class="ot">    put' ::</span> f p <span class="ot">-&gt;</span> [<span class="dt">Bit</span>]&#13;
+&#13;
+<span class="ot">    get' ::</span> [<span class="dt">Bit</span>] <span class="ot">-&gt;</span> (f p, [<span class="dt">Bit</span>])</code></pre>
+</div>
+<p>We instantiate this class for all the representation types:</p>
+<div class="sourceCode">
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Serializable'</span> <span class="dt">U1</span> <span class="kw">where</span>&#13;
+&#13;
+    put' <span class="dt">U1</span> <span class="fu">=</span> []&#13;
+&#13;
+    get' bits <span class="fu">=</span> (<span class="dt">U1</span>, bits)&#13;
+&#13;
+<span class="kw">instance</span> (<span class="dt">Serializable'</span> r, <span class="dt">Serializable'</span> s) <span class="ot">=&gt;</span>&#13;
+         <span class="dt">Serializable'</span> (r <span class="fu">:*:</span> s) <span class="kw">where</span>&#13;
+&#13;
+    put' (rep1 <span class="fu">:*:</span> rep2) <span class="fu">=</span> put' rep1 <span class="fu">++</span> put' rep2&#13;
+&#13;
+    get' bits <span class="fu">=</span> (rep1 <span class="fu">:*:</span> rep2, bits'') <span class="kw">where</span>&#13;
+&#13;
+        (rep1, bits')  <span class="fu">=</span> get' bits&#13;
+        (rep2, bits'') <span class="fu">=</span> get' bits'&#13;
+&#13;
+<span class="kw">instance</span> <span class="dt">Serializable'</span> <span class="dt">V1</span> <span class="kw">where</span>&#13;
+&#13;
+    put' _ <span class="fu">=</span> error <span class="st">"attempt to put a void value"</span>&#13;
+&#13;
+    get' _ <span class="fu">=</span> error <span class="st">"attempt to get a void value"</span>&#13;
+&#13;
+<span class="kw">instance</span> (<span class="dt">Serializable'</span> r, <span class="dt">Serializable'</span> s) <span class="ot">=&gt;</span>&#13;
+         <span class="dt">Serializable'</span> (r <span class="fu">:+:</span> s) <span class="kw">where</span>&#13;
+&#13;
+    put' (<span class="dt">L1</span> rep) <span class="fu">=</span> <span class="dt">O</span> <span class="fu">:</span> put' rep&#13;
+    put' (<span class="dt">R1</span> rep) <span class="fu">=</span> <span class="dt">I</span> <span class="fu">:</span> put' rep&#13;
+&#13;
+    get' (<span class="dt">O</span> <span class="fu">:</span> bits) <span class="fu">=</span> <span class="kw">let</span> (rep, bits') <span class="fu">=</span> get' bits <span class="kw">in</span>&#13;
+                      (<span class="dt">L1</span> rep, bits')&#13;
+    get' (<span class="dt">I</span> <span class="fu">:</span> bits) <span class="fu">=</span> <span class="kw">let</span> (rep, bits') <span class="fu">=</span> get' bits <span class="kw">in</span>&#13;
+                      (<span class="dt">R1</span> rep, bits')&#13;
+&#13;
+<span class="kw">instance</span> <span class="dt">Serializable'</span> r <span class="ot">=&gt;</span> <span class="dt">Serializable'</span> (<span class="dt">M1</span> i a r) <span class="kw">where</span>&#13;
+&#13;
+    put' (<span class="dt">M1</span> rep) <span class="fu">=</span> put' rep&#13;
+&#13;
+    get' bits <span class="fu">=</span> (<span class="dt">M1</span> rep, bits') <span class="kw">where</span>&#13;
+&#13;
+        (rep, bits') <span class="fu">=</span> get' bits&#13;
+&#13;
+<span class="kw">instance</span> <span class="dt">Serializable</span> a <span class="ot">=&gt;</span> <span class="dt">Serializable'</span> (<span class="dt">K1</span> i a) <span class="kw">where</span>&#13;
+&#13;
+    put' (<span class="dt">K1</span> val) <span class="fu">=</span> put val&#13;
+&#13;
+    get' bits <span class="fu">=</span> (<span class="dt">K1</span> val, bits') <span class="kw">where</span>&#13;
+&#13;
+        (val, bits') <span class="fu">=</span> get bits</code></pre>
+</div>
+<p>Note that in the case of <code>K1</code>, the context mentions <code>Serializable</code>, not <code>Serializable'</code>, and the methods <code>put'</code> and <code>get</code> call <code>put</code> and <code>get</code>, not <code>put'</code> and <code>get'</code>. The reason is that the value wrapped in <code>K1</code> has an ordinary type, not a representation type.</p>
+<h2 id="accessing-canonical-behavior">Accessing canonical behavior</h2>
+<p>We can now apply canonical behavior to ordinary types using the methods <code>from</code> and <code>to</code> from the <code>Generic</code> class. For example, we can implement functions <code>defaultPut</code> and <code>defaultGet</code> that provide canonical serialization and deserialization for all instances of <code>Generic</code>:</p>
+<div class="sourceCode">
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="ot">defaultPut ::</span> (<span class="dt">Generic</span> a, <span class="dt">Serializable'</span> (<span class="dt">Rep</span> a)) <span class="ot">=&gt;</span>&#13;
+              a <span class="ot">-&gt;</span> [<span class="dt">Bit</span>]&#13;
+defaultPut <span class="fu">=</span> put' <span class="fu">.</span> from&#13;
+&#13;
+<span class="ot">defaultGet ::</span> (<span class="dt">Generic</span> a, <span class="dt">Serializable'</span> (<span class="dt">Rep</span> a)) <span class="ot">=&gt;</span>&#13;
+              [<span class="dt">Bit</span>] <span class="ot">-&gt;</span> (a, [<span class="dt">Bit</span>])&#13;
+defaultGet bits <span class="fu">=</span> (to rep, bits') <span class="kw">where</span>&#13;
+&#13;
+    (rep, bits') <span class="fu">=</span> get' bits</code></pre>
+</div>
+<p>We can use these functions in instance declarations for <code>Serializable</code>. For example, we can make <code>Tree a</code> an instance of <code>Serializable</code> in the following way:</p>
+<div class="sourceCode">
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Serializable</span> a <span class="ot">=&gt;</span> <span class="dt">Serializable</span> (<span class="dt">Tree</span> a) <span class="kw">where</span>&#13;
+    &#13;
+    put <span class="fu">=</span> defaultPut&#13;
+&#13;
+    get <span class="fu">=</span> defaultGet</code></pre>
+</div>
+<p>Compared to the instance declaration we had initially, this one is a real improvement, since we do not have to implement the desired behavior of <code>put</code> and <code>get</code> by hand anymore. However, it still contains boilerplate code in the form of the trivial method declarations. It would be better to establish <code>defaultPut</code> and <code>defaultGet</code> as defaults in the class declaration:</p>
+<div class="sourceCode">
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Serializable</span> a <span class="kw">where</span>&#13;
+&#13;
+<span class="ot">    put ::</span> a <span class="ot">-&gt;</span> [<span class="dt">Bit</span>]&#13;
+    put <span class="fu">=</span> defaultPut&#13;
+&#13;
+<span class="ot">    get ::</span> [<span class="dt">Bit</span>] <span class="ot">-&gt;</span> (a, [<span class="dt">Bit</span>])&#13;
+    get <span class="fu">=</span> defaultGet</code></pre>
+</div>
+<p>However, this is not possible, since the types of <code>defaultPut</code> and <code>defaultGet</code> are less general than the types of <code>put</code> and <code>get</code>, as they put additional constraints on the type <code>a</code>. Luckily, GHC supports the language extension <code>DefaultSignatures</code>, which allows us to give default implementations that have less general types than the actual methods (and consequently work only for those instances that are compatible with these less general types). Using <code>DefaultSignatures</code>, we can declare the <code>Serializable</code> class as follows:</p>
+<div class="sourceCode">
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Serializable</span> a <span class="kw">where</span>&#13;
+&#13;
+<span class="ot">    put ::</span> a <span class="ot">-&gt;</span> [<span class="dt">Bit</span>]&#13;
+    default<span class="ot"> put ::</span> (<span class="dt">Generic</span> a, <span class="dt">Serializable'</span> (<span class="dt">Rep</span> a)) <span class="ot">=&gt;</span>&#13;
+                   a <span class="ot">-&gt;</span> [<span class="dt">Bit</span>]&#13;
+    put <span class="fu">=</span> defaultPut&#13;
+&#13;
+<span class="ot">    get ::</span> [<span class="dt">Bit</span>] <span class="ot">-&gt;</span> (a, [<span class="dt">Bit</span>])&#13;
+    default<span class="ot"> get ::</span> (<span class="dt">Generic</span> a, <span class="dt">Serializable'</span> (<span class="dt">Rep</span> a)) <span class="ot">=&gt;</span>&#13;
+                   [<span class="dt">Bit</span>] <span class="ot">-&gt;</span> (a, [<span class="dt">Bit</span>])&#13;
+    get <span class="fu">=</span> defaultGet</code></pre>
+</div>
+<p>With this class declaration in place, we can make <code>Tree a</code> an instance of <code>Serializable</code> as follows:</p>
+<div class="sourceCode">
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Serializable</span> a <span class="ot">=&gt;</span> <span class="dt">Serializable</span> (<span class="dt">Tree</span> a)</code></pre>
+</div>
+<p>With the minor extension <code>DeriveAnyClass</code>, which is provided by GHC starting from Version 7.10, we can even use the <code class="sourceCode haskell"><span class="kw">deriving</span></code> keyword to instantiate <code>Serializable</code> for <code>Tree a</code>. As a result, we only have to write the following in order to define the <code>Tree</code> type and make it an instance of <code>Serializable</code>:</p>
+<div class="sourceCode">
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Tree</span> a <span class="fu">=</span> <span class="dt">Leaf</span> <span class="fu">|</span> <span class="dt">Branch</span> (<span class="dt">Tree</span> a) a (<span class="dt">Tree</span> a)&#13;
+              <span class="kw">deriving</span> (<span class="dt">Show</span>, <span class="dt">Generic</span>, <span class="dt">Serializable</span>)</code></pre>
+</div>
+<p>So finally, we can use our own classes like the Haskell standard classes regarding the use of deriving clauses, except that we have to additionally derive an instance declaration for <code>Generic</code>.</p>
+<h2 id="specialized-implementations">Specialized implementations</h2>
+<p>Usually, not all instances of a class should or even can be generated by means of generic programming, but some instances have to be crafted by hand. For example, making <code>Int</code> an instance of <code>Serializable</code> requires manual work, since <code>Int</code> is not an algebraic data type.</p>
+<p>However, there is no problem with this, since we still have the opportunity to write explicit instance declarations, despite the presence of a generic solution. This is in line with the standard deriving mechanism: you can make use of it, but you are not forced to do so. So we can have the following instance declaration, for example:</p>
+<div class="sourceCode">
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Serializable</span> <span class="dt">Int</span> <span class="kw">where</span>&#13;
+&#13;
+    put val <span class="fu">=</span> replicate val <span class="dt">I</span> <span class="fu">++</span> [<span class="dt">O</span>]&#13;
+&#13;
+    get bits <span class="fu">=</span> (length is, bits') <span class="kw">where</span>&#13;
+&#13;
+        (is, <span class="dt">O</span> <span class="fu">:</span> bits') <span class="fu">=</span> span (<span class="fu">==</span> <span class="dt">I</span>) bits</code></pre>
+</div>
+<p>Of course, the serialization approach we use here is not very efficient, but the instance declaration illustrates the point we want to make.</p>
+		<div class="wpcnt">
+			<div class="wpa wpmrec">
+				<a class="wpa-about" href="https://en.support.wordpress.com/about-these-ads/" rel="nofollow">About these ads</a>
+				<div class="u">
+					<amp-ad width="300" height="250" type="pubmine" data-adsafe="0" data-section="2" data-siteid="2694" data-wordads="0"><div placeholder="" class="amp-wp-iframe-placeholder"></div>
+					</amp-ad></div>
+			</div>
+		</div>	</div>
+
+	<footer class="amp-wp-article-footer">
+			<div class="amp-wp-meta amp-wp-tax-category">
+		Categories: <a href="https://jeltsch.wordpress.com/category/uncategorized/" rel="category tag">Uncategorized</a>	</div>
+
+	<div class="amp-wp-meta amp-wp-tax-tag">
+		Tags: <a href="https://jeltsch.wordpress.com/tag/functional-programming/" rel="tag">functional programming</a>, <a href="https://jeltsch.wordpress.com/tag/generic-programming/" rel="tag">generic programming</a>, <a href="https://jeltsch.wordpress.com/tag/ghc/" rel="tag">GHC</a>, <a href="https://jeltsch.wordpress.com/tag/haskell/" rel="tag">Haskell</a>, <a href="https://jeltsch.wordpress.com/tag/institute-of-cybernetics/" rel="tag">Institute of Cybernetics</a>, <a href="https://jeltsch.wordpress.com/tag/literate-programming/" rel="tag">literate programming</a>, <a href="https://jeltsch.wordpress.com/tag/parametric-polymorphism/" rel="tag">parametric polymorphism</a>, <a href="https://jeltsch.wordpress.com/tag/talk/" rel="tag">talk</a>, <a href="https://jeltsch.wordpress.com/tag/theory-lunch/" rel="tag">Theory Lunch</a>, <a href="https://jeltsch.wordpress.com/tag/type-class/" rel="tag">type class</a>, <a href="https://jeltsch.wordpress.com/tag/type-family/" rel="tag">type family</a>, <a href="https://jeltsch.wordpress.com/tag/void-haskell-package/" rel="tag">void (Haskell package)</a>	</div>
+		<div class="amp-wp-meta amp-wp-comments-link">
+		<a href="../index.html#comments">
+			Leave a Comment		</a>
+	</div>
+	</footer>
+
+</article>
+
+<footer class="amp-wp-footer">
+	<div>
+		<h2>Wolfgang Jeltsch</h2>
+		<p>
+			<a href="https://wordpress.com/?ref=footer_website">Create a free website or blog at WordPress.com.</a>
+		</p>
+		<a href="#top" class="back-to-top">Back to top</a>
+	</div>
+</footer>
+
+	<amp-pixel src="https://pixel.wp.com/b.gif?rand=RANDOM&amp;host=jeltsch.wordpress.com&amp;ref=DOCUMENT_REFERRER&amp;amp=1&amp;blog=33918393&amp;v=wpcom&amp;tz=0&amp;user_id=0&amp;post=632&amp;subd=jeltsch"></amp-pixel>
+	<amp-pixel src="https://pixel.wp.com/b.gif?rand=RANDOM&amp;v=wpcom-no-pv&amp;crypt=UE5XaGUuOTlwaD85flAmcm1mcmZsaDhkV11YdWtpP0NsWnVkPS9sL0ViLndld3BxTi9jQ2xTcExndThUNG5BL2x6ZVV6ZThkVmRURDJjc01OTS1YVF1qNGd6USVtXTFReHFLd2VdYnhmM21oWkk5Jkl6dWVCK0tPdFNKaFtsTmFVbi90cnc1MFhWUVdXXSYvWTh8dVlFTUl4LitaYT9BS29UTmJiMTIrbUZMUEg9b092ZVZ3YXp4Z1pfb01%2Bek12U3VQdE11fCVYQ0pETWJCW1NVQTg4VQ%3D%3D"></amp-pixel>
+	
+</body>
+
+Providence Salumu
+</html>
