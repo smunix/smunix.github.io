@@ -1,0 +1,656 @@
+<!doctype html>
+<html amp lang="en">
+
+Providence Salumu
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=UTF-8" /><!-- /Added by HTTrack -->
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no">
+	
+<!-- Jetpack Open Graph Tags -->
+<meta property="og:type" content="article" />
+<meta property="og:title" content="MIU in Haskell" />
+<meta property="og:url" content="../index.html" />
+<meta property="og:description" content="In the Theory Lunch of the last week, James Chapman talked about the MU puzzle from Douglas Hofstadter’s book Gödel, Escher, Bach. This puzzle is about a string rewriting system. James presented a …" />
+<meta property="article:published_time" content="2013-04-18T13:25:02+00:00" />
+<meta property="article:modified_time" content="2015-09-02T14:05:18+00:00" />
+<meta property="og:site_name" content="Wolfgang Jeltsch" />
+<meta property="og:image" content="https://s0.wp.com/i/blank.jpg" />
+<meta property="og:locale" content="en_US" />
+<meta name="twitter:site" content="@wordpressdotcom" />
+<meta name="twitter:card" content="summary" />
+<meta property="fb:app_id" content="249643311490" />
+<meta property="article:publisher" content="https://www.facebook.com/WordPresscom" />
+	<title>MIU in Haskell &#8211; Wolfgang Jeltsch</title>
+		<link rel="canonical" href="../index.html" />
+			<script custom-element="amp-ad" src="https://cdn.ampproject.org/v0/amp-ad-0.1.js" async></script>
+		<script src="https://cdn.ampproject.org/v0.js" async></script>
+			<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Merriweather:400,400italic,700,700italic">
+		<style amp-boilerplate>body{-webkit-animation:-amp-start 8s steps(1,end) 0s 1 normal both;-moz-animation:-amp-start 8s steps(1,end) 0s 1 normal both;-ms-animation:-amp-start 8s steps(1,end) 0s 1 normal both;animation:-amp-start 8s steps(1,end) 0s 1 normal both}@-webkit-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@-moz-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@-ms-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@-o-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}</style><noscript><style amp-boilerplate>body{-webkit-animation:none;-moz-animation:none;-ms-animation:none;animation:none}</style></noscript>
+		<script type="application/ld+json">{"@context":"http:\/\/schema.org","@type":"BlogPosting","mainEntityOfPage":"https:\/\/jeltsch.wordpress.com\/2013\/04\/18\/miu-in-haskell\/","publisher":{"@type":"Organization","name":"Wolfgang Jeltsch","logo":{"@type":"ImageObject","url":"https:\/\/s2.wp.com\/i\/favicons\/apple-touch-icon-60x60.png","width":60,"height":60}},"headline":"MIU in Haskell","datePublished":"2013-04-18T13:25:02+00:00","dateModified":"2015-09-02T14:05:18+00:00","author":{"@type":"Person","name":"Wolfgang Jeltsch"},"image":{"@type":"ImageObject","url":"https:\/\/2.gravatar.com\/avatar\/bf139729e2f2ed2494653dda9da99a38?s=200&amp;d=identicon&amp;r=G","width":200,"height":200}}</script>
+		<style amp-custom>
+		/* Generic WP styling */
+
+.alignright {
+	float: right;
+}
+
+.alignleft {
+	float: left;
+}
+
+.aligncenter {
+	display: block;
+	margin-left: auto;
+	margin-right: auto;
+}
+
+.amp-wp-enforced-sizes {
+	/** Our sizes fallback is 100vw, and we have a padding on the container; the max-width here prevents the element from overflowing. **/
+	max-width: 100%;
+	margin: 0 auto;
+}
+
+.amp-wp-unknown-size img {
+	/** Worst case scenario when we can't figure out dimensions for an image. **/
+	/** Force the image into a box of fixed dimensions and use object-fit to scale. **/
+	object-fit: contain;
+}
+
+/* Template Styles */
+
+.amp-wp-content,
+.amp-wp-title-bar div {
+		margin: 0 auto;
+	max-width: 640px;
+	}
+
+html {
+	background: #0a89c0;
+}
+
+body {
+	background: #fff;
+	color: #353535;
+	font-family: 'Merriweather', 'Times New Roman', Times, Serif;
+	font-weight: 300;
+	line-height: 1.75em;
+}
+
+p,
+ol,
+ul,
+figure {
+	margin: 0 0 1em;
+	padding: 0;
+}
+
+a,
+a:visited {
+	color: #0a89c0;
+}
+
+a:hover,
+a:active,
+a:focus {
+	color: #353535;
+}
+
+/* Quotes */
+
+blockquote {
+	color: #353535;
+	background: rgba(127,127,127,.125);
+	border-left: 2px solid #0a89c0;
+	margin: 8px 0 24px 0;
+	padding: 16px;
+}
+
+blockquote p:last-child {
+	margin-bottom: 0;
+}
+
+/* UI Fonts */
+
+.amp-wp-meta,
+.amp-wp-header div,
+.amp-wp-title,
+.wp-caption-text,
+.amp-wp-tax-category,
+.amp-wp-tax-tag,
+.amp-wp-comments-link,
+.amp-wp-footer p,
+.back-to-top {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen-Sans", "Ubuntu", "Cantarell", "Helvetica Neue", sans-serif;
+}
+
+/* Header */
+
+.amp-wp-header {
+	background-color: #0a89c0;
+}
+
+.amp-wp-header div {
+	color: #fff;
+	font-size: 1em;
+	font-weight: 400;
+	margin: 0 auto;
+	max-width: calc(840px - 32px);
+	padding: .875em 16px;
+	position: relative;
+}
+
+.amp-wp-header a {
+	color: #fff;
+	text-decoration: none;
+}
+
+/* Site Icon */
+
+.amp-wp-header .amp-wp-site-icon {
+	/** site icon is 32px **/
+	background-color: #fff;
+	border: 1px solid #fff;
+	border-radius: 50%;
+	position: absolute;
+	right: 18px;
+	top: 10px;
+}
+
+/* Article */
+
+.amp-wp-article {
+	color: #353535;
+	font-weight: 400;
+	margin: 1.5em auto;
+	max-width: 840px;
+	overflow-wrap: break-word;
+	word-wrap: break-word;
+}
+
+/* Article Header */
+
+.amp-wp-article-header {
+	align-items: center;
+	align-content: stretch;
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: space-between;
+	margin: 1.5em 16px 1.5em;
+}
+
+.amp-wp-title {
+	color: #353535;
+	display: block;
+	flex: 1 0 100%;
+	font-weight: 900;
+	margin: 0 0 .625em;
+	width: 100%;
+}
+
+/* Article Meta */
+
+.amp-wp-meta {
+	color: #696969;
+	display: inline-block;
+	flex: 2 1 50%;
+	font-size: .875em;
+	line-height: 1.5em;
+	margin: 0;
+	padding: 0;
+}
+
+.amp-wp-article-header .amp-wp-meta:last-of-type {
+	text-align: right;
+}
+
+.amp-wp-article-header .amp-wp-meta:first-of-type {
+	text-align: left;
+}
+
+.amp-wp-byline amp-img,
+.amp-wp-byline .amp-wp-author {
+	display: inline-block;
+	vertical-align: middle;
+}
+
+.amp-wp-byline amp-img {
+	border: 1px solid #0a89c0;
+	border-radius: 50%;
+	position: relative;
+	margin-right: 6px;
+}
+
+.amp-wp-posted-on {
+	text-align: right;
+}
+
+/* Featured image */
+
+.amp-wp-article-featured-image {
+	margin: 0 0 1em;
+}
+.amp-wp-article-featured-image amp-img {
+	margin: 0 auto;
+}
+.amp-wp-article-featured-image.wp-caption .wp-caption-text {
+	margin: 0 18px;
+}
+
+/* Article Content */
+
+.amp-wp-article-content {
+	margin: 0 16px;
+}
+
+.amp-wp-article-content ul,
+.amp-wp-article-content ol {
+	margin-left: 1em;
+}
+
+.amp-wp-article-content amp-img {
+	margin: 0 auto;
+}
+
+.amp-wp-article-content amp-img.alignright {
+	margin: 0 0 1em 16px;
+}
+
+.amp-wp-article-content amp-img.alignleft {
+	margin: 0 16px 1em 0;
+}
+
+/* Captions */
+
+.wp-caption {
+	padding: 0;
+}
+
+.wp-caption.alignleft {
+	margin-right: 16px;
+}
+
+.wp-caption.alignright {
+	margin-left: 16px;
+}
+
+.wp-caption .wp-caption-text {
+	border-bottom: 1px solid #c2c2c2;
+	color: #696969;
+	font-size: .875em;
+	line-height: 1.5em;
+	margin: 0;
+	padding: .66em 10px .75em;
+}
+
+/* AMP Media */
+
+amp-carousel {
+	background: #c2c2c2;
+	margin: 0 -16px 1.5em;
+}
+amp-iframe,
+amp-youtube,
+amp-instagram,
+amp-vine {
+	background: #c2c2c2;
+	margin: 0 -16px 1.5em;
+}
+
+.amp-wp-article-content amp-carousel amp-img {
+	border: none;
+}
+
+amp-carousel > amp-img > img {
+	object-fit: contain;
+}
+
+.amp-wp-iframe-placeholder {
+	background: #c2c2c2 url( https://s2.wp.com/wp-content/plugins/amp/assets/images/placeholder-icon.png) no-repeat center 40%;
+	background-size: 48px 48px;
+	min-height: 48px;
+}
+
+/* Article Footer Meta */
+
+.amp-wp-article-footer .amp-wp-meta {
+	display: block;
+}
+
+.amp-wp-tax-category,
+.amp-wp-tax-tag {
+	color: #696969;
+	font-size: .875em;
+	line-height: 1.5em;
+	margin: 1.5em 16px;
+}
+
+.amp-wp-comments-link {
+	color: #696969;
+	font-size: .875em;
+	line-height: 1.5em;
+	text-align: center;
+	margin: 2.25em 0 1.5em;
+}
+
+.amp-wp-comments-link a {
+	border-style: solid;
+	border-color: #c2c2c2;
+	border-width: 1px 1px 2px;
+	border-radius: 4px;
+	background-color: transparent;
+	color: #0a89c0;
+	cursor: pointer;
+	display: block;
+	font-size: 14px;
+	font-weight: 600;
+	line-height: 18px;
+	margin: 0 auto;
+	max-width: 200px;
+	padding: 11px 16px;
+	text-decoration: none;
+	width: 50%;
+	-webkit-transition: background-color 0.2s ease;
+			transition: background-color 0.2s ease;
+}
+
+/* AMP Footer */
+
+.amp-wp-footer {
+	border-top: 1px solid #c2c2c2;
+	margin: calc(1.5em - 1px) 0 0;
+}
+
+.amp-wp-footer div {
+	margin: 0 auto;
+	max-width: calc(840px - 32px);
+	padding: 1.25em 16px 1.25em;
+	position: relative;
+}
+
+.amp-wp-footer h2 {
+	font-size: 1em;
+	line-height: 1.375em;
+	margin: 0 0 .5em;
+}
+
+.amp-wp-footer p {
+	color: #696969;
+	font-size: .8em;
+	line-height: 1.5em;
+	margin: 0 85px 0 0;
+}
+
+.amp-wp-footer a {
+	text-decoration: none;
+}
+
+.back-to-top {
+	bottom: 1.275em;
+	font-size: .8em;
+	font-weight: 600;
+	line-height: 2em;
+	position: absolute;
+	right: 16px;
+}
+				/* WordAds */
+		.wpcnt {
+			text-align: center;
+			line-height: 0;
+			display: block;
+			clear: both;
+			margin: 1em 0;
+		}
+
+		.rtl .wpcnt {
+			direction: ltr;
+		}
+
+		.wpa {
+			position: relative;
+			display: inline-block;
+			max-width: 100%;
+			text-align: left;
+			padding: 10px 0 0;
+			min-width: 300px;
+			-webkit-transform: translate3d(0, 0, 0);
+			transform: translate3d(0, 0, 0);
+		}
+
+		.wpa-about {
+			position: absolute;
+			top: 5px;
+			left: 0;
+			right: 0;
+			display: block;
+			min-width: 160px;
+			border-bottom: none;
+			font: 10px/1 "Open Sans", Arial, sans-serif;
+			text-align: left;
+			text-decoration: none;
+			opacity: 0.85;
+		}
+
+		.wpa-about:hover {
+			text-decoration: underline;
+			opacity: 1;
+		}
+
+		.wpa-about:hover, .wa_infobox a:hover {
+			text-decoration: underline;
+			color: #444;
+		}
+
+		.wpa .u>div, .wpadvert>div>* {
+			display: block;
+			margin-top: 5px;
+			margin-bottom: 1em;
+		}
+
+		div.wpa>div {
+			margin-top: 10px;
+		}/* Inline styles */
+.amp-wp-inline-a6ec8840dd8107f0c4f9cbd7d00cece0{text-align:center;}	</style>
+</head>
+
+<body class="">
+
+<header id="#top" class="amp-wp-header">
+	<div>
+		<a href="https://jeltsch.wordpress.com/">
+						Wolfgang Jeltsch		</a>
+	</div>
+</header>
+
+<article class="amp-wp-article">
+
+	<header class="amp-wp-article-header">
+		<h1 class="amp-wp-title">MIU in Haskell</h1>
+				<div class="amp-wp-meta amp-wp-byline">
+					<amp-img src="https://secure.gravatar.com/avatar/bf139729e2f2ed2494653dda9da99a38?s=24&amp;d=identicon&amp;r=g" width="24" height="24" layout="fixed"></amp-img>
+				<span class="amp-wp-author author vcard">Wolfgang Jeltsch</span>
+	</div>
+<div class="amp-wp-meta amp-wp-posted-on">
+	<time datetime="2013-04-18T13:25:02+00:00">
+		4 years ago	</time>
+</div>
+	</header>
+
+	
+	<div class="amp-wp-article-content">
+		<p>In the <a href="http://theorylunch.wordpress.com/" title="Theory Lunch">Theory Lunch</a> of the last week, <a href="http://cs.ioc.ee/~james/" title="James Chapman">James Chapman</a> talked about the <a href="../../../../../../en.wikipedia.org/wiki/MU_puzzle.html" title="MU puzzle">MU puzzle</a> from Douglas Hofstadter’s book <em>Gödel, Escher, Bach</em>. This puzzle is about a string rewriting system. James presented a Haskell program that computes derivations of strings. Inspired by this, I wrote my own implementation, with the goal of improving efficiency. This blog post presents this implementation. As usual, it is available as <a href="http://darcs.wolfgang.jeltsch.info/blog/2013/04/18/miu-in-haskell.lhs" title="MIU in Haskell">a literate Haskell file</a>, which you can load into GHCi.<!--more--></p>
+<h2 id="the-puzzle">The puzzle</h2>
+<p>Let me first describe the MU puzzle shortly. The puzzle deals with strings that may contain the characters <amp-img src="https://s0.wp.com/latex.php?latex=%5Cmathrm+M&amp;bg=f7f3ee&amp;fg=333333&amp;s=0" alt="\mathrm M" class="latex amp-wp-enforced-sizes" width="15" height="13" sizes="(min-width: 15px) 15px, 100vw"></amp-img>, <amp-img src="https://s0.wp.com/latex.php?latex=%5Cmathrm+I&amp;bg=f7f3ee&amp;fg=333333&amp;s=0" alt="\mathrm I" class="latex amp-wp-enforced-sizes" width="6" height="14" sizes="(min-width: 6px) 6px, 100vw"></amp-img>, and <amp-img src="https://s0.wp.com/latex.php?latex=%5Cmathrm+U&amp;bg=f7f3ee&amp;fg=333333&amp;s=0" alt="\mathrm U" class="latex amp-wp-enforced-sizes" width="12" height="13" sizes="(min-width: 12px) 12px, 100vw"></amp-img>. We can derive new strings from old ones using the following rewriting system:</p>
+<p class="amp-wp-inline-a6ec8840dd8107f0c4f9cbd7d00cece0"><amp-img src="https://s0.wp.com/latex.php?latex=%5Cbegin%7Barray%7D%7Brcl%7D+x%5Cmathrm+I+%26+%5Crightarrow+%26+x%5Cmathrm%7BIU%7D+%5C%5C+%5Cmathrm+Mx+%26+%5Crightarrow+%26+%5Cmathrm+Mxx+%5C%5C+x%5Cmathrm%7BIII%7Dy+%26+%5Crightarrow+%26+x%5Cmathrm+Uy+%5C%5C+x%5Cmathrm%7BUU%7Dy+%26+%5Crightarrow+%26+xy+%5Cend%7Barray%7D+&amp;bg=f7f3ee&amp;fg=333333&amp;s=0" alt="\begin{array}{rcl} x\mathrm I &amp; \rightarrow &amp; x\mathrm{IU} \\ \mathrm Mx &amp; \rightarrow &amp; \mathrm Mxx \\ x\mathrm{III}y &amp; \rightarrow &amp; x\mathrm Uy \\ x\mathrm{UU}y &amp; \rightarrow &amp; xy \end{array} " class="latex amp-wp-enforced-sizes" width="119" height="76" sizes="(min-width: 119px) 119px, 100vw"></amp-img></p>
+<p>The question is whether it is possible to turn the string <amp-img src="https://s0.wp.com/latex.php?latex=%5Cmathrm%7BMI%7D&amp;bg=f7f3ee&amp;fg=333333&amp;s=0" alt="\mathrm{MI}" class="latex amp-wp-enforced-sizes" width="21" height="14" sizes="(min-width: 21px) 21px, 100vw"></amp-img> into the string <amp-img src="https://s0.wp.com/latex.php?latex=%5Cmathrm%7BMU%7D&amp;bg=f7f3ee&amp;fg=333333&amp;s=0" alt="\mathrm{MU}" class="latex amp-wp-enforced-sizes" width="27" height="14" sizes="(min-width: 27px) 27px, 100vw"></amp-img> using these rules.</p>
+<p>You may want to try to solve this puzzle yourself, or you may want to look up the solution on the <a href="../../../../../../en.wikipedia.org/wiki/MU_puzzle.html" title="MU puzzle">Wikipedia page</a>.</p>
+<h2 id="the-code">The code</h2>
+<p>The code is not only concerned with deriving <amp-img src="https://s0.wp.com/latex.php?latex=%5Cmathrm%7BMU%7D&amp;bg=f7f3ee&amp;fg=333333&amp;s=0" alt="\mathrm{MU}" class="latex amp-wp-enforced-sizes" width="27" height="14" sizes="(min-width: 27px) 27px, 100vw"></amp-img> from <amp-img src="https://s0.wp.com/latex.php?latex=%5Cmathrm%7BMI%7D&amp;bg=f7f3ee&amp;fg=333333&amp;s=0" alt="\mathrm{MI}" class="latex amp-wp-enforced-sizes" width="21" height="14" sizes="(min-width: 21px) 21px, 100vw"></amp-img>, but with derivations as such.</p>
+<h3 id="preliminaries">Preliminaries</h3>
+<p>We import <code>Data.List</code>:</p>
+<div class="sourceCode">
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">import </span><span class="dt">Data.List</span></code></pre>
+</div>
+<h3 id="basic-things">Basic things</h3>
+<p>We define the type <code>Sym</code> of symbols and the type <code>Str</code> of symbol strings:</p>
+<div class="sourceCode">
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Sym</span> <span class="fu">=</span> <span class="dt">M</span> <span class="fu">|</span> <span class="dt">I</span> <span class="fu">|</span> <span class="dt">U</span> <span class="kw">deriving</span> <span class="dt">Eq</span>&#13;
+&#13;
+<span class="kw">type</span> <span class="dt">Str</span> <span class="fu">=</span> [<span class="dt">Sym</span>]&#13;
+&#13;
+<span class="kw">instance</span> <span class="dt">Show</span> <span class="dt">Sym</span> <span class="kw">where</span>&#13;
+&#13;
+    show <span class="dt">M</span> <span class="fu">=</span> <span class="st">"M"</span>&#13;
+    show <span class="dt">I</span> <span class="fu">=</span> <span class="st">"I"</span>&#13;
+    show <span class="dt">U</span> <span class="fu">=</span> <span class="st">"U"</span>&#13;
+&#13;
+    showList str <span class="fu">=</span> (concatMap show str <span class="fu">++</span>)</code></pre>
+</div>
+<p>Next, we define the type <code>Rule</code> of rules as well as the list <code>rules</code> that contains all rules:</p>
+<div class="sourceCode">
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Rule</span> <span class="fu">=</span> <span class="dt">R1</span> <span class="fu">|</span> <span class="dt">R2</span> <span class="fu">|</span> <span class="dt">R3</span> <span class="fu">|</span> <span class="dt">R4</span> <span class="kw">deriving</span> <span class="dt">Show</span>&#13;
+&#13;
+<span class="ot">rules ::</span> [<span class="dt">Rule</span>]&#13;
+rules <span class="fu">=</span> [<span class="dt">R1</span>,<span class="dt">R2</span>,<span class="dt">R3</span>,<span class="dt">R4</span>]</code></pre>
+</div>
+<h3 id="rule-application">Rule application</h3>
+<p>We first introduce a helper function that takes a string and returns the list of all splits of this string. Thereby, a split of a string <code>str</code> is a pair of strings <code>str1</code> and <code>str2</code> such that <code>str1 ++ str2 == str</code>. A straightforward implementation of splitting is as follows:</p>
+<div class="sourceCode">
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="ot">splits' ::</span> <span class="dt">Str</span> <span class="ot">-&gt;</span> [(<span class="dt">Str</span>,<span class="dt">Str</span>)]&#13;
+splits' str <span class="fu">=</span> zip (inits str) (tails str)</code></pre>
+</div>
+<p>The problem with this implementation is that walking through the result list takes quadratic time, even if the elements of the list are left unevaluated. The following implementation solves this problem:</p>
+<div class="sourceCode">
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="ot">splits ::</span> <span class="dt">Str</span> <span class="ot">-&gt;</span> [(<span class="dt">Str</span>,<span class="dt">Str</span>)]&#13;
+splits str <span class="fu">=</span> zip (map (flip take str) [<span class="dv">0</span> <span class="fu">..</span>]) (tails str)</code></pre>
+</div>
+<p>Next, we define a helper function <code>replace</code>. An expression <code>replace old new str</code> yields the list of all strings that can be constructed by replacing the string <code>old</code> inside <code>str</code> by <code>new</code>.</p>
+<div class="sourceCode">
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="ot">replace ::</span> <span class="dt">Str</span> <span class="ot">-&gt;</span> <span class="dt">Str</span> <span class="ot">-&gt;</span> <span class="dt">Str</span> <span class="ot">-&gt;</span> [<span class="dt">Str</span>]&#13;
+replace old new str <span class="fu">=</span> [front <span class="fu">++</span> new <span class="fu">++</span> rear <span class="fu">|</span>&#13;
+                          (front,rest) <span class="ot">&lt;-</span> splits str,&#13;
+                          old <span class="ot">`isPrefixOf`</span> rest,&#13;
+                          <span class="kw">let</span> rear <span class="fu">=</span> drop (length old) rest]</code></pre>
+</div>
+<p>We are now ready to implement the function <code>apply</code>, which performs rule application. This function takes a rule and a string and produces all strings that can be derived from the given string using the given rule exactly once.</p>
+<div class="sourceCode">
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="ot">apply ::</span> <span class="dt">Rule</span> <span class="ot">-&gt;</span> <span class="dt">Str</span> <span class="ot">-&gt;</span> [<span class="dt">Str</span>]&#13;
+apply <span class="dt">R1</span> str        <span class="fu">|</span> last str <span class="fu">==</span> <span class="dt">I</span> <span class="fu">=</span> [str <span class="fu">++</span> [<span class="dt">U</span>]]&#13;
+apply <span class="dt">R2</span> (<span class="dt">M</span> <span class="fu">:</span> tail)                 <span class="fu">=</span> [<span class="dt">M</span> <span class="fu">:</span> tail <span class="fu">++</span> tail]&#13;
+apply <span class="dt">R3</span> str                        <span class="fu">=</span> replace [<span class="dt">I</span>,<span class="dt">I</span>,<span class="dt">I</span>] [<span class="dt">U</span>] str&#13;
+apply <span class="dt">R4</span> str                        <span class="fu">=</span> replace [<span class="dt">U</span>,<span class="dt">U</span>]   []  str&#13;
+apply _  _                          <span class="fu">=</span> []</code></pre>
+</div>
+<h3 id="derivation-trees">Derivation trees</h3>
+<p>Now we want to build derivation trees. A derivation tree for a string <code>str</code> has the following properties:</p>
+<ul><li>The root is labeled with <code>str</code>.</li>
+<li>The subtrees of the root are the derivation trees for the strings that can be generated from <code>str</code> by a single rule application.</li>
+<li>The edges from the root to its subtrees are marked with the respective rules that are applied.</li>
+</ul><p>We first define types for representing derivation trees:</p>
+<div class="sourceCode">
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">DTree</span> <span class="fu">=</span> <span class="dt">DTree</span> <span class="dt">Str</span> [<span class="dt">DSub</span>]&#13;
+&#13;
+<span class="kw">data</span> <span class="dt">DSub</span>  <span class="fu">=</span> <span class="dt">DSub</span> <span class="dt">Rule</span> <span class="dt">DTree</span></code></pre>
+</div>
+<p>Now we define the function <code>dTree</code> that turns a string into its derivation tree:</p>
+<div class="sourceCode">
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="ot">dTree ::</span> <span class="dt">Str</span> <span class="ot">-&gt;</span> <span class="dt">DTree</span>&#13;
+dTree str <span class="fu">=</span> <span class="dt">DTree</span> str [<span class="dt">DSub</span> rule subtree <span class="fu">|</span>&#13;
+                          rule <span class="ot">&lt;-</span> rules,&#13;
+                          subStr <span class="ot">&lt;-</span> apply rule str,&#13;
+                          <span class="kw">let</span> subtree <span class="fu">=</span> dTree subStr]</code></pre>
+</div>
+<h3 id="derivations">Derivations</h3>
+<p>A derivation is a sequence of strings with rules between them such that each rule takes the string before it to the string after it. We define types for representing derivations:</p>
+<div class="sourceCode">
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Deriv</span> <span class="fu">=</span> <span class="dt">Deriv</span> [<span class="dt">DStep</span>] <span class="dt">Str</span>&#13;
+&#13;
+<span class="kw">data</span> <span class="dt">DStep</span> <span class="fu">=</span> <span class="dt">DStep</span> <span class="dt">Str</span> <span class="dt">Rule</span>&#13;
+&#13;
+<span class="kw">instance</span> <span class="dt">Show</span> <span class="dt">Deriv</span> <span class="kw">where</span>&#13;
+&#13;
+    show (<span class="dt">Deriv</span> steps goal) <span class="fu">=</span> <span class="st">"        "</span>           <span class="fu">++</span>&#13;
+                              concatMap show steps <span class="fu">++</span>&#13;
+                              show goal            <span class="fu">++</span>&#13;
+                              <span class="st">"\n"</span>&#13;
+&#13;
+    showList derivs&#13;
+        <span class="fu">=</span> (concatMap ((<span class="fu">++</span> <span class="st">"\n"</span>) <span class="fu">.</span> show) derivs <span class="fu">++</span>)&#13;
+&#13;
+<span class="kw">instance</span> <span class="dt">Show</span> <span class="dt">DStep</span> <span class="kw">where</span>&#13;
+&#13;
+    show (<span class="dt">DStep</span> origin rule) <span class="fu">=</span> show origin <span class="fu">++</span>&#13;
+                               <span class="st">"\n-&gt; ("</span>    <span class="fu">++</span>&#13;
+                               show rule   <span class="fu">++</span>&#13;
+                               <span class="st">") "</span></code></pre>
+</div>
+<p>Now we implement a function <code>derivs</code> that converts a derivation tree into the list of all derivations that start with the tree’s root label. The function <code>derivs</code> traverses the tree in breadth-first order.</p>
+<div class="sourceCode">
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="ot">derivs ::</span> <span class="dt">DTree</span> <span class="ot">-&gt;</span> [<span class="dt">Deriv</span>]&#13;
+derivs tree <span class="fu">=</span> worker [([],tree)] <span class="kw">where</span>&#13;
+&#13;
+<span class="ot">    worker ::</span> [([<span class="dt">DStep</span>],<span class="dt">DTree</span>)] <span class="ot">-&gt;</span> [<span class="dt">Deriv</span>]&#13;
+    worker tasks <span class="fu">=</span> rootDerivs tasks        <span class="fu">++</span>&#13;
+                   worker (subtasks tasks)&#13;
+&#13;
+<span class="ot">    rootDerivs ::</span> [([<span class="dt">DStep</span>],<span class="dt">DTree</span>)] <span class="ot">-&gt;</span> [<span class="dt">Deriv</span>]&#13;
+    rootDerivs tasks <span class="fu">=</span> [<span class="dt">Deriv</span> (reverse revSteps) root <span class="fu">|</span>&#13;
+                           (revSteps,<span class="dt">DTree</span> root _) <span class="ot">&lt;-</span> tasks]&#13;
+&#13;
+<span class="ot">    subtasks ::</span> [([<span class="dt">DStep</span>],<span class="dt">DTree</span>)] <span class="ot">-&gt;</span> [([<span class="dt">DStep</span>],<span class="dt">DTree</span>)]&#13;
+    subtasks tasks <span class="fu">=</span> [(<span class="dt">DStep</span> root rule <span class="fu">:</span> revSteps,subtree) <span class="fu">|</span>&#13;
+                         (revSteps,<span class="dt">DTree</span> root subs) <span class="ot">&lt;-</span> tasks,&#13;
+                         <span class="dt">DSub</span> rule subtree          <span class="ot">&lt;-</span> subs]</code></pre>
+</div>
+<p>Finally, we implement the function <code>derivations</code> which takes two strings and returns the list of those derivations that turn the first string into the second:</p>
+<div class="sourceCode">
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="ot">derivations ::</span> <span class="dt">Str</span> <span class="ot">-&gt;</span> <span class="dt">Str</span> <span class="ot">-&gt;</span> [<span class="dt">Deriv</span>]&#13;
+derivations start end&#13;
+    <span class="fu">=</span> [deriv <span class="fu">|</span> deriv<span class="fu">@</span>(<span class="dt">Deriv</span> _ goal) <span class="ot">&lt;-</span> derivs (dTree start),&#13;
+               goal <span class="fu">==</span> end]</code></pre>
+</div>
+<p>You may want to enter</p>
+<p class="amp-wp-inline-a6ec8840dd8107f0c4f9cbd7d00cece0"><code>derivations [M,I] [M,U,I]</code></p>
+<p>at the GHCi prompt to see the <code>derivations</code> function in action. You can also enter</p>
+<p class="amp-wp-inline-a6ec8840dd8107f0c4f9cbd7d00cece0"><code>derivations [M,I] [M,U]</code></p>
+<p>to get an idea about the solution to the MU puzzle.</p>
+		<div class="wpcnt">
+			<div class="wpa wpmrec">
+				<a class="wpa-about" href="https://en.support.wordpress.com/about-these-ads/" rel="nofollow">About these ads</a>
+				<div class="u">
+					<amp-ad width="300" height="250" type="pubmine" data-adsafe="0" data-section="2" data-siteid="2694" data-wordads="0"><div placeholder="" class="amp-wp-iframe-placeholder"></div>
+					</amp-ad></div>
+			</div>
+		</div>	</div>
+
+	<footer class="amp-wp-article-footer">
+			<div class="amp-wp-meta amp-wp-tax-category">
+		Categories: <a href="https://jeltsch.wordpress.com/category/uncategorized/" rel="category tag">Uncategorized</a>	</div>
+
+	<div class="amp-wp-meta amp-wp-tax-tag">
+		Tags: <a href="https://jeltsch.wordpress.com/tag/douglas-hofstadter/" rel="tag">Douglas Hofstadter</a>, <a href="https://jeltsch.wordpress.com/tag/functional-programming/" rel="tag">functional programming</a>, <a href="https://jeltsch.wordpress.com/tag/goedel-escher-bach-book/" rel="tag">Gödel, Escher, Bach (book)</a>, <a href="https://jeltsch.wordpress.com/tag/haskell/" rel="tag">Haskell</a>, <a href="https://jeltsch.wordpress.com/tag/institute-of-cybernetics/" rel="tag">Institute of Cybernetics</a>, <a href="https://jeltsch.wordpress.com/tag/james-chapman/" rel="tag">James Chapman</a>, <a href="https://jeltsch.wordpress.com/tag/literate-programming/" rel="tag">literate programming</a>, <a href="https://jeltsch.wordpress.com/tag/mu-puzzle/" rel="tag">MU puzzle</a>, <a href="https://jeltsch.wordpress.com/tag/string-rewriting/" rel="tag">string rewriting</a>, <a href="https://jeltsch.wordpress.com/tag/talk/" rel="tag">talk</a>, <a href="https://jeltsch.wordpress.com/tag/theory-lunch/" rel="tag">Theory Lunch</a>	</div>
+		<div class="amp-wp-meta amp-wp-comments-link">
+		<a href="../index.html#comments">
+			Leave a Comment		</a>
+	</div>
+	</footer>
+
+</article>
+
+<footer class="amp-wp-footer">
+	<div>
+		<h2>Wolfgang Jeltsch</h2>
+		<p>
+			<a href="https://wordpress.com/?ref=footer_website">Create a free website or blog at WordPress.com.</a>
+		</p>
+		<a href="#top" class="back-to-top">Back to top</a>
+	</div>
+</footer>
+
+	<amp-pixel src="https://pixel.wp.com/b.gif?rand=RANDOM&amp;host=jeltsch.wordpress.com&amp;ref=DOCUMENT_REFERRER&amp;amp=1&amp;blog=33918393&amp;v=wpcom&amp;tz=0&amp;user_id=0&amp;post=582&amp;subd=jeltsch"></amp-pixel>
+	<amp-pixel src="https://pixel.wp.com/b.gif?rand=RANDOM&amp;v=wpcom-no-pv&amp;crypt=UE5XaGUuOTlwaD85flAmcm1mcmZsaDhkV11YdWtpP0NsWnVkPS9sL0ViLndld3BxTi9jQ2xTcExndThUNG5BL2x6ZVV6ZThkVmRURDJjc01OTS1YVF1qNGd6USVtXTFReHFLd2VdYnhmM21oWkk5Jkl6ZHpyfkM1ajdhPTBxUnA%2FZ2lQNCwuJUtUTXB1LzFTan5DSkZnaUc0YWkvNXo0bC92UkdVS1tEOVdbRUYlQlc5UG1mLmRrNW1xdlo2eV1Rdmp0RW9PTjYmJlBCaTFlUDhMTy9qUA%3D%3D"></amp-pixel>
+	
+</body>
+
+Providence Salumu
+</html>

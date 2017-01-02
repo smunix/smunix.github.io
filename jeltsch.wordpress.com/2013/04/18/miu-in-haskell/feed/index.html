@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"
+	xmlns:content="http://purl.org/rss/1.0/modules/content/"
+	xmlns:dc="http://purl.org/dc/elements/1.1/"
+	xmlns:atom="http://www.w3.org/2005/Atom"
+	xmlns:sy="http://purl.org/rss/1.0/modules/syndication/"
+	xmlns:georss="http://www.georss.org/georss" xmlns:geo="http://www.w3.org/2003/01/geo/wgs84_pos#" xmlns:media="http://search.yahoo.com/mrss/"
+	
+	>
+<channel>
+	<title>Comments on: MIU in Haskell</title>
+	<atom:link href="https://jeltsch.wordpress.com/2013/04/18/miu-in-haskell/feed/" rel="self" type="application/rss+xml" />
+	<link>https://jeltsch.wordpress.com/2013/04/18/miu-in-haskell/</link>
+	<description>Mathematics, computer science, and computers</description>
+	<lastBuildDate>Thu, 17 Nov 2016 15:05:58 +0000</lastBuildDate>
+	<sy:updatePeriod>hourly</sy:updatePeriod>
+	<sy:updateFrequency>1</sy:updateFrequency>
+	<generator>http://wordpress.com/</generator>
+	<item>
+		<title>By: MIU in Curry &#171; Wolfgang Jeltsch</title>
+		<link>https://jeltsch.wordpress.com/2013/04/18/miu-in-haskell/#comment-480</link>
+		<dc:creator><![CDATA[MIU in Curry &#171; Wolfgang Jeltsch]]></dc:creator>
+		<pubDate>Sun, 30 Aug 2015 21:09:20 +0000</pubDate>
+		<guid isPermaLink="false">http://jeltsch.wordpress.com/?p=582#comment-480</guid>
+		<description><![CDATA[[&#8230;] language Curry, and the third talk was about a Curry implementation of MIU. The blog articles MIU in Haskell and A taste of Curry are write-ups of the first two talks. However, a write-up of the third talk [&#8230;]]]></description>
+		<content:encoded><![CDATA[<p>[&#8230;] language Curry, and the third talk was about a Curry implementation of MIU. The blog articles MIU in Haskell and A taste of Curry are write-ups of the first two talks. However, a write-up of the third talk [&#8230;]</p>
+]]></content:encoded>
+	</item>
+	<item>
+		<title>By: Wolfgang Jeltsch</title>
+		<link>https://jeltsch.wordpress.com/2013/04/18/miu-in-haskell/#comment-279</link>
+		<dc:creator><![CDATA[Wolfgang Jeltsch]]></dc:creator>
+		<pubDate>Sat, 27 Apr 2013 11:54:16 +0000</pubDate>
+		<guid isPermaLink="false">http://jeltsch.wordpress.com/?p=582#comment-279</guid>
+		<description><![CDATA[Please enter this on the GHCi prompt:
+
+&lt;pre&gt;length $ splits $ replicate 1000000 M&lt;/pre&gt;
+
+This should give you the result &lt;code&gt;1000001&lt;/code&gt; quite quickly.
+
+Now try this:
+
+&lt;pre&gt;length $ splits&#039; $ replicate 1000000 M&lt;/pre&gt;
+
+I wasn’t able to get a result within a reasonable amount of time.
+
+The problem with &lt;code&gt;split&#039;&lt;/code&gt; lies in the use of &lt;code&gt;inits&lt;/code&gt;. The &lt;code&gt;inits&lt;/code&gt; function is implemented as follows:
+
+&lt;pre&gt;inits :: [a] -&#062; [[a]]
+inits xs = [] : case xs of
+                    []      -&#062; []
+                    x : xs&#039; -&#062; map (x : ) (inits xs&#039;)&lt;/pre&gt;
+
+Note that the recursive application of &lt;code&gt;inits&lt;/code&gt; is under a &lt;code&gt;map&lt;/code&gt;. So the suffix of an expression &lt;code&gt;inits [x_1,x_2,…,x_n]&lt;/code&gt; that starts at an index&#160;$latex i$ is defined by a nested application of &lt;code&gt;map&lt;/code&gt; of depth&#160;$latex i$:
+
+&lt;p style=&quot;text-align:center;&quot;&gt;&lt;code&gt;map (x_1 : ) (map (x_2 : ) (…(map (x_i : ) […])…))&lt;/code&gt;&lt;/p&gt;
+
+To detect that the result of an expression &lt;code&gt;map f xs&lt;/code&gt; is non-empty, we have to detect that &lt;code&gt;xs&lt;/code&gt; is non-empty. So to detect that the above suffix is non-empty, we need to walk through the $latex i$ layers of &lt;code&gt;map&lt;/code&gt;s, which takes $latex \mathcal O(i)$ time.
+
+This means that to fetch the $latex k$-th element of &lt;code&gt;inits xs&lt;/code&gt;, we need
+
+&lt;p style=&quot;text-align:center;&quot;&gt;$latex \sum_{i = 0}^k \mathcal O(i) = \mathcal O(k^2)$&lt;/p&gt;
+
+time.
+
+The implementation of &lt;code&gt;split&lt;/code&gt; doesn’t suffer from this problem, since it creates prefixes by a single application of &lt;code&gt;map&lt;/code&gt;, and computes every single prefix independently.]]></description>
+		<content:encoded><![CDATA[<p>Please enter this on the GHCi prompt:</p>
+<pre>length $ splits $ replicate 1000000 M</pre>
+<p>This should give you the result <code>1000001</code> quite quickly.</p>
+<p>Now try this:</p>
+<pre>length $ splits' $ replicate 1000000 M</pre>
+<p>I wasn’t able to get a result within a reasonable amount of time.</p>
+<p>The problem with <code>split'</code> lies in the use of <code>inits</code>. The <code>inits</code> function is implemented as follows:</p>
+<pre>inits :: [a] -&gt; [[a]]
+inits xs = [] : case xs of
+                    []      -&gt; []
+                    x : xs' -&gt; map (x : ) (inits xs')</pre>
+<p>Note that the recursive application of <code>inits</code> is under a <code>map</code>. So the suffix of an expression <code>inits [x_1,x_2,…,x_n]</code> that starts at an index&nbsp;<img src="https://s0.wp.com/latex.php?latex=i&#038;bg=f7f3ee&#038;fg=333333&#038;s=0" alt="i" title="i" class="latex" /> is defined by a nested application of <code>map</code> of depth&nbsp;<img src="https://s0.wp.com/latex.php?latex=i&#038;bg=f7f3ee&#038;fg=333333&#038;s=0" alt="i" title="i" class="latex" />:</p>
+<p style="text-align:center;"><code>map (x_1 : ) (map (x_2 : ) (…(map (x_i : ) […])…))</code></p>
+<p>To detect that the result of an expression <code>map f xs</code> is non-empty, we have to detect that <code>xs</code> is non-empty. So to detect that the above suffix is non-empty, we need to walk through the <img src="https://s0.wp.com/latex.php?latex=i&#038;bg=f7f3ee&#038;fg=333333&#038;s=0" alt="i" title="i" class="latex" /> layers of <code>map</code>s, which takes <img src="https://s0.wp.com/latex.php?latex=%5Cmathcal+O%28i%29&#038;bg=f7f3ee&#038;fg=333333&#038;s=0" alt="&#92;mathcal O(i)" title="&#92;mathcal O(i)" class="latex" /> time.</p>
+<p>This means that to fetch the <img src="https://s0.wp.com/latex.php?latex=k&#038;bg=f7f3ee&#038;fg=333333&#038;s=0" alt="k" title="k" class="latex" />-th element of <code>inits xs</code>, we need</p>
+<p style="text-align:center;"><img src="https://s0.wp.com/latex.php?latex=%5Csum_%7Bi+%3D+0%7D%5Ek+%5Cmathcal+O%28i%29+%3D+%5Cmathcal+O%28k%5E2%29&#038;bg=f7f3ee&#038;fg=333333&#038;s=0" alt="&#92;sum_{i = 0}^k &#92;mathcal O(i) = &#92;mathcal O(k^2)" title="&#92;sum_{i = 0}^k &#92;mathcal O(i) = &#92;mathcal O(k^2)" class="latex" /></p>
+<p>time.</p>
+<p>The implementation of <code>split</code> doesn’t suffer from this problem, since it creates prefixes by a single application of <code>map</code>, and computes every single prefix independently.</p>
+]]></content:encoded>
+	</item>
+	<item>
+		<title>By: rd6137</title>
+		<link>https://jeltsch.wordpress.com/2013/04/18/miu-in-haskell/#comment-277</link>
+		<dc:creator><![CDATA[rd6137]]></dc:creator>
+		<pubDate>Fri, 26 Apr 2013 17:01:22 +0000</pubDate>
+		<guid isPermaLink="false">http://jeltsch.wordpress.com/?p=582#comment-277</guid>
+		<description><![CDATA[Why is &lt;code&gt;split&lt;/code&gt; more efficient than &lt;code&gt;split&#039;&lt;/code&gt;?? I was unable to exhibit any difference between the two (Criterion used).
+
+Thank you!]]></description>
+		<content:encoded><![CDATA[<p>Why is <code>split</code> more efficient than <code>split'</code>?? I was unable to exhibit any difference between the two (Criterion used).</p>
+<p>Thank you!</p>
+]]></content:encoded>
+	</item>
+	<item>
+		<title>By: Wolfgang Jeltsch</title>
+		<link>https://jeltsch.wordpress.com/2013/04/18/miu-in-haskell/#comment-274</link>
+		<dc:creator><![CDATA[Wolfgang Jeltsch]]></dc:creator>
+		<pubDate>Thu, 18 Apr 2013 18:58:27 +0000</pubDate>
+		<guid isPermaLink="false">http://jeltsch.wordpress.com/?p=582#comment-274</guid>
+		<description><![CDATA[By the way, in your &lt;a href=&quot;http://de.gravatar.com/bmeph&quot; title=&quot;bmeph, Right Here!&quot; rel=&quot;nofollow&quot;&gt;Gravatar profile&lt;/a&gt; you say, “I like seeing how other languages do things differently.” So I wonder, did you already look at languages that are not &lt;a href=&quot;http://en.wikipedia.org/wiki/Indo-European_languages&quot; title=&quot;Indo-European languages&quot; rel=&quot;nofollow&quot;&gt;indo-european&lt;/a&gt;, like &lt;a href=&quot;http://en.wikipedia.org/wiki/Estonian_language&quot; title=&quot;Estonian language&quot; rel=&quot;nofollow&quot;&gt;Estonian&lt;/a&gt;? They are at some points quite different from what we “indo-europeans” are used to.]]></description>
+		<content:encoded><![CDATA[<p>By the way, in your <a href="http://de.gravatar.com/bmeph" title="bmeph, Right Here!" rel="nofollow">Gravatar profile</a> you say, “I like seeing how other languages do things differently.” So I wonder, did you already look at languages that are not <a href="http://en.wikipedia.org/wiki/Indo-European_languages" title="Indo-European languages" rel="nofollow">indo-european</a>, like <a href="http://en.wikipedia.org/wiki/Estonian_language" title="Estonian language" rel="nofollow">Estonian</a>? They are at some points quite different from what we “indo-europeans” are used to.</p>
+]]></content:encoded>
+	</item>
+	<item>
+		<title>By: Wolfgang Jeltsch</title>
+		<link>https://jeltsch.wordpress.com/2013/04/18/miu-in-haskell/#comment-273</link>
+		<dc:creator><![CDATA[Wolfgang Jeltsch]]></dc:creator>
+		<pubDate>Thu, 18 Apr 2013 18:54:47 +0000</pubDate>
+		<guid isPermaLink="false">http://jeltsch.wordpress.com/?p=582#comment-273</guid>
+		<description><![CDATA[The &lt;code&gt;stripPrefix&lt;/code&gt; function returns a &lt;code&gt;Maybe&lt;/code&gt; value, since it needs to signal whether the given list starts with the given prefix or not. In the &lt;code&gt;replace&lt;/code&gt; function, I have already ensured that it does; so it is simpler to use the solution with &lt;code&gt;drop&lt;/code&gt; and &lt;code&gt;length&lt;/code&gt;, where I do not have to get rid of the &lt;code&gt;Maybe&lt;/code&gt;.]]></description>
+		<content:encoded><![CDATA[<p>The <code>stripPrefix</code> function returns a <code>Maybe</code> value, since it needs to signal whether the given list starts with the given prefix or not. In the <code>replace</code> function, I have already ensured that it does; so it is simpler to use the solution with <code>drop</code> and <code>length</code>, where I do not have to get rid of the <code>Maybe</code>.</p>
+]]></content:encoded>
+	</item>
+	<item>
+		<title>By: BMeph</title>
+		<link>https://jeltsch.wordpress.com/2013/04/18/miu-in-haskell/#comment-272</link>
+		<dc:creator><![CDATA[BMeph]]></dc:creator>
+		<pubDate>Thu, 18 Apr 2013 17:19:24 +0000</pubDate>
+		<guid isPermaLink="false">http://jeltsch.wordpress.com/?p=582#comment-272</guid>
+		<description><![CDATA[In the &quot;replace&quot; function, I noticed that you didn&#039;t use the &quot;stripPrefix&quot; function - was that for readability concerns?]]></description>
+		<content:encoded><![CDATA[<p>In the &#8220;replace&#8221; function, I noticed that you didn&#8217;t use the &#8220;stripPrefix&#8221; function &#8211; was that for readability concerns?</p>
+]]></content:encoded>
+	</item>
+	<item>
+		<title>By: MIU in Haskell, part 2 &#124; Theory Lunch</title>
+		<link>https://jeltsch.wordpress.com/2013/04/18/miu-in-haskell/#comment-271</link>
+		<dc:creator><![CDATA[MIU in Haskell, part 2 &#124; Theory Lunch]]></dc:creator>
+		<pubDate>Thu, 18 Apr 2013 13:51:23 +0000</pubDate>
+		<guid isPermaLink="false">http://jeltsch.wordpress.com/?p=582#comment-271</guid>
+		<description><![CDATA[[...] Today, I presented a Haskell program that computes derivations in the MIU formal system from Douglas Hofstadter’s MU puzzle. I have posted a write-up of my talk on my personal blog. [...]]]></description>
+		<content:encoded><![CDATA[<p>[&#8230;] Today, I presented a Haskell program that computes derivations in the MIU formal system from Douglas Hofstadter’s MU puzzle. I have posted a write-up of my talk on my personal blog. [&#8230;]</p>
+]]></content:encoded>
+	</item>
+</channel>
+</rss>
