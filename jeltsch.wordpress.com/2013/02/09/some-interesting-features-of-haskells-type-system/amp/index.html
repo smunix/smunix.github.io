@@ -1,0 +1,714 @@
+<!doctype html>
+<html amp lang="en">
+
+Providence Salumu
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=UTF-8" /><!-- /Added by HTTrack -->
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no">
+	
+<!-- Jetpack Open Graph Tags -->
+<meta property="og:type" content="article" />
+<meta property="og:title" content="Some interesting features of Haskell’s type system" />
+<meta property="og:url" content="../index.html" />
+<meta property="og:description" content="One of the most important ingredients of Haskell is its type system. Standard Haskell already provides a lot of useful mechanisms for having things checked at compile time, and the language extensi…" />
+<meta property="article:published_time" content="2013-02-09T21:47:11+00:00" />
+<meta property="article:modified_time" content="2015-08-31T17:09:38+00:00" />
+<meta property="og:site_name" content="Wolfgang Jeltsch" />
+<meta property="og:image" content="https://s0.wp.com/i/blank.jpg" />
+<meta property="og:locale" content="en_US" />
+<meta name="twitter:site" content="@wordpressdotcom" />
+<meta name="twitter:card" content="summary" />
+<meta property="fb:app_id" content="249643311490" />
+<meta property="article:publisher" content="https://www.facebook.com/WordPresscom" />
+	<title>Some interesting features of Haskell’s type system &#8211; Wolfgang Jeltsch</title>
+		<link rel="canonical" href="../index.html" />
+			<script custom-element="amp-ad" src="https://cdn.ampproject.org/v0/amp-ad-0.1.js" async></script>
+		<script src="https://cdn.ampproject.org/v0.js" async></script>
+			<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Merriweather:400,400italic,700,700italic">
+		<style amp-boilerplate>body{-webkit-animation:-amp-start 8s steps(1,end) 0s 1 normal both;-moz-animation:-amp-start 8s steps(1,end) 0s 1 normal both;-ms-animation:-amp-start 8s steps(1,end) 0s 1 normal both;animation:-amp-start 8s steps(1,end) 0s 1 normal both}@-webkit-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@-moz-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@-ms-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@-o-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}</style><noscript><style amp-boilerplate>body{-webkit-animation:none;-moz-animation:none;-ms-animation:none;animation:none}</style></noscript>
+		<script type="application/ld+json">{"@context":"http:\/\/schema.org","@type":"BlogPosting","mainEntityOfPage":"https:\/\/jeltsch.wordpress.com\/2013\/02\/09\/some-interesting-features-of-haskells-type-system\/","publisher":{"@type":"Organization","name":"Wolfgang Jeltsch","logo":{"@type":"ImageObject","url":"https:\/\/s2.wp.com\/i\/favicons\/apple-touch-icon-60x60.png","width":60,"height":60}},"headline":"Some interesting features of Haskell\u2019s type system","datePublished":"2013-02-09T21:47:11+00:00","dateModified":"2015-08-31T17:09:38+00:00","author":{"@type":"Person","name":"Wolfgang Jeltsch"},"image":{"@type":"ImageObject","url":"https:\/\/2.gravatar.com\/avatar\/bf139729e2f2ed2494653dda9da99a38?s=200&amp;d=identicon&amp;r=G","width":200,"height":200}}</script>
+		<style amp-custom>
+		/* Generic WP styling */
+
+.alignright {
+	float: right;
+}
+
+.alignleft {
+	float: left;
+}
+
+.aligncenter {
+	display: block;
+	margin-left: auto;
+	margin-right: auto;
+}
+
+.amp-wp-enforced-sizes {
+	/** Our sizes fallback is 100vw, and we have a padding on the container; the max-width here prevents the element from overflowing. **/
+	max-width: 100%;
+	margin: 0 auto;
+}
+
+.amp-wp-unknown-size img {
+	/** Worst case scenario when we can't figure out dimensions for an image. **/
+	/** Force the image into a box of fixed dimensions and use object-fit to scale. **/
+	object-fit: contain;
+}
+
+/* Template Styles */
+
+.amp-wp-content,
+.amp-wp-title-bar div {
+		margin: 0 auto;
+	max-width: 640px;
+	}
+
+html {
+	background: #0a89c0;
+}
+
+body {
+	background: #fff;
+	color: #353535;
+	font-family: 'Merriweather', 'Times New Roman', Times, Serif;
+	font-weight: 300;
+	line-height: 1.75em;
+}
+
+p,
+ol,
+ul,
+figure {
+	margin: 0 0 1em;
+	padding: 0;
+}
+
+a,
+a:visited {
+	color: #0a89c0;
+}
+
+a:hover,
+a:active,
+a:focus {
+	color: #353535;
+}
+
+/* Quotes */
+
+blockquote {
+	color: #353535;
+	background: rgba(127,127,127,.125);
+	border-left: 2px solid #0a89c0;
+	margin: 8px 0 24px 0;
+	padding: 16px;
+}
+
+blockquote p:last-child {
+	margin-bottom: 0;
+}
+
+/* UI Fonts */
+
+.amp-wp-meta,
+.amp-wp-header div,
+.amp-wp-title,
+.wp-caption-text,
+.amp-wp-tax-category,
+.amp-wp-tax-tag,
+.amp-wp-comments-link,
+.amp-wp-footer p,
+.back-to-top {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen-Sans", "Ubuntu", "Cantarell", "Helvetica Neue", sans-serif;
+}
+
+/* Header */
+
+.amp-wp-header {
+	background-color: #0a89c0;
+}
+
+.amp-wp-header div {
+	color: #fff;
+	font-size: 1em;
+	font-weight: 400;
+	margin: 0 auto;
+	max-width: calc(840px - 32px);
+	padding: .875em 16px;
+	position: relative;
+}
+
+.amp-wp-header a {
+	color: #fff;
+	text-decoration: none;
+}
+
+/* Site Icon */
+
+.amp-wp-header .amp-wp-site-icon {
+	/** site icon is 32px **/
+	background-color: #fff;
+	border: 1px solid #fff;
+	border-radius: 50%;
+	position: absolute;
+	right: 18px;
+	top: 10px;
+}
+
+/* Article */
+
+.amp-wp-article {
+	color: #353535;
+	font-weight: 400;
+	margin: 1.5em auto;
+	max-width: 840px;
+	overflow-wrap: break-word;
+	word-wrap: break-word;
+}
+
+/* Article Header */
+
+.amp-wp-article-header {
+	align-items: center;
+	align-content: stretch;
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: space-between;
+	margin: 1.5em 16px 1.5em;
+}
+
+.amp-wp-title {
+	color: #353535;
+	display: block;
+	flex: 1 0 100%;
+	font-weight: 900;
+	margin: 0 0 .625em;
+	width: 100%;
+}
+
+/* Article Meta */
+
+.amp-wp-meta {
+	color: #696969;
+	display: inline-block;
+	flex: 2 1 50%;
+	font-size: .875em;
+	line-height: 1.5em;
+	margin: 0;
+	padding: 0;
+}
+
+.amp-wp-article-header .amp-wp-meta:last-of-type {
+	text-align: right;
+}
+
+.amp-wp-article-header .amp-wp-meta:first-of-type {
+	text-align: left;
+}
+
+.amp-wp-byline amp-img,
+.amp-wp-byline .amp-wp-author {
+	display: inline-block;
+	vertical-align: middle;
+}
+
+.amp-wp-byline amp-img {
+	border: 1px solid #0a89c0;
+	border-radius: 50%;
+	position: relative;
+	margin-right: 6px;
+}
+
+.amp-wp-posted-on {
+	text-align: right;
+}
+
+/* Featured image */
+
+.amp-wp-article-featured-image {
+	margin: 0 0 1em;
+}
+.amp-wp-article-featured-image amp-img {
+	margin: 0 auto;
+}
+.amp-wp-article-featured-image.wp-caption .wp-caption-text {
+	margin: 0 18px;
+}
+
+/* Article Content */
+
+.amp-wp-article-content {
+	margin: 0 16px;
+}
+
+.amp-wp-article-content ul,
+.amp-wp-article-content ol {
+	margin-left: 1em;
+}
+
+.amp-wp-article-content amp-img {
+	margin: 0 auto;
+}
+
+.amp-wp-article-content amp-img.alignright {
+	margin: 0 0 1em 16px;
+}
+
+.amp-wp-article-content amp-img.alignleft {
+	margin: 0 16px 1em 0;
+}
+
+/* Captions */
+
+.wp-caption {
+	padding: 0;
+}
+
+.wp-caption.alignleft {
+	margin-right: 16px;
+}
+
+.wp-caption.alignright {
+	margin-left: 16px;
+}
+
+.wp-caption .wp-caption-text {
+	border-bottom: 1px solid #c2c2c2;
+	color: #696969;
+	font-size: .875em;
+	line-height: 1.5em;
+	margin: 0;
+	padding: .66em 10px .75em;
+}
+
+/* AMP Media */
+
+amp-carousel {
+	background: #c2c2c2;
+	margin: 0 -16px 1.5em;
+}
+amp-iframe,
+amp-youtube,
+amp-instagram,
+amp-vine {
+	background: #c2c2c2;
+	margin: 0 -16px 1.5em;
+}
+
+.amp-wp-article-content amp-carousel amp-img {
+	border: none;
+}
+
+amp-carousel > amp-img > img {
+	object-fit: contain;
+}
+
+.amp-wp-iframe-placeholder {
+	background: #c2c2c2 url( https://s2.wp.com/wp-content/plugins/amp/assets/images/placeholder-icon.png) no-repeat center 40%;
+	background-size: 48px 48px;
+	min-height: 48px;
+}
+
+/* Article Footer Meta */
+
+.amp-wp-article-footer .amp-wp-meta {
+	display: block;
+}
+
+.amp-wp-tax-category,
+.amp-wp-tax-tag {
+	color: #696969;
+	font-size: .875em;
+	line-height: 1.5em;
+	margin: 1.5em 16px;
+}
+
+.amp-wp-comments-link {
+	color: #696969;
+	font-size: .875em;
+	line-height: 1.5em;
+	text-align: center;
+	margin: 2.25em 0 1.5em;
+}
+
+.amp-wp-comments-link a {
+	border-style: solid;
+	border-color: #c2c2c2;
+	border-width: 1px 1px 2px;
+	border-radius: 4px;
+	background-color: transparent;
+	color: #0a89c0;
+	cursor: pointer;
+	display: block;
+	font-size: 14px;
+	font-weight: 600;
+	line-height: 18px;
+	margin: 0 auto;
+	max-width: 200px;
+	padding: 11px 16px;
+	text-decoration: none;
+	width: 50%;
+	-webkit-transition: background-color 0.2s ease;
+			transition: background-color 0.2s ease;
+}
+
+/* AMP Footer */
+
+.amp-wp-footer {
+	border-top: 1px solid #c2c2c2;
+	margin: calc(1.5em - 1px) 0 0;
+}
+
+.amp-wp-footer div {
+	margin: 0 auto;
+	max-width: calc(840px - 32px);
+	padding: 1.25em 16px 1.25em;
+	position: relative;
+}
+
+.amp-wp-footer h2 {
+	font-size: 1em;
+	line-height: 1.375em;
+	margin: 0 0 .5em;
+}
+
+.amp-wp-footer p {
+	color: #696969;
+	font-size: .8em;
+	line-height: 1.5em;
+	margin: 0 85px 0 0;
+}
+
+.amp-wp-footer a {
+	text-decoration: none;
+}
+
+.back-to-top {
+	bottom: 1.275em;
+	font-size: .8em;
+	font-weight: 600;
+	line-height: 2em;
+	position: absolute;
+	right: 16px;
+}
+				/* WordAds */
+		.wpcnt {
+			text-align: center;
+			line-height: 0;
+			display: block;
+			clear: both;
+			margin: 1em 0;
+		}
+
+		.rtl .wpcnt {
+			direction: ltr;
+		}
+
+		.wpa {
+			position: relative;
+			display: inline-block;
+			max-width: 100%;
+			text-align: left;
+			padding: 10px 0 0;
+			min-width: 300px;
+			-webkit-transform: translate3d(0, 0, 0);
+			transform: translate3d(0, 0, 0);
+		}
+
+		.wpa-about {
+			position: absolute;
+			top: 5px;
+			left: 0;
+			right: 0;
+			display: block;
+			min-width: 160px;
+			border-bottom: none;
+			font: 10px/1 "Open Sans", Arial, sans-serif;
+			text-align: left;
+			text-decoration: none;
+			opacity: 0.85;
+		}
+
+		.wpa-about:hover {
+			text-decoration: underline;
+			opacity: 1;
+		}
+
+		.wpa-about:hover, .wa_infobox a:hover {
+			text-decoration: underline;
+			color: #444;
+		}
+
+		.wpa .u>div, .wpadvert>div>* {
+			display: block;
+			margin-top: 5px;
+			margin-bottom: 1em;
+		}
+
+		div.wpa>div {
+			margin-top: 10px;
+		}	</style>
+</head>
+
+<body class="">
+
+<header id="#top" class="amp-wp-header">
+	<div>
+		<a href="https://jeltsch.wordpress.com/">
+						Wolfgang Jeltsch		</a>
+	</div>
+</header>
+
+<article class="amp-wp-article">
+
+	<header class="amp-wp-article-header">
+		<h1 class="amp-wp-title">Some interesting features of Haskell’s type system</h1>
+				<div class="amp-wp-meta amp-wp-byline">
+					<amp-img src="https://secure.gravatar.com/avatar/bf139729e2f2ed2494653dda9da99a38?s=24&amp;d=identicon&amp;r=g" width="24" height="24" layout="fixed"></amp-img>
+				<span class="amp-wp-author author vcard">Wolfgang Jeltsch</span>
+	</div>
+<div class="amp-wp-meta amp-wp-posted-on">
+	<time datetime="2013-02-09T21:47:11+00:00">
+		4 years ago	</time>
+</div>
+	</header>
+
+	
+	<div class="amp-wp-article-content">
+		<p>One of the most important ingredients of Haskell is its type system. <a href="http://www.haskell.org/onlinereport/haskell2010/" title="Haskell 2010 Language Report">Standard Haskell</a> already provides a lot of useful mechanisms for having things checked at compile time, and the language extensions provided by the <a href="http://haskell.org/ghc/" title="Glasgow Haskell Compiler">Glasgow Haskell Compiler (GHC)</a> improve heavily on this.</p>
+<p>In this article, I will present several of Haskell’s type system features. Some of them belong to the standard, others are only available as extensions. This is a write-up of a talk I gave on 31 January 2013 during the <a href="http://theorylunch.wordpress.com/" title="Theory Lunch">Theory Lunch</a> of the <a href="http://www.ioc.ee/wiki/doku.php?id=en:start" title="Institute of Cybernetics">Institute of Cybernetics</a>. This talk provided the basics for another Theory Lunch talk, which was about the <code>Constraint</code> kind.<!--more--></p>
+<p>This whole article was written as a literate Haskell file with ordinary text written in <a href="http://daringfireball.net/projects/markdown/" title="Markdown">Markdown</a>. You can download <a href="http://darcs.wolfgang.jeltsch.info/blog/2013/02/09/some-interesting-features-of-haskells-type-system.lhs" title="Some interesting features of Haskell’s type system">this literate Haskell file</a>, read it, and load it into GHCi to play with the code. The HTML for the blog post was generated using <a href="http://johnmacfarlane.net/pandoc/" title="Pandoc">Pandoc</a>.</p>
+<h2 id="prerequisites">Prerequisites</h2>
+<p>We first enable some language extensions that we will use in this article:</p>
+<div class="sourceCode">
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="ot">{-# LANGUAGE MultiParamTypeClasses, TypeFamilies #-}</span></code></pre>
+</div>
+<p>We will reimplement some bits of the Prelude for illustration purposes, and we will use functions from other modules whose names clash with those of certain Prelude functions. Therefore, we have to hide parts of the Prelude:</p>
+<div class="sourceCode">
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">import </span><span class="dt">Prelude</span> <span class="kw">hiding</span> (<span class="dt">Eq</span> (..), <span class="dt">Functor</span> (..), lookup, (!!))</code></pre>
+</div>
+<p>Furthermore, we need some additional modules for example code:</p>
+<div class="sourceCode">
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">import </span><span class="dt">Data.Char</span>&#13;
+<span class="kw">import </span><span class="dt">Data.Natural</span>&#13;
+<span class="kw">import </span><span class="dt">Data.Stream</span>  <span class="kw">hiding</span> (map)&#13;
+<span class="kw">import </span><span class="dt">Data.Set</span>     <span class="kw">hiding</span> (map)&#13;
+<span class="kw">import </span><span class="dt">Data.IntSet</span>  <span class="kw">hiding</span> (map)</code></pre>
+</div>
+<p>These imports require the packages <code>Stream</code>, <code>natural-numbers</code>, and <code>containers</code> to be installed.</p>
+<h2 id="kinds">Kinds</h2>
+<p>Types typically denote sets of values. For example, <code>Integer</code> denotes the set of all integers, <code>Char</code> denotes the set of all characters, and <code>[Bool]</code> denotes the set of all truth value lists.</p>
+<p>However, Haskell uses a more general notion of type, which also covers functions on types. So for example, the unapplied list type constructor <code>[]</code> is also considered a type, as is a partial application of the function type constructor like <code>(-&gt;) Integer</code>. Clearly, these types do not contain values.</p>
+<p>To distinguish between ordinary types and functions on types, Haskell uses a system of kinds. Kinds are the “types of types”, so to say. A kind is either <code>*</code> or has the form <code>kind1 -&gt; kind2</code>, where <code>kind1</code> and <code>kind2</code> are again kinds. The kind <code>*</code> is the kind of all ordinary types (that is, types that contain values), and a <code>kind1 -&gt; kind2</code> is the kind of all type-level functions from <code>kind1</code> to <code>kind2</code>. Following are some examples of types and their kinds:</p>
+<ul><li><code>Integer, Char, [Bool], [[Bool]], [val] :: *</code></li>
+<li><code>[], Maybe :: * -&gt; *</code></li>
+</ul><p>Note that in a kind <code>kind1 -&gt; kind2</code>, <code>kind1</code> and <code>kind2</code> can be kinds of function types again. So higher-order types are possible. As a result, type functions with several arguments can be implemented by means of Currying. For example, Haskell’s pair type and function type constructors are kinded as follows:</p>
+<ul><li><code>(,), (-&gt;) :: * -&gt; * -&gt; *</code></li>
+</ul><p>Furthermore, we can have type constructors with type function arguments. Take the following generic types of trees and forests as an example:</p>
+<div class="sourceCode">
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">data</span>    <span class="dt">Tree</span>   func label <span class="fu">=</span> <span class="dt">Tree</span> label (<span class="dt">Forest</span> func label)&#13;
+&#13;
+<span class="kw">newtype</span> <span class="dt">Forest</span> func label <span class="fu">=</span> <span class="dt">Forest</span> (func (<span class="dt">Tree</span> func label))</code></pre>
+</div>
+<p>From these types, we can get various more concrete types by partial application:</p>
+<div class="sourceCode">
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">RoseTree</span>          <span class="fu">=</span> <span class="dt">Tree</span>   []&#13;
+&#13;
+<span class="kw">type</span> <span class="dt">RoseForest</span>        <span class="fu">=</span> <span class="dt">Forest</span> []&#13;
+&#13;
+<span class="kw">type</span> <span class="dt">NonEmptyList</span>      <span class="fu">=</span> <span class="dt">Tree</span>   <span class="dt">Maybe</span>&#13;
+&#13;
+<span class="kw">type</span> <span class="dt">PossiblyEmptyList</span> <span class="fu">=</span> <span class="dt">Forest</span> <span class="dt">Maybe</span>&#13;
+&#13;
+<span class="kw">type</span> <span class="dt">InfiniteList</span>      <span class="fu">=</span> <span class="dt">Tree</span>   <span class="dt">Identity</span></code></pre>
+</div>
+<p>The <code>Identity</code> type used in the definition of <code>Stream</code> is defined as follows:</p>
+<div class="sourceCode">
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">newtype</span> <span class="dt">Identity</span> val <span class="fu">=</span> <span class="dt">Identity</span> val</code></pre>
+</div>
+<p>I also want to mention that if we have a type <code>Event</code> in functional reactive programming, <code>Tree Event</code> is the type of behaviors that change only at discrete times, and <code>Forest Event</code> is the type of event streams.</p>
+<h2 id="type-classes">Type classes</h2>
+<p>A type class denotes a set of types, which are called the instances of the class. Each class declares a set of methods that its instances have to implement.</p>
+<h3 id="simple-type-classes">Simple type classes</h3>
+<p>As an example of a type class, let us partially reimplement the <code>Eq</code> class from the Prelude, whose methods are <code>(==)</code> and <code>(/=)</code>:</p>
+<div class="sourceCode">
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Eq</span> val <span class="kw">where</span>&#13;
+&#13;
+    (<span class="fu">==</span>),<span class="ot"> (/=) ::</span> val <span class="ot">-&gt;</span> val <span class="ot">-&gt;</span> <span class="dt">Bool</span></code></pre>
+</div>
+<p><code>Eq</code> is supposed to cover all types whose values can be checked for equality. Here is an <code class="sourceCode haskell"><span class="kw">instance</span></code> declaration for the <code>Bool</code> type:</p>
+<div class="sourceCode">
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Eq</span> <span class="dt">Bool</span> <span class="kw">where</span>&#13;
+&#13;
+    <span class="dt">False</span> <span class="fu">==</span> bool2 <span class="fu">=</span> not bool2&#13;
+    <span class="dt">True</span>  <span class="fu">==</span> bool2 <span class="fu">=</span> bool2&#13;
+&#13;
+    bool1 <span class="fu">/=</span> bool2 <span class="fu">=</span> not (bool1 <span class="fu">==</span> bool2)</code></pre>
+</div>
+<h3 id="constructor-classes">Constructor classes</h3>
+<p>It is possible to define classes whose instances have a kind other than <code>*</code>. These are sometimes called constructor classes. An example of such a class is the <code>Functor</code> class from the Prelude, whose instances have kind <code>* -&gt; *</code>. Here is a reimplementation:</p>
+<div class="sourceCode">
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Functor</span> func <span class="kw">where</span>&#13;
+&#13;
+<span class="ot">    fmap ::</span> (val <span class="ot">-&gt;</span> val') <span class="ot">-&gt;</span> (func val <span class="ot">-&gt;</span> func val')</code></pre>
+</div>
+<p>Typical instances of <code>Functor</code> are <code>[]</code> and <code>Maybe</code>:</p>
+<div class="sourceCode">
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Functor</span> [] <span class="kw">where</span>&#13;
+&#13;
+    fmap <span class="fu">=</span> map&#13;
+&#13;
+<span class="kw">instance</span> <span class="dt">Functor</span> <span class="dt">Maybe</span> <span class="kw">where</span>&#13;
+&#13;
+    fmap _   <span class="dt">Nothing</span>    <span class="fu">=</span> <span class="dt">Nothing</span>&#13;
+    fmap fun (<span class="dt">Just</span> val) <span class="fu">=</span> <span class="dt">Just</span> (fun val)</code></pre>
+</div>
+<p>Types <code>Tree func</code> and <code>Forest func</code> can also be made instances of <code>Functor</code>, provided that <code>func</code> is a <code>Functor</code> instance itself.</p>
+<div class="sourceCode">
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Functor</span> func <span class="ot">=&gt;</span> <span class="dt">Functor</span> (<span class="dt">Tree</span> func) <span class="kw">where</span>&#13;
+&#13;
+    fmap fun (<span class="dt">Tree</span> root subtrees) <span class="fu">=</span> <span class="dt">Tree</span> (fun root)&#13;
+                                         (fmap fun subtrees)&#13;
+&#13;
+<span class="kw">instance</span> <span class="dt">Functor</span> func <span class="ot">=&gt;</span> <span class="dt">Functor</span> (<span class="dt">Forest</span> func) <span class="kw">where</span>&#13;
+&#13;
+    fmap fun (<span class="dt">Forest</span> trees) <span class="fu">=</span> <span class="dt">Forest</span> (fmap (fmap fun) trees)</code></pre>
+</div>
+<p>Note that these <code class="sourceCode haskell"><span class="kw">instance</span></code> declarations make the specialized versions of <code>Tree</code> and <code>Forest</code> that we have defined above automatically instances of <code>Functor</code>.</p>
+<h3 id="multi-parameter-type-classes">Multi-parameter type classes</h3>
+<p>GHC allows classes to have multiple parameters. While single-parameter classes denote sets of types, multi-parameter classes denote relations between types. An example of a class with two parameters is the class that relates types for which there is a conversion function:</p>
+<div class="sourceCode">
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Convertible</span> val val' <span class="kw">where</span>&#13;
+&#13;
+<span class="ot">    convert ::</span> val <span class="ot">-&gt;</span> val'</code></pre>
+</div>
+<p>We can convert from type <code>Int</code> to type <code>Integer</code>, but also between types <code>Int</code> and <code>Char</code>:</p>
+<div class="sourceCode">
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Convertible</span> <span class="dt">Int</span> <span class="dt">Integer</span> <span class="kw">where</span>&#13;
+&#13;
+    convert <span class="fu">=</span> toInteger&#13;
+&#13;
+<span class="kw">instance</span> <span class="dt">Convertible</span> <span class="dt">Int</span> <span class="dt">Char</span> <span class="kw">where</span>&#13;
+&#13;
+    convert <span class="fu">=</span> chr&#13;
+&#13;
+<span class="kw">instance</span> <span class="dt">Convertible</span> <span class="dt">Char</span> <span class="dt">Int</span> <span class="kw">where</span>&#13;
+&#13;
+    convert <span class="fu">=</span> ord</code></pre>
+</div>
+<h2 id="type-families">Type families</h2>
+<p>Haskell allows us to define new types using <code class="sourceCode haskell"><span class="kw">data</span></code> declarations. An example of such a declaration is the following one, which introduces a type of lists:</p>
+<div class="sourceCode">
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">List</span> el <span class="fu">=</span> <span class="dt">Nil</span> <span class="fu">|</span> <span class="dt">Cons</span> el (<span class="dt">List</span> el)</code></pre>
+</div>
+<p>Furthermore, we can use <code class="sourceCode haskell"><span class="kw">type</span></code> declarations for defining aliases of existing types. For example, we can use the following <code class="sourceCode haskell"><span class="kw">type</span></code> declaration to define types of functions whose domain and codomain are the same:</p>
+<div class="sourceCode">
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">Endo</span> val <span class="fu">=</span> val <span class="ot">-&gt;</span> val</code></pre>
+</div>
+<p>Both <code class="sourceCode haskell"><span class="kw">data</span></code> and <code class="sourceCode haskell"><span class="kw">type</span></code> declarations have in common that the types they define are parametric. Informally speaking, this means that the basic structure of the defined types is independent of type parameters. For example, lists are always either empty or pairs of an element and another list, no matter what the element type is. The choice of an <code>el</code> parameter only determines the structure of elements. Likewise, values of a type <code>Endo val</code> are always functions whose domain and codomain are the same. The <code>val</code> parameter just determines the concrete domain and codomain type in use.</p>
+<p>There are situations, however, where we want to define type-level functions that yield completely differently structured types for different arguments. This is possible with the type family extension that GHC provides.</p>
+<p>There exist two flavors of type families: data families and type synonym families. Data families introduce new types and use the <code class="sourceCode haskell"><span class="kw">data</span></code> keyword, while type synonym families define aliases for types and use the <code class="sourceCode haskell"><span class="kw">type</span></code> keyword. This is analogous to <code class="sourceCode haskell"><span class="kw">data</span></code> and <code class="sourceCode haskell"><span class="kw">type</span></code> declarations, respectively. Type families can be stand-alone or associated. The former variant is analogous to top-level functions, while the latter is analogous to class methods. We will only deal with the latter in this post.</p>
+<h3 id="data-families">Data families</h3>
+<p>As an example of a data family, we define a type of total maps, that is, maps that assign values to every value of a chosen key type. Essential to our definition is that different key types lead to differently structured maps. We declare a class of key types, which contains the data family for total maps:</p>
+<div class="sourceCode">
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Key</span> key <span class="kw">where</span>&#13;
+&#13;
+    <span class="kw">data</span> <span class="dt">TotalMap</span><span class="ot"> key ::</span> <span class="fu">*</span> <span class="ot">-&gt;</span> <span class="fu">*</span>&#13;
+&#13;
+<span class="ot">    lookup ::</span> key <span class="ot">-&gt;</span> <span class="dt">TotalMap</span> key val <span class="ot">-&gt;</span> val</code></pre>
+</div>
+<p>Let us now give an <code class="sourceCode haskell"><span class="kw">instance</span></code> declaration for <code>Bool</code>. Total maps with boolean keys are essentially pairs of values, consisting of one value for the <code>False</code> key and one value for the <code>True</code> key. Our <code class="sourceCode haskell"><span class="kw">instance</span></code> declaration reflects this:</p>
+<div class="sourceCode">
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Key</span> <span class="dt">Bool</span> <span class="kw">where</span>&#13;
+&#13;
+    <span class="kw">data</span> <span class="dt">TotalMap</span> <span class="dt">Bool</span> val <span class="fu">=</span> <span class="dt">BoolMap</span> val val&#13;
+&#13;
+    lookup <span class="dt">False</span> (<span class="dt">BoolMap</span> falseVal _)       <span class="fu">=</span> falseVal&#13;
+    lookup <span class="dt">True</span>  (<span class="dt">BoolMap</span> _        trueVal) <span class="fu">=</span> trueVal</code></pre>
+</div>
+<p>Total maps whose keys are natural numbers correspond to infinite lists, that is, streams of values:</p>
+<div class="sourceCode">
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Key</span> <span class="dt">Natural</span> <span class="kw">where</span>&#13;
+&#13;
+    <span class="kw">data</span> <span class="dt">TotalMap</span> <span class="dt">Natural</span> val <span class="fu">=</span> <span class="dt">NaturalMap</span> (<span class="dt">Stream</span> val)&#13;
+&#13;
+    lookup nat (<span class="dt">NaturalMap</span> str) <span class="fu">=</span> str <span class="fu">!!</span> fromIntegral nat</code></pre>
+</div>
+<p>More advanced things are possible. For example, pairs of keys can again serve as keys. A total map of a type <code>TotalMap (key1,key2) val</code> corresponds to a function of type <code>(key1,key2) -&gt; val</code>, which in turn corresponds to a function of type <code>key1 -&gt; key2 -&gt; val</code>. This suggests how to implement total maps with pair keys:</p>
+<div class="sourceCode">
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">instance</span> (<span class="dt">Key</span> key1, <span class="dt">Key</span> key2) <span class="ot">=&gt;</span> <span class="dt">Key</span> (key1,key2) <span class="kw">where</span>&#13;
+&#13;
+    <span class="kw">data</span> <span class="dt">TotalMap</span> (key1,key2) val&#13;
+        <span class="fu">=</span> <span class="dt">PairMap</span> (<span class="dt">TotalMap</span> key1 (<span class="dt">TotalMap</span> key2 val))&#13;
+&#13;
+    lookup (key1,key2) (<span class="dt">PairMap</span> curriedMap)&#13;
+        <span class="fu">=</span> lookup key2 (lookup key1 curriedMap)</code></pre>
+</div>
+<h3 id="type-synonym-families">Type synonym families</h3>
+<p>Let us now look at an example of a type synonym family. We define a class of collection types where a collection is basically anything that contains elements. Here are two examples of collection types:</p>
+<ul><li><code>Set el</code> for any type <code>el</code> that is an instance of <code>Ord</code></li>
+<li><code>IntSet</code></li>
+</ul><p>Our class contains a type synonym family that tells for every collection type what the corresponding type of collection elements is. The <code class="sourceCode haskell"><span class="kw">class</span></code> declaration is as follows:</p>
+<div class="sourceCode">
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Collection</span> coll <span class="kw">where</span>&#13;
+&#13;
+    <span class="kw">type</span> <span class="dt">Element</span><span class="ot"> coll ::</span> <span class="fu">*</span>&#13;
+&#13;
+<span class="ot">    member ::</span> <span class="dt">Element</span> coll <span class="ot">-&gt;</span> coll <span class="ot">-&gt;</span> <span class="dt">Bool</span></code></pre>
+</div>
+<p>Now we can form <code class="sourceCode haskell"><span class="kw">instance</span></code> declarations for the above example collection types:</p>
+<div class="sourceCode">
+<pre class="sourceCode literate haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Ord</span> el <span class="ot">=&gt;</span> <span class="dt">Collection</span> (<span class="dt">Set</span> el) <span class="kw">where</span>&#13;
+&#13;
+    <span class="kw">type</span> <span class="dt">Element</span> (<span class="dt">Set</span> el) <span class="fu">=</span> el&#13;
+&#13;
+    member <span class="fu">=</span> Data.Set.member&#13;
+&#13;
+<span class="kw">instance</span> <span class="dt">Collection</span> <span class="dt">IntSet</span> <span class="kw">where</span>&#13;
+&#13;
+    <span class="kw">type</span> <span class="dt">Element</span> <span class="dt">IntSet</span> <span class="fu">=</span> <span class="dt">Int</span>&#13;
+&#13;
+    member <span class="fu">=</span> Data.IntSet.member</code></pre>
+</div>
+		<div class="wpcnt">
+			<div class="wpa wpmrec">
+				<a class="wpa-about" href="https://en.support.wordpress.com/about-these-ads/" rel="nofollow">About these ads</a>
+				<div class="u">
+					<amp-ad width="300" height="250" type="pubmine" data-adsafe="0" data-section="2" data-siteid="2694" data-wordads="0"><div placeholder="" class="amp-wp-iframe-placeholder"></div>
+					</amp-ad></div>
+			</div>
+		</div>	</div>
+
+	<footer class="amp-wp-article-footer">
+			<div class="amp-wp-meta amp-wp-tax-category">
+		Categories: <a href="https://jeltsch.wordpress.com/category/uncategorized/" rel="category tag">Uncategorized</a>	</div>
+
+	<div class="amp-wp-meta amp-wp-tax-tag">
+		Tags: <a href="https://jeltsch.wordpress.com/tag/containers-haskell-package/" rel="tag">containers (Haskell package)</a>, <a href="https://jeltsch.wordpress.com/tag/frp/" rel="tag">FRP</a>, <a href="https://jeltsch.wordpress.com/tag/functional-programming/" rel="tag">functional programming</a>, <a href="https://jeltsch.wordpress.com/tag/ghc/" rel="tag">GHC</a>, <a href="https://jeltsch.wordpress.com/tag/haskell/" rel="tag">Haskell</a>, <a href="https://jeltsch.wordpress.com/tag/institute-of-cybernetics/" rel="tag">Institute of Cybernetics</a>, <a href="https://jeltsch.wordpress.com/tag/kind/" rel="tag">kind</a>, <a href="https://jeltsch.wordpress.com/tag/literate-programming/" rel="tag">literate programming</a>, <a href="https://jeltsch.wordpress.com/tag/markdown/" rel="tag">Markdown</a>, <a href="https://jeltsch.wordpress.com/tag/multi-parameter-type-class/" rel="tag">multi-parameter type class</a>, <a href="https://jeltsch.wordpress.com/tag/natural-numbers-haskell-package/" rel="tag">natural-numbers (Haskell package)</a>, <a href="https://jeltsch.wordpress.com/tag/pandoc/" rel="tag">Pandoc</a>, <a href="https://jeltsch.wordpress.com/tag/parametricity/" rel="tag">parametricity</a>, <a href="https://jeltsch.wordpress.com/tag/stream-haskell-package/" rel="tag">Stream (Haskell package)</a>, <a href="https://jeltsch.wordpress.com/tag/talk/" rel="tag">talk</a>, <a href="https://jeltsch.wordpress.com/tag/theory-lunch/" rel="tag">Theory Lunch</a>, <a href="https://jeltsch.wordpress.com/tag/type-class/" rel="tag">type class</a>, <a href="https://jeltsch.wordpress.com/tag/type-family/" rel="tag">type family</a>	</div>
+		<div class="amp-wp-meta amp-wp-comments-link">
+		<a href="../index.html#comments">
+			Leave a Comment		</a>
+	</div>
+	</footer>
+
+</article>
+
+<footer class="amp-wp-footer">
+	<div>
+		<h2>Wolfgang Jeltsch</h2>
+		<p>
+			<a href="https://wordpress.com/?ref=footer_website">Create a free website or blog at WordPress.com.</a>
+		</p>
+		<a href="#top" class="back-to-top">Back to top</a>
+	</div>
+</footer>
+
+	<amp-pixel src="https://pixel.wp.com/b.gif?rand=RANDOM&amp;host=jeltsch.wordpress.com&amp;ref=DOCUMENT_REFERRER&amp;amp=1&amp;blog=33918393&amp;v=wpcom&amp;tz=0&amp;user_id=0&amp;post=545&amp;subd=jeltsch"></amp-pixel>
+	<amp-pixel src="https://pixel.wp.com/b.gif?rand=RANDOM&amp;v=wpcom-no-pv&amp;crypt=UE5XaGUuOTlwaD85flAmcm1mcmZsaDhkV11YdWtpP0NsWnVkPS9sL0ViLndld3BxTi9jQ2xTcExndThUNG5BL2x6ZVV6ZThkVmRURDJjc01OTS1YVF1qNGd6USVtXTFReHFLd2VdYnhmM21oWkk5Jkl6Mj1CJWwuWVRPWz1fellSRitudzRuck5tOWEuVE5pLix6bkhZc1JBWVRNUCY4SS05ekkxVSxpaU9rdFdrc3RacFolSlIlYy15U21bTnZdbUhjLlFweXJieWNTc3pjaE41Yn5vbg%3D%3D"></amp-pixel>
+	
+</body>
+
+Providence Salumu
+</html>
