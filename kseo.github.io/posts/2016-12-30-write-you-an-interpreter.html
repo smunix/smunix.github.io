@@ -1,0 +1,226 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+    
+Providence Salumu
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <meta name="keywords" content="Haskell, functional programming, category theory, type theory">
+        <title>Kwang's Haskell Blog - Write you an interpreter</title>
+        <link rel="stylesheet" type="text/css" href="http://kseo.github.io/css/default.css" />
+        <link rel="stylesheet" type="text/css" href="http://kseo.github.io/css/syntax.css" />
+    </head>
+    <body>
+        <div id="header">
+            <div id="logo">
+                <a href="http://kseo.github.io/">Kwang's Haskell Blog</a>
+            </div>
+            <div id="navigation">
+                <a href="http://kseo.github.io/">Home</a>
+                <a href="http://kseo.github.io/about.html">About</a>
+                <a href="http://kseo.github.io/contact.html">Contact</a>
+                <a href="http://kseo.github.io/archive.html">Archive</a>
+            </div>
+        </div>
+
+        <div id="content">
+            <h1>Write you an interpreter</h1>
+
+            <a class="twitter-share-button" href="https://twitter.com/intent/tweet?via=kwangyulseo">Tweet</a>
+
+<article>
+  <div class="info">
+      Posted on December 30, 2016
+      
+          by Kwang Yul Seo
+      
+  </div>
+  <div class="info">
+      
+      Tags: <a href="http://kseo.github.io/tags/interpreter.html">interpreter</a>
+      
+  </div>
+
+<p>Writing an interpreter for a functional language is a good exercise in Haskell. There are several tutorials on this topic.</p>
+<ul>
+<li><a href="https://en.wikibooks.org/wiki/Write_Yourself_a_Scheme_in_48_Hours">Write Yourself a Scheme in 48 Hours</a></li>
+<li><a href="../../dev.stephendiehl.com/fun/index.html">Write You a Haskell</a></li>
+</ul>
+<p>Implementation techniques used in these tutorials are similar even though their source languages are distinct. They all compile the source language into a small core language based on lambda calculus, and evaluate the program with a context (or an environment).</p>
+<p>In this post, I am not going to revisit this common technique. Instead, I will show you how to compile a program to a finite, fixed set of combinators (SKI), and then evaluate these combinators as normal Haskell function. This technique was introduced in Matthew Naylor’s <a href="https://wiki.haskell.org/wikiupload/0/0a/TMR-Issue10.pdf">Evaluating Haskell in Haskell</a>.</p>
+<p>The source code is available <a href="https://github.com/kseo/poly">here</a>.</p>
+<h1 id="poly">Poly</h1>
+<p>We are going to borrow the parser and type checker from Stephen Diehls’s <a href="https://github.com/sdiehl/write-you-a-haskell/tree/master/chapter7/poly_constraints">Poly</a>, a simple ML dialect with definitions, let polymorphism and a fixpoint operator.</p>
+<p>An example of Poly:</p>
+<div class="sourceCode"><pre class="sourceCode ocaml"><code class="sourceCode ocaml"><span class="kw">let</span> <span class="kw">rec</span> factorial n = <span class="kw">if</span> (n == <span class="dv">0</span>) <span class="kw">then</span> <span class="dv">1</span> <span class="kw">else</span> (n * (factorial (n<span class="dv">-1</span>)));</code></pre></div>
+<p>The core language of Poly is a variant of lambda calculus. <code>Let</code>, <code>If</code>, <code>Fix</code> and <code>Op</code> are added as additional constructs.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">Name</span> <span class="fu">=</span> <span class="dt">String</span>
+
+<span class="kw">data</span> <span class="dt">Expr</span>
+  <span class="fu">=</span> <span class="dt">Var</span> <span class="dt">Name</span>
+  <span class="fu">|</span> <span class="dt">App</span> <span class="dt">Expr</span> <span class="dt">Expr</span>
+  <span class="fu">|</span> <span class="dt">Lam</span> <span class="dt">Name</span> <span class="dt">Expr</span>
+  <span class="fu">|</span> <span class="dt">Let</span> <span class="dt">Name</span> <span class="dt">Expr</span> <span class="dt">Expr</span>
+  <span class="fu">|</span> <span class="dt">Lit</span> <span class="dt">Lit</span>
+  <span class="fu">|</span> <span class="dt">If</span> <span class="dt">Expr</span> <span class="dt">Expr</span> <span class="dt">Expr</span>
+  <span class="fu">|</span> <span class="dt">Fix</span> <span class="dt">Expr</span>
+  <span class="fu">|</span> <span class="dt">Op</span> <span class="dt">Binop</span> <span class="dt">Expr</span> <span class="dt">Expr</span>
+  <span class="kw">deriving</span> (<span class="dt">Show</span>, <span class="dt">Eq</span>, <span class="dt">Ord</span>)
+
+<span class="kw">data</span> <span class="dt">Lit</span>
+  <span class="fu">=</span> <span class="dt">LInt</span> <span class="dt">Integer</span>
+  <span class="fu">|</span> <span class="dt">LBool</span> <span class="dt">Bool</span>
+  <span class="kw">deriving</span> (<span class="dt">Show</span>, <span class="dt">Eq</span>, <span class="dt">Ord</span>)
+
+<span class="kw">data</span> <span class="dt">Binop</span> <span class="fu">=</span> <span class="dt">Add</span> <span class="fu">|</span> <span class="dt">Sub</span> <span class="fu">|</span> <span class="dt">Mul</span> <span class="fu">|</span> <span class="dt">Eql</span>
+  <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Ord</span>, <span class="dt">Show</span>)</code></pre></div>
+<h1 id="desugar">Desugar</h1>
+<p>Our first task is to desugar <code>Let</code>, <code>If</code>, <code>Fix</code> and <code>Op</code> to simplify the later stage of compilation.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">desugar ::</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">Expr</span>
+desugar (<span class="dt">App</span> fun arg) <span class="fu">=</span> <span class="dt">App</span> (desugar fun) (desugar arg)
+desugar (<span class="dt">Lam</span> x body) <span class="fu">=</span> <span class="dt">Lam</span> x (desugar body)
+desugar (<span class="dt">Let</span> x e body) <span class="fu">=</span> <span class="dt">App</span> (<span class="dt">Lam</span> x (desugar body)) (desugar e)
+desugar (<span class="dt">If</span> cond tr fl) <span class="fu">=</span> foldl <span class="dt">App</span> (<span class="dt">Var</span> <span class="st">&quot;$IF&quot;</span>) args
+   <span class="kw">where</span> args <span class="fu">=</span> map desugar [cond, tr, fl]
+desugar (<span class="dt">Fix</span> e) <span class="fu">=</span> <span class="dt">App</span> (<span class="dt">Var</span> <span class="st">&quot;$FIX&quot;</span>) (desugar e)
+desugar (<span class="dt">Op</span> op a b) <span class="fu">=</span> foldl <span class="dt">App</span> (<span class="dt">Var</span> n) args
+  <span class="kw">where</span>
+    args <span class="fu">=</span> map desugar [a, b]
+    n <span class="fu">=</span> <span class="kw">case</span> op <span class="kw">of</span>
+      <span class="dt">Add</span> <span class="ot">-&gt;</span> <span class="st">&quot;$ADD&quot;</span>
+      <span class="dt">Sub</span> <span class="ot">-&gt;</span> <span class="st">&quot;$SUB&quot;</span>
+      <span class="dt">Mul</span> <span class="ot">-&gt;</span> <span class="st">&quot;$MUL&quot;</span>
+      <span class="dt">Eql</span> <span class="ot">-&gt;</span> <span class="st">&quot;$EQL&quot;</span>
+desugar e <span class="fu">=</span> e</code></pre></div>
+<p><code>desugar</code> function converts <code>let x = e in body</code> into <code>(\x -&gt; body) e</code>. <code>If</code>, <code>Fix</code> are <code>Op</code> are desugared into function applications. <code>$IF</code>, <code>$FIX</code>, <code>$ADD</code>, <code>$SUB</code>, <code>$MUL</code>, <code>$EQL</code> will be provided as primitive functions. (Note that <code>$IF</code> can be a function because we piggy back on the lazy evaluation of the host language, Haskell.)</p>
+<h1 id="compilation-to-ski-combinators">Compilation to SKI combinators</h1>
+<p>The next step is to compile expressions into a fixed, finite combinators. The key idea is to replace <code>Lam</code> and <code>Ap</code> constructors with Haskell’s built-in lambda and application constructs. The original interpreter of Poly is slow because it emulates beta reduction on top of Haskell, but our implementation avoids this overhead by utilizing the host system’s support for beta-reduction.</p>
+<p>For example,</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="dt">Lam</span> <span class="st">&quot;f&quot;</span> (<span class="dt">Lam</span> <span class="st">&quot;a&quot;</span> (<span class="dt">Lam</span> <span class="st">&quot;b&quot;</span> (<span class="dt">App</span> (<span class="dt">App</span> (<span class="dt">Var</span> <span class="st">&quot;f&quot;</span>) (<span class="dt">Var</span> <span class="st">&quot;b&quot;</span>) (<span class="dt">Var</span> <span class="st">&quot;a&quot;</span>)))</code></pre></div>
+<p>is compiled to</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="dt">CLam</span> (\f <span class="ot">-&gt;</span> <span class="dt">CLam</span> (\a <span class="ot">-&gt;</span> <span class="dt">CLam</span> (\b <span class="ot">-&gt;</span> ap (ap f b) a)))</code></pre></div>
+<p>Here’s the definition of <code>CExpr</code>. You can see that <code>CLam</code> contains a Haskell function <code>CExpr -&gt; CExpr</code>. No variable in the lambda abstraction is necessary.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">CExpr</span>
+  <span class="fu">=</span> <span class="dt">CVar</span> <span class="dt">Name</span>
+  <span class="fu">|</span> <span class="dt">CApp</span> <span class="dt">CExpr</span> <span class="dt">CExpr</span>
+  <span class="fu">|</span> <span class="dt">CLam</span> (<span class="dt">CExpr</span> <span class="ot">-&gt;</span> <span class="dt">CExpr</span>)
+  <span class="fu">|</span> <span class="dt">CBool</span> <span class="dt">Bool</span>
+  <span class="fu">|</span> <span class="dt">CInt</span> <span class="dt">Integer</span></code></pre></div>
+<p><code>compile</code> transforms a lambda calculus expression into an expression involving only <code>S</code>, <code>K</code>, <code>I</code> and constants. The SK compilation algorithm is well described in Simon Peyton Jones’s <a href="https://research.microsoft.com/en-us/um/people/simonpj/papers/slpj-book-1987/">The Implementation of Functional Programming Languages</a>.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">compile ::</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">CExpr</span>
+compile (<span class="dt">Var</span> n) <span class="fu">=</span> <span class="dt">CVar</span> n
+compile (<span class="dt">App</span> fun arg) <span class="fu">=</span> <span class="dt">CApp</span> (compile fun) (compile arg)
+compile (<span class="dt">Lam</span> x body) <span class="fu">=</span> abstract x (compile body)
+compile (<span class="dt">Lit</span> (<span class="dt">LInt</span> k)) <span class="fu">=</span> <span class="dt">CInt</span> k
+compile (<span class="dt">Lit</span> (<span class="dt">LBool</span> k)) <span class="fu">=</span> <span class="dt">CBool</span> k
+
+<span class="ot">abstract ::</span> <span class="dt">Name</span> <span class="ot">-&gt;</span> <span class="dt">CExpr</span> <span class="ot">-&gt;</span> <span class="dt">CExpr</span>
+abstract x (<span class="dt">CApp</span> fun arg) <span class="fu">=</span> combS (abstract x fun) (abstract x arg)
+abstract x (<span class="dt">CVar</span> n) <span class="fu">|</span> x <span class="fu">==</span> n <span class="fu">=</span> combI
+abstract _ k <span class="fu">=</span> combK k
+
+<span class="ot">combS ::</span> <span class="dt">CExpr</span> <span class="ot">-&gt;</span> <span class="dt">CExpr</span> <span class="ot">-&gt;</span> <span class="dt">CExpr</span>
+combS f <span class="fu">=</span> <span class="dt">CApp</span> (<span class="dt">CApp</span> (<span class="dt">CVar</span> <span class="st">&quot;$S&quot;</span>) f)
+
+<span class="ot">combK ::</span> <span class="dt">CExpr</span> <span class="ot">-&gt;</span> <span class="dt">CExpr</span>
+combK <span class="fu">=</span> <span class="dt">CApp</span> (<span class="dt">CVar</span> <span class="st">&quot;$K&quot;</span>)
+
+<span class="ot">combI ::</span> <span class="dt">CExpr</span>
+combI <span class="fu">=</span> <span class="dt">CVar</span> <span class="st">&quot;$I&quot;</span></code></pre></div>
+<p>For example, <code>(\x -&gt; + x x) 5</code> is transformed as follows:</p>
+<pre><code>S --&gt; S (\x -&gt; + x) (\x -&gt; x) 5
+S --&gt; S (S (\x -&gt; +) (\x -&gt; x)) (\x -&gt; x) 5
+I --&gt; S (S (\x -&gt; +) I) (\x -&gt; x) 5
+I --&gt; S (S (\x -&gt; +) I) I 5
+K --&gt; S (S (K +) I) I 5</code></pre>
+<h1 id="primitives">Primitives</h1>
+<p>Here’s the definition of our primitive functions:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">infixl</span> <span class="dv">0</span> <span class="fu">!</span>
+<span class="ot">(!) ::</span> <span class="dt">CExpr</span> <span class="ot">-&gt;</span> <span class="dt">CExpr</span> <span class="ot">-&gt;</span> <span class="dt">CExpr</span>
+(<span class="dt">CLam</span> f) <span class="fu">!</span> x <span class="fu">=</span> f x
+
+<span class="ot">primitives ::</span> [(<span class="dt">String</span>, <span class="dt">CExpr</span>)]
+primitives <span class="fu">=</span>
+  [ (<span class="st">&quot;$I&quot;</span>, <span class="dt">CLam</span> <span class="fu">$</span> \x <span class="ot">-&gt;</span> x)
+  , (<span class="st">&quot;$K&quot;</span>, <span class="dt">CLam</span> <span class="fu">$</span> \x <span class="ot">-&gt;</span> <span class="dt">CLam</span> <span class="fu">$</span> \_ <span class="ot">-&gt;</span> x)
+  , (<span class="st">&quot;$S&quot;</span>, <span class="dt">CLam</span> <span class="fu">$</span> \f <span class="ot">-&gt;</span> <span class="dt">CLam</span> <span class="fu">$</span> \g <span class="ot">-&gt;</span> <span class="dt">CLam</span> <span class="fu">$</span> \x <span class="ot">-&gt;</span> f<span class="fu">!</span>x<span class="fu">!</span>(g<span class="fu">!</span>x))
+  , (<span class="st">&quot;$IF&quot;</span>, <span class="dt">CLam</span> <span class="fu">$</span> \(<span class="dt">CBool</span> cond) <span class="ot">-&gt;</span> <span class="dt">CLam</span> <span class="fu">$</span> \tr <span class="ot">-&gt;</span> <span class="dt">CLam</span> <span class="fu">$</span> \fl <span class="ot">-&gt;</span> <span class="kw">if</span> cond <span class="kw">then</span> tr <span class="kw">else</span> fl)
+  , (<span class="st">&quot;$FIX&quot;</span>, <span class="dt">CLam</span> <span class="fu">$</span> \(<span class="dt">CLam</span> f) <span class="ot">-&gt;</span> fix f)
+  , (<span class="st">&quot;$ADD&quot;</span>, arith (<span class="fu">+</span>))
+  , (<span class="st">&quot;$SUB&quot;</span>, arith (<span class="fu">-</span>))
+  , (<span class="st">&quot;$MUL&quot;</span>, arith (<span class="fu">*</span>))
+  , (<span class="st">&quot;$EQL&quot;</span>, logical (<span class="fu">==</span>))
+  ]
+
+<span class="ot">arith ::</span> (<span class="dt">Integer</span> <span class="ot">-&gt;</span> <span class="dt">Integer</span> <span class="ot">-&gt;</span> <span class="dt">Integer</span>) <span class="ot">-&gt;</span> <span class="dt">CExpr</span>
+arith op <span class="fu">=</span> <span class="dt">CLam</span> <span class="fu">$</span> \(<span class="dt">CInt</span> a) <span class="ot">-&gt;</span> <span class="dt">CLam</span> <span class="fu">$</span> \(<span class="dt">CInt</span> b) <span class="ot">-&gt;</span> <span class="dt">CInt</span> (op a b)
+
+<span class="ot">logical ::</span> (<span class="dt">Integer</span> <span class="ot">-&gt;</span> <span class="dt">Integer</span> <span class="ot">-&gt;</span> <span class="dt">Bool</span>) <span class="ot">-&gt;</span> <span class="dt">CExpr</span>
+logical op <span class="fu">=</span> <span class="dt">CLam</span> <span class="fu">$</span> \(<span class="dt">CInt</span> a) <span class="ot">-&gt;</span> <span class="dt">CLam</span> <span class="fu">$</span> \(<span class="dt">CInt</span> b) <span class="ot">-&gt;</span> <span class="kw">if</span> op a b <span class="kw">then</span> true <span class="kw">else</span> false
+
+true,<span class="ot"> false ::</span> <span class="dt">CExpr</span>
+true <span class="fu">=</span> <span class="dt">CBool</span> <span class="dt">True</span>
+false <span class="fu">=</span> <span class="dt">CBool</span> <span class="dt">False</span></code></pre></div>
+<h1 id="link">Link</h1>
+<p>The final step is link our compiled program with other functions and primitives in the environment. <code>link</code> traverses the structure of <code>CExpr</code> and replaces <code>CVar</code> node with the actual function definition.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">TermEnv</span> <span class="fu">=</span> <span class="dt">Map.Map</span> <span class="dt">String</span> <span class="dt">CExpr</span>
+
+<span class="ot">emptyTmenv ::</span> <span class="dt">TermEnv</span>
+emptyTmenv <span class="fu">=</span> Map.fromList primitives
+
+<span class="ot">link ::</span> <span class="dt">TermEnv</span> <span class="ot">-&gt;</span> <span class="dt">CExpr</span> <span class="ot">-&gt;</span> <span class="dt">CExpr</span>
+link bs (<span class="dt">CApp</span> fun arg) <span class="fu">=</span> link bs fun <span class="fu">!</span> link bs arg
+link bs (<span class="dt">CVar</span> n) <span class="fu">=</span> fromJust (Map.lookup n bs)
+link _ e <span class="fu">=</span> e</code></pre></div>
+<h1 id="eval">Eval</h1>
+<p>Finally, <code>eval</code> is just a composition of <code>desugar</code>, <code>compile</code> and <code>link env</code>.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">eval ::</span> <span class="dt">TermEnv</span> <span class="ot">-&gt;</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">CExpr</span>
+eval env <span class="fu">=</span> link env <span class="fu">.</span> compile <span class="fu">.</span> desugar
+
+<span class="ot">runEval ::</span> <span class="dt">TermEnv</span> <span class="ot">-&gt;</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> (<span class="dt">CExpr</span>, <span class="dt">TermEnv</span>)
+runEval env nm ex <span class="fu">=</span>
+  <span class="kw">let</span> res <span class="fu">=</span> eval env ex <span class="kw">in</span>
+  (res, Map.insert nm res env)</code></pre></div>
+<h1 id="optimization">Optimization</h1>
+<p>The basic compilation algorithm shown above tends to produce large combinator expressions. New combinators such as <code>B</code>, <code>C</code>, <code>S'</code>, <code>B'</code> and <code>C'</code> can optimize both execution speed and program size.</p>
+<div id="disqus_thread"></div>
+<script>
+
+/**
+ *  RECOMMENDED CONFIGURATION VARIABLES: EDIT AND UNCOMMENT THE SECTION BELOW TO INSERT DYNAMIC VALUES FROM YOUR PLATFORM OR CMS.
+ *  LEARN WHY DEFINING THESE VARIABLES IS IMPORTANT: https://disqus.com/admin/universalcode/#configuration-variables */
+var disqus_config = function () {
+    this.page.url = "2016-12-30-write-you-an-interpreter.html";
+    this.page.identifier = "2016-12-30-write-you-an-interpreter.html";
+};
+(function() { // DON'T EDIT BELOW THIS LINE
+    var d = document, s = d.createElement('script');
+    s.src = 'http://kwangs-haskell-blog.disqus.com/embed.js';
+    s.setAttribute('data-timestamp', +new Date());
+    (d.head || d.body).appendChild(s);
+})();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+
+</article>
+
+        </div>
+        <div id="footer">
+            <a href="http://kseo.github.io/rss.xml">RSS</a> |
+            <a href="http://kseo.github.io/atom.xml">ATOM</a> |
+            <a href="https://twitter.com/kwangyulseo" class="twitter-follow-button" data-show-count="false">Follow @kwangyulseo</a><script async src="http://platform.twitter.com/widgets.js" charset="utf-8"></script>
+        </div>
+        <script>
+          (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+          (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+          m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+          })(window,document,'script','http://www.google-analytics.com/analytics.js','ga');
+
+          ga('create', 'UA-61779656-7', 'auto');
+          ga('send', 'pageview');
+        </script>
+    </body>
+
+Providence Salumu
+</html>

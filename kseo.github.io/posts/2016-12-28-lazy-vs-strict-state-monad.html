@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+    
+Providence Salumu
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <meta name="keywords" content="Haskell, functional programming, category theory, type theory">
+        <title>Kwang's Haskell Blog - Lazy vs Strict State Monad</title>
+        <link rel="stylesheet" type="text/css" href="https://kseo.github.io/css/default.css" />
+        <link rel="stylesheet" type="text/css" href="https://kseo.github.io/css/syntax.css" />
+    </head>
+    <body>
+        <div id="header">
+            <div id="logo">
+                <a href="https://kseo.github.io/">Kwang's Haskell Blog</a>
+            </div>
+            <div id="navigation">
+                <a href="https://kseo.github.io/">Home</a>
+                <a href="https://kseo.github.io/about.html">About</a>
+                <a href="https://kseo.github.io/contact.html">Contact</a>
+                <a href="https://kseo.github.io/archive.html">Archive</a>
+            </div>
+        </div>
+
+        <div id="content">
+            <h1>Lazy vs Strict State Monad</h1>
+
+            <a class="twitter-share-button" href="https://twitter.com/intent/tweet?via=kwangyulseo">Tweet</a>
+
+<article>
+  <div class="info">
+      Posted on December 28, 2016
+      
+          by Kwang Yul Seo
+      
+  </div>
+  <div class="info">
+      
+      Tags: <a href="https://kseo.github.io/tags/state monad.html">state monad</a>, <a href="https://kseo.github.io/tags/lazy.html">lazy</a>, <a href="https://kseo.github.io/tags/strict.html">strict</a>
+      
+  </div>
+
+<p><a href="https://www.stackage.org/lts-7.12/package/mtl-2.2.1">mtl</a> (or its underlying <a href="https://www.stackage.org/lts-7.12/package/transformers-0.5.2.0">transformers</a>) package provides two types of <code>State</code> monad; <code>Control.Monad.State.Strict</code> and <code>Control.Monad.State.Lazy</code>. <code>Control.Monad.State</code> re-exports <code>Control.Monad.State.Lazy</code>.</p>
+<p>The difference between these two state monads does not matter in most cases, but it may cause unexpected surprises when infinite lists are involved. In this post, I am going to explain the subtle difference between lazy and strict state monads.</p>
+<p>Let’s start the discussion with a simple example. The program shown below returns an infinite list of integers <code>[1..]</code> in a lazy state monad. Running the program prints <code>[1,2,3,4,5]</code> as expected.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">import </span><span class="dt">Control.Monad.State.Lazy</span>
+
+<span class="ot">foo ::</span> <span class="dt">State</span> () [<span class="dt">Int</span>]
+foo <span class="fu">=</span> traverse pure [<span class="dv">1</span><span class="fu">..</span>]
+
+main <span class="fu">=</span> print <span class="fu">$</span> take <span class="dv">5</span> (evalState foo ())</code></pre></div>
+<p>However, when we replace the import with <code>Control.Monad.State.Strict</code>, the program hangs up.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">import </span><span class="dt">Control.Monad.State.Strict</span>
+
+<span class="ot">foo ::</span> <span class="dt">State</span> () [<span class="dt">Int</span>]
+foo <span class="fu">=</span> traverse pure [<span class="dv">1</span><span class="fu">..</span>]
+
+main <span class="fu">=</span> print <span class="fu">$</span> take <span class="dv">5</span> (evalState foo ())</code></pre></div>
+<p>What happened here? The definition of <code>traverse</code> might give us a hint.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Traversable</span> [] <span class="kw">where</span>
+  traverse f <span class="fu">=</span> List.foldr cons_f (pure [])
+    <span class="kw">where</span> cons_f x ys <span class="fu">=</span> (<span class="fu">:</span>) <span class="fu">&lt;$&gt;</span> f x <span class="fu">&lt;*&gt;</span> ys</code></pre></div>
+<p>From the definition of <code>traverse</code>, we can see that <code>traverse return [1..]</code> expands to</p>
+<pre><code>(:) &lt;$&gt; (return 1) &lt;*&gt; ((:) &lt;$&gt; (return 2) &lt;*&gt; ((:) &lt;$&gt; (return 3) &lt;*&gt; (...)))</code></pre>
+<p><code>(&lt;$&gt;)</code> and <code>(&lt;*&gt;)</code> operators are used to combine values. <code>(&lt;$&gt;)</code> are <code>(&lt;*&gt;)</code> are defined in <code>Functor</code> and <code>Applicative</code> instances of <code>State</code> monad respectively.</p>
+<p>Let’s compare the definitions of these operators.</p>
+<ul>
+<li>Control.Monad.Trans.State.Lazy</li>
+</ul>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> (<span class="dt">Functor</span> m) <span class="ot">=&gt;</span> <span class="dt">Functor</span> (<span class="dt">StateT</span> s m) <span class="kw">where</span>
+    fmap f m <span class="fu">=</span> <span class="dt">StateT</span> <span class="fu">$</span> \ s <span class="ot">-&gt;</span>
+        fmap (\ <span class="fu">~</span>(a, s') <span class="ot">-&gt;</span> (f a, s')) <span class="fu">$</span> runStateT m s
+
+<span class="kw">instance</span> (<span class="dt">Functor</span> m, <span class="dt">Monad</span> m) <span class="ot">=&gt;</span> <span class="dt">Applicative</span> (<span class="dt">StateT</span> s m) <span class="kw">where</span>
+    pure a <span class="fu">=</span> <span class="dt">StateT</span> <span class="fu">$</span> \ s <span class="ot">-&gt;</span> return (a, s)
+    <span class="dt">StateT</span> mf <span class="fu">&lt;*&gt;</span> <span class="dt">StateT</span> mx <span class="fu">=</span> <span class="dt">StateT</span> <span class="fu">$</span> \ s <span class="ot">-&gt;</span> <span class="kw">do</span>
+        <span class="fu">~</span>(f, s') <span class="ot">&lt;-</span> mf s
+        <span class="fu">~</span>(x, s'') <span class="ot">&lt;-</span> mx s'
+        return (f x, s'')</code></pre></div>
+<ul>
+<li>Control.Monad.Trans.State.Strict</li>
+</ul>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> (<span class="dt">Functor</span> m) <span class="ot">=&gt;</span> <span class="dt">Functor</span> (<span class="dt">StateT</span> s m) <span class="kw">where</span>
+    fmap f m <span class="fu">=</span> <span class="dt">StateT</span> <span class="fu">$</span> \ s <span class="ot">-&gt;</span>
+        fmap (\ (a, s') <span class="ot">-&gt;</span> (f a, s')) <span class="fu">$</span> runStateT m s
+
+<span class="kw">instance</span> (<span class="dt">Functor</span> m, <span class="dt">Monad</span> m) <span class="ot">=&gt;</span> <span class="dt">Applicative</span> (<span class="dt">StateT</span> s m) <span class="kw">where</span>
+    pure a <span class="fu">=</span> <span class="dt">StateT</span> <span class="fu">$</span> \ s <span class="ot">-&gt;</span> return (a, s)
+    <span class="dt">StateT</span> mf <span class="fu">&lt;*&gt;</span> <span class="dt">StateT</span> mx <span class="fu">=</span> <span class="dt">StateT</span> <span class="fu">$</span> \ s <span class="ot">-&gt;</span> <span class="kw">do</span>
+        (f, s') <span class="ot">&lt;-</span> mf s
+        (x, s'') <span class="ot">&lt;-</span> mx s'
+        return (f x, s'')</code></pre></div>
+<p>The two definitions are almost the same except for a small difference in pattern matching. Did you find it? Yes, the lazy version uses a tilde <code>~</code> in pattern matching on a pair. It is a <a href="https://wiki.haskell.org/Lazy_pattern_match">lazy pattern</a> matching.</p>
+<p>Here’s the secret. In the strict version, the pattern matches on the pair forces its evaluation. So <code>traverse pure [1..]</code> never returns until its evaluation is finished. The lazy version avoids this evaluation of the pair using an irrefutable pattern <code>~(a,w)</code>. Evaluation is forced later when the pair is actually needed. This is why we can manipulate infinite lists in a lazy state monad.</p>
+<p>But this observation does not imply that we should always prefer the lazy version of state monad because the lazy state monad often builds up large thunks and causes space leaks due to its laziness.</p>
+<div id="disqus_thread"></div>
+<script>
+
+/**
+ *  RECOMMENDED CONFIGURATION VARIABLES: EDIT AND UNCOMMENT THE SECTION BELOW TO INSERT DYNAMIC VALUES FROM YOUR PLATFORM OR CMS.
+ *  LEARN WHY DEFINING THESE VARIABLES IS IMPORTANT: https://disqus.com/admin/universalcode/#configuration-variables */
+var disqus_config = function () {
+    this.page.url = "2016-12-28-lazy-vs-strict-state-monad.html";
+    this.page.identifier = "2016-12-28-lazy-vs-strict-state-monad.html";
+};
+(function() { // DON'T EDIT BELOW THIS LINE
+    var d = document, s = d.createElement('script');
+    s.src = 'http://kwangs-haskell-blog.disqus.com/embed.js';
+    s.setAttribute('data-timestamp', +new Date());
+    (d.head || d.body).appendChild(s);
+})();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+
+</article>
+
+        </div>
+        <div id="footer">
+            <a href="https://kseo.github.io/rss.xml">RSS</a> |
+            <a href="https://kseo.github.io/atom.xml">ATOM</a> |
+            <a href="https://twitter.com/kwangyulseo" class="twitter-follow-button" data-show-count="false">Follow @kwangyulseo</a><script async src="http://platform.twitter.com/widgets.js" charset="utf-8"></script>
+        </div>
+        <script>
+          (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+          (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+          m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+          })(window,document,'script','http://www.google-analytics.com/analytics.js','ga');
+
+          ga('create', 'UA-61779656-7', 'auto');
+          ga('send', 'pageview');
+        </script>
+    </body>
+
+Providence Salumu
+</html>
