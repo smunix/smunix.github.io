@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+    
+Providence Salumu
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <meta name="keywords" content="Haskell, functional programming, category theory, type theory">
+        <title>Kwang's Haskell Blog - Continuation Passing Style Interpreter</title>
+        <link rel="stylesheet" type="text/css" href="http://kseo.github.io/css/default.css" />
+        <link rel="stylesheet" type="text/css" href="http://kseo.github.io/css/syntax.css" />
+    </head>
+    <body>
+        <div id="header">
+            <div id="logo">
+                <a href="http://kseo.github.io/">Kwang's Haskell Blog</a>
+            </div>
+            <div id="navigation">
+                <a href="http://kseo.github.io/">Home</a>
+                <a href="http://kseo.github.io/about.html">About</a>
+                <a href="http://kseo.github.io/contact.html">Contact</a>
+                <a href="http://kseo.github.io/archive.html">Archive</a>
+            </div>
+        </div>
+
+        <div id="content">
+            <h1>Continuation Passing Style Interpreter</h1>
+
+            <a class="twitter-share-button" href="https://twitter.com/intent/tweet?via=kwangyulseo">Tweet</a>
+
+<article>
+  <div class="info">
+      Posted on January  9, 2017
+      
+          by Kwang Yul Seo
+      
+  </div>
+  <div class="info">
+      
+      Tags: <a href="http://kseo.github.io/tags/CPS.html">CPS</a>, <a href="http://kseo.github.io/tags/interpreter.html">interpreter</a>
+      
+  </div>
+
+<p>Lisp programmers learn Lisp by writing various flavors of Lisp interpreters. Two famous Lisp books, <a href="https://www.amazon.com/Lisp-Small-Pieces-Christian-Queinnec/dp/0521545668">Lisp in Small Pieces</a> and <a href="http://www.eopl3.com/">Essentials of Programming Languages</a>, teach us how to write Lisp interpreters in Lisp. Both books start with a direct style interpreter which is easy to implement. But they soon rewrite the interpreter in a continuation passing style because advanced control structures such as <em>abort</em> and <em>call/cc</em> can be implemented more easily in this style.</p>
+<p>In this post, we will follow the tradition of Lisp and will write a continuation passing style interpreter for a small functional language in Haskell. Then we will see how easily we can add <em>escape expression</em> to the language by extending the interpreter.</p>
+<h1 id="direct-style-interpreter">Direct-style Interpreter</h1>
+<p>Our first interpreter is a straightforward implementation of the enriched lambda calculus <code>Expr</code>. It extends the lambda calculus with integer literals and primitive operators.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Expr</span>
+  <span class="fu">=</span> <span class="dt">Var</span> <span class="dt">Int</span>
+  <span class="fu">|</span> <span class="dt">Lam</span> <span class="dt">Expr</span>
+  <span class="fu">|</span> <span class="dt">App</span> <span class="dt">Expr</span> <span class="dt">Expr</span>
+  <span class="fu">|</span> <span class="dt">Lit</span> <span class="dt">Int</span>
+  <span class="fu">|</span> <span class="dt">Prim</span> <span class="dt">PrimOp</span> <span class="dt">Expr</span> <span class="dt">Expr</span>
+  <span class="kw">deriving</span> <span class="dt">Show</span>
+
+<span class="kw">data</span> <span class="dt">PrimOp</span> <span class="fu">=</span> <span class="dt">Add</span> <span class="fu">|</span> <span class="dt">Mul</span>
+  <span class="kw">deriving</span> <span class="dt">Show</span></code></pre></div>
+<p>The central component of our interpreter is a function <code>eval</code> that produces the value of an expression <code>term</code> in an environment <code>env</code>. <code>n</code> in <code>Var n</code> is the <a href="../../en.wikipedia.org/wiki/De_Bruijn_index.html">De Bruijn index</a>. The <a href="../../dev.stephendiehl.com/fun/005_evaluation.html">Evaluation</a> chapter of Stephen Diehl’s <a href="../../dev.stephendiehl.com/fun/index-2.html">Write You a Haskell</a> explains the details of this direct-style interpreter. There is one difference here. Our version uses a higher-order function to represent lambda expression (<code>VClosure</code>).</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Value</span>
+  <span class="fu">=</span> <span class="dt">VInt</span> <span class="dt">Int</span>
+  <span class="fu">|</span> <span class="dt">VClosure</span> (<span class="dt">Value</span> <span class="ot">-&gt;</span> <span class="dt">Value</span>)
+
+<span class="kw">instance</span> <span class="dt">Show</span> <span class="dt">Value</span> <span class="kw">where</span>
+  show (<span class="dt">VInt</span> i) <span class="fu">=</span> show i
+  show <span class="dt">VClosure</span>{} <span class="fu">=</span> <span class="st">&quot;&lt;&lt;closure&gt;&gt;&quot;</span>
+
+<span class="kw">type</span> <span class="dt">Env</span> <span class="fu">=</span> [<span class="dt">Value</span>]
+
+<span class="ot">eval ::</span> <span class="dt">Env</span> <span class="ot">-&gt;</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">Value</span>
+eval env term <span class="fu">=</span> <span class="kw">case</span> term <span class="kw">of</span>
+  <span class="dt">Var</span> n <span class="ot">-&gt;</span> env <span class="fu">!!</span> n
+  <span class="dt">Lam</span> a <span class="ot">-&gt;</span> <span class="dt">VClosure</span> (\v <span class="ot">-&gt;</span> eval (v <span class="fu">:</span> env) a)
+  <span class="dt">App</span> a b <span class="ot">-&gt;</span>
+    <span class="kw">let</span> <span class="dt">VClosure</span> c <span class="fu">=</span> eval env a <span class="kw">in</span>
+    <span class="kw">let</span> v <span class="fu">=</span> eval env b <span class="kw">in</span>
+    c v
+
+  <span class="dt">Lit</span> n <span class="ot">-&gt;</span> <span class="dt">VInt</span> n
+  <span class="dt">Prim</span> p a b <span class="ot">-&gt;</span> (evalPrim p) (eval env a) (eval env b)
+
+<span class="ot">evalPrim ::</span> <span class="dt">PrimOp</span> <span class="ot">-&gt;</span> <span class="dt">Value</span> <span class="ot">-&gt;</span> <span class="dt">Value</span> <span class="ot">-&gt;</span> <span class="dt">Value</span>
+evalPrim <span class="dt">Add</span> (<span class="dt">VInt</span> a) (<span class="dt">VInt</span> b) <span class="fu">=</span> <span class="dt">VInt</span> (a <span class="fu">+</span> b)
+evalPrim <span class="dt">Mul</span> (<span class="dt">VInt</span> a) (<span class="dt">VInt</span> b) <span class="fu">=</span> <span class="dt">VInt</span> (a <span class="fu">*</span> b)
+
+<span class="ot">emptyEnv ::</span> <span class="dt">Env</span>
+emptyEnv <span class="fu">=</span> []
+
+<span class="ot">evalExpr ::</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">Value</span>
+evalExpr <span class="fu">=</span> eval emptyEnv</code></pre></div>
+<h1 id="continuation-passing-style-interpreter">Continuation-passing-style Interpreter</h1>
+<p>We can think of a continuation as what to do next in a program. In direct-style, a callee returns a value to the caller. Thus the caller of the function determines what to do next and the continuation is implicitly present in the caller. In continuation-passing-style, the continuation is passed as an argument of a function and the callee determines what to do next by invoking the continuation. A function in continuation-passing-style never returns.</p>
+<p>We can transform our interpreter into a continuation-passing-style by adding a continuation argument <code>Cont</code> to <code>eval</code> and <code>VClosure</code>.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">Cont</span> <span class="fu">=</span> <span class="dt">Value</span> <span class="ot">-&gt;</span> <span class="dt">Value</span>
+
+<span class="kw">data</span> <span class="dt">Value</span>
+  <span class="fu">=</span> <span class="fu">...</span>
+  <span class="fu">|</span> <span class="dt">VClosure</span> (<span class="dt">Value</span> <span class="ot">-&gt;</span> <span class="dt">Cont</span> <span class="ot">-&gt;</span> <span class="dt">Value</span>)
+
+<span class="ot">eval ::</span> <span class="dt">Env</span> <span class="ot">-&gt;</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">Cont</span> <span class="ot">-&gt;</span> <span class="dt">Value</span>
+eval env term k <span class="fu">=</span> <span class="kw">case</span> term <span class="kw">of</span>
+  <span class="dt">Var</span> n <span class="ot">-&gt;</span> k <span class="fu">$</span> env <span class="fu">!!</span> n
+  <span class="dt">Lam</span> a <span class="ot">-&gt;</span> k <span class="fu">$</span> <span class="dt">VClosure</span> (\v k' <span class="ot">-&gt;</span> eval (v <span class="fu">:</span> env) a k')
+  <span class="dt">App</span> a b <span class="ot">-&gt;</span>
+    eval env a <span class="fu">$</span> \(<span class="dt">VClosure</span> c) <span class="ot">-&gt;</span>
+    eval env b <span class="fu">$</span> \v <span class="ot">-&gt;</span>
+    c v k
+
+  <span class="dt">Lit</span> n <span class="ot">-&gt;</span> k <span class="fu">$</span> <span class="dt">VInt</span> n
+  <span class="dt">Prim</span> p a b <span class="ot">-&gt;</span> eval env a <span class="fu">$</span> \v1 <span class="ot">-&gt;</span>
+                eval env b <span class="fu">$</span> \v2 <span class="ot">-&gt;</span>
+                k <span class="fu">$</span> evalPrim p v1 v2
+
+<span class="ot">evalExpr ::</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">Value</span>
+evalExpr e <span class="fu">=</span> eval emptyEnv e id</code></pre></div>
+<p>In <code>Var</code>, <code>Lit</code> and <code>Lam</code> cases, <code>eval</code> simply applies the value to the continuation. In <code>App</code> case, <code>eval</code> evaluates the function first and then subsequently evaluates the argument. The evaluation order is enforced as only one value can be passed to the continuation. <code>c v</code> applies the argument to the function and its result is passed to the original continuation <code>k</code>. <code>Prim</code> case similarly enforces the left-to-right evaluation order.</p>
+<p><code>evalExpr</code> passes <code>id</code> as the initial continuation which merely returns the value back.</p>
+<h1 id="escape-expression">Escape Expression</h1>
+<p>Because all the control paths are explicit in continuation-passing-style, we can easily add control operators to our interpreter. Let’s extend our interpreter with <em>escape expressions</em> that was first introduced in <a href="http://surface.syr.edu/cgi/viewcontent.cgi?article=1012&amp;context=lcsmith_other">Definitional interpreters for higher-order programming languages</a>.</p>
+<pre><code>escape x in r</code></pre>
+<p>is an escape expression, whose <em>escape variable</em> is <code>x</code> and whose <em>body</em> is <code>r</code>. If <code>x</code> is applied to <code>a</code> in <code>r</code>, the body is aborted and <code>a</code> is returned. Otherwise, the evaluation of <code>r</code> proceeds normally.</p>
+<pre><code>escape x in (1 + 3) * (4 + x 10)</code></pre>
+<p>evaluates to <code>10</code> because <code>x</code> is applied to <code>10</code> inside the escape expression.</p>
+<p>The implementation of the escape expression is one-liner. <code>eval</code> of <code>Escape a</code> adds a closure to the environment and then evaluates the expression. This closure is a reified continuation which ignores the current continuation and passes the argument as a value to the saved continuation of the escape expression.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Expr</span>
+  <span class="fu">=</span> <span class="fu">...</span>
+  <span class="fu">|</span> <span class="dt">Escape</span> <span class="dt">Expr</span>
+  <span class="fu">...</span>
+
+<span class="ot">eval ::</span> <span class="dt">Env</span> <span class="ot">-&gt;</span> <span class="dt">Expr</span> <span class="ot">-&gt;</span> <span class="dt">Cont</span> <span class="ot">-&gt;</span> <span class="dt">Value</span>
+eval env term k <span class="fu">=</span> <span class="kw">case</span> term <span class="kw">of</span>
+  <span class="fu">...</span>
+  <span class="dt">Escape</span> a <span class="ot">-&gt;</span> eval (<span class="dt">VClosure</span> (\v _ <span class="ot">-&gt;</span> k v) <span class="fu">:</span> env) a k</code></pre></div>
+<pre><code>λ&gt; evalExpr $ Escape (Prim Mul (Prim Add (Lit 1) (Lit 3)) (Prim Add (Lit 4) (App (Var 0) (Lit 10))))
+10</code></pre>
+<p>Yay, it works!</p>
+<div id="disqus_thread"></div>
+<script>
+
+/**
+ *  RECOMMENDED CONFIGURATION VARIABLES: EDIT AND UNCOMMENT THE SECTION BELOW TO INSERT DYNAMIC VALUES FROM YOUR PLATFORM OR CMS.
+ *  LEARN WHY DEFINING THESE VARIABLES IS IMPORTANT: https://disqus.com/admin/universalcode/#configuration-variables */
+var disqus_config = function () {
+    this.page.url = "2017-01-09-continuation-passing-style-interpreter.html";
+    this.page.identifier = "2017-01-09-continuation-passing-style-interpreter.html";
+};
+(function() { // DON'T EDIT BELOW THIS LINE
+    var d = document, s = d.createElement('script');
+    s.src = 'http://kwangs-haskell-blog.disqus.com/embed.js';
+    s.setAttribute('data-timestamp', +new Date());
+    (d.head || d.body).appendChild(s);
+})();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+
+</article>
+
+        </div>
+        <div id="footer">
+            <a href="http://kseo.github.io/rss.xml">RSS</a> |
+            <a href="http://kseo.github.io/atom.xml">ATOM</a> |
+            <a href="https://twitter.com/kwangyulseo" class="twitter-follow-button" data-show-count="false">Follow @kwangyulseo</a><script async src="http://platform.twitter.com/widgets.js" charset="utf-8"></script>
+        </div>
+        <script>
+          (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+          (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+          m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+          })(window,document,'script','http://www.google-analytics.com/analytics.js','ga');
+
+          ga('create', 'UA-61779656-7', 'auto');
+          ga('send', 'pageview');
+        </script>
+    </body>
+
+Providence Salumu
+</html>

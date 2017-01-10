@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+    
+Providence Salumu
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <meta name="keywords" content="Haskell, functional programming, category theory, type theory">
+        <title>Kwang's Haskell Blog - Organize code using monads</title>
+        <link rel="stylesheet" type="text/css" href="http://kseo.github.io/css/default.css" />
+        <link rel="stylesheet" type="text/css" href="http://kseo.github.io/css/syntax.css" />
+    </head>
+    <body>
+        <div id="header">
+            <div id="logo">
+                <a href="http://kseo.github.io/">Kwang's Haskell Blog</a>
+            </div>
+            <div id="navigation">
+                <a href="http://kseo.github.io/">Home</a>
+                <a href="http://kseo.github.io/about.html">About</a>
+                <a href="http://kseo.github.io/contact.html">Contact</a>
+                <a href="http://kseo.github.io/archive.html">Archive</a>
+            </div>
+        </div>
+
+        <div id="content">
+            <h1>Organize code using monads</h1>
+
+            <a class="twitter-share-button" href="https://twitter.com/intent/tweet?via=kwangyulseo">Tweet</a>
+
+<article>
+  <div class="info">
+      Posted on December 23, 2016
+      
+          by Kwang Yul Seo
+      
+  </div>
+  <div class="info">
+      
+      Tags: <a href="http://kseo.github.io/tags/monad.html">monad</a>, <a href="http://kseo.github.io/tags/monad transformer.html">monad transformer</a>, <a href="http://kseo.github.io/tags/lambda lifting.html">lambda lifting</a>
+      
+  </div>
+
+<p>Novice Haskell programmers think that monads are only for IO and stateful computations. But experienced Haskell programmers use monads to better structure their programs.</p>
+<p>In this blog post, I am going to show you how we can better organize our code using monads.</p>
+<h1 id="motivating-example-lambda-lifting">Motivating example: Lambda lifting</h1>
+<p><em>Lambda lifting</em> is a compiler transformation which eliminates all free variables from function definitions. It is an important step in a lazy functional language because it greatly simplifies evaluation on the graph reduction machine.</p>
+<p>In his <a href="https://www.microsoft.com/en-us/research/publication/a-modular-fully-lazy-lambda-lifter-in-haskell/">paper</a>, Simon Peyton Jones describes how to perform lambda lifting in a modular fashion. The lambda lifter works in three steps:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- | freeVars: Annotate every node in the expression with its free variables.</span>
+<span class="ot">freeVars ::</span> <span class="dt">Expression</span> <span class="ot">-&gt;</span> <span class="dt">AnnExpr</span> <span class="dt">Name</span> (<span class="dt">Set</span> <span class="dt">Name</span>)
+
+<span class="co">-- | Abstract the free variables from each lambda abstraction, replacing the lambda abstraction with the application of the new abstraction.</span>
+<span class="ot">abstract ::</span> <span class="dt">AnnExpr</span> <span class="dt">Name</span> (<span class="dt">Set</span> <span class="dt">Name</span>) <span class="ot">-&gt;</span> <span class="dt">Expression</span>
+
+<span class="co">-- | Give a unique name to each supercombinator and collect all the supercombinator definitions.</span>
+<span class="ot">collectSCs ::</span> <span class="dt">Expression</span> <span class="ot">-&gt;</span> [<span class="dt">SCDefn</span>]</code></pre></div>
+<p><code>lambdaLift</code> is the composition of these three functions.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">lambdaLift ::</span> <span class="dt">Expression</span> <span class="ot">-&gt;</span> [<span class="dt">SCDefn</span>]
+lambdaLift <span class="fu">=</span> collectSCs <span class="fu">.</span> abstract <span class="fu">.</span> freeVars</code></pre></div>
+<p>I am not going to explain the details of these steps in this post. Interested readers are referred to SPJ’s <a href="https://www.microsoft.com/en-us/research/publication/a-modular-fully-lazy-lambda-lifter-in-haskell/">paper</a> and <a href="https://research.microsoft.com/en-us/um/people/simonpj/papers/slpj-book-1987/">book</a>.</p>
+<p>Instead, let’s dive into the last step and see how <code>collectSCs</code> is actually implemented.</p>
+<h1 id="collecting-supercombinators">Collecting supercombinators</h1>
+<p><code>collectSCs</code> is defined in terms of a helper function named <code>collecSC'</code> which returns both the collection of supercombinators it has found and the transformed expression. It also carries around a <em>name supply</em> as an argument and returns the depleted supply as a result because it needs to generate fresh names for supercombinators.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- | Gives a unique name to each supercombinator, collects all the</span>
+<span class="co">-- supercombinator definitions into a single list, and introduce the</span>
+<span class="co">-- $main supercombinator definition.</span>
+<span class="ot">collectSCs ::</span> <span class="dt">Expression</span> <span class="ot">-&gt;</span> [<span class="dt">SCDefn</span>]
+collectSCs e <span class="fu">=</span> (<span class="st">&quot;$main&quot;</span>, [], e') <span class="fu">:</span> scs
+  <span class="kw">where</span>
+  (_, scs, e') <span class="fu">=</span> collectSCs' initialNameSupply e
+
+<span class="ot">collectSCs' ::</span> <span class="dt">NameSupply</span> <span class="ot">-&gt;</span> <span class="dt">Expression</span> <span class="ot">-&gt;</span> (<span class="dt">NameSupply</span>, [<span class="dt">SCDefn</span>], <span class="dt">Expression</span>)
+collectSCs' ns (<span class="dt">EConst</span> k) <span class="fu">=</span> (ns, [], <span class="dt">EConst</span> k)
+collectSCs' ns (<span class="dt">EVar</span> v) <span class="fu">=</span> (ns, [], <span class="dt">EVar</span> v)
+collectSCs' ns (<span class="dt">EAp</span> e1 e2) <span class="fu">=</span>
+  (ns2, scs1 <span class="fu">++</span> scs2, <span class="dt">EAp</span> e1' e2')
+  <span class="kw">where</span>
+  (ns1, scs1, e1') <span class="fu">=</span> collectSCs' ns e1
+  (ns2, scs2, e2') <span class="fu">=</span> collectSCs' ns1 e2
+collectSCs' ns (<span class="dt">ELam</span> args body) <span class="fu">=</span>
+  (ns2, (name, args, body') <span class="fu">:</span> bodySCs, <span class="dt">EConst</span> (<span class="dt">CFun</span> name))
+  <span class="kw">where</span>
+  (ns1, bodySCs, body') <span class="fu">=</span> collectSCs' ns body
+  (ns2, name) <span class="fu">=</span> newName ns1 <span class="st">&quot;SC&quot;</span>
+collectSCs' ns (<span class="dt">ELet</span> isRec defns body) <span class="fu">=</span>
+  (ns2, scs, <span class="dt">ELet</span> isRec defns' body')
+  <span class="kw">where</span>
+  (ns1, bodySCs, body') <span class="fu">=</span> collectSCs' ns body
+  ((ns2, scs), defns') <span class="fu">=</span> mapAccumL collectSCs'' (ns1, bodySCs) defns
+
+  collectSCs'' (ns, scs) (name, rhs) <span class="fu">=</span>
+    ((ns1, scs <span class="fu">++</span> scs'), (name, rhs'))
+    <span class="kw">where</span>
+    (ns1, scs', rhs') <span class="fu">=</span> collectSCs' ns rhs</code></pre></div>
+<p>The code is rather complex compared to what it actually does. The only place where interest things happen is lambda abstractions. It replaces lambda abstractions by names and return supercombinators.</p>
+<p>The code is complex because it violates the most important software engineering principle: <em>separation of concerns</em>. <code>collectSCs</code> contains at least three orthogonal concerns:</p>
+<ol style="list-style-type: decimal">
+<li>Generation of fresh names</li>
+<li>Accumulation of supercombinatros</li>
+<li>Transformation of expressions</li>
+</ol>
+<h1 id="organize-code-using-monads">Organize code using monads</h1>
+<p>Monads are great tools to separate concerns. For example, <code>Reader</code> monad helps us get rid of an extra argument used to pass a context. <code>Writer</code> monad frees us from the agony of returning the accumulated results in every function.</p>
+<p>So let’s separate our concerns in <code>collectSCs</code>.</p>
+<ol style="list-style-type: decimal">
+<li><code>Supply</code> monad for fresh name generation (it’s a <code>State</code> monad in disguise)</li>
+<li><code>Writer</code> monad for accumulation of supercombinators</li>
+</ol>
+<p>Because we need to compose two different monads, we use the monad transformer <code>SupplyT</code>.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">Collector</span> a <span class="fu">=</span> <span class="dt">SupplyT</span> (<span class="dt">Writer</span> [<span class="dt">SCDefn</span>]) a
+
+<span class="ot">collectSCs ::</span> <span class="dt">Expression</span> <span class="ot">-&gt;</span> [<span class="dt">SCDefn</span>]
+collectSCs e <span class="fu">=</span> (<span class="st">&quot;$main&quot;</span>, [], e') <span class="fu">:</span> scs
+  <span class="kw">where</span>
+  (e', scs) <span class="fu">=</span> runWriter <span class="fu">$</span> evalSupplyT <span class="dv">0</span> (collectSCs' e)
+
+<span class="ot">collectSCs' ::</span> <span class="dt">Expression</span> <span class="ot">-&gt;</span> <span class="dt">Collector</span> <span class="dt">Expression</span>
+collectSCs' (<span class="dt">EConst</span> k) <span class="fu">=</span> return <span class="fu">$</span> <span class="dt">EConst</span> k
+collectSCs' (<span class="dt">EVar</span> v) <span class="fu">=</span> return <span class="fu">$</span> <span class="dt">EVar</span> v
+collectSCs' (<span class="dt">EAp</span> e1 e2) <span class="fu">=</span> <span class="kw">do</span>
+  e1' <span class="ot">&lt;-</span> collectSCs' e1
+  e2' <span class="ot">&lt;-</span> collectSCs' e2
+  return <span class="fu">$</span> <span class="dt">EAp</span> e1' e2'
+collectSCs' (<span class="dt">ELam</span> args body) <span class="fu">=</span> <span class="kw">do</span>
+  name <span class="ot">&lt;-</span> freshName
+  body' <span class="ot">&lt;-</span> collectSCs' body
+  collect (name, args, body')
+  return <span class="fu">$</span> <span class="dt">EConst</span> (<span class="dt">CFun</span> name)
+collectSCs' (<span class="dt">ELet</span> isRec defns body) <span class="fu">=</span> <span class="kw">do</span>
+  body' <span class="ot">&lt;-</span> collectSCs' body
+  defns' <span class="ot">&lt;-</span> traverse (\(name, defn) <span class="ot">-&gt;</span> (name,) <span class="fu">&lt;$&gt;</span> collectSCs' defn) defns
+  return <span class="fu">$</span> <span class="dt">ELet</span> isRec defns' body'
+
+<span class="ot">collect ::</span> <span class="dt">SCDefn</span> <span class="ot">-&gt;</span> <span class="dt">Collector</span> ()
+collect defn <span class="fu">=</span> tell [defn]</code></pre></div>
+<p>We can see that the resulting code is much more readable by removing all the clutters that not not essential to the core logic.</p>
+<div id="disqus_thread"></div>
+<script>
+
+/**
+ *  RECOMMENDED CONFIGURATION VARIABLES: EDIT AND UNCOMMENT THE SECTION BELOW TO INSERT DYNAMIC VALUES FROM YOUR PLATFORM OR CMS.
+ *  LEARN WHY DEFINING THESE VARIABLES IS IMPORTANT: https://disqus.com/admin/universalcode/#configuration-variables */
+var disqus_config = function () {
+    this.page.url = "2016-12-23-organize-code-using-monads.html";
+    this.page.identifier = "2016-12-23-organize-code-using-monads.html";
+};
+(function() { // DON'T EDIT BELOW THIS LINE
+    var d = document, s = d.createElement('script');
+    s.src = 'http://kwangs-haskell-blog.disqus.com/embed.js';
+    s.setAttribute('data-timestamp', +new Date());
+    (d.head || d.body).appendChild(s);
+})();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+
+</article>
+
+        </div>
+        <div id="footer">
+            <a href="http://kseo.github.io/rss.xml">RSS</a> |
+            <a href="http://kseo.github.io/atom.xml">ATOM</a> |
+            <a href="https://twitter.com/kwangyulseo" class="twitter-follow-button" data-show-count="false">Follow @kwangyulseo</a><script async src="http://platform.twitter.com/widgets.js" charset="utf-8"></script>
+        </div>
+        <script>
+          (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+          (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+          m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+          })(window,document,'script','http://www.google-analytics.com/analytics.js','ga');
+
+          ga('create', 'UA-61779656-7', 'auto');
+          ga('send', 'pageview');
+        </script>
+    </body>
+
+Providence Salumu
+</html>
