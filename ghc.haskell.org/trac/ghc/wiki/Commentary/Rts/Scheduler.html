@@ -239,7 +239,7 @@ outside Haskell; that is, a call to <tt>foreign export</tt> or
 OS thread that made the call; all further foreign calls made by
 this Haskell thread are made in the same OS thread.  (this is part
 of the design of the FFI, described in the paper 
-<a class="ext-link" href="http://www.haskell.org/~simonmar/papers/conc-ffi.pdf"><span class="icon">​</span>Extending the Haskell Foreign Function Inteface with Concurrency</a>).
+<a class="ext-link" href="../../../../../../community.haskell.org/_simonmar/papers/conc-ffi.pdf"><span class="icon">​</span>Extending the Haskell Foreign Function Inteface with Concurrency</a>).
 </li></ul><ul><li>An <em>unbound</em> thread is created by
 <tt>Control.Concurrent.forkIO</tt>.  Foreign calls made by an unbound
 thread are made by an arbitrary OS thread.
@@ -428,7 +428,7 @@ Two changes:
 Source files: <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/rts/Sparks.c">rts/Sparks.c</a>, <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/rts/Sparks.h">rts/Sparks.h</a>.
 </p>
 <p>
-The <a href="http://www.haskell.org/ghc/docs/latest/html/libraries/base/Control-Parallel.html#v%3Apar">par</a> operator is used for annotating computations that could be evaluated in parallel.  See also <a href="http://www.haskell.org/ghc/docs/latest/html/users_guide/lang-parallel.html">Parallel Haskell</a> in the GHC User's Guide.
+The <a href="http://www.haskell.org/ghc/docs/latest/html/libraries/base/Control-Parallel.html#v%3Apar">par</a> operator is used for annotating computations that could be evaluated in parallel.  See also <a class="ext-link" href="https://downloads.haskell.org/~ghc/latest/docs/html/users_guide/parallel.html#parallel-haskell"><span class="icon">​</span>Parallel Haskell</a> in the GHC User's Guide.
 </p>
 <p>
 Par itself is implemented in terms of the <tt>par#</tt> primop, which the code generator compiles into a call to <tt>newSpark</tt> in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/rts/Sparks.c">rts/Sparks.c</a>.
@@ -437,7 +437,7 @@ Par itself is implemented in terms of the <tt>par#</tt> primop, which the code g
 Par doesn't actually create a new thread immediately; instead it places a pointer to its first argument in the <em>spark pool</em>.  The spark pool is a circular buffer, when it is full we have the choice of either overwriting the oldest entry or dropping the new entry - currently we drop the new entry (see code for <tt>newSpark</tt>).  Each capability has its own spark pool, so this operation can be performed without taking a lock.
 </p>
 <p>
-So how does the spark turn into a thread?  When the scheduler spots that the current capability has no runnable threads, it checks the spark pool, and if there is a valid spark (a spark that points to a THUNK), then the spark is turned into a real thread and placed on the run queue: see <tt>createSparkThread</tt> in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/rts/Sparks.c">rts/Sparks.c</a>.  Also, the scheduler attempts to share its available sparks with any other idle capabilities: see <tt>schedulePushWork</tt> in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/rts/Scheduler.c">rts/Scheduler.c</a>.
+So how does the spark turn into a thread?  When the scheduler spots that the current capability has no runnable threads, it checks the spark pool, and if there is a valid spark (a spark that points to a THUNK), then the spark is turned into a real thread and placed on the run queue: see <tt>createSparkThread</tt> in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/rts/Sparks.c">rts/Sparks.c</a>.  Also, the scheduler attempts to share its available sparks with any other idle capabilities: see <tt>schedulePushWork</tt> in <a href="https://ghc.haskell.org/trac/ghc/browser/ghc/rts/Schedule.c">rts/Schedule.c</a>.
 </p>
 <h2 id="Affinityandmigration">Affinity and migration</h2>
 <h2 id="ShuttingDown">Shutting Down</h2>
@@ -452,12 +452,14 @@ When making changes to the scheduler, be sure to run the <tt>smp</tt> nofib benc
 </li></ul><ul><li><tt>threads001</tt> tests how quickly we can create a thread and then context switch to it.
 </li></ul><ul><li><tt>threads003</tt> tests how quickly many threads can communicate by reading and writing MVars. It is a bit sensitive to what happens to threads after they wake up from sleeping.
 </li></ul><ul><li><tt>threads006</tt> tests how quickly threads can be created and destroyed, as well as <tt>throwTo</tt> blocking performance.  It is very sensitive to the number of major GCs that occur (which can be influenced if TSO size changes).
-</li></ul><ul><li><tt>threads007</tt> generates a lot of threads waiting on MVars, and then sees how shutdown behavior is affected. It was due to bad behavior in the MVar queue and fixed in [changset:f4692220c7/repo].
+</li></ul><ul><li><tt>threads007</tt> generates a lot of threads waiting on MVars, and then sees how shutdown behavior is affected. It was due to bad behavior in the MVar queue and fixed in <a class="changeset" href="https://ghc.haskell.org/trac/ghc/changeset/f4692220c7/ghc/repo" title="Change the representation of the MVar blocked queue
+
+The list of ...">f4692220c7/repo</a>.
 </li></ul></div>
           
           <div class="trac-modifiedby">
-            <span><a href="https://ghc.haskell.org/trac/ghc/wiki/Commentary/Rts/Scheduler?action=diff&amp;version=24" title="Version 24 by NCrashed: fix mistype 'thrads' to 'threads'">Last modified</a> <a class="timeline" href="https://ghc.haskell.org/trac/ghc/timeline?from=2016-07-14T15%3A16%3A51Z&amp;precision=second" title="See timeline at Jul 14, 2016 3:16:51 PM">6 months ago</a></span>
-            <span class="trac-print">Last modified on Jul 14, 2016 3:16:51 PM</span>
+            <span><a href="https://ghc.haskell.org/trac/ghc/wiki/Commentary/Rts/Scheduler?action=diff&amp;version=28" title="Version 28 by takenobu: correct typo">Last modified</a> <a class="timeline" href="https://ghc.haskell.org/trac/ghc/timeline?from=2017-01-14T07%3A59%3A20Z&amp;precision=second" title="See timeline at Jan 14, 2017 7:59:20 AM">16 hours ago</a></span>
+            <span class="trac-print">Last modified on Jan 14, 2017 7:59:20 AM</span>
           </div>
         
         
