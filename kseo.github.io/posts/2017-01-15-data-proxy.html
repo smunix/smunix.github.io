@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+    
+<!-- Mirrored from kseo.github.io/posts/2017-01-15-data-proxy.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 16 Jan 2017 10:08:45 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <meta name="keywords" content="Haskell, functional programming, category theory, type theory">
+        <title>Kwang's Haskell Blog - Data.Proxy</title>
+        <link rel="stylesheet" type="text/css" href="http://kseo.github.io/css/default.css" />
+        <link rel="stylesheet" type="text/css" href="http://kseo.github.io/css/syntax.css" />
+    </head>
+    <body>
+        <div id="header">
+            <div id="logo">
+                <a href="http://kseo.github.io/">Kwang's Haskell Blog</a>
+            </div>
+            <div id="navigation">
+                <a href="http://kseo.github.io/">Home</a>
+                <a href="http://kseo.github.io/about.html">About</a>
+                <a href="http://kseo.github.io/contact.html">Contact</a>
+                <a href="http://kseo.github.io/archive.html">Archive</a>
+            </div>
+        </div>
+
+        <div id="content">
+            <h1>Data.Proxy</h1>
+
+            <a class="twitter-share-button" href="https://twitter.com/intent/tweet?via=kwangyulseo">Tweet</a>
+
+<article>
+  <div class="info">
+      Posted on January 15, 2017
+      
+          by Kwang Yul Seo
+      
+  </div>
+  <div class="info">
+      
+      Tags: <a href="http://kseo.github.io/tags/Proxy.html">Proxy</a>
+      
+  </div>
+
+<p><a href="https://www.stackage.org/haddock/lts-7.12/base-4.9.0.0/Data-Proxy.html">Proxy</a> is a mysterious type residing in <code>Data.Proxy</code> module. The definition of <code>Proxy</code> tells nothing about its nature.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- | A concrete, poly-kinded proxy type</span>
+<span class="kw">data</span> <span class="dt">Proxy</span> t <span class="fu">=</span> <span class="dt">Proxy</span></code></pre></div>
+<p>The documentation of <code>Proxy</code> says two hints. It is a (1) <em>concrete</em> and (2) <em>poly-kinded</em> proxy type.</p>
+<h1 id="poly-kinded">Poly-kinded</h1>
+<p>The kind of <code>Proxy</code> is <code>forall k. k -&gt; *</code>.</p>
+<pre><code>λ&gt; :k Proxy
+Proxy :: k -&gt; *</code></pre>
+<p>Here <code>k</code> is <a href="https://downloads.haskell.org/~ghc/latest/docs/html/users_guide/glasgow_exts.html#ghc-flag--XPolyKinds">poly-kinded</a> so we can pass types of any kind to <code>Proxy</code>.</p>
+<ul>
+<li><code>Proxy Char</code> where <code>k</code> is <code>*</code>.</li>
+<li><code>Proxy (,)</code> where <code>k</code> is <code>* -&gt; *</code></li>
+<li><code>Proxy Show</code> where <code>k</code> is <code>* -&gt; Constraint</code></li>
+<li><code>Proxy Monad</code> where <code>k</code> is <code>(* -&gt; *) -&gt; Constraint</code></li>
+</ul>
+<h1 id="concrete-value">Concrete value</h1>
+<p>In Haskell, we can create a value of any type we want by annotating <code>undefined</code> with the type.</p>
+<pre><code>λ&gt; let p = undefined :: Int</code></pre>
+<p>However, we can’t use this trick if the kind of the type is not <code>*</code>, For example, we can’t annotate <code>undefined</code> with type <code>(,)</code> because its kind is <code>* -&gt; * -&gt; *</code>.</p>
+<pre><code>λ&gt; let q = undefined :: (,)
+
+&lt;interactive&gt;:4:22: error:
+    • Expecting two more arguments to ‘(,)’
+      Expected a type, but ‘(,)’ has kind ‘* -&gt; * -&gt; *’
+    • In an expression type signature: (,)
+      In the expression: undefined :: (,)
+      In an equation for ‘q’: q = undefined :: (,)</code></pre>
+<p><code>Proxy</code> lets us to overcome this limitation. We can create a proxy value representing the type by annotating <code>Proxy</code> data constructor.</p>
+<pre><code>λ&gt; import Data.Proxy
+λ&gt; let p = Proxy :: Proxy (,)
+λ&gt; :t p
+p :: Proxy (,)</code></pre>
+<p>We can think of <code>Proxy :: Proxy (,)</code> as a reified value of the type <code>(,)</code>.</p>
+<h1 id="type-application">Type Application</h1>
+<p>The read/show problem below is ill-typed because of ambiguity.</p>
+<pre><code>f :: String -&gt; String
+f s = show (read s)</code></pre>
+<p>We can fix this issue by explicitly passing the type as a value argument. As you can see the wild card pattern <code>_</code>, the value is not used anywhere in the definition of <code>f</code>. Only its type is used.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">f ::</span> forall proxy a<span class="fu">.</span> (<span class="dt">Read</span> a, <span class="dt">Show</span> a) <span class="ot">=&gt;</span> proxy a <span class="ot">-&gt;</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">String</span>
+f _ <span class="fu">=</span> (show<span class="ot"> ::</span> a <span class="ot">-&gt;</span> <span class="dt">String</span>) <span class="fu">.</span> read</code></pre></div>
+<pre><code>λ&gt; f (Proxy :: Proxy Int) &quot;3&quot;
+&quot;3&quot;</code></pre>
+<p>As a side note, <a href="2017-01-08-visible-type-application-ghc8.html">TypeApplications</a> extension introduced in GHC 8 provides an alternative way to fix this.</p>
+<h1 id="typeable">Typeable</h1>
+<p>Another application of <code>Proxy</code> is <code>Typeable</code>. Before kind polymorphism was introduced in GHC, there was a lot of code duplication in the way <code>Typeable</code> is implemented because <code>t</code> can represent only a specific kind.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Typeable</span> (<span class="ot">t ::</span> <span class="fu">*</span>) <span class="kw">where</span>
+<span class="ot">  typeOf ::</span> t <span class="ot">-&gt;</span> <span class="dt">TypeRep</span>
+
+<span class="kw">class</span> <span class="dt">Typeable1</span> (<span class="ot">t ::</span> <span class="fu">*</span> <span class="ot">-&gt;</span> <span class="fu">*</span>) <span class="kw">where</span>
+<span class="ot">  typeOf1 ::</span> t a <span class="ot">-&gt;</span> <span class="dt">TypeRep</span>
+
+<span class="kw">class</span> <span class="dt">Typeable2</span> (<span class="ot">t ::</span> <span class="fu">*</span> <span class="ot">-&gt;</span> <span class="fu">*</span> <span class="ot">-&gt;</span> <span class="fu">*</span>) <span class="kw">where</span>
+<span class="ot">  typeOf2 ::</span> t a b <span class="ot">-&gt;</span> <span class="dt">TypeRep</span></code></pre></div>
+<p><code>Proxy</code> allows us to merge all these classes into one:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Typeable</span> t <span class="kw">where</span>
+<span class="ot">  typeOf ::</span> <span class="dt">Proxy</span> t <span class="ot">-&gt;</span> <span class="dt">TypeRep</span>
+
+<span class="kw">instance</span> <span class="dt">Typeable</span> <span class="dt">Int</span>  <span class="kw">where</span> typeOf _ <span class="fu">=</span> <span class="dt">TypeRep</span>
+<span class="kw">instance</span> <span class="dt">Typeable</span> []   <span class="kw">where</span> typeOf _ <span class="fu">=</span> <span class="dt">TypeRep</span></code></pre></div>
+<h1 id="other-use-cases-of-proxy">Other use cases of Proxy</h1>
+<ul>
+<li><a href="https://www.stackage.org/lts-7.12/package/json-schema-0.7.4.1">json-schema</a> uses <code>Proxy</code> to obtain the JSON representation for the given type.</li>
+</ul>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">JSONSchema</span> a <span class="kw">where</span>
+<span class="ot">  schema ::</span> <span class="dt">Proxy</span> a <span class="ot">-&gt;</span> <span class="dt">Schema</span></code></pre></div>
+<ul>
+<li>Edward Kmett’s <a href="https://www.stackage.org/lts-7.12/package/reflection-2.1.2">reflection</a> package shows an advanced usage of <code>Proxy</code>. Austin Seipp’s <a href="https://www.schoolofhaskell.com/user/thoughtpolice/using-reflection">Reflecting values to types and back</a> explains how to reify arbitrary terms into types that can be reflected back into terms.</li>
+</ul>
+<div id="disqus_thread"></div>
+<script>
+
+/**
+ *  RECOMMENDED CONFIGURATION VARIABLES: EDIT AND UNCOMMENT THE SECTION BELOW TO INSERT DYNAMIC VALUES FROM YOUR PLATFORM OR CMS.
+ *  LEARN WHY DEFINING THESE VARIABLES IS IMPORTANT: https://disqus.com/admin/universalcode/#configuration-variables */
+var disqus_config = function () {
+    this.page.url = "2017-01-15-data-proxy.html";
+    this.page.identifier = "2017-01-15-data-proxy.html";
+};
+(function() { // DON'T EDIT BELOW THIS LINE
+    var d = document, s = d.createElement('script');
+    s.src = 'http://kwangs-haskell-blog.disqus.com/embed.js';
+    s.setAttribute('data-timestamp', +new Date());
+    (d.head || d.body).appendChild(s);
+})();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+
+</article>
+
+        </div>
+        <div id="footer">
+            <a href="http://kseo.github.io/rss.xml">RSS</a> |
+            <a href="http://kseo.github.io/atom.xml">ATOM</a> |
+            <a href="https://twitter.com/kwangyulseo" class="twitter-follow-button" data-show-count="false">Follow @kwangyulseo</a><script async src="http://platform.twitter.com/widgets.js" charset="utf-8"></script>
+        </div>
+        <script>
+          (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+          (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+          m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+          })(window,document,'script','http://www.google-analytics.com/analytics.js','ga');
+
+          ga('create', 'UA-61779656-7', 'auto');
+          ga('send', 'pageview');
+        </script>
+    </body>
+
+<!-- Mirrored from kseo.github.io/posts/2017-01-15-data-proxy.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 16 Jan 2017 10:08:45 GMT -->
+</html>

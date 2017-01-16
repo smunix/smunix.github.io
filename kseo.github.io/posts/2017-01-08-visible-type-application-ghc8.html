@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+    
+<!-- Mirrored from kseo.github.io/posts/2017-01-08-visible-type-application-ghc8.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 16 Jan 2017 10:08:45 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <meta name="keywords" content="Haskell, functional programming, category theory, type theory">
+        <title>Kwang's Haskell Blog - Visible Type Application in GHC 8</title>
+        <link rel="stylesheet" type="text/css" href="https://kseo.github.io/css/default.css" />
+        <link rel="stylesheet" type="text/css" href="https://kseo.github.io/css/syntax.css" />
+    </head>
+    <body>
+        <div id="header">
+            <div id="logo">
+                <a href="https://kseo.github.io/">Kwang's Haskell Blog</a>
+            </div>
+            <div id="navigation">
+                <a href="https://kseo.github.io/">Home</a>
+                <a href="https://kseo.github.io/about.html">About</a>
+                <a href="https://kseo.github.io/contact.html">Contact</a>
+                <a href="https://kseo.github.io/archive.html">Archive</a>
+            </div>
+        </div>
+
+        <div id="content">
+            <h1>Visible Type Application in GHC 8</h1>
+
+            <a class="twitter-share-button" href="https://twitter.com/intent/tweet?via=kwangyulseo">Tweet</a>
+
+<article>
+  <div class="info">
+      Posted on January  8, 2017
+      
+          by Kwang Yul Seo
+      
+  </div>
+  <div class="info">
+      
+      Tags: <a href="https://kseo.github.io/tags/TypeApplications.html">TypeApplications</a>
+      
+  </div>
+
+<p>GHC 8.0 introduced a new GHC extension named <a href="https://ghc.haskell.org/trac/ghc/wiki/TypeApplication">TypeApplications</a> which allows us to give explicit type arguments to a polymorphic function.</p>
+<p>To see what <code>TypeApplications</code> does, we need to understand how polymorphism in Haskell is implemented under the hood. In Haskell, a polymorphic function is translated into a function which takes both type arguments and value arguments. For example,</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">id<span class="ot"> ::</span> a <span class="ot">-&gt;</span> a
+id x <span class="fu">=</span> x</code></pre></div>
+<p>is translated into</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">id<span class="ot"> ::</span> forall a <span class="fu">.</span> a <span class="ot">-&gt;</span> a
+id <span class="fu">@</span>a x <span class="fu">=</span> x</code></pre></div>
+<p>Here <code>@a</code> is the type argument. The specialization of <code>id</code> to <code>idString</code> is represented by passing <code>@String</code> type argument to <code>id</code> function.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">idString ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">String</span>
+idString <span class="fu">=</span> id <span class="fu">@</span><span class="dt">String</span></code></pre></div>
+<p>This is not an ad-hoc way to implement polymorphism. The trick of passing around type parameters as ordinary function arguments was devised by <em>System F</em> (as known as the <em>polymorphic lambda calculus</em>) and GHC uses System F as its internal representation. An interested reader might want to take a look at Gabriel Gonzalez’s <a href="http://www.haskellforall.com/2015/10/polymorphism-for-dummies.html">Polymorphism for dummies</a> for other examples.</p>
+<p>Before GHC 8.0, the type application was invisible. There was no way to pass the type parameter such as <code>@String</code> and <code>@Int</code> explicitly. GHC infers the type from the argument type, or we had to specify the type using type annotations.</p>
+<pre><code>λ&gt; id &quot;a&quot;
+&quot;a&quot;
+λ&gt; id (3 :: Int)
+3</code></pre>
+<p><code>TypeApplications</code> extension allows us to give explicit type arguments.</p>
+<pre><code>λ&gt; :set -XTypeApplications
+λ&gt; id @String &quot;a&quot;
+&quot;a&quot;
+λ&gt; id @Int 3
+3</code></pre>
+<p>This is useful in resolving ambiguity in type classes or type families. The show/read problem from <a href="https://kseo.github.io/posts/2017-01-04-type-defaulting-in-haskell.html">Type defaulting in Haskell</a> was not typeable due to ambiguity, but we can easily remove ambiguity by giving an explicit type argument.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">{-# LANGUAGE TypeApplications #-}</span>
+
+<span class="ot">f ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">String</span>
+f s <span class="fu">=</span> show (read <span class="fu">@</span><span class="dt">Int</span> s)</code></pre></div>
+<p>The type argument is not limited to concrete types. As we can pass a variable to a function as an argument, it is possible to pass a type variable to a function as a type argument if it is explicitly quantified with <code>ExplicitForAll</code>.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">{-# LANGUAGE ExplicitForAll      #-}</span>
+<span class="ot">{-# LANGUAGE TypeApplications    #-}</span>
+
+<span class="ot">incShow ::</span> forall a <span class="fu">.</span> (<span class="dt">Read</span> a, <span class="dt">Show</span> a, <span class="dt">Num</span> a) <span class="ot">=&gt;</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">String</span>
+incShow <span class="fu">=</span> show <span class="fu">.</span> (<span class="fu">+</span><span class="dv">1</span>) <span class="fu">.</span> read <span class="fu">@</span>a</code></pre></div>
+<pre><code>λ&gt; incShow @Double &quot;3.0&quot;
+&quot;4.0&quot;`</code></pre>
+<p>In the following example, <code>g False</code> would be ill-typed because GHC can’t infer the proper type. Adding the explicit type <code>@Char</code> resolves the problem.</p>
+<pre><code>type family F a
+type instance F Char = Bool
+
+g :: F a -&gt; a
+g _ = undefined
+
+f :: Char
+f = g True
+
+h = g False -- will cause an error
+h' = g @Char False</code></pre>
+<p>Some of these cases can be solved with type annotations, but it can be cumbersome in complicated examples. Visible type applications generally provide a more succinct way to resolve ambiguity.</p>
+<p>If you would like to know the technical details of <code>TypeApplications</code>, please refer to <a href="https://www.seas.upenn.edu/~sweirich/papers/type-app-extended.pdf">Visible Type Application (Extended version)</a>.</p>
+<div id="disqus_thread"></div>
+<script>
+
+/**
+ *  RECOMMENDED CONFIGURATION VARIABLES: EDIT AND UNCOMMENT THE SECTION BELOW TO INSERT DYNAMIC VALUES FROM YOUR PLATFORM OR CMS.
+ *  LEARN WHY DEFINING THESE VARIABLES IS IMPORTANT: https://disqus.com/admin/universalcode/#configuration-variables */
+var disqus_config = function () {
+    this.page.url = "2017-01-08-visible-type-application-ghc8.html";
+    this.page.identifier = "2017-01-08-visible-type-application-ghc8.html";
+};
+(function() { // DON'T EDIT BELOW THIS LINE
+    var d = document, s = d.createElement('script');
+    s.src = 'http://kwangs-haskell-blog.disqus.com/embed.js';
+    s.setAttribute('data-timestamp', +new Date());
+    (d.head || d.body).appendChild(s);
+})();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+
+</article>
+
+        </div>
+        <div id="footer">
+            <a href="https://kseo.github.io/rss.xml">RSS</a> |
+            <a href="https://kseo.github.io/atom.xml">ATOM</a> |
+            <a href="https://twitter.com/kwangyulseo" class="twitter-follow-button" data-show-count="false">Follow @kwangyulseo</a><script async src="http://platform.twitter.com/widgets.js" charset="utf-8"></script>
+        </div>
+        <script>
+          (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+          (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+          m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+          })(window,document,'script','http://www.google-analytics.com/analytics.js','ga');
+
+          ga('create', 'UA-61779656-7', 'auto');
+          ga('send', 'pageview');
+        </script>
+    </body>
+
+<!-- Mirrored from kseo.github.io/posts/2017-01-08-visible-type-application-ghc8.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 16 Jan 2017 10:08:45 GMT -->
+</html>

@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+  
+<!-- Mirrored from begriffs.com/posts/2017-01-14-design-use-quickcheck.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 16 Jan 2017 10:08:44 GMT -->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    
+      <meta name="twitter:card" content="summary_large_image" />
+      <meta name="twitter:domain" content="begriffs.com" />
+      <meta name="twitter:title" content="The Design and Use of QuickCheck" />
+      <meta name="twitter:description" content="How to use QuickCheck with Confidence" />
+      <meta name="twitter:image" content="https://begriffs.com/images/quickcheck-generated.png" />
+    
+    <title>The Design and Use of QuickCheck</title>
+    <link rel="stylesheet" type="text/css" href="https://begriffs.com/css/bootstrap-readable.min.css" />
+    <link rel="stylesheet" type="text/css" href="https://begriffs.com/css/default.css" />
+    <link rel="stylesheet" type="text/css" href="https://begriffs.com/css/syntax.css" />
+    <link rel="pgpkey" type="application/pgp-keys" href="https://begriffs.com/pgp.asc" title="Joe Nelson's public PGP key" />
+    <link href="http://vjs.zencdn.net/5.0/video-js.min.css" rel="stylesheet">
+
+    <link rel="icon" type="image/png" href="https://begriffs.com/images/icon/favicon-196x196.png" sizes="196x196" />
+    <link rel="icon" type="image/png" href="https://begriffs.com/images/icon/favicon-96x96.png" sizes="96x96" />
+    <link rel="icon" type="image/png" href="https://begriffs.com/images/icon/favicon-32x32.png" sizes="32x32" />
+    <link rel="icon" type="image/png" href="https://begriffs.com/images/icon/favicon-16x16.png" sizes="16x16" />
+    <link rel="icon" type="image/png" href="https://begriffs.com/images/icon/favicon-128.png" sizes="128x128" />
+    <link rel="apple-touch-icon-precomposed" sizes="57x57" href="https://begriffs.com/images/icon/apple-touch-icon-57x57.png" />
+    <link rel="apple-touch-icon-precomposed" sizes="114x114" href="https://begriffs.com/images/icon/apple-touch-icon-114x114.png" />
+    <link rel="apple-touch-icon-precomposed" sizes="72x72" href="https://begriffs.com/images/icon/apple-touch-icon-72x72.png" />
+    <link rel="apple-touch-icon-precomposed" sizes="144x144" href="https://begriffs.com/images/icon/apple-touch-icon-144x144.png" />
+    <link rel="apple-touch-icon-precomposed" sizes="60x60" href="https://begriffs.com/images/icon/apple-touch-icon-60x60.png" />
+    <link rel="apple-touch-icon-precomposed" sizes="120x120" href="https://begriffs.com/images/icon/apple-touch-icon-120x120.png" />
+    <link rel="apple-touch-icon-precomposed" sizes="76x76" href="https://begriffs.com/images/icon/apple-touch-icon-76x76.png" />
+    <link rel="apple-touch-icon-precomposed" sizes="152x152" href="https://begriffs.com/images/icon/apple-touch-icon-152x152.png" />
+
+    <script type="text/x-mathjax-config">
+      MathJax.Hub.Config({tex2jax: {inlineMath: [['$','$'], ['\\(','\\)']]}});
+    </script>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header row">
+        <h3><a class="text-muted col-sm-9" href="https://begriffs.com/">begriffs</a></h3>
+
+        <ul class="col-sm-3 list-inline">
+          <li><a class="text-muted" rel="me" href="http://github.com/begriffs"><img src="https://begriffs.com/images/icon/github.svg" alt="Github" width="28px" height="28px" /></a></li>
+          <li><a class="text-muted" rel="me" href="mailto:joe@begriffs.com"><img src="https://begriffs.com/images/icon/envelope-o.svg" alt="Email" width="28px" height="28px" /></a></li>
+          <li><a class="text-muted" href="https://begriffs.com/atom.xml"><img src="https://begriffs.com/images/icon/rss.svg" alt="Atom Feed" width="28px" height="28px" /></a></li>
+        </ul>
+      </div>
+
+      <div class="content">
+        <div class="h-entry">
+  <div class="post-header">
+    <h3 class="p-name">The Design and Use of QuickCheck</h3>
+    <h5 class="text-muted dt-published">January 14, 2017</h5>
+  </div>
+
+  <div class="content e-content">
+    <p>QuickCheck is the grandfather of property-based testing libraries. Despite being imitated in over thirty languages, the original implementation remains pre-eminent due to the type system and consistent logic of the Haskell language in which it is written.</p>
+<p>Prior randomized testing tools required learning a special language and grammar to generate complex test cases. QuickCheck embeds the generator language in Haskell for a succinct domain specific language that reduces the learning curve and build system dependencies.</p>
+<p>Property-based testing is enormously effective and it pays to learn to use it well. Getting started with QuickCheck is easy, but there is a lot to learn under the surface to achieve greater customization and better results. The typical examples you’ll find online have deceptively simple code (usually involving list reversal). The examples make it heard to learn <em>how</em> their succinct tests are possible, and how to customize them when things go wrong. This guide puts it all together piece by piece so you can use QuickCheck with confidence.</p>
+<p>First things first, what is property-based testing? A <em>property</em> of a program is an observation that we expect to hold true regardless of the program’s inputs. It may involve only the output (“always outputs a positive number”) or compare input and output (“preserves list length”) or even assess external effects (“matches the output of a trusted external program”).</p>
+<p>That is, instead of writing individual unit tests consisting of certain expected input-output pairs of a function, we write the desired properties of functions. Then QuickCheck automatically generates random values which can be run to verify (or rather, falsify) the property.</p>
+<p>Using QuickCheck, the developer is forced to think about what the code should do at a high level rather than grunt out a few unmotivated test cases. The tool finds corner-cases where the specification is violated, which leads to either the code or the specification getting fixed. Additionally the specifications persist as rich machine-checkable documentation.</p>
+<p>Proponents of formal methods sometimes stress the notion of specification above that of implementation. However it is the inconsistencies between these two independent descriptions of the desired behavior that reveal the truth. We discover incomplete understanding in the specs and bugs in the implementation. Programming does not flow in a single direction from specifications to implementation but evolves by cross-checking and updating the two. Property-based testing quickens this evolution.</p>
+<p>Of course the only way to truly guarantee properties of programs is by mathematical proof. However property-based tests approximate deductive confidence with less work by checking properties for a finite number of randomized inputs called <em>test cases</em>.</p>
+<h3 id="methodology-of-testing">Methodology of Testing</h3>
+<p>Given that property based tests can discover only the presence of bugs and never their absence, when should tests be considered adequate? One criterion is code coverage: that every program statement be executed at least once. QuickCheck does not measure code coverage, nor does it knowingly generate test date to exercise particular code paths. When running a test suite you should enable a code coverage report.</p>
+<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash"><span class="co"># Be sure to enable a code coverage report</span>
+<span class="co"># https://docs.haskellstack.org/en/latest/coverage/</span>
+
+$ <span class="kw">stack</span> test --coverage</code></pre></div>
+<p>Random data tends to exercise small programs considerably, so applying QuickCheck against one small function at a time is a good way to build total coverage. Also test cases whose statistical distribution follows that of actual data tend to generate higher coverage. For example, think of a function that manipulates email addresses. The vast majority of long random strings will exercise only the invalid email code path. Realistic data will exercise more. QuickCheck’s built-in test case generators use a uniform distribution but the library provides a way to customize generation.</p>
+<p>Note there are situations when random test cases are not the most effective tool. QuickCheck will be less definitive than an alternative like <a href="https://hackage.haskell.org/package/smallcheck">SmallCheck</a> for functions which take a finite number of possible input values. SmallCheck generates not just a random set of test cases but <em>all possible</em> cases beneath a given “size.” For example all Unicode strings of length ten or less. If a function has a finite (and small enough) number of possible input values then SmallCheck can prove conclusively when properties hold.</p>
+<h3 id="generating-random-test-cases">Generating Random Test Cases</h3>
+<p>As discussed, QuickCheck generates random test cases to falsify program properties. It uses a newtype with a single type argument, <code>Gen a</code>, to generate values of type <code>a</code>. Gen wraps a function mapping a random number generator and a size parameter to a value of a given type.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">newtype</span> <span class="dt">Gen</span> a <span class="fu">=</span> <span class="dt">MkGen</span> {
+<span class="ot">    unGen ::</span> <span class="dt">QCGen</span> <span class="ot">-&gt;</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> a
+  }</code></pre></div>
+<p>QuickCheck provides combinators to obtain and modify Gen values. For instance here are two basic functions to make Gens:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- Generate a random element in the given inclusive range</span>
+<span class="co">-- (using Random from the &quot;random&quot; package)</span>
+<span class="ot">choose ::</span> <span class="dt">Random</span> a <span class="ot">=&gt;</span> (a, a) <span class="ot">-&gt;</span> <span class="dt">Gen</span> a
+
+<span class="co">-- Pick elements at random from a (non-empty) list</span>
+<span class="ot">elements ::</span> [a] <span class="ot">-&gt;</span> <span class="dt">Gen</span> a</code></pre></div>
+<p>You get values out of Gen by using <code>generate</code>. It runs in the IO monad so that it can advance along an internal sequence of pseudo-random values.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- generate :: Gen a -&gt; IO a</span>
+
+<span class="co">-- produce 1, 2, or 3</span>
+generate <span class="fu">$</span> elements [<span class="dv">1</span>,<span class="dv">2</span>,<span class="dv">3</span>]
+
+<span class="co">-- produce a lowercase letter</span>
+generate <span class="fu">$</span> choose (<span class="ch">'a'</span>, <span class="ch">'z'</span>)
+
+<span class="co">-- produce a constant value (since Gen has a Monad instance)</span>
+generate <span class="fu">$</span> return <span class="dv">1</span></code></pre></div>
+<p>So far the grammar is fairly limited, but QuickCheck uses a typeclass called <code>Arbitrary</code> to produce generators for more varied types.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Arbitrary</span> a <span class="kw">where</span>
+<span class="ot">  arbitrary ::</span> <span class="dt">Gen</span> a</code></pre></div>
+<p>Generally it’s a Haskell convention that typeclass methods are inter-related by laws (like <code>m &gt;&gt;= return ≡ m</code> for Monads), but Arbitrary doesn’t follow that convention. It’s an “unprincipled” typeclass in this regard, but still useful.</p>
+<p>You can think of Arbitrary as providing common-sense default generators for basic types. You’re still free to create your own generators or use those from third-party libraries, but QuickCheck provides plenty of Arbitrary instances. Compare two ways to generate the same distribution of values:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- manually generating random Bool</span>
+generate <span class="fu">$</span> choose (<span class="dt">False</span>,<span class="dt">True</span>)
+
+<span class="co">-- ...vs using the Bool instance of Arbitrary</span>
+generate (<span class="ot">arbitrary ::</span> <span class="dt">Gen</span> <span class="dt">Bool</span>)</code></pre></div>
+<p>QuickCheck add-on libraries differ in their approach to providing new Gen types. Some (like <a href="https://hackage.haskell.org/package/quickcheck-unicode">quickcheck-unicode</a>) provide functions which return Gen directly, and others (like <a href="https://hackage.haskell.org/package/quickcheck-instances">quickcheck-instances</a>) introduce newtypes with Arbitrary instances.</p>
+<p>Type inference allows Arbitraries to combine recursively and easily build more complicated generators from simpler ones. This compounding means it is helpful to take the time to create Arbitrary instances for application-specific data types so they can be more easily incorporated into property tests.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- there are many recursive instances like these</span>
+<span class="co">-- Arbitrary a =&gt; Arbitrary [a]</span>
+<span class="co">-- (Arbitrary a, Arbitrary b) =&gt; Arbitrary (a, b)</span>
+
+<span class="co">-- QuickCheck uses them to build things like this</span>
+generate (<span class="ot">arbitrary ::</span> <span class="dt">Gen</span> [(<span class="dt">Int</span>, <span class="dt">Bool</span>)])</code></pre></div>
+<p>Gen is also an instance of Applicative, so it can be applied to fill the fields of custom datatypes.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">MyType</span> <span class="fu">=</span> <span class="dt">MyType</span> {
+<span class="ot">    foo ::</span> <span class="dt">Int</span>
+  ,<span class="ot"> bar ::</span> <span class="dt">Bool</span>
+  ,<span class="ot"> baz ::</span> <span class="dt">Float</span>
+  } <span class="kw">deriving</span> (<span class="dt">Show</span>)
+  
+generate <span class="fu">$</span> <span class="dt">MyType</span> <span class="fu">&lt;$&gt;</span> arbitrary <span class="fu">&lt;*&gt;</span> arbitrary <span class="fu">&lt;*&gt;</span> arbitrary</code></pre></div>
+<p>If you’re truly lazy you can avoid repeatedly applying <code>arbitrary</code> by using the <a href="https://hackage.haskell.org/package/generic-random-0.3.0.0">generic-random</a> package.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">{-# LANGUAGE DeriveGeneric #-}</span>
+<span class="kw">import </span><span class="dt">GHC.Generics</span>
+<span class="kw">import </span><span class="dt">Generic.Random.Generic</span>
+
+<span class="kw">data</span> <span class="dt">MyType</span> <span class="fu">=</span> <span class="dt">MyType</span> {
+<span class="ot">    foo ::</span> <span class="dt">Int</span>
+  ,<span class="ot"> bar ::</span> <span class="dt">Bool</span>
+  ,<span class="ot"> baz ::</span> <span class="dt">Float</span>
+  } <span class="kw">deriving</span> (<span class="dt">Show</span>, <span class="dt">Generic</span>)
+  
+generate (<span class="ot">genericArbitrary ::</span> <span class="dt">Gen</span> <span class="dt">MyType</span>)</code></pre></div>
+<p>To generate more complicated recursive test cases, use the Monad and Applicative instance of Gen. For instance,</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- Randomly use one of several generators with</span>
+<span class="co">-- oneof :: [Gen a] -&gt; Gen a</span>
+
+<span class="ot">myList ::</span> <span class="dt">Arbitrary</span> a <span class="ot">=&gt;</span> <span class="dt">Gen</span> [a]
+myList <span class="fu">=</span> oneof
+  [ return []
+  , (<span class="fu">:</span>) <span class="fu">&lt;$&gt;</span> arbitrary <span class="fu">&lt;*&gt;</span> myList
+  ]</code></pre></div>
+<p>This generator tends to produce very short lists, many of them empty. Statistically that’s how it works when at each step the function is fifty-percent likely to terminate. Rather than use <code>oneof</code> to choose generators we can skew the probability.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- like oneof, but with weighted distribution</span>
+<span class="co">-- frequency :: [(Int, Gen a)] -&gt; Gen a</span>
+
+<span class="ot">myList' ::</span> <span class="dt">Arbitrary</span> a <span class="ot">=&gt;</span> <span class="dt">Gen</span> [a]
+myList' <span class="fu">=</span> frequency
+  [ (<span class="dv">1</span>, return [])
+  , (<span class="dv">4</span>, (<span class="fu">:</span>) <span class="fu">&lt;$&gt;</span> arbitrary <span class="fu">&lt;*&gt;</span> myList')
+  ]</code></pre></div>
+<p>Now the function is four times as likely to proceed at every step, generating longer lists on average. Between <code>myList' and</code>myList’` – one which generates short lists and the other slightly longer – there is a common pattern. It would be more flexible to have an adjustable size.</p>
+<p>In general when generating unbounded types like Integer or list the question naturally arises: how large an integer or long a list will we choose? It’s impossible to pick from among all integers with equal probability. QuickCheck resolves this conundrum by including the <em>size</em> parameter in a generator. Remember the Gen type wraps a function whose second parameter is an Int which holds the “size.” Some generators such as <code>choose (0, 9)</code> disregard it, but others consult it.</p>
+<p>We can modify our list generator to heed its size parameter. We’ll tie the size to the likelihood of continuing to build a list and use the <code>sized</code> function to read the parameter.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- sized :: (Int -&gt; Gen a) -&gt; Gen a</span>
+
+<span class="ot">flexList ::</span> <span class="dt">Arbitrary</span> a <span class="ot">=&gt;</span> <span class="dt">Gen</span> [a]
+flexList <span class="fu">=</span> sized <span class="fu">$</span> \n <span class="ot">-&gt;</span>
+  frequency
+    [ (<span class="dv">1</span>, return [])
+    , (n, (<span class="fu">:</span>) <span class="fu">&lt;$&gt;</span> arbitrary <span class="fu">&lt;*&gt;</span> flexList)
+    ]</code></pre></div>
+<p>The size parameter is especially useful when generating structures like trees which are less likely to terminate when randomly spawning new branches. The size can be decreased deeper in the tree to stop its growth.</p>
+<p>Our old friend the <code>generate</code> function sets size to thirty. Notice the length of lists produced by the <code>flexList</code> generator by default:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- there is a debugging function to call generate repeatedly,</span>
+<span class="co">-- sample :: Show a =&gt; Gen a -&gt; IO ()</span>
+
+<span class="fu">&gt;</span> sample (<span class="ot">flexList ::</span> <span class="dt">Gen</span> [<span class="dt">Int</span>])
+[]
+[<span class="fu">-</span><span class="dv">1</span>]
+[<span class="dv">3</span>,<span class="dv">0</span>,<span class="dv">1</span>,<span class="dv">1</span>]
+[<span class="dv">0</span>]
+[<span class="fu">-</span><span class="dv">4</span>]
+[<span class="dv">0</span>,<span class="dv">7</span>,<span class="fu">-</span><span class="dv">2</span>,<span class="fu">-</span><span class="dv">2</span>,<span class="dv">2</span>,<span class="fu">-</span><span class="dv">5</span>,<span class="dv">6</span>,<span class="dv">10</span>,<span class="dv">4</span>,<span class="dv">9</span>,<span class="fu">-</span><span class="dv">5</span>,<span class="fu">-</span><span class="dv">4</span>]
+[<span class="fu">-</span><span class="dv">12</span>,<span class="fu">-</span><span class="dv">2</span>,<span class="fu">-</span><span class="dv">1</span>,<span class="fu">-</span><span class="dv">11</span>,<span class="dv">7</span>,<span class="fu">-</span><span class="dv">3</span>]
+[<span class="fu">-</span><span class="dv">6</span>,<span class="dv">8</span>,<span class="fu">-</span><span class="dv">3</span>,<span class="fu">-</span><span class="dv">2</span>,<span class="fu">-</span><span class="dv">6</span>,<span class="dv">9</span>,<span class="fu">-</span><span class="dv">14</span>,<span class="dv">14</span>,<span class="dv">14</span>,<span class="dv">3</span>,<span class="fu">-</span><span class="dv">6</span>]
+[<span class="dv">0</span>,<span class="fu">-</span><span class="dv">10</span>,<span class="fu">-</span><span class="dv">14</span>,<span class="dv">11</span>,<span class="fu">-</span><span class="dv">12</span>,<span class="fu">-</span><span class="dv">12</span>,<span class="fu">-</span><span class="dv">6</span>,<span class="dv">4</span>,<span class="fu">-</span><span class="dv">6</span>,<span class="fu">-</span><span class="dv">16</span>,<span class="fu">-</span><span class="dv">16</span>,<span class="fu">-</span><span class="dv">12</span>,<span class="fu">-</span><span class="dv">9</span>,<span class="dv">4</span>,<span class="fu">-</span><span class="dv">13</span>,<span class="fu">-</span><span class="dv">7</span>,<span class="fu">-</span><span class="dv">7</span>,<span class="dv">1</span>,<span class="dv">13</span>]
+[<span class="fu">-</span><span class="dv">16</span>,<span class="fu">-</span><span class="dv">6</span>,<span class="dv">18</span>,<span class="dv">1</span>,<span class="dv">0</span>,<span class="fu">-</span><span class="dv">17</span>,<span class="fu">-</span><span class="dv">14</span>,<span class="fu">-</span><span class="dv">18</span>,<span class="dv">2</span>,<span class="fu">-</span><span class="dv">7</span>,<span class="dv">7</span>,<span class="dv">6</span>,<span class="dv">12</span>,<span class="dv">15</span>]
+[<span class="fu">-</span><span class="dv">12</span>,<span class="dv">11</span>,<span class="fu">-</span><span class="dv">15</span>,<span class="dv">13</span>,<span class="fu">-</span><span class="dv">17</span>,<span class="fu">-</span><span class="dv">20</span>,<span class="dv">10</span>,<span class="fu">-</span><span class="dv">18</span>,<span class="fu">-</span><span class="dv">15</span>,<span class="fu">-</span><span class="dv">5</span>]</code></pre></div>
+<p>The size parameter applies to all generators at once in a complex result. Notice that the Int values in the generated lists above vary between -30 and 30 (in fact a strictly smaller range in the example above). Generating longer lists also generates larger numbers inside. QuickCheck is designed this way to avoid correlation between the sizes of different parts of the test data which may distort test results.</p>
+<p>There are helper function to adjust the size parameter in a generator as well.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- We can modify a generator to use a fixed size with</span>
+<span class="co">-- resize :: Int -&gt; Gen a -&gt; Gen a</span>
+<span class="fu">--</span>
+<span class="co">-- Here's a big list of big numbers</span>
+generate (resize <span class="dv">1000</span><span class="ot"> flexList ::</span> <span class="dt">Gen</span> [<span class="dt">Int</span>])
+
+<span class="co">-- Alternately we can alter a generator's sensitivity</span>
+<span class="co">-- to size. This will be useful later</span>
+generate (scale (<span class="fu">*</span><span class="dv">33</span>)<span class="ot"> flexList ::</span> <span class="dt">Gen</span> [<span class="dt">Int</span>])</code></pre></div>
+<p>Now that we can generate a variety of test cases it is time to move on to the fun part, testing programs.</p>
+<h3 id="specifying-laws">Specifying Laws</h3>
+<p>Laws, or <em>properties</em> are predicates that can be checked by testing. QuickCheck represents them as <code>Gen Result</code> where Result holds various facts about a test including:</p>
+<ul>
+<li>Is the test successful, failed, or should it be discarded?</li>
+<li>Whether to retry the test</li>
+<li>Statistics about test cases</li>
+<li>Reason for failure</li>
+<li>Exceptions thrown</li>
+</ul>
+<p>At a high level each property generates a test case inside the Gen monad, evaluates the data against part of the program under test, then constructs a Result. As all this happens inside Gen, the result is of type <code>Gen Result</code> aka <code>Property</code>. To run the tests, QuickCheck generates the results and displays statistics about them.</p>
+<p>Let’s make a Property by hand (the hard way) and then see how QuickCheck makes it easier.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- returned values are modified versions of</span>
+<span class="co">-- succeeded :: Result</span>
+<span class="co">-- failed :: Result</span>
+
+<span class="ot">prop_commutativeAdd ::</span> <span class="dt">Gen</span> <span class="dt">Result</span>
+prop_commutativeAdd <span class="fu">=</span> <span class="kw">do</span>
+  (x, y) <span class="ot">&lt;- arbitrary ::</span> <span class="dt">Gen</span> (<span class="dt">Int</span>, <span class="dt">Int</span>)
+  return <span class="fu">$</span> <span class="kw">if</span> x <span class="fu">+</span> y <span class="fu">==</span> y <span class="fu">+</span> x
+    <span class="kw">then</span> succeeded
+    <span class="kw">else</span> failed { reason <span class="fu">=</span> <span class="st">&quot;stupid non-commutative addition&quot;</span> }</code></pre></div>
+<p>(This is a slight simplification in that nowadays <code>Property</code> is defined as <code>Gen</code> of a tree of Results rather than literally <code>Gen Result</code>, but it’s fine for illustration.)</p>
+<p>Unfortunately <code>prop_commutativeAdd</code> contains a lot of boilerplate to test a simple assertion. QuickCheck offers a <code>Testable</code> typeclass to help us simplify. <code>Testable</code> is to <code>Property</code> as <code>Arbitrary</code> is to <code>Gen</code>. In particular <code>Testable a</code> provides a function <code>property :: a -&gt; Property</code>. QuickCheck actually runs Testable and extracts a Property rather than expecting Property directly.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- These two instances make life easy:</span>
+<span class="fu">--</span>
+<span class="co">-- Testable Bool</span>
+<span class="co">-- (Arbitrary a, Show a, Testable prop) =&gt; Testable (a -&gt; prop)</span>
+
+<span class="ot">prop_commutativeAdd ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Bool</span>
+prop_commutativeAdd x y <span class="fu">=</span> x <span class="fu">+</span> y <span class="fu">==</span> y <span class="fu">+</span> x</code></pre></div>
+<p>The Testable instance of Bool is similar to what we wrote by hand for the first version of prop_commutativeAdd. With that and because Functions from Arbitrary to Testable are themselves Testable, a simple function like the one above is Testable. It’s important to see how Properties work because the flexibility of Testable makes properties so short that it obscures how things work under the hood.</p>
+<p>In fact our example can get shorter. Simple properties like commutativity, associativity, or idempotence have helper methods in the <a href="https://hackage.haskell.org/package/test-invariant">test-invariant</a> package.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">import </span><span class="dt">Test.Invariant</span>
+
+<span class="ot">prop_commutativeAdd ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Bool</span>
+prop_commutativeAdd <span class="fu">=</span> commutative (<span class="fu">+</span>)</code></pre></div>
+<p>To check an individual property use the <code>quickCheck</code> function:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- quickCheck :: Testable prop =&gt; prop -&gt; IO ()</span>
+
+<span class="fu">&gt;</span> quickCheck prop_commutativeAdd
+<span class="fu">+++</span> <span class="dt">OK</span>, passed <span class="dv">100</span> tests<span class="fu">.</span></code></pre></div>
+<p>Note that properties must use monomorphic types, you can’t have a property with polymorphism like <code>[a] -&gt; [a] -&gt; Bool</code>. You must pick a monomorphic instance for which to generate test cases. Be careful which instance you choose! Observe the difference between addition of Ints vs Doubles.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="fu">&gt;</span> quickCheck <span class="fu">$</span> associative (<span class="ot">(+) ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span>)
+<span class="fu">+++</span> <span class="dt">OK</span>, passed <span class="dv">100</span> tests<span class="fu">.</span>
+
+<span class="fu">&gt;</span> quickCheck <span class="fu">$</span> associative (<span class="ot">(+) ::</span> <span class="dt">Double</span> <span class="ot">-&gt;</span> <span class="dt">Double</span> <span class="ot">-&gt;</span> <span class="dt">Double</span>)
+<span class="fu">***</span> <span class="dt">Failed</span><span class="fu">!</span> <span class="dt">Falsifiable</span> (after <span class="dv">5</span> tests and <span class="dv">188</span> shrinks)<span class="fu">:</span>
+<span class="fu">-</span><span class="fl">1.4210880596288213e-14</span>
+<span class="fl">2.842174061166933e-14</span>
+<span class="fl">128.0</span></code></pre></div>
+<h4 id="test-case-distribution-and-shrinking">Test Case Distribution and Shrinking</h4>
+<p>Now that we’ve seen the basics of properties and test case generation let’s see them in action. Imagine we want to test two functions, <code>encode</code> to perform Base64 encoding of binary data, and <code>decode</code> to restore the data back again. Let’s focus on <code>encode</code> first. Our goal is to determine properties of this function that hold for all inputs.</p>
+<p>Base64 encoding breaks its input into groups of six bits, and assigns the sixty-four possible values to characters which are safe for various kinds of transmission. Now, regardless of the target alphabet, this maps each six bits to one byte, leading to an output size of ceil(4n/3) where n is the number of input bits. (The encoding pads its output with trailing equals signs to make up for input whose bit length is not divisible by six.)</p>
+<p>Let’s express the input-output bit ratio property in QuickCheck. The encode function will deal with lazy ByteString to read raw binary data. ByteString does not have an Arbitrary instance supplied by core QuickCheck but it’s available in the <a href="https://hackage.haskell.org/package/quickcheck-instances">quickcheck-instances</a>) package.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">import </span><span class="dt">Test.QuickCheck.Instances</span> ()
+<span class="kw">import qualified</span> <span class="dt">Data.ByteString.Lazy</span> <span class="kw">as</span> <span class="dt">BL</span>
+
+<span class="co">-- assuming our encode function is defined</span>
+<span class="co">-- encode :: BL.ByteString -&gt; BL.ByteString</span>
+<span class="kw">import </span><span class="dt">Codec.Binary.Base64</span> (encode)
+
+<span class="co">-- Haskell infers the type of b because it is passed to</span>
+<span class="co">-- to encode. The quickcheck-instances provides an Arbitrary</span>
+<span class="co">-- for it and this whole property is thus Testable. That's</span>
+<span class="co">-- a reminder of why it is written so concisely.</span>
+prop_sizeRatio b <span class="fu">=</span>
+  BL.length (encode b) <span class="fu">==</span>
+      <span class="dv">4</span> <span class="fu">*</span> ceiling (fromIntegral (BL.length b) <span class="fu">/</span> <span class="dv">3</span>)</code></pre></div>
+<p>If we tried to use the identity function, <code>id :: a -&gt; a</code>, as our supposed <code>encode</code> then this test will fail with any non-empty series of bytes:</p>
+<pre><code>&gt; quickCheck prop_sizeRatio
+
+=== prop_sizeRatio ===
+*** Failed! Falsifiable (after 3 tests and 1 shrink):
+&quot;\NUL&quot;</code></pre>
+<p>Examine the output more carefully. We haven’t talked yet about how long and in what order QuickCheck tries test cases. The <code>quickCheck</code> function generates Results starting with a small size parameter, gradually increasing it. This makes it more likely to find simpler counterexamples if they exist. By default it checks one hundred cases and declares the test a success if they all pass.</p>
+<p>In our case it found a counterexample and then started “shrinking” it to find a simpler one. Shrinking is an operation defined per-type as an optional method in the Arbitrary class. It has type <code>shrink :: a -&gt; [a]</code>, returning a list of simpler potential counterexamples. Candidates are tried in the order they appear in the list.</p>
+<p>If not customized by Arbitrary instances the default behavior is to return an empty list, which will prevent shrinking. The documentation in the Test.QuickCheck.Arbitrary module is quite good, and suggests that implementations of shrink should try at least three things:</p>
+<ol style="list-style-type: decimal">
+<li>Shrink a term to any of its immediate subterms.<br />
+</li>
+<li>Recursively apply ‘shrink’ to all immediate subterms.<br />
+</li>
+<li>Type-specific shrinkings such as replacing a constructor by a simpler constructor.</li>
+</ol>
+<p>Additionally when defining <code>shrink</code> on a recursive type it’s important that the shrunken results are actually smaller in some measureable way to avoid infinite descending chains. Never-ending or cyclic shrinkage will prevent QuickCheck from terminating.</p>
+<p>In the case of ByteString, shrinking shortens the string and causes the byte values inside to move their values closer to zero (0x00). That’s why our string stopped shrinking at a single zero byte, denoted <code>\NUL</code>. It can’t go any closer to zero and any shorter string passes the test.</p>
+<p>Not only ought the input and output sizes be in a constant ratio, but Base64 encoding should pad the end with equals signs when needed to keep the output a multiple of four bytes. For instance “A” maps to “QQ==”, “AB” to “QUI=” and “ABC” doesn’t need any padding and maps to “QUJD.” This is another property we can test.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">import </span><span class="dt">Text.Regex.Posix</span>
+
+prop_endsWithPadding b <span class="fu">=</span>
+  (encB <span class="fu">=~</span> (<span class="st">&quot;(^|[^=])&quot;</span> <span class="fu">&lt;&gt;</span> suffix <span class="fu">&lt;&gt;</span> <span class="st">&quot;$&quot;</span>))      <span class="co">-- at end</span>
+    <span class="fu">&amp;&amp;</span> not (encB <span class="fu">=~</span> (<span class="st">&quot;=[^=]&quot;</span><span class="ot">::</span><span class="dt">BL.ByteString</span>)) <span class="co">-- only at end</span>
+ <span class="kw">where</span>
+  encB <span class="fu">=</span> encode b
+  remainder <span class="fu">=</span> fromIntegral <span class="fu">$</span> BL.length b <span class="ot">`rem`</span> <span class="dv">3</span>
+  suffix <span class="fu">=</span> BL.replicate
+    ((<span class="dv">3</span> <span class="fu">-</span> remainder) <span class="ot">`rem`</span> <span class="dv">3</span>)
+    (fromIntegral <span class="fu">$</span> ord <span class="ch">'='</span>)</code></pre></div>
+<p>This checks with regexes that the output ends with the correct number of equals signs and that no stray ones exist earlier. If our encode function is written correctly then it passes! However, are the random inputs really exercising all the padding possibilities? What if the input cases never attain certain sizes modulo four? We can get a better window into the test by labeling each case.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- Just add this to the beginning of the property</span>
+<span class="co">-- collect :: (Show a, Testable prop) =&gt; a -&gt; prop -&gt; Property</span>
+
+prop_endsWithPadding b <span class="fu">=</span>
+  collect suffix <span class="fu">$</span> <span class="fu">...</span></code></pre></div>
+<p>The test results show that the cases we care about are all represented about equally.</p>
+<pre><code>=== prop_endsWithPadding ===
++++ OK, passed 100 tests:
+36% &quot;&quot;
+35% &quot;=&quot;
+29% &quot;==&quot;</code></pre>
+<p>We’ve now established that the encode function outputs the correct length and pads it properly. The point of Base64 encoding however is to keep its output within a limited subset of ASCII for transmission over restricted protocols. It’s important to verify that the output stays within its allowed alphabet. Here’s the first version of the test:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">import </span><span class="dt">Data.Char</span> (ord)
+<span class="kw">import </span><span class="dt">Data.Monoid</span> ((&lt;&gt;))
+<span class="kw">import qualified</span> <span class="dt">Data.Set</span> <span class="kw">as</span> <span class="dt">S</span>
+
+prop_outputAlphabet b <span class="fu">=</span>
+  used <span class="ot">`S.isSubsetOf`</span> allowed
+ <span class="kw">where</span>
+  used <span class="fu">=</span> S.fromList <span class="fu">.</span> BL.unpack <span class="fu">$</span> encode b
+  allowed <span class="fu">=</span> S.fromList <span class="fu">.</span> map (fromIntegral <span class="fu">.</span> ord) <span class="fu">$</span>
+    [<span class="ch">'A'</span><span class="fu">..</span><span class="ch">'Z'</span>] <span class="fu">&lt;&gt;</span> [<span class="ch">'a'</span><span class="fu">..</span><span class="ch">'z'</span>] <span class="fu">&lt;&gt;</span> [<span class="ch">'0'</span><span class="fu">..</span><span class="ch">'9'</span>] <span class="fu">&lt;&gt;</span> [<span class="ch">'+'</span>,<span class="ch">'/'</span>,<span class="ch">'='</span>]</code></pre></div>
+<p>If the encode function is written correctly then this test will pass! However, as with the padding property, we want to know if it is testing thoroughly enough. Does <code>encode</code> output to the full alphabet? It might never hit certain values (maybe a range is off). To check we can classify certain outputs as being “half-alphabet” or “full-alphabet.”</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- classify :: Testable prop =&gt;</span>
+<span class="co">--             Bool</span>
+<span class="co">--          -&gt; String</span>
+<span class="co">--          -&gt; prop -&gt; Property</span>
+
+
+prop_outputAlphabet b <span class="fu">=</span>
+  classify (S.size used <span class="fu">&gt;=</span> <span class="dv">32</span>) <span class="st">&quot;half-alphabet&quot;</span>
+    <span class="fu">.</span> classify (S.size used <span class="fu">&gt;=</span> <span class="dv">63</span>) <span class="st">&quot;full-alphabet&quot;</span>
+    <span class="fu">$</span> used <span class="ot">`S.isSubsetOf`</span> allowed
+ <span class="kw">where</span>
+   <span class="fu">...</span></code></pre></div>
+<p>Running it reveals some of the outputs are half-alphabet, but none are full-alphabet. Our tests are not giving us the full picture.</p>
+<pre><code>=== prop_outputAlphabet ===
++++ OK, passed 100 tests (36% half-alphabet).</code></pre>
+<p>Calling <code>classify</code> provides a nice way to keep a casual eye on distributions but we want a stronger guarantee. To insist that we get at least one full-alphabet output we switch from <code>classify</code> to <code>cover</code>.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">prop_outputAlphabet b <span class="fu">=</span>
+  cover (S.size used <span class="fu">&gt;=</span> <span class="dv">63</span>) <span class="dv">1</span> <span class="st">&quot;full-alphabet&quot;</span>
+    <span class="fu">$</span> used <span class="ot">`S.isSubsetOf`</span> allowed
+ <span class="kw">where</span>
+  <span class="fu">...</span></code></pre></div>
+<p>Now the test fails the way we want.</p>
+<pre><code>=== prop_outputAlphabet ===
+*** Insufficient coverage after 100 tests (only 0% full-alphabet, not 1%).</code></pre>
+<p>Either the encode function has a bug or we’re not giving it big enough test cases to exercise the full output alphabet. Let’s see how to crank up the generator.</p>
+<h4 id="refining-generated-data">Refining Generated Data</h4>
+<p>As mentioned, QuickCheck begins with a small size parameter when generating results and raises it slowly as testing proceeds. If our failure to get output coverage in the previous section was due to insufficiently large input then there are at least two ways to enlarge the input: use more test cases to allow the size to grow further, or scale the generator sensitivity.</p>
+<p>Using more test cases is a matter of configuring the test runner, which we will discuss in a later section. Instead let’s make the most of the number of tests already used. We’ll employ a custom generator which is a scaled version of one provided by quickcheck-instances.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- To use a custom generator in a Property use</span>
+<span class="co">-- forAll :: (Show a, Testable prop)</span>
+<span class="co">--        =&gt; Gen a -&gt; (a -&gt; prop) -&gt; Property</span>
+
+prop_outputAlphabet <span class="fu">=</span>
+  forAll (scale (<span class="fu">*</span><span class="dv">3</span>) (<span class="ot">arbitrary ::</span> <span class="dt">Gen</span> <span class="dt">BL.ByteString</span>)) <span class="fu">$</span> \b <span class="ot">-&gt;</span>
+    <span class="kw">let</span> <span class="fu">...</span> <span class="kw">in</span>
+    cover (S.size used <span class="fu">&gt;=</span> <span class="dv">63</span>) <span class="dv">1</span> <span class="st">&quot;full-alphabet&quot;</span>
+      <span class="fu">$</span> used <span class="ot">`S.isSubsetOf`</span> allowed</code></pre></div>
+<p>We saw how to scale a generator a few sections before, so that part is nothing new. As luck would have it, running this modified property with a suitable encode function reliably covers full-alphabet in one hundred runs.</p>
+<p>We succeeded above by modifying the generator. Another way to affect generated values is by using newtypes specially designed to adjust generators of underlying types. This approach avoids the need for <code>forAll</code>. The Test.QuickCheck.Modifiers module includes helper newtypes like NonNegative, NonZero, Positive, OrderdedList etc. Internally there is not much to these types, they simply allow a way for QuickCheck to define new Arbitrary instances. You use them in Testable type signatures:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">prop_foo ::</span> (<span class="dt">Positive</span> i) <span class="ot">-&gt;</span> <span class="dt">Bool</span>
+prop_foo <span class="fu">=</span> <span class="fu">...</span></code></pre></div>
+<p>A useful member of this family is <code>Small a</code>. Restricting the number of distinct values taken in test cases is appropriate for testing certain code paths. For instance <code>Gen HashMap</code> will detect more corner cases if the keys’ cardinalities are reduced to cause collisions.</p>
+<p>Some people recommend creating a newtype and Arbitrary instance any time you use a custom Gen. The idea is that it may be more likely that you’ll use the custom Gen uniformly by using the newtype throughout code and tests. However it’s a matter of style.</p>
+<p>Getting back to the Base64 example, we want to enforce that encode and decode are inverses. Encoding first and then decoding is the easy direction because encode is not picky about its inputs. The propery looks like this:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- assume the decode function has this type:</span>
+<span class="co">-- decode :: ByteString -&gt; Either ParseError ByteString</span>
+
+<span class="co">-- the easy direction</span>
+prop_decEnc b <span class="fu">=</span> decode (encode b) <span class="fu">==</span> <span class="dt">Right</span> b</code></pre></div>
+<p>The other direction does not work as well because many strings are not valid Base64 messages and cannot be decoded.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">import </span><span class="dt">Data.Either</span> (rights)
+
+<span class="co">-- this will quickly fail</span>
+prop_encDec b <span class="fu">=</span>
+  [b] <span class="fu">==</span> (encode <span class="fu">&lt;$&gt;</span> rights [decode b])</code></pre></div>
+<p>We can discard test cases that aren’t suitable by using the conditional operator.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- (==&gt;) :: Testable prop =&gt; Bool -&gt; prop -&gt; Property</span>
+
+prop_encDec b <span class="fu">=</span>
+  legit <span class="fu">==&gt;</span> [b] <span class="fu">==</span> (encode <span class="fu">&lt;$&gt;</span> rights [dec])
+ <span class="kw">where</span>
+  dec  <span class="fu">=</span> decode b
+  legit <span class="fu">=</span> isRight dec</code></pre></div>
+<p>This works but it is inefficient when the ratio of suitable to unsuitable test cases is small. After getting too many rejections QuickCheck fails.</p>
+<pre><code>=== prop_encDec ===
+*** Gave up! Passed only 45 tests.</code></pre>
+<p>It’s always more efficient to use a custom generator than to conditionally discard test cases. Here’s generator for messages in the Base64 alphabet with proper equals padding, plus the modified test.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- using more Gen combinators: listOf, vectorOf</span>
+
+<span class="ot">encoded ::</span> <span class="dt">Gen</span> <span class="dt">BL.ByteString</span>
+encoded <span class="fu">=</span> <span class="kw">do</span>
+  body <span class="ot">&lt;-</span> concat <span class="fu">&lt;$&gt;</span> listOf (group <span class="dv">0</span>)
+  end <span class="ot">&lt;-</span> group <span class="fu">=&lt;&lt;</span> choose (<span class="dv">0</span>, <span class="dv">2</span>)
+  return <span class="fu">.</span> BL.pack <span class="fu">$</span> body <span class="fu">&lt;&gt;</span> end
+ <span class="kw">where</span>
+<span class="ot">  group ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Gen</span> [<span class="dt">Word8</span>]
+  group pad <span class="fu">=</span> <span class="kw">do</span>
+    letters <span class="ot">&lt;-</span> vectorOf (<span class="dv">4</span> <span class="fu">-</span> pad)
+      <span class="fu">.</span> elements <span class="fu">.</span> map (fromIntegral <span class="fu">.</span> ord)
+      <span class="fu">$</span> [<span class="ch">'A'</span><span class="fu">..</span><span class="ch">'Z'</span>] <span class="fu">&lt;&gt;</span> [<span class="ch">'a'</span><span class="fu">..</span><span class="ch">'z'</span>] <span class="fu">&lt;&gt;</span> [<span class="ch">'0'</span><span class="fu">..</span><span class="ch">'9'</span>] <span class="fu">&lt;&gt;</span> [<span class="ch">'+'</span>,<span class="ch">'/'</span>,<span class="ch">'='</span>]
+    return <span class="fu">$</span> letters <span class="fu">&lt;&gt;</span> replicate pad <span class="dv">61</span>  <span class="co">-- 61 is ascii for =</span>
+
+prop_encDec <span class="fu">=</span> forAll encoded <span class="fu">$</span> \b <span class="ot">-&gt;</span>
+  [b] <span class="fu">==</span> (encode <span class="fu">&lt;$&gt;</span> rights [decode b])</code></pre></div>
+<p>QuickCheck, being the powerful tool it is, actually discovers a problem.</p>
+<pre><code>=== prop_encDec ===
+*** Failed! Falsifiable (after 1 test):
+&quot;1yx=&quot;</code></pre>
+<p>Decoding “1yx=” and re-encoding produces “1yw=”. How can this be? <a href="https://tools.ietf.org/html/rfc4648.html#section-3.5">RFC4648 Section 3.5</a> designates certain encodings as “canonical” and the Base64 decode function is only injective when restricted to the canonical encodings. The <code>prop_encDec</code> test will pass only if the custom generator produces nothing but canonical forms. Modifying the generator is an exercise for the reader!</p>
+<p>Testing encoder/decoders is a natural task for QuickCheck, and this examples goes to show you should make two properties to check that functions are inverses of one another – check both directions. Even our check that the encoder hits all letters of the alphabet did not reveal the importance of its canonical encodings.</p>
+<p>A final note about generators. When the data type under test is internally complicated but presents an API for modification it may be easier to generate an Arbitrary series of actions against the API. Have test cases execute the API actions, thus building the datatype. This is the approach used at Pusher to test their Raft protocol implementation with QuickCheck.</p>
+<h3 id="running-multiple-tests">Running Multiple Tests</h3>
+<p>We already used the <code>quickCheck</code> function to run a single test, but given a file full of Testable properties how do you run them all? The Test.QuickCheck.All module uses Template Haskell to detect properties and run them.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">{-# LANGUAGE TemplateHaskell #-}</span>
+<span class="kw">module</span> <span class="dt">MyTests</span> <span class="kw">where</span>
+
+<span class="kw">import </span><span class="dt">Test.QuickCheck.All</span>
+
+prop_foo <span class="fu">=</span> <span class="fu">...</span>
+
+prop_bar <span class="fu">=</span> <span class="fu">...</span>
+
+<span class="fu">--------------------------</span>
+return []
+<span class="ot">runTests ::</span> <span class="dt">IO</span> <span class="dt">Bool</span>
+runTests <span class="fu">=</span> <span class="fu">$</span>quickCheckAll</code></pre></div>
+<p>This creates a <code>runTests</code> function which detects the tests due to the <code>prop_</code> prefix in their names. That is the reason for the naming convention which might have looked a little odd.</p>
+<p>To adjust the number of test cases run against each property (or other parameters) use <code>forAllProperties</code> rather than <code>quickCheckAll</code>.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- quickCheckWithResult :: Testable prop =&gt; Args -&gt; prop -&gt; IO Result</span>
+<span class="co">-- stdArgs :: Args</span>
+
+return []
+<span class="ot">runTests ::</span> <span class="dt">IO</span> <span class="dt">Bool</span>
+runTests <span class="fu">=</span> <span class="fu">$</span>forAllProperties <span class="fu">$</span>
+  quickCheckWithResult (stdArgs {maxSuccess <span class="fu">=</span> <span class="dv">10000</span>})</code></pre></div>
+<p>Your main test runner itself can call <code>runTests</code> for each testing module and exit with the appropriate Unix status code.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">module</span> <span class="dt">Main</span> <span class="kw">where</span>
+
+<span class="kw">import qualified</span> <span class="dt">MyTests</span> <span class="kw">as</span> <span class="dt">MT</span>
+<span class="kw">import </span><span class="dt">System.Exit</span>
+
+<span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> <span class="kw">do</span>
+  <span class="co">-- add test runners into the array for each module</span>
+  good <span class="ot">&lt;-</span> and <span class="fu">&lt;$&gt;</span> sequence [MT.runTests]
+  <span class="kw">if</span> good
+     <span class="kw">then</span> exitSuccess
+     <span class="kw">else</span> exitFailure</code></pre></div>
+<p>While the Tasty, HSpec, and test-framework testing frameworks can run QuickCheck Properties they do not output statistics equally well. The built-in Template Haskell test runner in QuickCheck outputs full information (including collect and classify results), as does <a href="https://documentup.com/feuerbach/tasty">Tasty</a>. The other two hide the statistics and obscure when failures are caused by too many rejected conditionals.</p>
+<h3 id="testing-io-or-st-actions">Testing IO or ST Actions</h3>
+<p>QuickCheck was originally designed for pure functions, but the Test.QuickCheck.Monadic module supports tests which perform IO actions like calling external programs. There is some highly academic material about it online but it’s quite easy in practice. Here’s the general form of monadic tests:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- using the functions</span>
+<span class="co">-- monadicIO :: PropertyM IO a -&gt; Property</span>
+<span class="co">-- run :: Monad m =&gt; m a -&gt; PropertyM m a</span>
+<span class="co">-- assert :: Monad m =&gt; Bool -&gt; PropertyM m ()</span>
+
+prop_monadic a b <span class="fu">=</span> monadicIO <span class="fu">$</span> <span class="kw">do</span>
+  a' <span class="ot">&lt;-</span> run (f a)
+  b' <span class="ot">&lt;-</span> run (f b)
+  <span class="co">-- ...</span>
+  assert someBoolean</code></pre></div>
+<p>The module exposes a bunch of new monadic functions but they correspond to concepts we already know. The examples in Test.QuickCheck.Monadic are very clear and will quickly get you up and running.</p>
+<ul>
+<li><code>pre</code> is <code>(==&gt;)</code></li>
+<li><code>forAllM</code> (and <code>pick</code>) is <code>forAll</code></li>
+<li><code>monitor</code> adapts <code>collect</code>/<code>classify</code></li>
+<li><code>monadic</code>, <code>monadicIO</code>, <code>monadicST</code> all fit the new code into regular Properties</li>
+</ul>
+<h3 id="coarbitrary-and-gen-a---b">CoArbitrary and Gen (a -&gt; b)</h3>
+<p>Sometimes it’s useful to generate not just values, but functions. Consider a test involving images. The <a href="https://hackage.haskell.org/package/JuicyPixels">JuicyPixels</a> package provides a function <code>generateImage</code> to make them. It requires a function from coordinate to pixel value as its first argument, and the image width and height. Suppose we want to use it to generate not a specific picture with known pixel function, but random pictures.</p>
+<p>We know how to generate an arbitrary width and height, but how do we get a random function to assign colors to pixels? It turns out all we have to do is provide an Arbitrary instance for pixels and QuickCheck can “magically” generate functions <code>Pixel px =&gt; (Int -&gt; Int -&gt; px)</code>. Let’s see it in action first, and then discover how it works internally.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- Magically generates a function &quot;f&quot; and also uses</span>
+<span class="co">-- suchThat :: Gen a -&gt; (a -&gt; Bool) -&gt; Gen a</span>
+
+<span class="kw">import </span><span class="dt">Codec.Picture</span>
+
+<span class="kw">instance</span> <span class="dt">Arbitrary</span> <span class="dt">PixelRGB8</span> <span class="kw">where</span>
+  arbitrary <span class="fu">=</span> <span class="dt">PixelRGB8</span> <span class="fu">&lt;$&gt;</span> arbitrary <span class="fu">&lt;*&gt;</span> arbitrary <span class="fu">&lt;*&gt;</span> arbitrary
+
+<span class="ot">genImage ::</span> <span class="dt">Gen</span> (<span class="dt">Image</span> <span class="dt">PixelRGB8</span>)
+genImage <span class="fu">=</span> <span class="kw">do</span>
+  f <span class="ot">&lt;-</span> arbitrary
+  (x, y) <span class="ot">&lt;-</span> arbitrary <span class="ot">`suchThat`</span> ( \(x,y) <span class="ot">-&gt;</span> x <span class="fu">&gt;</span> <span class="dv">0</span> <span class="fu">&amp;&amp;</span> y <span class="fu">&gt;</span> <span class="dv">0</span> )
+  return <span class="fu">$</span> generateImage f x y</code></pre></div>
+<p>Here is one of these images.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">img <span class="ot">&lt;-</span> generate <span class="fu">$</span> resize <span class="dv">1000</span> genImage
+BL.writeFile <span class="st">&quot;/tmp/qc.png&quot;</span> <span class="fu">$</span> encodePng img</code></pre></div>
+<div class="figure">
+<img src="https://begriffs.com/images/quickcheck-generated.png" title="Generated by QuickCheck" alt="The randomly generated image" />
+<p class="caption">The randomly generated image</p>
+</div>
+<p>(As an aside: in real test code you won’t even have to write your own image generator. Image and other media generators are provided by the <a href="http://quickfuzz.org/">QuickFuzz</a> library.)</p>
+<p>QuickCheck was able to automatically generate a random function for us because the type of the function’s arguments, <code>Int</code>, is an instance of the <code>CoArbitrary</code> typeclass.</p>
+<p>The fundamental trick is the observation that a function which modifies a generator can be transformed into a generator of functions. That is, it is possible to write a function <code>promote :: (a -&gt; Gen b) -&gt; Gen (a -&gt; b)</code>. (The modern incarnation of QuickCheck generalizes to <code>Monad m =&gt; m (Gen a) -&gt; Gen (m a)</code>.) The way such a function would work is not too deep, it’s a matter of rearranging arguments:</p>
+<pre><code>a -&gt; Gen b = {meaning of Gen}  a -&gt; Int -&gt; Rand -&gt; b
+           = {reorder args}    Int -&gt; Rand -&gt; a -&gt; b
+           = {meaning of Gen}  Gen (a -&gt; b)</code></pre>
+<p>The real trick is how to get a function <code>a -&gt; Gen b</code> in the first place. QuickCheck provides a way to get a related function, <code>a -&gt; Gen b -&gt; Gen b</code> for a variety of choices of <code>a</code> through instances of the <code>CoArbitrary</code> typeclass:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">CoArbitrary</span> a <span class="kw">where</span>
+<span class="ot">  coarbitrary ::</span> a <span class="ot">-&gt;</span> <span class="dt">Gen</span> b <span class="ot">-&gt;</span> <span class="dt">Gen</span> b</code></pre></div>
+<p>The type signature of <code>coarbitrary</code> allows it to fit into the crucial instance for <code>Arbitrary (a -&gt; b)</code>.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> (<span class="dt">CoArbitrary</span> a, <span class="dt">Arbitrary</span> b) <span class="ot">=&gt;</span> <span class="dt">Arbitrary</span> (a <span class="ot">-&gt;</span> b) <span class="kw">where</span>
+  arbitrary <span class="fu">=</span> promote (\a <span class="ot">-&gt;</span> coarbitrary a arbitrary)</code></pre></div>
+<p>It was this instance which, through repeated application, gave us <code>Arbitrary (Int -&gt; Int -&gt; PixelRGB8)</code>.</p>
+<p>How do CoArbitrary instances even work? How do you write a function <code>a -&gt; Gen b -&gt; Gen b</code> to transform <em>any</em> generator, without knowing something about the <code>b</code> type and how to alter its values? The answer is to deterministically alter the stream of pseudo-random numbers feeding the generator. QuickCheck provides a primitive <code>variant :: Int -&gt; Gen a -&gt; Gen a</code> function to do this.</p>
+<p>With high probability, <code>variant</code> alters a generator differently for different integer values. In fact the function has been designed carefully so that any composition <code>variant i_0 . variant i_1 . … . variant i_k</code> modifies a generator differently for distinct <code>i_0, i_1, …, i_k</code>.</p>
+<p>The <code>variant</code> primitive allows CoArbitrary instances to modify unknown generators:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">CoArbitrary</span> <span class="dt">Bool</span> <span class="kw">where</span>
+  coarbitrary b <span class="fu">=</span>
+    <span class="kw">if</span> b <span class="kw">then</span> variant <span class="dv">0</span> <span class="kw">else</span> variant <span class="dv">1</span></code></pre></div>
+<p>The <code>variant</code> composition property above allows the technique to extend to recursively defined datatypes. QuickCheck provides CoArbitrary instances for a large number of basic types in the Test.QuickCheck.Arbitrary module, even Map and Set. Creating variants can be automated in your own datatypes by deriving Generic, at which point you can simply write <code>instance CoArbitrary MyType</code>.</p>
+<h3 id="resources">Resources</h3>
+<h4 id="other-documentation">Other Documentation</h4>
+<ul>
+<li><a href="http://www.cs.tufts.edu/~nr/cs257/archive/john-hughes/quick.pdf" class="uri">http://www.cs.tufts.edu/~nr/cs257/archive/john-hughes/quick.pdf</a> <br />The original paper introducing QuickCheck. It’s an excellent read.</li>
+<li><a href="https://hackage.haskell.org/package/QuickCheck" class="uri">https://hackage.haskell.org/package/QuickCheck</a> <br />The package on Hackage. Read the docs in its modules.</li>
+<li><a href="http://haskellbook.com/" class="uri">http://haskellbook.com</a> chapter fourteen <br />A thorough introductory Haskell book with lots of examples and exercises.</li>
+<li><a href="http://www.cse.chalmers.se/~rjmh/QuickCheck/manual_body.html" class="uri">http://www.cse.chalmers.se/~rjmh/QuickCheck/manual_body.html</a> <br />A pithy howto.</li>
+<li><a href="http://www.cse.chalmers.se/~rjmh/Papers/QuickCheckST.ps" class="uri">http://www.cse.chalmers.se/~rjmh/Papers/QuickCheckST.ps</a> <br />Testing IO using algebraic laws, abstract models, or pre- and post-conditions.</li>
+<li><a href="http://publications.lib.chalmers.se/records/fulltext/232550/local_232550.pdf" class="uri">http://publications.lib.chalmers.se/records/fulltext/232550/local_232550.pdf</a> <br />Experience report about testing nontrivial properties.</li>
+<li><a href="https://jaspervdj.be/posts/2015-03-13-practical-testing-in-haskell.html#the-action-trick" class="uri">https://jaspervdj.be/posts/2015-03-13-practical-testing-in-haskell.html#the-action-trick</a> <br />Generating actions against an API rather than directly constructing datatypes.</li>
+</ul>
+<h4 id="helper-libraries">Helper Libraries</h4>
+<ul>
+<li><a href="https://hackage.haskell.org/package/quickcheck-unicode" class="uri">https://hackage.haskell.org/package/quickcheck-unicode</a> <br />Wider sample of Char with unicode weirdness.</li>
+<li><a href="https://hackage.haskell.org/package/quickcheck-special" class="uri">https://hackage.haskell.org/package/quickcheck-special</a> <br />Boundary values for ints and floats.</li>
+<li><a href="https://hackage.haskell.org/package/quickcheck-instances" class="uri">https://hackage.haskell.org/package/quickcheck-instances</a> <br />Arbitrary instances for many types, including dates and times.</li>
+<li><a href="https://hackage.haskell.org/package/quickcheck-regex" class="uri">https://hackage.haskell.org/package/quickcheck-regex</a> <br />Generator for strings matching a regex.</li>
+<li><a href="http://quickfuzz.org/" class="uri">http://quickfuzz.org/</a> <br />Generators for images, audio, documents, net addresses, time.</li>
+<li><a href="https://hackage.haskell.org/package/props" class="uri">https://hackage.haskell.org/package/props</a>, <a href="https://hackage.haskell.org/package/test-invariant" class="uri">https://hackage.haskell.org/package/test-invariant</a> <br />Helper abbreviations to test laws like associativity and idempotence.</li>
+<li><a href="https://hackage.haskell.org/package/checkers" class="uri">https://hackage.haskell.org/package/checkers</a> <br />Generator combinators and properties for common typeclasses.</li>
+<li><a href="https://hackage.haskell.org/package/fgl-arbitrary" class="uri">https://hackage.haskell.org/package/fgl-arbitrary</a> <br />Arbitrary instances for graphs.</li>
+</ul>
+  </div>
+</div>
+
+      </div>
+    </div>
+
+    <script src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS_HTML"></script>
+    <script src="http://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+    <script src="http://vjs.zencdn.net/5.0/video.min.js"></script>
+    <script src="https://begriffs.com/js/videojs-resolution-switcher.js"></script>
+
+    <script>
+      var ns = $('noscript');
+      if(ns.length) {
+        var fig = $(ns.text());
+
+        var sd_source = $('<source type="video/mp4" label="SD">').attr({
+          "src": fig.find("a.sd_video").attr("href") });
+        var hd_source = $('<source type="video/mp4" label="HD">').attr({
+          "src": fig.find("a.hd_video").attr("href") });
+        var vid = $('<video class="video-js vjs-16-9 vjs-default-skin">').attr({
+          "poster": fig.find("img").attr("src") });
+        vid.append(hd_source, sd_source);
+        vid.insertAfter("noscript");
+      }
+
+      $('video').each(function(i, vid) {
+        videojs(vid, {
+          controls: true,
+          preload: "auto",
+          playbackRates: [1, 1.5, 2]
+        }).videoJsResolutionSwitcher();
+      });
+    </script>
+
+    <footer class="container">
+      <div class="well well-lg newsletter">
+        <p>
+          Do you like these videos and blog posts? Sign up for the Begriffs
+          Newsletter for weekly notifications of new posts, events, and ideas.
+        </p>
+        <form action="https://list.begriffs.com/lists/en603krpfq825/subscribe" method="post" accept-charset="utf-8" target="_blank">
+
+        <div class="form-group">
+        <label>Email <span class="required">*</span></label>
+        <input type="text" class="form-control" name="EMAIL" placeholder value required />
+        </div>
+
+        <div class="form-group">
+        <label>First name <span class="required">*</span></label>
+        <input type="text" class="form-control" name="FNAME" placeholder value required />
+        </div>
+
+        <div class="form-group">
+        <label>Last name <span class="required">*</span></label>
+        <input type="text" class="form-control" name="LNAME" placeholder value required />
+        </div>
+          <div class="clearfix"><!-- --></div>
+          <div class="actions">
+          <button type="submit" class="btn btn-primary btn-submit">Subscribe</button>
+          </div>
+          <div class="clearfix"><!-- --></div>
+        </form>
+      </div>
+
+      <p class="h-card">Made with ♥ by
+        <span class="p-given-name">Joe</span> "<span class="p-nickname">begriffs</span>"
+        <span class="p-family-name">Nelson</span>.
+        <a href="mailto:joe@begriffs.com" role="button" class="u-email">joe@begriffs.com</a>
+        <sup><a href="https://begriffs.com/pgp.asc" class="key">🔑</a></sup>
+      </p>
+    </footer>
+  </body>
+
+<!-- Mirrored from begriffs.com/posts/2017-01-14-design-use-quickcheck.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 16 Jan 2017 10:08:45 GMT -->
+</html>
